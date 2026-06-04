@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@plugin "tailwind-scrollbar-hide";
+@import "./styles/mr-tokens.css";
+
+/* Explicit reset — belt-and-suspenders with Tailwind preflight.
+   Prevents white gap above navbar caused by any UA default margin. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--mr-ink-900); /* ink behind everything — no white peek ever */
+}
+html {
+  scroll-behavior: auto; /* Lenis handles smooth scroll; native smooth interferes */
+}
+
+/* Announcement bar gradient shimmer — slow sweep draws attention */
+@keyframes mr-announce-shimmer {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Fast downward pillar sweep — used by hero scroll cue */
+@keyframes mr-pillar-sweep {
+  0% {
+    transform: scaleY(0);
+    transform-origin: top;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  70% {
+    transform: scaleY(1);
+    transform-origin: top;
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    transform-origin: bottom;
+    opacity: 0;
+  }
+}
