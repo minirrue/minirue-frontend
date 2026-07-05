@@ -125,7 +125,17 @@ export default function ForgotPage() {
       >
         Enter your email and we will send a reset link.
       </p>
-      <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 24,
+          opacity: loading ? 0.7 : 1,
+          transition: 'opacity 0.2s ease-out',
+        }}
+      >
         <FormField
           id="email"
           type="email"

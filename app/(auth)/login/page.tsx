@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AuthShell from '@/components/auth/AuthShell';
 import FormField from '@/components/ui/FormField';
 import Button from '@/components/ui/Button';
+import ErrorBanner from '@/components/ui/ErrorBanner';
 import { loginSchema, type LoginFormData } from '@/lib/auth/schemas';
 import { setSession } from '@/lib/session';
 import { apiLogin } from '@/lib/api/auth';
@@ -144,22 +145,14 @@ export default function LoginPage() {
           </div>
         )}
         {apiError && (
-          <div
-            role="alert"
-            style={{
-              background: 'hsl(0 72% 95%)',
-              color: 'hsl(0 72% 30%)',
-              borderRadius: '6px',
-              padding: '10px 14px',
-              fontSize: '13px',
-              marginBottom: '12px',
-              animation: 'mr-fade-up 0.25s ease-out',
-            }}
-          >
-            {rateLimitCountdown > 0
-              ? `Too many attempts. Try again in ${rateLimitCountdown}s`
-              : apiError}
-          </div>
+          <ErrorBanner
+            animated
+            message={
+              rateLimitCountdown > 0
+                ? `Too many attempts. Try again in ${rateLimitCountdown}s`
+                : apiError
+            }
+          />
         )}
         <FormField
           id="email"

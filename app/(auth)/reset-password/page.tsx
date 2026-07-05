@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import AuthShell from '@/components/auth/AuthShell';
 import FormField from '@/components/ui/FormField';
 import Button from '@/components/ui/Button';
+import ErrorBanner from '@/components/ui/ErrorBanner';
 import { apiResetPassword } from '@/lib/api/auth';
 import { PASSWORD_HELPER } from '@/lib/auth/schemas';
 import type { ApiError } from '@/lib/api/client';
@@ -136,25 +137,15 @@ function ResetPasswordContent() {
         }}
       >
         {apiError && (
-          <div
-            role="alert"
-            style={{
-              background: 'hsl(0 72% 95%)',
-              color: 'hsl(0 72% 30%)',
-              borderRadius: '6px',
-              padding: '10px 14px',
-              fontSize: '13px',
-              marginBottom: '12px',
-            }}
-          >
-            {apiError}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '12px' }}>
+            <ErrorBanner animated={false} message={apiError} />
             {(apiError.includes('expired') || apiError.includes('invalid')) && (
-              <>
-                {' '}
-                <Link href="/forgot" style={{ color: 'inherit', textDecoration: 'underline' }}>
-                  Request a new link
-                </Link>
-              </>
+              <Link
+                href="/forgot"
+                style={{ fontSize: 13, color: 'var(--mr-crimson-700)', textDecoration: 'underline' }}
+              >
+                Request a new link
+              </Link>
             )}
           </div>
         )}

@@ -384,7 +384,8 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
       >
         <div
           style={{
-            padding: '40px 52px 60px',
+            padding:
+              'calc(var(--mr-sp-6) + var(--mr-sp-2)) calc(var(--mr-sp-7) + var(--mr-sp-1)) calc(var(--mr-sp-7) + var(--mr-sp-3))',
             flex: 1,
             display: 'flex',
             flexDirection: 'column',

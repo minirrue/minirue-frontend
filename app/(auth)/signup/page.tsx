@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AuthShell from '@/components/auth/AuthShell';
 import FormField from '@/components/ui/FormField';
 import Button from '@/components/ui/Button';
+import ErrorBanner from '@/components/ui/ErrorBanner';
 import { signupSchema, type SignupFormData, PASSWORD_HELPER } from '@/lib/auth/schemas';
 import { setSession } from '@/lib/session';
 import { apiRegister } from '@/lib/api/auth';
@@ -90,21 +91,7 @@ export default function SignupPage() {
           transition: 'opacity 0.2s ease-out',
         }}
       >
-        {apiError && (
-          <div
-            role="alert"
-            style={{
-              background: 'hsl(0 72% 95%)',
-              color: 'hsl(0 72% 30%)',
-              borderRadius: '6px',
-              padding: '10px 14px',
-              fontSize: '13px',
-              marginBottom: '12px',
-            }}
-          >
-            {apiError}
-          </div>
-        )}
+        {apiError && <ErrorBanner animated={false} message={apiError} />}
         <FormField
           id="firstName"
           type="text"
