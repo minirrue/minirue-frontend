@@ -3,10 +3,10 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import type { ApiProduct, ProductVariant } from '@/lib/api/catalog';
+import { primaryMedia } from '@/lib/api/catalog';
 import ApiProductDetail from '@/components/storefront/ApiProductDetail';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
-import Footer from '@/components/layout/Footer';
 import ChatButton from '@/components/chat/ChatButton';
 import ChatPanel from '@/components/chat/ChatPanel';
 import { useCart } from '@/components/storefront/cart/CartContext';
@@ -27,7 +27,15 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
   );
 
   const handleAddToBag = async (variant: ProductVariant) => {
-    await addItem(variant.id, 1);
+    const media = primaryMedia(product);
+    await addItem(variant.id, 1, {
+      name: product.name,
+      brand: product.brand,
+      sizeMl: variant.sizeMl,
+      bottleType: variant.bottleType,
+      cloudinaryPublicId: media?.cloudinaryPublicId,
+      altText: media?.altText,
+    });
     openDrawer();
   };
 
@@ -46,8 +54,6 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
           onAddToBag={handleAddToBag}
         />
       </div>
-
-      <Footer />
 
       <ChatButton onClick={() => setChatOpen((o) => !o)} />
       <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />

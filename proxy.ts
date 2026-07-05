@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Routes that require authentication (W1 stub — ready for /account/* in future)
-const PROTECTED = ['/account']
+// Routes that require authentication
+const PROTECTED = ['/account', '/checkout', '/cart']
 // Auth pages — redirect away if already logged in
 const AUTH_PAGES = ['/login', '/signup', '/forgot', '/reset-password']
 // Cookie name — must match tokens.ts (mr-auth)

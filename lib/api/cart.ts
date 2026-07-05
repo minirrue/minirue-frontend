@@ -62,11 +62,20 @@ export function clearCartSessionId(): void {
   document.cookie = `${CART_SESSION_COOKIE}=; Max-Age=0; path=/`;
 }
 
+/** Guest carts require x-session-id; create one before the first API call. */
+export function ensureCartSessionId(): string {
+  const existing = getCartSessionId();
+  if (existing) return existing;
+  const id = crypto.randomUUID();
+  setCartSessionId(id);
+  return id;
+}
+
 // ── API calls ─────────────────────────────────────────────────────────────────
 
 function sessionHeaders(): HeadersInit {
-  const sid = getCartSessionId();
-  return sid ? { 'x-session-id': sid } : {};
+  const sid = getCartSessionId() ?? ensureCartSessionId();
+  return { 'x-session-id': sid };
 }
 
 const EMPTY_CART: CartDto = {
@@ -85,11 +94,21 @@ export async function apiGetCart(): Promise<CartDto> {
 }
 
 export async function apiAddItem(variantId: string, qty: number): Promise<CartDto> {
+  ensureCartSessionId();
   return apiFetch<CartDto>('/cart/items', {
     method: 'POST',
     auth: true,
     headers: sessionHeaders(),
     body: JSON.stringify({ variantId, qty }),
+  });
+}
+
+/** Merge guest session cart into the authenticated user cart (BR-CART-006). */
+export async function apiMergeCart(): Promise<CartDto> {
+  return apiFetch<CartDto>('/cart/merge', {
+    method: 'POST',
+    auth: true,
+    headers: sessionHeaders(),
   });
 }
 

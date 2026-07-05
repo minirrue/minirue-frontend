@@ -6,7 +6,11 @@ import Wordmark from '@/components/ui/Wordmark';
 import IconButton from '@/components/ui/IconButton';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { getSession, clearSession, type Session } from '@/lib/session';
+import { clearTokens } from '@/lib/auth/tokens';
 import { catalog, type Category } from '@/lib/api/catalog';
+import { apiListPublicBrands } from '@/lib/api/collaborators';
+import { useUser } from '@/lib/hooks/use-auth';
+import CustomerRoleBadge from '@/components/account/CustomerRoleBadge';
 
 interface HeaderProps {
   onOpenCart?: () => void;
@@ -24,11 +28,22 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
   const [session, setSession] = React.useState<Session | null>(null);
   const [accountOpen, setAccountOpen] = React.useState(false);
   const [categories, setCategories] = React.useState<Category[]>([]);
+  const [partnerNav, setPartnerNav] = React.useState<Array<{ href: string; label: string }>>([]);
   const prevCount = React.useRef(cartCount);
 
   React.useEffect(() => {
     catalog.listCategories().then(setCategories).catch(() => {});
+    apiListPublicBrands()
+      .then((brands) =>
+        setPartnerNav(
+          brands
+            .filter((b) => b.storefrontNavLink)
+            .map((b) => ({ href: `/brands/${b.brandSlug}`, label: b.brandName })),
+        ),
+      )
+      .catch(() => {});
   }, []);
+  const { data: authUser } = useUser();
   const { mobile } = useBreakpoint();
 
   React.useEffect(() => {
@@ -52,10 +67,14 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
   }, [cartCount]);
 
   const navItems = React.useMemo(
-    () => categories.length > 0
-      ? categories.map((c) => ({ href: `/categories/${c.slug}`, label: c.name }))
-      : FALLBACK_NAV.map((n) => ({ href: undefined as string | undefined, label: n })),
-    [categories],
+    () => {
+      const base =
+        categories.length > 0
+          ? categories.map((c) => ({ href: `/categories/${c.slug}`, label: c.name }))
+          : FALLBACK_NAV.map((n) => ({ href: undefined as string | undefined, label: n }));
+      return [...base, ...partnerNav];
+    },
+    [categories, partnerNav],
   );
 
   const isLight = transparent && !scrolled;
@@ -160,7 +179,7 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                       padding: '6px 0',
                     }}
                   >
-                    Hi, {session.firstName}
+                    Hi, {(authUser?.name ?? session.name)?.split(' ')[0] || 'there'}
                   </button>
                   {accountOpen && (
                     <div
@@ -177,25 +196,64 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                         overflow: 'hidden',
                       }}
                     >
-                      {['Account', 'Orders'].map((item) => (
-                        <div
-                          key={item}
+                      <div
+                        style={{
+                          padding: '14px 18px',
+                          borderBottom: '1px solid var(--mr-hairline)',
+                          background: 'var(--mr-bg-raised)',
+                        }}
+                      >
+                        <p
                           style={{
+                            margin: '0 0 6px',
+                            fontFamily: 'Cormorant Garamond, serif',
+                            fontSize: 16,
+                            color: 'var(--mr-ink-900)',
+                          }}
+                        >
+                          {authUser?.name ?? session.name}
+                        </p>
+                        <p
+                          style={{
+                            margin: '0 0 10px',
+                            fontSize: 11,
+                            color: 'var(--mr-ink-500)',
+                          }}
+                        >
+                          {authUser?.email ?? session.email}
+                        </p>
+                        <CustomerRoleBadge role={authUser?.role ?? session.role} />
+                      </div>
+                      {[
+                        { label: 'Account', href: '/account/profile' },
+                        { label: 'Orders', href: '/account/orders' },
+                      ].map(({ label, href }) => (
+                        <Link
+                          key={label}
+                          href={href}
+                          onClick={() => setAccountOpen(false)}
+                          style={{
+                            display: 'block',
                             padding: '12px 18px',
                             fontFamily: 'Jost, sans-serif',
                             fontSize: 11,
                             letterSpacing: '0.18em',
                             textTransform: 'uppercase',
                             color: 'var(--mr-ink-900)',
-                            cursor: 'pointer',
+                            textDecoration: 'none',
                             borderBottom: '1px solid var(--mr-hairline)',
                           }}
                         >
-                          {item}
-                        </div>
+                          {label}
+                        </Link>
                       ))}
                       <div
-                        onClick={() => { clearSession(); setSession(null); setAccountOpen(false); }}
+                        onClick={() => {
+                          clearTokens();
+                          clearSession();
+                          setSession(null);
+                          setAccountOpen(false);
+                        }}
                         style={{
                           padding: '12px 18px',
                           fontFamily: 'Jost, sans-serif',

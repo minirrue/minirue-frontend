@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { catalog } from '@/lib/api/catalog';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
-import Footer from '@/components/layout/Footer';
+import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import SearchResultsClient from './SearchResultsClient';
 
 interface PageProps {
@@ -135,7 +135,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           />
         </main>
       </div>
-      <Footer />
+      <FooterWithSettings />
     </>
   );
 }

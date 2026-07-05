@@ -7,7 +7,15 @@ export interface ApiError {
   error?: string;
 }
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? '') + '/v1';
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
+
+export type SessionExpiredHandler = (path: string) => void;
+let onSessionExpired: SessionExpiredHandler | null = null;
+
+/** Register a handler for auth expiry (e.g. redirect to login with return URL). */
+export function setSessionExpiredHandler(handler: SessionExpiredHandler | null): void {
+  onSessionExpired = handler;
+}
 
 export async function apiFetch<T>(
   path: string,
@@ -31,7 +39,7 @@ export async function apiFetch<T>(
     const refreshToken = getRefreshToken();
     if (refreshToken) {
       try {
-        const refreshRes = await fetch(`${BASE}/refresh`, {
+        const refreshRes = await fetch(`${BASE}/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken }),
@@ -48,6 +56,9 @@ export async function apiFetch<T>(
       // Calling code (or page-level guards) decide what to do with a 401.
       clearTokens();
       clearSession();
+      if (onSessionExpired && typeof window !== 'undefined') {
+        onSessionExpired(window.location.pathname + window.location.search);
+      }
     }
     throw { status: 401, message: 'Session expired' } as ApiError;
   }

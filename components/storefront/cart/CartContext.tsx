@@ -20,6 +20,7 @@ import {
   getCartSessionId,
 } from '@/lib/api/cart';
 import { getAccessToken } from '@/lib/auth/tokens';
+import { applyEnrichmentToCart, cacheVariantEnrichment, type VariantEnrichment } from '@/lib/cart/enrichment';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ export interface CartContextValue {
   drawerOpen: boolean;
   openDrawer: () => void;
   closeDrawer: () => void;
-  addItem: (variantId: string, qty: number) => Promise<void>;
+  addItem: (variantId: string, qty: number, enrichment?: VariantEnrichment) => Promise<void>;
   updateQty: (itemId: string, qty: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -57,16 +58,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     void hydrateCart();
+    const onSync = () => {
+      void hydrateCart();
+    };
+    window.addEventListener('mr-cart-sync', onSync);
+    return () => window.removeEventListener('mr-cart-sync', onSync);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function setCartFromApi(data: CartDto) {
+    setCart(applyEnrichmentToCart(data));
+  }
+
   async function hydrateCart() {
-    // Skip API call for unidentified guests — backend would 401 and we'd
-    // hammer it on every reload. The cart is created lazily on first add.
+    // Skip API call for unidentified guests — session is created on first add.
     if (!getAccessToken() && !getCartSessionId()) return;
     try {
-      const data = await apiGetCart();
-      setCart(data);
+      setCartFromApi(await apiGetCart());
     } catch {
       // No cart yet — keep empty default.
     }
@@ -74,11 +82,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  async function addItem(variantId: string, qty: number): Promise<void> {
+  async function addItem(
+    variantId: string,
+    qty: number,
+    enrichment?: VariantEnrichment,
+  ): Promise<void> {
     setLoading(true);
     setError(null);
     try {
-      setCart(await apiAddItem(variantId, qty));
+      if (enrichment) {
+        cacheVariantEnrichment(variantId, enrichment);
+      }
+      setCartFromApi(await apiAddItem(variantId, qty));
     } catch (e) {
       setError(extractErrorMessage(e, 'Failed to add item'));
     } finally {
@@ -90,7 +105,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      setCart(await apiUpdateItem(itemId, qty));
+      setCartFromApi(await apiUpdateItem(itemId, qty));
     } catch (e) {
       setError(extractErrorMessage(e, 'Failed to update quantity'));
     } finally {
@@ -102,7 +117,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      setCart(await apiRemoveItem(itemId));
+      setCartFromApi(await apiRemoveItem(itemId));
     } catch (e) {
       setError(extractErrorMessage(e, 'Failed to remove item'));
       void hydrateCart();
@@ -158,7 +173,20 @@ export function useCart(): CartContextValue {
 function extractErrorMessage(e: unknown, fallback: string): string {
   if (typeof e === 'object' && e !== null) {
     const err = e as Record<string, unknown>;
-    if (typeof err['message'] === 'string') return err['message'];
+    const message = err['message'];
+    if (typeof message === 'string') return message;
+    if (Array.isArray(message)) {
+      const parts = message
+        .map((m) => {
+          if (typeof m === 'string') return m;
+          if (typeof m === 'object' && m !== null && 'issue' in m) {
+            return String((m as { issue: unknown }).issue);
+          }
+          return null;
+        })
+        .filter(Boolean);
+      if (parts.length) return parts.join('. ');
+    }
     if (typeof err['error'] === 'string') return err['error'];
   }
   return fallback;

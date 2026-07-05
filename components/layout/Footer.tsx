@@ -11,9 +11,28 @@ const FOOTER_COLS = [
   { t: 'Legal',     l: ['Terms', 'Privacy', 'Cookies', 'Imprint'] },
 ];
 
-export default function Footer() {
+export default function Footer({ tagline }: { tagline?: string | null }) {
   const { mobile } = useBreakpoint();
   const ref = React.useRef<HTMLElement | null>(null);
+  const [resolvedTagline, setResolvedTagline] = React.useState(tagline ?? null);
+
+  React.useEffect(() => {
+    setResolvedTagline(tagline ?? null);
+  }, [tagline]);
+
+  React.useEffect(() => {
+    if (tagline) return;
+    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002';
+    fetch(`${base}/v1/settings/public`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((settings) => {
+        const next = settings?.storefront?.footerTagline;
+        if (typeof next === 'string' && next.trim()) {
+          setResolvedTagline(next);
+        }
+      })
+      .catch(() => {});
+  }, [tagline]);
 
   React.useLayoutEffect(() => {
     const measure = () => {
@@ -77,6 +96,7 @@ export default function Footer() {
             }}
           >
             Occasional notes — new arrivals, private sales, a thought on scent.
+            {resolvedTagline ? ` ${resolvedTagline}` : ''}
           </p>
           <form
             className="mr-underline-input"

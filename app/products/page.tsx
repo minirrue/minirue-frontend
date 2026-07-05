@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { catalog } from '@/lib/api/catalog';
 import type { ProductListFilters } from '@/lib/api/catalog';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
-import Footer from '@/components/layout/Footer';
+import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
 import ProductListingClient from './ProductListingClient';
 import HeaderWrapper from './HeaderWrapper';
@@ -115,7 +115,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           />
         </main>
       </div>
-      <Footer />
+      <FooterWithSettings />
     </>
   );
 }

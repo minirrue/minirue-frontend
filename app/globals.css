@@ -14,7 +14,22 @@ html {
   scroll-behavior: auto; /* Lenis handles smooth scroll; native smooth interferes */
 }
 
-/* Announcement bar gradient shimmer — slow sweep draws attention */
+@keyframes mr-skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
+}
+
+.mr-skeleton-pulse {
+  animation: mr-skeleton-pulse 1.35s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mr-skeleton-pulse {
+    animation: none;
+    opacity: 0.65;
+  }
+}
+
 @keyframes mr-announce-shimmer {
   0% { background-position: 0% 0; }
   100% { background-position: 200% 0; }

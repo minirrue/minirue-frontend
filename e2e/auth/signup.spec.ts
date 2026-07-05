@@ -13,7 +13,7 @@ const TOKEN_PAIR = {
   expiresIn: 3600,
   tokenType: 'Bearer',
 };
-const ME_RESPONSE = { userId: 'u1', email: 'new@minirue.com', role: 'customer' };
+const ME_RESPONSE = { userId: 'u1', email: 'new@minirue.com', role: 'CUSTOMER' };
 
 async function mockRegisterSuccess(page: import('@playwright/test').Page) {
   await page.route(`**${REGISTER_URL}`, (route) =>

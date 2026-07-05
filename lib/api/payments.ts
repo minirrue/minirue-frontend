@@ -17,11 +17,23 @@ export async function apiInitiatePayment(
   orderId: string,
   method: PaymentMethod,
   idempotencyKey: string,
+  receiptDataUrl?: string,
 ): Promise<PaymentAttempt> {
   return apiFetch<PaymentAttempt>('/payments/initiate', {
     method: 'POST',
     auth: true,
-    body: JSON.stringify({ orderId, method, idempotencyKey }),
+    body: JSON.stringify({ orderId, method, idempotencyKey, receiptDataUrl }),
+  });
+}
+
+export async function apiSubmitInstapayReceipt(
+  attemptId: string,
+  receiptDataUrl: string,
+): Promise<PaymentAttempt> {
+  return apiFetch<PaymentAttempt>(`/payments/${attemptId}/instapay-receipt`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({ receiptDataUrl }),
   });
 }
 

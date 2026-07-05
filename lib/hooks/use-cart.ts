@@ -1,36 +1,46 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api/client';
 
-export interface CartItem {
+export interface CartItemDto {
   id: string;
-  cartId: string;
   variantId: string;
-  productId: string;
-  quantity: number;
-  price_amount: string;
-  price_currency: string;
-  created_at: string;
-  updated_at: string;
+  qty: number;
+  unitPriceAmount: string;
+  unitPriceCurrency: string;
+  lineTotalAmount: string;
+  name?: string;
+  brand?: string;
+  sizeMl?: number;
+  bottleType?: string;
+  cloudinaryPublicId?: string;
+  altText?: string;
+}
+
+export interface CartTotals {
+  subtotalAmount: string;
+  currency: string;
+  itemCount: number;
+  uniqueItemCount: number;
 }
 
 export interface Cart {
   id: string;
-  userId: string;
-  items: CartItem[];
-  total_amount: string;
-  total_currency: string;
-  item_count: number;
-  created_at: string;
-  updated_at: string;
+  status: string;
+  currency: string;
+  items: CartItemDto[];
+  totals: CartTotals;
+  expiresAt: string | null;
 }
+
+export type CartItem = CartItemDto;
 
 export interface AddCartItemRequest {
   variantId: string;
-  quantity: number;
+  qty: number;
 }
 
 export interface UpdateCartItemRequest {
-  quantity: number;
+  qty: number;
 }
 
 const CART_QUERY_KEY = ['cart'];
@@ -38,9 +48,7 @@ const CART_QUERY_KEY = ['cart'];
 export function useCart() {
   return useQuery({
     queryKey: CART_QUERY_KEY,
-    queryFn: async () => {
-      return apiFetch<Cart>('/cart', { auth: true });
-    },
+    queryFn: async () => apiFetch<Cart>('/cart', { auth: true }),
     enabled: typeof window !== 'undefined',
   });
 }
@@ -48,13 +56,12 @@ export function useCart() {
 export function useAddCartItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: AddCartItemRequest) => {
-      return apiFetch<CartItem>('/cart/items', {
+    mutationFn: async (data: AddCartItemRequest) =>
+      apiFetch<Cart>('/cart/items', {
         method: 'POST',
         auth: true,
         body: JSON.stringify(data),
-      });
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
     },
@@ -64,13 +71,12 @@ export function useAddCartItem() {
 export function useUpdateCartItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ itemId, ...data }: { itemId: string } & UpdateCartItemRequest) => {
-      return apiFetch<CartItem>(`/cart/items/${itemId}`, {
+    mutationFn: async ({ itemId, ...data }: { itemId: string } & UpdateCartItemRequest) =>
+      apiFetch<Cart>(`/cart/items/${itemId}`, {
         method: 'PATCH',
         auth: true,
         body: JSON.stringify(data),
-      });
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
     },
@@ -80,12 +86,11 @@ export function useUpdateCartItem() {
 export function useRemoveCartItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (itemId: string) => {
-      return apiFetch<void>(`/cart/items/${itemId}`, {
+    mutationFn: async (itemId: string) =>
+      apiFetch<Cart>(`/cart/items/${itemId}`, {
         method: 'DELETE',
         auth: true,
-      });
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
     },
@@ -95,12 +100,7 @@ export function useRemoveCartItem() {
 export function useClearCart() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      return apiFetch<void>('/cart/items', {
-        method: 'DELETE',
-        auth: true,
-      });
-    },
+    mutationFn: async () => apiFetch<void>('/cart', { method: 'DELETE', auth: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
     },

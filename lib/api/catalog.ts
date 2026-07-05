@@ -1,10 +1,10 @@
 /**
  * Catalog API client
- * All endpoints relative to NEXT_PUBLIC_API_URL (default: http://localhost:8001)
+ * All endpoints relative to NEXT_PUBLIC_API_URL (default: http://localhost:8002)
  * Uses plain fetch (not apiFetch) — catalog is public, no auth required.
  */
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001') + '/v1/catalog';
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1/catalog';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

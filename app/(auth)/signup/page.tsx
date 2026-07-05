@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import AuthShell from '@/components/auth/AuthShell';
 import FormField from '@/components/ui/FormField';
 import Button from '@/components/ui/Button';
-import { signupSchema, type SignupFormData } from '@/lib/auth/schemas';
+import { signupSchema, type SignupFormData, PASSWORD_HELPER } from '@/lib/auth/schemas';
 import { setSession } from '@/lib/session';
-import { setTokens } from '@/lib/auth/tokens';
 import { apiRegister } from '@/lib/api/auth';
+import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import type { ApiError } from '@/lib/api/client';
 
 export default function SignupPage() {
@@ -41,14 +41,14 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const data = await apiRegister(form.firstName, form.email, form.password);
-      setTokens(data.accessToken, data.refreshToken);
       setSession({
-        userId: data.user.id,
+        userId: data.user.userId,
         email: data.user.email,
-        firstName: data.user.firstName,
+        name: data.user.name ?? form.firstName,
         role: data.user.role,
         createdAt: Date.now(),
       });
+      await syncCartAfterAuth();
       router.push('/');
     } catch (err: unknown) {
       setLoading(false);
@@ -131,7 +131,7 @@ export default function SignupPage() {
           value={form.password}
           onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
           error={errors.password}
-          helper="At least 8 characters"
+          helper={PASSWORD_HELPER}
         />
         <FormField
           id="confirmPassword"

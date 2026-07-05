@@ -1,24 +1,41 @@
-/**
- * Store settings API client
- * [TBD] Endpoint path inferred from task spec — confirm /v1/settings with backend team.
- */
-import { apiFetch } from './client';
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
 
-export interface StoreSettings {
+export interface HeroSlideConfig {
+  id: number;
+  type: 'photo' | 'editorial';
+  eyebrow: string;
+  headline: string;
+  sub: string;
+  tagline: string;
+  bg: string;
+  bottle?: string;
+  cap?: string;
+  tile?: string;
+}
+
+export interface StorefrontPublicSettings {
+  announcementEnabled: boolean;
+  announcementMessages: string[];
+  announcementLinkUrl?: string | null;
+  announcementBackground?: string | null;
+  faviconUrl: string | null;
+  footerTagline: string | null;
+  heroSlides: HeroSlideConfig[];
+}
+
+export interface PublicSettings {
   storeName: string;
+  currency: string;
   logoUrl: string | null;
-  defaultCurrency: string;   // e.g. "EGP"
-  contactEmail: string;
+  storefront: StorefrontPublicSettings;
 }
 
-export async function apiGetSettings(): Promise<StoreSettings> {
-  return apiFetch<StoreSettings>('/settings', { auth: true });
-}
-
-export async function apiUpdateSettings(input: Partial<StoreSettings>): Promise<StoreSettings> {
-  return apiFetch<StoreSettings>('/settings', {
-    method: 'PUT',
-    auth: true,
-    body: JSON.stringify(input),
+export async function apiGetPublicSettings(): Promise<PublicSettings> {
+  const res = await fetch(`${BASE}/settings/public`, {
+    next: { revalidate: 60 },
   });
+  if (!res.ok) {
+    throw new Error('Failed to load store settings');
+  }
+  return res.json() as Promise<PublicSettings>;
 }

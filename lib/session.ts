@@ -3,7 +3,7 @@
 export interface Session {
   userId: string;
   email: string;
-  firstName: string;
+  name: string;
   role: string;
   createdAt: number;
 }
@@ -15,7 +15,11 @@ export function getSession(): Session | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as Session;
+    const parsed = JSON.parse(raw) as Session & { firstName?: string };
+    if (!parsed.name && parsed.firstName) {
+      return { ...parsed, name: parsed.firstName };
+    }
+    return parsed;
   } catch {
     return null;
   }

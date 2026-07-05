@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { catalog } from '@/lib/api/catalog';
 import type { ApiProduct, ProductListFilters } from '@/lib/api/catalog';
 import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
+import CatalogProductGridSkeleton from '@/components/storefront/CatalogProductGridSkeleton';
 
 interface ProductListingClientProps {
   initialProducts: ApiProduct[];
@@ -133,40 +134,42 @@ export default function ProductListingClient({
       </div>
 
       {/* Grid */}
-      <div
-        style={{
-          opacity: filtering ? 0.5 : 1,
-          transition: 'opacity var(--mr-dur-fast)',
-          pointerEvents: filtering ? 'none' : 'auto',
-        }}
-      >
+      {filtering ? (
+        <CatalogProductGridSkeleton count={8} />
+      ) : (
         <CatalogProductGrid
           products={products}
           hasMore={hasMore}
           onLoadMore={loadMore}
           loadingMore={loadingMore}
-          emptyMessage="No products found."
+          emptyMessage={
+            gender
+              ? 'No perfumes match these filters.'
+              : 'No products available yet'
+          }
           emptyAction={
-            <button
-              onClick={resetFilters}
-              style={{
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 'var(--mr-text-xs)',
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--mr-fg)',
-                borderBottom: '1px solid var(--mr-gold-400)',
-                paddingBottom: 2,
-              }}
-            >
-              Reset filters
-            </button>
+            gender ? (
+              <button
+                onClick={resetFilters}
+                style={{
+                  fontFamily: 'var(--mr-font-label)',
+                  fontSize: 'var(--mr-text-xs)',
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--mr-fg)',
+                  borderBottom: '1px solid var(--mr-gold-400)',
+                  paddingBottom: 2,
+                }}
+              >
+                Reset filters
+              </button>
+            ) : undefined
           }
         />
-      </div>
+      )}
     </div>
   );
 }

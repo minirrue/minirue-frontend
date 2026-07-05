@@ -1,3 +1,15 @@
+// Customer hooks
+export {
+  useCustomerProfile,
+  useUpdateCustomerProfile,
+  useCustomerAddresses,
+  useCreateCustomerAddress,
+  useDeleteCustomerAddress,
+  useSetDefaultCustomerAddress,
+  CUSTOMER_PROFILE_KEY,
+  CUSTOMER_ADDRESSES_KEY,
+} from './use-customer';
+
 // Auth hooks
 export { useLogin, useRegister, useLogout, useUser } from './use-auth';
 

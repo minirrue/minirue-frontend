@@ -9,14 +9,18 @@ import Footer from '@/components/layout/Footer';
 import ChatButton from '@/components/chat/ChatButton';
 import ChatPanel from '@/components/chat/ChatPanel';
 import type { ApiProduct } from '@/lib/api/catalog';
+import type { PublicSettings } from '@/lib/api/settings';
+import type { CollaboratorBrandSection } from '@/lib/api/collaborators';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/components/storefront/cart/CartContext';
 
 interface Props {
   products: ApiProduct[];
+  publicSettings: PublicSettings | null;
+  brandSections?: CollaboratorBrandSection[];
 }
 
-export default function HomePageClient({ products }: Props) {
+export default function HomePageClient({ products, publicSettings, brandSections = [] }: Props) {
   const router = useRouter();
   const [showSplash, setShowSplash] = React.useState(true);
   const [chatOpen, setChatOpen] = React.useState(false);
@@ -26,6 +30,11 @@ export default function HomePageClient({ products }: Props) {
     router.push(`/products/${product.slug}`);
   };
 
+  const storefront = publicSettings?.storefront;
+  const heroSlides = storefront?.heroSlides?.length
+    ? storefront.heroSlides
+    : undefined;
+
   return (
     <>
       {showSplash && (
@@ -33,17 +42,27 @@ export default function HomePageClient({ products }: Props) {
       )}
 
       <div className="mr-page-sheet">
-        <AnnouncementBar />
+        <AnnouncementBar
+          messages={storefront?.announcementMessages}
+          enabled={storefront?.announcementEnabled ?? true}
+          linkUrl={storefront?.announcementLinkUrl}
+          background={storefront?.announcementBackground}
+        />
         <Header
           onOpenCart={openDrawer}
           cartCount={itemCount}
           transparent
         />
 
-        <HomeView products={products} onSelect={goToProduct} />
+        <HomeView
+          products={products}
+          onSelect={goToProduct}
+          heroSlides={heroSlides}
+          brandSections={brandSections}
+        />
       </div>
 
-      <Footer />
+      <Footer tagline={storefront?.footerTagline ?? undefined} />
 
       <ChatButton onClick={() => setChatOpen((o) => !o)} />
       <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />

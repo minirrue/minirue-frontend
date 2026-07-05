@@ -1,31 +1,9 @@
 import { apiFetch } from './client';
 import { setTokens } from '@/lib/auth/tokens';
+import { parseAuthUser } from '@/lib/auth/session-role';
+import type { AuthSuccessResponse, MeResponse, TokenPair } from '@/lib/auth/types';
 
-// Backend TokenPairDto — what login/register/refresh return
-interface TokenPairDto {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-  tokenType: 'Bearer';
-}
-
-export interface MeResponse {
-  userId: string;
-  role: string;
-  email: string;
-}
-
-// Full auth response with user details (assembled from token pair + /me)
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    role: string;
-  };
-}
+export type { AuthSuccessResponse as AuthResponse, MeResponse } from '@/lib/auth/types';
 
 function createIdempotencyKey(prefix: string): string {
   const id =
@@ -35,51 +13,40 @@ function createIdempotencyKey(prefix: string): string {
   return `${prefix}-${id}`;
 }
 
-async function fetchUserAndAssemble(pair: TokenPairDto, firstName: string): Promise<AuthResponse> {
-  // Temporarily set tokens so the /auth/me call can use auth: true
-  setTokens(pair.accessToken, pair.refreshToken);
-  const me = await apiFetch<MeResponse>('/auth/me', { auth: true });
-  return {
-    accessToken: pair.accessToken,
-    refreshToken: pair.refreshToken,
-    user: {
-      id: me.userId,
-      email: me.email,
-      firstName,
-      role: me.role,
-    },
-  };
-}
-
-export async function apiLogin(email: string, password: string): Promise<AuthResponse> {
-  const pair = await apiFetch<TokenPairDto>('/auth/login', {
+export async function apiLogin(email: string, password: string): Promise<AuthSuccessResponse> {
+  const data = await apiFetch<TokenPair>('/auth/login', {
     method: 'POST',
     headers: { 'Idempotency-Key': createIdempotencyKey('login') },
     body: JSON.stringify({ email, password }),
   });
-  return fetchUserAndAssemble(pair, email.split('@')[0]);
+  setTokens(data.accessToken, data.refreshToken);
+  const user = await apiMe();
+  return { ...data, user };
 }
 
 export async function apiRegister(
-  firstName: string,
+  name: string,
   email: string,
   password: string,
-): Promise<AuthResponse> {
-  const pair = await apiFetch<TokenPairDto>('/auth/register', {
+): Promise<AuthSuccessResponse> {
+  const data = await apiFetch<TokenPair>('/auth/register', {
     method: 'POST',
     headers: { 'Idempotency-Key': createIdempotencyKey('register') },
-    body: JSON.stringify({ firstName, email, password }),
+    body: JSON.stringify({ name, email, password }),
   });
-  return fetchUserAndAssemble(pair, firstName);
+  setTokens(data.accessToken, data.refreshToken);
+  const user = await apiMe();
+  return { ...data, user };
 }
 
 export async function apiRefresh(
   refreshToken: string,
 ): Promise<{ accessToken: string; refreshToken: string }> {
-  const pair = await apiFetch<TokenPairDto>('/auth/refresh', {
+  const pair = await apiFetch<AuthSuccessResponse>('/auth/refresh', {
     method: 'POST',
     body: JSON.stringify({ refreshToken }),
   });
+  setTokens(pair.accessToken, pair.refreshToken);
   return { accessToken: pair.accessToken, refreshToken: pair.refreshToken };
 }
 
@@ -106,5 +73,6 @@ export async function apiResetPassword(token: string, password: string): Promise
 }
 
 export async function apiMe(): Promise<MeResponse> {
-  return apiFetch<MeResponse>('/auth/me', { auth: true });
+  const me = await apiFetch<MeResponse>('/auth/me', { auth: true });
+  return parseAuthUser(me);
 }

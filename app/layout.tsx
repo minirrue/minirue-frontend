@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Cormorant_Garamond, Jost, Inter_Tight } from "next/font/google";
 import "./globals.css";
 import LenisProvider from "@/components/providers/LenisProvider";
@@ -6,9 +8,10 @@ import OrganizationSchema from "@/components/seo/OrganizationSchema";
 import { CartProvider } from "@/components/storefront/cart/CartContext";
 import CartDrawer from "@/components/storefront/cart/CartDrawer";
 import { RootQueryProvider } from "@/lib/hooks";
+import SessionExpiredHandler from "@/components/auth/SessionExpiredHandler";
+import { apiGetPublicSettings } from "@/lib/api/settings";
 
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
+const cormorant = Cormorant_Garamond({  subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   style: ["normal", "italic"],
   variable: "--font-cormorant",
@@ -29,19 +32,32 @@ const interTight = Inter_Tight({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "MiniRue — Original Quality Perfumes",
-  description:
-    "Worldwide e-commerce for high-premium, original-quality perfume. Discover MiniRue.",
-  metadataBase: new URL("https://minirue.com"),
-  openGraph: {
-    siteName: "MiniRue",
-    type: "website",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const base: Metadata = {
+    title: "MiniRue — Original Quality Perfumes",
+    description:
+      "Worldwide e-commerce for high-premium, original-quality perfume. Discover MiniRue.",
+    metadataBase: new URL("https://minirue.com"),
+    openGraph: {
+      siteName: "MiniRue",
+      type: "website",
+    },
+  };
 
-export default function RootLayout({
-  children,
+  try {
+    const settings = await apiGetPublicSettings();
+    const favicon = settings.storefront.faviconUrl;
+    if (favicon) {
+      return { ...base, icons: { icon: favicon } };
+    }
+  } catch {
+    // default icons
+  }
+
+  return base;
+}
+
+export default function RootLayout({  children,
 }: {
   children: React.ReactNode;
 }) {
@@ -49,8 +65,10 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${cormorant.variable} ${jost.variable} ${interTight.variable}`}
+      suppressHydrationWarning
     >
       <body
+        suppressHydrationWarning
         style={
           {
             "--mr-font-serif": "var(--font-cormorant), 'Didot', Georgia, serif",
@@ -63,11 +81,14 @@ export default function RootLayout({
       >
         <OrganizationSchema />
         <RootQueryProvider>
+          <SessionExpiredHandler />
           <CartProvider>
             <LenisProvider>{children}</LenisProvider>
             <CartDrawer />
           </CartProvider>
         </RootQueryProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

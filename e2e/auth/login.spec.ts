@@ -14,7 +14,7 @@ const TOKEN_PAIR = {
   tokenType: 'Bearer',
 };
 // /auth/me is called by fetchUserAndAssemble after login
-const ME_RESPONSE = { userId: 'u1', email: 'test@minirue.com', role: 'customer' };
+const ME_RESPONSE = { userId: 'u1', email: 'test@minirue.com', role: 'CUSTOMER' };
 
 async function mockLoginSuccess(page: import('@playwright/test').Page) {
   await page.route(`**${LOGIN_URL}`, (route) =>

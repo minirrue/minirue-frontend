@@ -34,7 +34,7 @@ const fillAndSubmit = async (password = 'NewPass12', confirm = 'NewPass12') => {
   const fields = screen.getAllByLabelText(/password/i);
   await user.type(fields[0], password);
   await user.type(fields[1], confirm);
-  await user.click(screen.getByRole('button', { name: /reset password/i }));
+  await user.click(screen.getByRole('button', { name: /set new password/i }));
 };
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ describe('ResetPasswordPage', () => {
     it('shows link to /forgot from the invalid-token state', () => {
       mockToken = '';
       render(<ResetPasswordPage />);
-      expect(screen.getByRole('link', { name: /request a new one/i })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: /request reset link/i })).toHaveAttribute(
         'href',
         '/forgot',
       );
@@ -70,7 +70,7 @@ describe('ResetPasswordPage', () => {
 
     it('renders Reset password submit button', () => {
       render(<ResetPasswordPage />);
-      expect(screen.getByRole('button', { name: /reset password/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /set new password/i })).toBeInTheDocument();
     });
   });
 
@@ -118,7 +118,7 @@ describe('ResetPasswordPage', () => {
       mockApiResetPassword.mockReturnValueOnce(new Promise((r) => { resolve = r; }));
       render(<ResetPasswordPage />);
       await fillAndSubmit();
-      expect(screen.getByRole('button', { name: /resetting/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /saving/i })).toBeDisabled();
       resolve();
     });
   });

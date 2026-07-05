@@ -4,7 +4,7 @@ import { catalog } from '@/lib/api/catalog';
 import type { Category } from '@/lib/api/catalog';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
-import Footer from '@/components/layout/Footer';
+import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
 import CategoryClient from './CategoryClient';
 
@@ -145,7 +145,7 @@ export default async function CategoryPage({ params }: PageProps) {
           />
         </main>
       </div>
-      <Footer />
+      <FooterWithSettings />
     </>
   );
 }

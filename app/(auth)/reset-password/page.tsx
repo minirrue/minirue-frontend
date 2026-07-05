@@ -8,6 +8,7 @@ import AuthShell from '@/components/auth/AuthShell';
 import FormField from '@/components/ui/FormField';
 import Button from '@/components/ui/Button';
 import { apiResetPassword } from '@/lib/api/auth';
+import { PASSWORD_HELPER } from '@/lib/auth/schemas';
 import type { ApiError } from '@/lib/api/client';
 
 interface ResetForm {
@@ -168,7 +169,7 @@ function ResetPasswordContent() {
             setErrors((err) => ({ ...err, password: undefined }));
           }}
           error={errors.password}
-          helper="At least 8 characters"
+          helper={PASSWORD_HELPER}
         />
         <FormField
           id="confirmPassword"

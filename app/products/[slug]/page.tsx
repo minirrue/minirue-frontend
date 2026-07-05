@@ -4,6 +4,7 @@ import { catalog, primaryMedia, cloudinaryUrl } from '@/lib/api/catalog';
 import ProductPageClient from './ProductPageClient';
 import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import FooterWithSettings from '@/components/layout/FooterWithSettings';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -54,6 +55,7 @@ export default async function ProductPage({ params }: PageProps) {
       <ProductSchema slug={slug} productName={p!.name} apiProductJson={apiProductJson} />
       <BreadcrumbSchema productName={p!.name} productSlug={slug} />
       <ProductPageClient slug={slug} apiProductJson={apiProductJson} />
+      <FooterWithSettings />
     </>
   );
 }

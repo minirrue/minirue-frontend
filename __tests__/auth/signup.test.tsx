@@ -41,7 +41,14 @@ import SignupPage from '@/app/(auth)/signup/page';
 const mockAuthResponse = () => ({
   accessToken: 'acc-tok',
   refreshToken: 'ref-tok',
-  user: { id: 'u1', email: 'new@example.com', firstName: 'New', role: 'customer' },
+  expiresIn: 900,
+  tokenType: 'Bearer' as const,
+  user: {
+    userId: 'u1',
+    email: 'new@example.com',
+    name: 'New',
+    role: 'CUSTOMER',
+  },
 });
 
 const fillForm = async (

@@ -7,9 +7,10 @@ import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 
 interface HeroProps {
   onShop?: () => void;
+  slides?: Slide[];
 }
 
-const SLIDES: Slide[] = [
+const DEFAULT_SLIDES: Slide[] = [
   {
     id: 0,
     type: 'photo',
@@ -53,7 +54,7 @@ const SLIDES: Slide[] = [
 
 const DURATION = 6000;
 
-export default function Hero({ onShop }: HeroProps) {
+export default function Hero({ onShop, slides = DEFAULT_SLIDES }: HeroProps) {
   const { mobile } = useBreakpoint();
   const [current, setCurrent] = React.useState(0);
   const [prev, setPrev] = React.useState<number | null>(null);
@@ -87,7 +88,7 @@ export default function Hero({ onShop }: HeroProps) {
       progressRef.current = p;
       setProgress(p);
       if (p >= 1) {
-        goTo((current + 1) % SLIDES.length);
+        goTo((current + 1) % slides.length);
       } else {
         timerRef.current = requestAnimationFrame(tick);
       }
@@ -100,17 +101,17 @@ export default function Hero({ onShop }: HeroProps) {
   // Keyboard navigation
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft')  goTo((current - 1 + SLIDES.length) % SLIDES.length);
-      if (e.key === 'ArrowRight') goTo((current + 1) % SLIDES.length);
+      if (e.key === 'ArrowLeft')  goTo((current - 1 + slides.length) % slides.length);
+      if (e.key === 'ArrowRight') goTo((current + 1) % slides.length);
       if (e.key === 'Home') goTo(0);
-      if (e.key === 'End')  goTo(SLIDES.length - 1);
+      if (e.key === 'End')  goTo(slides.length - 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [current, goTo]);
 
-  const slide = SLIDES[current];
-  const prevSlide = prev !== null ? SLIDES[prev] : null;
+  const slide = slides[current];
+  const prevSlide = prev !== null ? slides[prev] : null;
 
   return (
     <section
@@ -173,7 +174,7 @@ export default function Hero({ onShop }: HeroProps) {
           padding: '0 24px',
         }}
       >
-        {SLIDES.map((s, i) => (
+        {slides.map((s, i) => (
           <button
             key={i}
             onClick={() => goTo(i)}

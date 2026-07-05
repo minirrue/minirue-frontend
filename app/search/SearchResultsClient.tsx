@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { catalog } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
 import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
@@ -19,6 +20,7 @@ export default function SearchResultsClient({
   initialHasMore,
   initialCursor,
 }: SearchResultsClientProps) {
+  const router = useRouter();
   const [products, setProducts] = React.useState<ApiProduct[]>(initialProducts);
   const [hasMore, setHasMore] = React.useState(initialHasMore);
   const [cursor, setCursor] = React.useState<string | null>(initialCursor);
@@ -83,23 +85,26 @@ export default function SearchResultsClient({
       hasMore={hasMore}
       onLoadMore={loadMore}
       loadingMore={loadingMore}
-      emptyMessage={`No results for "${query}"`}
+      emptyMessage="No products match your search"
       emptyAction={
-        <Link
-          href="/products"
+        <button
+          type="button"
+          onClick={() => router.push('/search')}
           style={{
             fontFamily: 'var(--mr-font-label)',
             fontSize: 'var(--mr-text-xs)',
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
             color: 'var(--mr-fg)',
             borderBottom: '1px solid var(--mr-gold-400)',
             paddingBottom: 2,
-            textDecoration: 'none',
           }}
         >
-          Browse all perfumes →
-        </Link>
+          Clear search
+        </button>
       }
     />
   );

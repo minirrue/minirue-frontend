@@ -53,7 +53,14 @@ const fillAndSubmit = async (
 const mockAuthResponse = () => ({
   accessToken: 'acc-tok',
   refreshToken: 'ref-tok',
-  user: { id: 'u1', email: 'user@example.com', firstName: 'User', role: 'customer' },
+  expiresIn: 900,
+  tokenType: 'Bearer' as const,
+  user: {
+    userId: 'u1',
+    email: 'user@example.com',
+    name: 'User',
+    role: 'CUSTOMER',
+  },
 });
 
 // ── Tests ────────────────────────────────────────────────────────────────────

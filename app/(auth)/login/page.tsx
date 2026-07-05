@@ -7,13 +7,24 @@ import AuthShell from '@/components/auth/AuthShell';
 import FormField from '@/components/ui/FormField';
 import Button from '@/components/ui/Button';
 import { loginSchema, type LoginFormData } from '@/lib/auth/schemas';
-import { setSession, getSession } from '@/lib/session';
-import { setTokens } from '@/lib/auth/tokens';
+import { setSession } from '@/lib/session';
 import { apiLogin } from '@/lib/api/auth';
+import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import type { ApiError } from '@/lib/api/client';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [sessionExpired, setSessionExpired] = React.useState(false);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setSessionExpired(params.get('reason') === 'session-expired');
+  }, []);
+
+  const getNextPath = () => {
+    const next = new URLSearchParams(window.location.search).get('next');
+    return next?.startsWith('/') ? next : '/';
+  };
   const [form, setForm] = React.useState<LoginFormData>({ email: '', password: '', remember: false });
   const [errors, setErrors] = React.useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [loading, setLoading] = React.useState(false);
@@ -50,15 +61,15 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await apiLogin(form.email, form.password);
-      setTokens(data.accessToken, data.refreshToken);
       setSession({
-        userId: data.user.id,
+        userId: data.user.userId,
         email: data.user.email,
-        firstName: data.user.firstName,
+        name: data.user.name ?? form.email.split('@')[0],
         role: data.user.role,
         createdAt: Date.now(),
       });
-      router.push('/');
+      await syncCartAfterAuth();
+      router.push(getNextPath());
     } catch (err: unknown) {
       setLoading(false);
       const e = err as ApiError;
@@ -118,6 +129,20 @@ export default function LoginPage() {
           transition: 'opacity 0.2s ease-out',
         }}
       >
+        {sessionExpired && !apiError && (
+          <div
+            role="status"
+            style={{
+              padding: '12px 16px',
+              background: 'var(--mr-st-warn-bg)',
+              color: 'var(--mr-st-warn-fg)',
+              borderRadius: 'var(--mr-radius-md)',
+              fontSize: 14,
+            }}
+          >
+            Your session expired. Sign in again to continue.
+          </div>
+        )}
         {apiError && (
           <div
             role="alert"
