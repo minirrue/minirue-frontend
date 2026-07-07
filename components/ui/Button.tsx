@@ -63,7 +63,7 @@ export default function Button({
     fontSize: size === 'sm' ? 11 : 12,
     letterSpacing: '0.22em',
     textTransform: 'uppercase',
-    padding: size === 'sm' ? '10px 18px' : '14px 26px',
+    padding: size === 'sm' ? '17px 18px' : '14px 26px',
     borderRadius: variant === 'ghost' ? 0 : 'var(--mr-radius-pill)',
     border: '1px solid transparent',
     cursor: disabled ? 'not-allowed' : 'pointer',

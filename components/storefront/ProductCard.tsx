@@ -18,16 +18,41 @@ export default function ProductCard({ product, index = 0, onClick }: ProductCard
   const [press, setPress] = React.useState(false);
   const enter = useStaggerEnter(index, { preset: 'default', step: 55, from: { y: 20, opacity: 0, scale: 0.96 } });
 
+  // Phase 4 — Touch-friendly interaction: detect coarse pointer (touch devices)
+  const [isTouch, setIsTouch] = React.useState(false);
+  const [revealed, setRevealed] = React.useState(false);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    setIsTouch(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsTouch(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   const media = primaryMedia(product);
   const imgSrc = media ? cloudinaryUrl(media.cloudinaryPublicId, { w: 600, h: 750 }) : null;
   const price = lowestPrice(product);
   const meta = [product.brand, product.fragranceFamily].filter(Boolean).join(' · ');
 
+  // On touch: first tap reveals action overlays, second tap on card navigates.
+  // On desktop: existing hover behavior unchanged.
+  const handleCardClick = () => {
+    if (isTouch && !revealed) {
+      setRevealed(true);
+      return;
+    }
+    if (isTouch) setRevealed(false);
+    onClick?.();
+  };
+
+  const showOverlays = hover || (isTouch && revealed);
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleCardClick}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => { setHover(false); setPress(false); }}
+      onMouseLeave={() => { setHover(false); setPress(false); setRevealed(false); }}
       onMouseDown={() => setPress(true)}
       onMouseUp={() => setPress(false)}
       style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 14, ...enter }}
@@ -40,10 +65,10 @@ export default function ProductCard({ product, index = 0, onClick }: ProductCard
           position: 'relative',
           overflow: 'hidden',
           borderRadius: 'var(--mr-radius-lg)',
-          boxShadow: hover ? 'var(--mr-shadow-lg)' : 'var(--mr-shadow-sm)',
+          boxShadow: showOverlays ? 'var(--mr-shadow-lg)' : 'var(--mr-shadow-sm)',
           transform: press
             ? 'translate3d(0,-1px,0) scale(0.98)'
-            : hover
+            : showOverlays
             ? 'translate3d(0,-6px,0)'
             : 'translate3d(0,0,0)',
           transition: press
@@ -62,7 +87,7 @@ export default function ProductCard({ product, index = 0, onClick }: ProductCard
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              transform: hover ? 'scale(1.04)' : 'scale(1)',
+              transform: showOverlays ? 'scale(1.04)' : 'scale(1)',
               transition: 'transform 700ms cubic-bezier(0.16,0.84,0.44,1)',
             }}
           />
@@ -86,19 +111,22 @@ export default function ProductCard({ product, index = 0, onClick }: ProductCard
           </div>
         )}
 
-        {/* Wishlist on hover */}
+        {/* Wishlist — shown on hover (desktop) or revealed (touch) */}
         <div
           style={{
             position: 'absolute',
             top: 12,
             right: 12,
             zIndex: 2,
-            opacity: hover ? 1 : 0,
-            transform: hover ? 'scale(1)' : 'scale(0.85)',
+            opacity: showOverlays ? 1 : 0,
+            transform: showOverlays ? 'scale(1)' : 'scale(0.85)',
             transition: 'opacity 220ms var(--mr-ease-out), transform 240ms var(--mr-ease-spring)',
+            pointerEvents: showOverlays ? 'auto' : 'none',
           }}
         >
-          <IconButton icon="heart" size={34} tone="cream" label="Save" />
+          <span onClick={(e) => e.stopPropagation()}>
+            <IconButton icon="heart" size={34} tone="cream" label="Save" />
+          </span>
         </div>
 
         {/* Quick view pill */}
@@ -108,12 +136,14 @@ export default function ProductCard({ product, index = 0, onClick }: ProductCard
             left: 12,
             right: 12,
             bottom: 12,
-            opacity: hover ? 1 : 0,
-            transform: hover ? 'translateY(0)' : 'translateY(8px)',
+            opacity: showOverlays ? 1 : 0,
+            transform: showOverlays ? 'translateY(0)' : 'translateY(8px)',
             transition: 'opacity 220ms var(--mr-ease-out), transform 260ms var(--mr-ease-spring)',
+            pointerEvents: showOverlays ? 'auto' : 'none',
           }}
         >
           <div
+            onClick={(e) => { e.stopPropagation(); }}
             style={{
               background: 'rgba(253,251,245,0.96)',
               backdropFilter: 'blur(8px)',

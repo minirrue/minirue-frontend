@@ -26,7 +26,7 @@ const TONES: Record<Tone, { bg: string; fg: string; bgH: string }> = {
 export default function IconButton({
   icon,
   onClick,
-  size = 40,
+  size = 44,
   tone = 'cream',
   label,
   badge,
