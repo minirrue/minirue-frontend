@@ -4,8 +4,8 @@ import React from 'react';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { primaryMedia, cloudinaryUrl, lowestPrice } from '@/lib/api/catalog';
 import IconButton from '@/components/ui/IconButton';
-import { useStaggerEnter } from '@/lib/motion/hooks';
 import { MR_TX } from '@/lib/motion/presets';
+import { useIsTouch } from '@/lib/hooks/useIsTouch';
 
 interface ProductCardProps {
   product: ApiProduct;
@@ -13,49 +13,70 @@ interface ProductCardProps {
   onClick?: () => void;
 }
 
-export default function ProductCard({ product, index = 0, onClick }: ProductCardProps) {
+function ProductCard({ product, index = 0, onClick }: ProductCardProps) {
   const [hover, setHover] = React.useState(false);
   const [press, setPress] = React.useState(false);
-  const enter = useStaggerEnter(index, { preset: 'default', step: 55, from: { y: 20, opacity: 0, scale: 0.96 } });
-
-  // Phase 4 — Touch-friendly interaction: detect coarse pointer (touch devices)
-  const [isTouch, setIsTouch] = React.useState(false);
+  const isTouch = useIsTouch();
   const [revealed, setRevealed] = React.useState(false);
 
-  React.useEffect(() => {
-    const mq = window.matchMedia('(pointer: coarse)');
-    setIsTouch(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsTouch(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
+  const media = React.useMemo(() => primaryMedia(product), [product]);
+  const imgSrc = React.useMemo(
+    () => (media ? cloudinaryUrl(media.cloudinaryPublicId, { w: 600, h: 750 }) : null),
+    [media],
+  );
+  const price = React.useMemo(() => lowestPrice(product), [product]);
+  const meta = React.useMemo(
+    () => [product.brand, product.fragranceFamily].filter(Boolean).join(' · '),
+    [product.brand, product.fragranceFamily],
+  );
 
-  const media = primaryMedia(product);
-  const imgSrc = media ? cloudinaryUrl(media.cloudinaryPublicId, { w: 600, h: 750 }) : null;
-  const price = lowestPrice(product);
-  const meta = [product.brand, product.fragranceFamily].filter(Boolean).join(' · ');
+  const showOverlays = React.useMemo(
+    () => hover || (isTouch && revealed),
+    [hover, isTouch, revealed],
+  );
 
-  // On touch: first tap reveals action overlays, second tap on card navigates.
-  // On desktop: existing hover behavior unchanged.
-  const handleCardClick = () => {
+  const handleCardClick = React.useCallback(() => {
     if (isTouch && !revealed) {
       setRevealed(true);
       return;
     }
     if (isTouch) setRevealed(false);
     onClick?.();
-  };
+  }, [isTouch, revealed, onClick]);
 
-  const showOverlays = hover || (isTouch && revealed);
+  const handleMouseEnter = React.useCallback(() => setHover(true), []);
+  const handleMouseLeave = React.useCallback(() => {
+    setHover(false);
+    setPress(false);
+    setRevealed(false);
+  }, []);
+  const handleMouseDown = React.useCallback(() => setPress(true), []);
+  const handleMouseUp = React.useCallback(() => setPress(false), []);
+
+  // CSS-based staggered entrance — replaces RAF spring loops.
+  // Initial state: hidden + shifted down. On mount, entered flips to true
+  // which applies the final state and CSS transitions animate the change.
+  const [entered, setEntered] = React.useState(false);
+  React.useEffect(() => {
+    const t = setTimeout(() => setEntered(true), 20);
+    return () => clearTimeout(t);
+  }, []);
+
+  const staggerDelay = index * 50;
+  const enterStyle: React.CSSProperties = {
+    opacity: entered ? 1 : 0,
+    transform: entered ? 'translateY(0)' : 'translateY(12px)',
+    transition: `opacity 400ms ease-out ${staggerDelay}ms, transform 400ms ease-out ${staggerDelay}ms`,
+  };
 
   return (
     <div
       onClick={handleCardClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => { setHover(false); setPress(false); setRevealed(false); }}
-      onMouseDown={() => setPress(true)}
-      onMouseUp={() => setPress(false)}
-      style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 14, ...enter }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 14, ...enterStyle }}
     >
       {/* Tile */}
       <div
@@ -81,6 +102,8 @@ export default function ProductCard({ product, index = 0, onClick }: ProductCard
           <img
             src={imgSrc}
             alt={media?.altText || product.name}
+            loading="lazy"
+            decoding="async"
             style={{
               position: 'absolute',
               inset: 0,
@@ -145,9 +168,8 @@ export default function ProductCard({ product, index = 0, onClick }: ProductCard
           <div
             onClick={(e) => { e.stopPropagation(); }}
             style={{
-              background: 'rgba(253,251,245,0.96)',
-              backdropFilter: 'blur(8px)',
-              color: 'var(--mr-ink-900)',
+              background: 'rgba(11, 11, 11, 0.6)',
+              color: 'var(--mr-cream-100)',
               borderRadius: 'var(--mr-radius-pill)',
               padding: '10px 16px',
               fontFamily: 'Jost, sans-serif',
@@ -182,3 +204,5 @@ export default function ProductCard({ product, index = 0, onClick }: ProductCard
     </div>
   );
 }
+
+export default React.memo(ProductCard);
