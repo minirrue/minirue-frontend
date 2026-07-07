@@ -2,14 +2,14 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Wordmark from '@/components/ui/Wordmark';
 import IconButton from '@/components/ui/IconButton';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
-import { getSession, clearSession, type Session } from '@/lib/session';
-import { clearTokens } from '@/lib/auth/tokens';
+import { getSession, type Session } from '@/lib/session';
 import { catalog, type Category } from '@/lib/api/catalog';
 import { apiListPublicBrands } from '@/lib/api/collaborators';
-import { useUser } from '@/lib/hooks/use-auth';
+import { useUser, useLogout } from '@/lib/hooks/use-auth';
 import CustomerRoleBadge from '@/components/account/CustomerRoleBadge';
 
 interface HeaderProps {
@@ -30,6 +30,8 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [partnerNav, setPartnerNav] = React.useState<Array<{ href: string; label: string }>>([]);
   const prevCount = React.useRef(cartCount);
+  const router = useRouter();
+  const logoutMutation = useLogout();
 
   React.useEffect(() => {
     catalog.listCategories().then(setCategories).catch(() => {});
@@ -248,11 +250,44 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                         </Link>
                       ))}
                       <div
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={logoutMutation.isPending}
                         onClick={() => {
-                          clearTokens();
-                          clearSession();
-                          setSession(null);
-                          setAccountOpen(false);
+                          // 2026-07-07 v5 §26 Rule 4 fix: was a parallel direct
+                          // clearTokens() + clearSession() path. Now routes through
+                          // useLogout() — the single source of truth for sign-out.
+                          // onSuccess clears tokens, session, and queries; then we
+                          // navigate to the storefront home per US-SHOPPER-IAM-003.
+                          logoutMutation.mutate(undefined, {
+                            onSuccess: () => {
+                              setSession(null);
+                              setAccountOpen(false);
+                              router.push('/');
+                            },
+                            onError: () => {
+                              setSession(null);
+                              setAccountOpen(false);
+                              router.push('/');
+                            },
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            logoutMutation.mutate(undefined, {
+                              onSuccess: () => {
+                                setSession(null);
+                                setAccountOpen(false);
+                                router.push('/');
+                              },
+                              onError: () => {
+                                setSession(null);
+                                setAccountOpen(false);
+                                router.push('/');
+                              },
+                            });
+                          }
                         }}
                         style={{
                           padding: '12px 18px',
@@ -261,10 +296,11 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                           letterSpacing: '0.18em',
                           textTransform: 'uppercase',
                           color: 'var(--mr-ink-400)',
-                          cursor: 'pointer',
+                          cursor: logoutMutation.isPending ? 'default' : 'pointer',
+                          opacity: logoutMutation.isPending ? 0.6 : 1,
                         }}
                       >
-                        Sign out
+                        {logoutMutation.isPending ? 'Signing out\u2026' : 'Sign out'}
                       </div>
                     </div>
                   )}
