@@ -1,3 +1,7 @@
+import { JsonLd } from "./JsonLd";
+
+const BASE_URL = "https://minirueshop.com";
+
 interface BreadcrumbSchemaProps {
   productName: string;
   productSlug: string;
@@ -5,33 +9,29 @@ interface BreadcrumbSchemaProps {
 
 export default function BreadcrumbSchema({ productName, productSlug }: BreadcrumbSchemaProps) {
   const schema = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
     itemListElement: [
       {
-        '@type': 'ListItem',
+        "@type": "ListItem",
         position: 1,
-        name: 'Home',
-        item: 'https://minirue.com',
+        name: "Home",
+        item: BASE_URL,
       },
       {
-        '@type': 'ListItem',
+        "@type": "ListItem",
         position: 2,
-        name: 'Perfume',
-        item: 'https://minirue.com/products',
+        name: "Perfume",
+        item: `${BASE_URL}/products`,
       },
       {
-        '@type': 'ListItem',
+        "@type": "ListItem",
         position: 3,
         name: productName,
-        item: `https://minirue.com/products/${productSlug}`,
+        item: `${BASE_URL}/${productSlug}`,
       },
     ],
   };
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
-  );
+
+  return <JsonLd data={schema} />;
 }

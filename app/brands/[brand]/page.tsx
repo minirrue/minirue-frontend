@@ -28,8 +28,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     /* use slug */
   }
   return {
-    title: `${title} — MiniRue`,
+    title,
     description: `Shop fragrances from ${title} at MiniRue.`,
+    alternates: {
+      canonical: `/brands/${slug}`,
+    },
+    openGraph: {
+      title: `${title} | MiniRue`,
+      description: `Shop fragrances from ${title} at MiniRue.`,
+    },
   };
 }
 

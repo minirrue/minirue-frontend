@@ -1,17 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Cormorant_Garamond, Jost, Inter_Tight } from "next/font/google";
 import "./globals.css";
 import LenisProvider from "@/components/providers/LenisProvider";
 import OrganizationSchema from "@/components/seo/OrganizationSchema";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { CartProvider } from "@/components/storefront/cart/CartContext";
 import CartDrawer from "@/components/storefront/cart/CartDrawer";
 import { RootQueryProvider } from "@/lib/hooks";
 import SessionExpiredHandler from "@/components/auth/SessionExpiredHandler";
 import { apiGetPublicSettings } from "@/lib/api/settings";
 
-const cormorant = Cormorant_Garamond({  subsets: ["latin"],
+const BASE_URL = "https://minirueshop.com";
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   style: ["normal", "italic"],
   variable: "--font-cormorant",
@@ -32,15 +36,69 @@ const interTight = Inter_Tight({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+};
+
 export async function generateMetadata(): Promise<Metadata> {
-  const base: Metadata = {
-    title: "MiniRue — Original Quality Perfumes",
+  const metadata: Metadata = {
+    metadataBase: new URL(BASE_URL),
+    title: {
+      default: "MiniRue — Original Quality Perfumes",
+      template: "%s | MiniRue",
+    },
     description:
-      "Worldwide e-commerce for high-premium, original-quality perfume. Discover MiniRue.",
-    metadataBase: new URL("https://minirue.com"),
+      "Discover MiniRue — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
+    applicationName: "MiniRue",
+    authors: [{ name: "MiniRue" }],
+    keywords: [
+      "perfume",
+      "cosmetics",
+      "fragrance",
+      "niche perfume",
+      "oud",
+      "MiniRue",
+    ],
+    referrer: "origin-when-cross-origin",
+    creator: "MiniRue",
+    publisher: "MiniRue",
+    robots: {
+      index: true,
+      follow: true,
+    },
+    alternates: {
+      canonical: "/",
+    },
     openGraph: {
-      siteName: "MiniRue",
       type: "website",
+      locale: "en_US",
+      siteName: "MiniRue",
+      title: "MiniRue — Original Quality Perfumes",
+      description:
+        "Discover MiniRue — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
+      url: BASE_URL,
+      images: [
+        {
+          url: `${BASE_URL}/og-image.jpg`,
+          width: 1200,
+          height: 630,
+          alt: "MiniRue",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "MiniRue — Original Quality Perfumes",
+      description:
+        "Discover MiniRue — original quality perfumes and cosmetics.",
+      images: [`${BASE_URL}/og-image.jpg`],
+    },
+    icons: {
+      icon: "/favicon.ico",
+      apple: "/apple-touch-icon.png",
     },
   };
 
@@ -48,19 +106,33 @@ export async function generateMetadata(): Promise<Metadata> {
     const settings = await apiGetPublicSettings();
     const favicon = settings.storefront.faviconUrl;
     if (favicon) {
-      return { ...base, icons: { icon: favicon } };
+      metadata.icons = { icon: favicon, apple: "/apple-touch-icon.png" };
     }
   } catch {
     // default icons
   }
 
-  return base;
+  return metadata;
 }
 
-export default function RootLayout({  children,
+export default function RootLayout({
+  children,
 }: {
   children: React.ReactNode;
 }) {
+  const websiteSchema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${BASE_URL}/#website`,
+    url: BASE_URL,
+    name: "MiniRue",
+    description:
+      "Discover MiniRue — original quality perfumes and cosmetics.",
+    publisher: {
+      "@id": `${BASE_URL}/#organization`,
+    },
+  };
+
   return (
     <html
       lang="en"
@@ -80,6 +152,7 @@ export default function RootLayout({  children,
         }
       >
         <OrganizationSchema />
+        <JsonLd data={websiteSchema} />
         <RootQueryProvider>
           <SessionExpiredHandler />
           <CartProvider>

@@ -31,16 +31,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const cat = findCategory(categories, slug);
     if (cat) {
       return {
-        title: `${cat.name} Perfumes — MiniRue`,
+        title: `${cat.name} Perfumes`,
         description: `Shop ${cat.name} fragrances at MiniRue.`,
+        alternates: {
+          canonical: `/categories/${slug}`,
+        },
+        openGraph: {
+          title: `${cat.name} Perfumes | MiniRue`,
+          description: `Shop ${cat.name} fragrances at MiniRue.`,
+        },
       };
     }
   } catch {
     // API unavailable
   }
   return {
-    title: 'Category — MiniRue',
+    title: 'Browse Perfumes by Category',
     description: 'Browse fragrances by category at MiniRue.',
+    alternates: {
+      canonical: `/categories/${slug}`,
+    },
   };
 }
 

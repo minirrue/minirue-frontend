@@ -16,26 +16,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const p = await catalog.getProductBySlug(slug);
     const media = primaryMedia(p);
     const imgUrl = media
-      ? cloudinaryUrl(media.cloudinaryPublicId, { w: 800, h: 1000 })
+      ? cloudinaryUrl(media.cloudinaryPublicId, { w: 1200, h: 1200 })
       : undefined;
     return {
-      title: `${p.name} — ${p.brand} · MiniRue`,
+      title: `${p.name} — ${p.brand}`,
       description: p.tagline ?? p.description ?? `${p.name} by ${p.brand}`,
+      alternates: {
+        canonical: `/products/${slug}`,
+      },
       openGraph: {
         title: p.name,
         description: p.tagline ?? p.description,
         type: 'website',
         siteName: 'MiniRue',
-        ...(imgUrl ? { images: [{ url: imgUrl, width: 800, height: 1000, alt: p.name }] } : {}),
+        url: `https://minirueshop.com/products/${slug}`,
+        ...(imgUrl ? { images: [{ url: imgUrl, width: 1200, height: 1200, alt: p.name }] } : {}),
       },
       twitter: {
         card: 'summary_large_image',
         title: p.name,
         description: p.tagline ?? p.description,
+        images: imgUrl ? [imgUrl] : [],
       },
     };
   } catch {
-    return { title: 'Product not found — MiniRue' };
+    return { title: 'Product not found' };
   }
 }
 

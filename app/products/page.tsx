@@ -9,8 +9,15 @@ import ProductListingClient from './ProductListingClient';
 import HeaderWrapper from './HeaderWrapper';
 
 export const metadata: Metadata = {
-  title: 'All Perfumes — MiniRue',
+  title: 'All Perfumes',
   description: 'Browse the full MiniRue collection of original-quality fragrances.',
+  alternates: {
+    canonical: '/products',
+  },
+  openGraph: {
+    title: 'All Perfumes | MiniRue',
+    description: 'Browse the full MiniRue collection of original-quality fragrances.',
+  },
 };
 
 interface PageProps {

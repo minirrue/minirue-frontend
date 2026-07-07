@@ -5,8 +5,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/login", "/signup", "/forgot"],
+      disallow: ["/login", "/signup", "/forgot", "/api/", "/checkout"],
     },
-    sitemap: "https://minirue.com/sitemap.xml",
+    sitemap: "https://minirueshop.com/sitemap.xml",
   };
 }
