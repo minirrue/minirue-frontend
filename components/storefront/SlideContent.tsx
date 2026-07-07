@@ -44,6 +44,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
           alt="MiniRue campaign"
           fill
           priority
+          sizes="100vw"
           className="mr-hero-drift"
           style={{ objectFit: 'cover', objectPosition: '62% 50%' }}
         />

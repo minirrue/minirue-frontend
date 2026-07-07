@@ -1,3 +1,5 @@
+import { cacheLife, cacheTag } from 'next/cache';
+
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
 
 export interface HeroSlideConfig {
@@ -31,9 +33,11 @@ export interface PublicSettings {
 }
 
 export async function apiGetPublicSettings(): Promise<PublicSettings> {
-  const res = await fetch(`${BASE}/settings/public`, {
-    next: { revalidate: 60 },
-  });
+  'use cache';
+  cacheLife({ stale: 300, revalidate: 900, expire: 86400 });
+  cacheTag('settings');
+
+  const res = await fetch(`${BASE}/settings/public`);
   if (!res.ok) {
     throw new Error('Failed to load store settings');
   }

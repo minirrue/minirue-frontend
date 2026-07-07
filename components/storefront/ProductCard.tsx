@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { primaryMedia, cloudinaryUrl, lowestPrice } from '@/lib/api/catalog';
 import IconButton from '@/components/ui/IconButton';
@@ -99,16 +100,12 @@ function ProductCard({ product, index = 0, onClick }: ProductCardProps) {
       >
         {/* Product image */}
         {imgSrc ? (
-          <img
+          <Image
             src={imgSrc}
             alt={media?.altText || product.name}
-            loading="lazy"
-            decoding="async"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
               objectFit: 'cover',
               transform: showOverlays ? 'scale(1.04)' : 'scale(1)',
               transition: 'transform 700ms cubic-bezier(0.16,0.84,0.44,1)',

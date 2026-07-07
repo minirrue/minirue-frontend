@@ -1,3 +1,5 @@
+import { cacheLife, cacheTag } from 'next/cache';
+
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
 
 export interface PublicCollaboratorBrand {
@@ -14,9 +16,11 @@ export interface CollaboratorBrandSection extends PublicCollaboratorBrand {
 }
 
 export async function apiListPublicBrands(): Promise<PublicCollaboratorBrand[]> {
-  const res = await fetch(`${BASE}/collab/brands`, {
-    next: { revalidate: 60 },
-  });
+  'use cache';
+  cacheLife({ stale: 300, revalidate: 900, expire: 86400 });
+  cacheTag('brands');
+
+  const res = await fetch(`${BASE}/collab/brands`);
   if (!res.ok) {
     throw new Error('Failed to load collaborator brands');
   }

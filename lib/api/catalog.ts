@@ -4,6 +4,8 @@
  * Uses plain fetch (not apiFetch) — catalog is public, no auth required.
  */
 
+import { cacheLife, cacheTag } from 'next/cache';
+
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1/catalog';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -109,7 +111,6 @@ export function lowestPrice(product: ApiProduct): { amount: string; currency: st
 
 async function catalogFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    next: { revalidate: 60 },
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -137,6 +138,10 @@ async function catalogFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export const catalog = {
   /** GET /v1/catalog/products — list with optional filters */
   async listProducts(filters: ProductListFilters = {}): Promise<PaginatedProducts> {
+    'use cache';
+    cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
+    cacheTag('products');
+
     const params = new URLSearchParams();
     if (filters.gender) params.set('gender', filters.gender);
     if (filters.brand) params.set('brand', filters.brand);
@@ -151,16 +156,25 @@ export const catalog = {
 
   /** GET /v1/catalog/products/:id */
   async getProductById(id: string): Promise<ApiProduct> {
+    'use cache';
+    cacheLife({ stale: 300, revalidate: 900, expire: 86400 });
+    cacheTag('products', `product:${id}`);
+
     return catalogFetch<ApiProduct>(`/products/${id}`);
   },
 
   /** GET /v1/catalog/products/slug/:slug */
   async getProductBySlug(slug: string): Promise<ApiProduct> {
+    'use cache';
+    cacheLife({ stale: 300, revalidate: 900, expire: 86400 });
+    cacheTag('products', `product:${slug}`);
+
     return catalogFetch<ApiProduct>(`/products/slug/${slug}`);
   },
 
   /** GET /v1/catalog/search?q= */
   async search(q: string, cursor?: string): Promise<PaginatedProducts> {
+    // Search is deliberately uncached — results must always be fresh
     const params = new URLSearchParams({ q });
     if (cursor) params.set('cursor', cursor);
     return catalogFetch<PaginatedProducts>(`/search?${params.toString()}`);
@@ -168,6 +182,10 @@ export const catalog = {
 
   /** GET /v1/catalog/categories */
   async listCategories(): Promise<Category[]> {
+    'use cache';
+    cacheLife({ stale: 300, revalidate: 900, expire: 86400 });
+    cacheTag('categories');
+
     const res = await catalogFetch<{ data: Category[] }>('/categories');
     return res.data;
   },
