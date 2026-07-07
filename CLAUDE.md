@@ -10,6 +10,12 @@
 ## Deploy target
 `minirue.com` — public storefront, indexed by search engines.
 
+## Shipping citation (RULEBOOK §28)
+Every shipped change must cite `minirue-frontend@{version} ({short-hash})` in the commit
+message — see `apps/minirue-obsidian/_main/_templates/RULEBOOK.md` §28. Bump `package.json`
+version at minor/patch grain per §28's rule (patch for a single fix, minor for a feature batch,
+once per batch — not per commit).
+
 ## Bundle budget
 250KB gzipped JS. GSAP loads lazily per route.
 
