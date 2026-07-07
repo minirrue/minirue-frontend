@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
+import { getQueryClient } from '@/lib/hooks/query-client';
+import { searchProductsQueryOptions } from '@/lib/hooks/queries';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
@@ -29,12 +32,17 @@ export default async function SearchPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const query = first(sp['q']);
 
+  const queryClient = getQueryClient();
+
   let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
   let initialHasMore = false;
   let initialCursor: string | null = null;
   let initialTotal = 0;
 
   if (query.trim()) {
+    // Streaming prefetch for search results
+    void queryClient.prefetchQuery(searchProductsQueryOptions(query.trim()));
+
     try {
       const res = await catalog.search(query.trim());
       initialProducts = res.data;
@@ -47,7 +55,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
   }
 
   return (
-    <>
+    <HydrationBoundary state={dehydrate(queryClient)}>
       <div className="mr-page-sheet">
         <AnnouncementBar />
         <Header onOpenCart={() => {}} cartCount={0} transparent={false} />
@@ -136,6 +144,6 @@ export default async function SearchPage({ searchParams }: PageProps) {
         </main>
       </div>
       <FooterWithSettings />
-    </>
+    </HydrationBoundary>
   );
 }

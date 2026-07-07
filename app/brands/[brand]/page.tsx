@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
 import {
   apiListPublicBrands,
   apiCheckCollaboratorBrandExists,
 } from '@/lib/api/collaborators';
+import { getQueryClient } from '@/lib/hooks/query-client';
+import { productsQueryOptions } from '@/lib/hooks/queries';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
@@ -43,6 +46,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function BrandPage({ params }: PageProps) {
   const { brand: brandParam } = await params;
   const slug = decodeURIComponent(brandParam);
+
+  const queryClient = getQueryClient();
 
   let brandName = slug;
   let description: string | null = null;
@@ -83,6 +88,9 @@ export default async function BrandPage({ params }: PageProps) {
     /* defaults in AnnouncementBar */
   }
 
+  // Non‑blocking prefetch — brand products can stream
+  void queryClient.prefetchQuery(productsQueryOptions({ brand: brandName, limit: 24 }));
+
   let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
   let initialHasMore = false;
   let initialCursor: string | null = null;
@@ -97,7 +105,7 @@ export default async function BrandPage({ params }: PageProps) {
   }
 
   return (
-    <>
+    <HydrationBoundary state={dehydrate(queryClient)}>
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={storefrontAnnouncement?.announcementMessages}
@@ -188,6 +196,6 @@ export default async function BrandPage({ params }: PageProps) {
         </main>
       </div>
       <FooterWithSettings />
-    </>
+    </HydrationBoundary>
   );
 }

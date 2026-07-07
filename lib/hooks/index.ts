@@ -56,3 +56,11 @@ export {
 // Query client
 export { createQueryClient, getQueryClient } from './query-client';
 export { RootQueryProvider } from './query-provider';
+
+// Query‑options factories (shared by server prefetch and client hooks)
+export {
+  productsQueryOptions,
+  productBySlugQueryOptions,
+  categoriesQueryOptions,
+  searchProductsQueryOptions,
+} from './queries';

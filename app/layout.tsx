@@ -8,7 +8,8 @@ import OrganizationSchema from "@/components/seo/OrganizationSchema";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { CartProvider } from "@/components/storefront/cart/CartContext";
 import CartDrawer from "@/components/storefront/cart/CartDrawer";
-import { RootQueryProvider } from "@/lib/hooks";
+import { RootQueryProvider, getQueryClient } from "@/lib/hooks";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import SessionExpiredHandler from "@/components/auth/SessionExpiredHandler";
 import { apiGetPublicSettings } from "@/lib/api/settings";
 
@@ -120,6 +121,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const queryClient = getQueryClient();
   const websiteSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -154,11 +156,13 @@ export default function RootLayout({
         <OrganizationSchema />
         <JsonLd data={websiteSchema} />
         <RootQueryProvider>
-          <SessionExpiredHandler />
-          <CartProvider>
-            <LenisProvider>{children}</LenisProvider>
-            <CartDrawer />
-          </CartProvider>
+          <HydrationBoundary state={dehydrate(queryClient)}>
+            <SessionExpiredHandler />
+            <CartProvider>
+              <LenisProvider>{children}</LenisProvider>
+              <CartDrawer />
+            </CartProvider>
+          </HydrationBoundary>
         </RootQueryProvider>
         <Analytics />
         <SpeedInsights />

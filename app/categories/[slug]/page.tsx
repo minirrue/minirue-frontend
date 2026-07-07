@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
 import type { Category } from '@/lib/api/catalog';
+import { getQueryClient } from '@/lib/hooks/query-client';
+import { productsQueryOptions, categoriesQueryOptions } from '@/lib/hooks/queries';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
@@ -57,6 +60,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params;
 
+  const queryClient = getQueryClient();
+
+  // Categories are small — await so tree is ready for hydration
+  await queryClient.prefetchQuery(categoriesQueryOptions());
+  // Products can stream — non‑blocking prefetch
+  void queryClient.prefetchQuery(productsQueryOptions({ categoryId: slug, limit: 24 }));
+
   let category: Category | null = null;
   let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
   let initialHasMore = false;
@@ -80,7 +90,7 @@ export default async function CategoryPage({ params }: PageProps) {
   const displayName = category?.name ?? slug;
 
   return (
-    <>
+    <HydrationBoundary state={dehydrate(queryClient)}>
       <BreadcrumbSchema productName={displayName} productSlug={`categories/${slug}`} />
       <div className="mr-page-sheet">
         <AnnouncementBar />
@@ -156,6 +166,6 @@ export default async function CategoryPage({ params }: PageProps) {
         </main>
       </div>
       <FooterWithSettings />
-    </>
+    </HydrationBoundary>
   );
 }

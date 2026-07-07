@@ -1,11 +1,19 @@
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import HomePageClient from './HomePageClient';
 import { catalog } from '@/lib/api/catalog';
 import { apiGetPublicSettings } from '@/lib/api/settings';
 import { apiListPublicBrands, type CollaboratorBrandSection } from '@/lib/api/collaborators';
+import { getQueryClient } from '@/lib/hooks/query-client';
+import { productsQueryOptions } from '@/lib/hooks/queries';
 import type { ApiProduct } from '@/lib/api/catalog';
 import type { PublicSettings } from '@/lib/api/settings';
 
 export default async function HomePage() {
+  const queryClient = getQueryClient();
+
+  // Non‑blocking prefetch so TanStack Query has data ready for client‑side hooks
+  void queryClient.prefetchQuery(productsQueryOptions({ limit: 8 }));
+
   let products: ApiProduct[] = [];
   let publicSettings: PublicSettings | null = null;
   let brandSections: CollaboratorBrandSection[] = [];
@@ -37,10 +45,12 @@ export default async function HomePage() {
     // no collaborator section
   }
   return (
-    <HomePageClient
-      products={products}
-      publicSettings={publicSettings}
-      brandSections={brandSections}
-    />
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <HomePageClient
+        products={products}
+        publicSettings={publicSettings}
+        brandSections={brandSections}
+      />
+    </HydrationBoundary>
   );
 }

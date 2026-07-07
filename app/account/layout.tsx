@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   robots: 'noindex, nofollow',
 };
 
+// /account/* is auth-protected (middleware checks mr-auth cookie).
+// Never prerender — every request is user-specific.
+export const dynamic = 'force-dynamic';
+
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
   return <AccountLayoutClient>{children}</AccountLayoutClient>;
 }

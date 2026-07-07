@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog, primaryMedia, cloudinaryUrl } from '@/lib/api/catalog';
+import { getQueryClient } from '@/lib/hooks/query-client';
+import { productBySlugQueryOptions } from '@/lib/hooks/queries';
 import ProductPageClient from './ProductPageClient';
 import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
@@ -46,6 +49,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params;
+  const queryClient = getQueryClient();
+
+  // Blocking prefetch — critical for SEO, want data in the initial HTML
+  await queryClient.prefetchQuery(productBySlugQueryOptions(slug));
+
   let p;
   try {
     p = await catalog.getProductBySlug(slug);
@@ -56,11 +64,11 @@ export default async function ProductPage({ params }: PageProps) {
   }
   const apiProductJson = JSON.stringify(p);
   return (
-    <>
+    <HydrationBoundary state={dehydrate(queryClient)}>
       <ProductSchema slug={slug} productName={p!.name} apiProductJson={apiProductJson} />
       <BreadcrumbSchema productName={p!.name} productSlug={slug} />
       <ProductPageClient slug={slug} apiProductJson={apiProductJson} />
       <FooterWithSettings />
-    </>
+    </HydrationBoundary>
   );
 }
