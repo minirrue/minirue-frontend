@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Header from '@/components/layout/Header';
+import HeaderWrapper from '@/app/products/HeaderWrapper';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 
@@ -8,7 +8,7 @@ export default function ProductNotFound() {
     <>
       <div className="mr-page-sheet">
         <AnnouncementBar />
-        <Header onOpenCart={() => {}} cartCount={0} transparent={false} />
+        <HeaderWrapper />
         <main
           style={{
             maxWidth: 'var(--mr-content-max)',

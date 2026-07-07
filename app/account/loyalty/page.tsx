@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { apiGetLoyaltyAccount, apiGetLoyaltyTransactions } from '@/lib/api/loyalty';
 import type { PointsTxType } from '@/lib/api/loyalty';
 
@@ -18,6 +19,11 @@ const TX_LABELS: Record<PointsTxType, string> = {
 };
 
 export default async function LoyaltyPage() {
+  // Auth-protected route: opt out of static prerender under cacheComponents
+  // (middleware already verified the mr-auth cookie; touching the jar here
+  // makes the segment dynamic).
+  await cookies();
+
   let account = null;
   let transactions: Awaited<ReturnType<typeof apiGetLoyaltyTransactions>>['data'] = [];
 

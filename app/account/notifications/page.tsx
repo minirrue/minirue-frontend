@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { apiListNotifications } from '@/lib/api/notifications';
 import NotificationsClient from './NotificationsClient';
 
@@ -8,6 +9,11 @@ export const metadata: Metadata = {
 };
 
 export default async function NotificationsPage() {
+  // Auth-protected route: opt out of static prerender under cacheComponents
+  // (middleware already verified the mr-auth cookie; touching the jar here
+  // makes the segment dynamic).
+  await cookies();
+
   let notifications: Awaited<ReturnType<typeof apiListNotifications>>['data'] = [];
 
   try {

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Cormorant_Garamond, Jost, Inter_Tight } from "next/font/google";
@@ -153,19 +154,29 @@ export default function RootLayout({
           } as React.CSSProperties
         }
       >
-        <OrganizationSchema />
-        <JsonLd data={websiteSchema} />
-        <RootQueryProvider>
-          <HydrationBoundary state={dehydrate(queryClient)}>
-            <SessionExpiredHandler />
-            <CartProvider>
-              <LenisProvider>{children}</LenisProvider>
-              <CartDrawer />
-            </CartProvider>
-          </HydrationBoundary>
-        </RootQueryProvider>
-        <Analytics />
-        <SpeedInsights />
+        {/*
+          Cache Components–compatible opt-out of the static prerender shell.
+          Wrapping the body with <Suspense fallback={null}> defers the entire
+          subtree to request time, which is the canonical fix when most pages
+          rely on request-time data (auth, cart, dynamic catalog, etc.).
+          See apps/minirue-obsidian/plans/nextjs16-optimization/RESEARCH.md
+          § "Cache Components — Forcing Dynamic Routes".
+        */}
+        <Suspense fallback={null}>
+          <OrganizationSchema />
+          <JsonLd data={websiteSchema} />
+          <RootQueryProvider>
+            <HydrationBoundary state={dehydrate(queryClient)}>
+              <SessionExpiredHandler />
+              <CartProvider>
+                <LenisProvider>{children}</LenisProvider>
+                <CartDrawer />
+              </CartProvider>
+            </HydrationBoundary>
+          </RootQueryProvider>
+          <Analytics />
+          <SpeedInsights />
+        </Suspense>
       </body>
     </html>
   );
