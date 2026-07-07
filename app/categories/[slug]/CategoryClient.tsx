@@ -46,9 +46,13 @@ export default function CategoryClient({
       onLoadMore={loadMore}
       loadingMore={loadingMore}
       emptyMessage="No products in this category yet."
+      listTraceId="PG-STOREFRONT-CAT-001::EL-LIST-category-product-grid"
+      cardTraceIdPrefix="PG-STOREFRONT-CAT-001::EL-CARD-product-card"
+      loadMoreTraceId="PG-STOREFRONT-CAT-001::EL-BTN-load-more-products"
       emptyAction={
         <Link
           href="/products"
+          data-trace-id="PG-STOREFRONT-CAT-001::EL-LINK-browse-all-perfumes"
           style={{
             fontFamily: 'var(--mr-font-label)',
             fontSize: 'var(--mr-text-xs)',

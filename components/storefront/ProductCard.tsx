@@ -12,9 +12,14 @@ interface ProductCardProps {
   product: ApiProduct;
   index?: number;
   onClick?: () => void;
+  /** RULEBOOK §27 — data-trace-id PREFIX for this card, e.g.
+   * "PG-STOREFRONT-COLLAB-001::EL-CARD-product-card"; the product id is appended as the
+   * repeating-element instance key ("@{product.id}"). Undefined = no attribute rendered
+   * (kept optional since this card is also reused by other, not-yet-instrumented grids). */
+  traceIdPrefix?: string;
 }
 
-function ProductCard({ product, index = 0, onClick }: ProductCardProps) {
+function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCardProps) {
   const [hover, setHover] = React.useState(false);
   const [press, setPress] = React.useState(false);
   const isTouch = useIsTouch();
@@ -72,6 +77,7 @@ function ProductCard({ product, index = 0, onClick }: ProductCardProps) {
 
   return (
     <div
+      data-trace-id={traceIdPrefix ? `${traceIdPrefix}@${product.id}` : undefined}
       onClick={handleCardClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

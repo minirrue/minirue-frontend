@@ -10,9 +10,13 @@ import PriceDisplay from './PriceDisplay';
 interface CatalogProductCardProps {
   product: ApiProduct;
   index?: number;
+  /** RULEBOOK §27 — data-trace-id PREFIX for this card, e.g.
+   * "PG-STOREFRONT-CAT-001::EL-CARD-product-card"; the product slug is appended as the
+   * repeating-element instance key ("@{slug}"). Undefined = no attribute rendered. */
+  traceIdPrefix?: string;
 }
 
-export default function CatalogProductCard({ product, index = 0 }: CatalogProductCardProps) {
+export default function CatalogProductCard({ product, index = 0, traceIdPrefix }: CatalogProductCardProps) {
   const [hover, setHover] = React.useState(false);
   const [press, setPress] = React.useState(false);
 
@@ -31,6 +35,7 @@ export default function CatalogProductCard({ product, index = 0 }: CatalogProduc
       style={{ textDecoration: 'none', color: 'inherit' }}
     >
       <article
+        data-trace-id={traceIdPrefix ? `${traceIdPrefix}@${product.slug}` : undefined}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => { setHover(false); setPress(false); }}
         onMouseDown={() => setPress(true)}

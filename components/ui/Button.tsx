@@ -17,6 +17,10 @@ interface ButtonProps {
   sweepColor?: string;
   sweepInk?: string;
   type?: 'button' | 'submit' | 'reset';
+  /** RULEBOOK §27 — full data-trace-id for this button, e.g.
+   * "PG-STOREFRONT-IAM-001::EL-BTN-submit-login". Caller-supplied because this component is
+   * reused across every screen, each with its own PG-* id. */
+  traceId?: string;
 }
 
 const VARIANTS: Record<Variant, React.CSSProperties> = {
@@ -54,6 +58,7 @@ function Button({
   sweepColor,
   sweepInk,
   type = 'button',
+  traceId,
 }: ButtonProps) {
   const [h, setH] = React.useState(false);
   const [p, setP] = React.useState(false);
@@ -95,6 +100,7 @@ function Button({
   return (
     <button
       type={type}
+      data-trace-id={traceId}
       className={sweep ? 'mr-btn-sweep' : undefined}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}

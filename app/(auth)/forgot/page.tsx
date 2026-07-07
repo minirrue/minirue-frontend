@@ -42,7 +42,10 @@ export default function ForgotPage() {
   if (sent) {
     return (
       <AuthShell>
-        <div style={{ textAlign: 'center' }}>
+        <div
+          data-trace-id="PG-STOREFRONT-IAM-003::EL-REGION-check-inbox-confirmation"
+          style={{ textAlign: 'center' }}
+        >
           <div
             style={{
               width: 48,
@@ -84,6 +87,7 @@ export default function ForgotPage() {
           </p>
           <Link
             href="/login"
+            data-trace-id="PG-STOREFRONT-IAM-003::EL-LINK-back-to-sign-in"
             style={{
               fontFamily: 'Jost, sans-serif',
               fontSize: 11,
@@ -128,6 +132,7 @@ export default function ForgotPage() {
       <form
         onSubmit={handleSubmit}
         noValidate
+        data-trace-id="PG-STOREFRONT-IAM-003::EL-FORM-forgot-form"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -144,8 +149,14 @@ export default function ForgotPage() {
           value={form.email}
           onChange={(e) => setForm({ email: e.target.value })}
           error={errors.email}
+          traceId="PG-STOREFRONT-IAM-003::EL-FIELD-email"
         />
-        <Button type="submit" disabled={loading} style={{ marginTop: 8 }}>
+        <Button
+          type="submit"
+          disabled={loading}
+          style={{ marginTop: 8 }}
+          traceId="PG-STOREFRONT-IAM-003::EL-BTN-send-reset-link"
+        >
           {loading ? 'Sending…' : 'Send reset link'}
         </Button>
       </form>
@@ -158,7 +169,11 @@ export default function ForgotPage() {
           textAlign: 'center',
         }}
       >
-        <Link href="/login" style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}>
+        <Link
+          href="/login"
+          data-trace-id="PG-STOREFRONT-IAM-003::EL-LINK-back-to-sign-in"
+          style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}
+        >
           ← Back to sign in
         </Link>
       </p>

@@ -20,6 +20,7 @@ export default function CollaboratorBrandsSection({ sections, onSelect }: Props)
   return (
     <section
       data-screen-label="Storefront · Collaborator brands"
+      data-trace-id="PG-STOREFRONT-COLLAB-001::EL-REGION-collaborator-brands-section"
       style={{
         maxWidth: 1280,
         margin: '0 auto',
@@ -27,7 +28,10 @@ export default function CollaboratorBrandsSection({ sections, onSelect }: Props)
         borderTop: '1px solid var(--mr-ink-100)',
       }}
     >
-      <div style={{ marginBottom: 48 }}>
+      <div
+        data-trace-id="PG-STOREFRONT-COLLAB-001::EL-REGION-collaborator-brands-heading"
+        style={{ marginBottom: 48 }}
+      >
         <div
           style={{
             fontFamily: 'var(--mr-font-label)',
@@ -55,10 +59,17 @@ export default function CollaboratorBrandsSection({ sections, onSelect }: Props)
         </h2>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: mobile ? 56 : 80 }}>
+      <div
+        data-trace-id="PG-STOREFRONT-COLLAB-001::EL-LIST-collaborator-brand-list"
+        style={{ display: 'flex', flexDirection: 'column', gap: mobile ? 56 : 80 }}
+      >
         {sections.map((section) => (
-          <article key={section.brandSlug}>
+          <article
+            key={section.brandSlug}
+            data-trace-id={`PG-STOREFRONT-COLLAB-001::EL-CARD-brand-section@${section.brandSlug}`}
+          >
             <header
+              data-trace-id={`PG-STOREFRONT-COLLAB-001::EL-REGION-brand-identity-header@${section.brandSlug}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -124,6 +135,7 @@ export default function CollaboratorBrandsSection({ sections, onSelect }: Props)
               </div>
               <Link
                 href={`/brands/${encodeURIComponent(section.brandSlug)}`}
+                data-trace-id={`PG-STOREFRONT-COLLAB-001::EL-LINK-view-collection@${section.brandSlug}`}
                 style={{
                   fontFamily: 'var(--mr-font-label)',
                   fontSize: 11,
@@ -153,6 +165,7 @@ export default function CollaboratorBrandsSection({ sections, onSelect }: Props)
               </p>
             ) : (
               <div
+                data-trace-id={`PG-STOREFRONT-COLLAB-001::EL-LIST-brand-home-product-grid@${section.brandSlug}`}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: mobile
@@ -167,6 +180,7 @@ export default function CollaboratorBrandsSection({ sections, onSelect }: Props)
                     product={p}
                     index={i}
                     onClick={() => onSelect(p)}
+                    traceIdPrefix="PG-STOREFRONT-COLLAB-001::EL-CARD-product-card"
                   />
                 ))}
               </div>

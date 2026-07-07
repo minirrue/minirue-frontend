@@ -53,6 +53,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
 
   const BackButton = () => (
     <button
+      data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-back-to-all-perfumes"
       onClick={onBack}
       style={{
         background: 'none',
@@ -77,7 +78,10 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
   );
 
   const InfoPanel = () => (
-    <div style={{ ...copyEnt, flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div
+      data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-info-panel"
+      style={{ ...copyEnt, flex: 1, display: 'flex', flexDirection: 'column' }}
+    >
 
       <div
         style={{
@@ -113,6 +117,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
       {/* Price */}
       {selectedVariant && (
         <div
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-selected-variant-price"
           style={{
             marginBottom: 24,
             animation: 'mr-word-in 0.5s cubic-bezier(0.16,1,0.3,1) both',
@@ -150,6 +155,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
       {/* Variant picker */}
       {activeVariants.length > 0 && (
         <div
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-variant-picker"
           style={{
             marginBottom: 28,
             animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
@@ -160,6 +166,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
             variants={activeVariants}
             selectedId={selectedVariant?.id ?? null}
             onChange={setSelectedVariant}
+            traceIdPrefix="PG-STOREFRONT-CAT-005::EL-TOGGLE-variant-option"
           />
         </div>
       )}
@@ -176,6 +183,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
         }}
       >
         <button
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag"
           onClick={handleAdd}
           disabled={!selectedVariant}
           style={{
@@ -212,6 +220,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
         </button>
 
         <button
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-toggle-wishlist"
           onClick={() => setSaved((s) => !s)}
           style={{
             width: 52,
@@ -262,6 +271,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
         {[product.gender, product.fragranceFamily].filter(Boolean).map((tag) => (
           <span
             key={tag}
+            data-trace-id={`PG-STOREFRONT-CAT-005::EL-BADGE-product-tag@${tag}`}
             style={{
               padding: '6px 12px',
               borderRadius: 'var(--mr-radius-pill)',
@@ -280,6 +290,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
 
       {/* Service row */}
       <div
+        data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-shipping-service-info"
         style={{
           marginTop: 'auto',
           paddingTop: 32,
@@ -312,6 +323,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
 
         {/* Hero image */}
         <div
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-hero-image"
           style={{
             margin: '24px 20px 0',
             aspectRatio: '3/4',
@@ -403,6 +415,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
 
         {/* Panel 1 — Hero image */}
         <div
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-hero-image"
           style={{
             height: '100vh',
             background: 'var(--mr-cream-300)',
@@ -456,6 +469,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
 
         {/* Panel 2 — Editorial dark moment */}
         <div
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-editorial-quote-panel"
           style={{
             height: '100vh',
             background: 'var(--mr-ink-900)',
@@ -535,6 +549,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
               {activeVariants.map((v, i) => (
                 <div
                   key={v.id}
+                  data-trace-id={`PG-STOREFRONT-CAT-005::EL-CARD-variant-size-card@${v.id}`}
                   style={{
                     padding: '28px 24px',
                     background: 'rgba(255,255,255,0.7)',

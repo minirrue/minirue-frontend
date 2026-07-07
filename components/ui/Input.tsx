@@ -6,9 +6,13 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   label?: string;
   error?: string;
   id: string;
+  /** RULEBOOK §27 — full data-trace-id for this field's INPUT, e.g.
+   * "PG-STOREFRONT-IAM-001::EL-FIELD-email". Caller-supplied because this component is reused
+   * across every auth screen, each with its own PG-* id. */
+  traceId?: string;
 }
 
-export default function Input({ label, error, id, className: _c, style: _s, ...props }: InputProps) {
+export default function Input({ label, error, id, className: _c, style: _s, traceId, ...props }: InputProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {label && (
@@ -27,6 +31,7 @@ export default function Input({ label, error, id, className: _c, style: _s, ...p
       )}
       <input
         id={id}
+        data-trace-id={traceId}
         {...props}
         style={{
           width: '100%',

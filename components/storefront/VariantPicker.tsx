@@ -8,9 +8,13 @@ interface VariantPickerProps {
   variants: ProductVariant[];
   selectedId: string | null;
   onChange: (variant: ProductVariant) => void;
+  /** RULEBOOK §27 — data-trace-id PREFIX for each variant toggle, e.g.
+   * "PG-STOREFRONT-CAT-005::EL-TOGGLE-variant-option"; the variant id is appended as the
+   * repeating-element instance key ("@{variant.id}"). */
+  traceIdPrefix?: string;
 }
 
-export default function VariantPicker({ variants, selectedId, onChange }: VariantPickerProps) {
+export default function VariantPicker({ variants, selectedId, onChange, traceIdPrefix }: VariantPickerProps) {
   const active = variants.filter((v) => v.isActive);
 
   if (!active.length) return null;
@@ -35,6 +39,7 @@ export default function VariantPicker({ variants, selectedId, onChange }: Varian
           return (
             <button
               key={v.id}
+              data-trace-id={traceIdPrefix ? `${traceIdPrefix}@${v.id}` : undefined}
               onClick={() => onChange(v)}
               aria-pressed={isSelected}
               style={{

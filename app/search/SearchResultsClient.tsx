@@ -44,6 +44,7 @@ export default function SearchResultsClient({
   if (!query.trim()) {
     return (
       <div
+        data-trace-id="PG-STOREFRONT-CAT-004::EL-REGION-empty-search-prompt"
         style={{
           textAlign: 'center',
           padding: 'var(--mr-sp-9) 0',
@@ -62,6 +63,7 @@ export default function SearchResultsClient({
         </p>
         <Link
           href="/products"
+          data-trace-id="PG-STOREFRONT-CAT-004::EL-LINK-browse-all-perfumes-from-search"
           style={{
             fontFamily: 'var(--mr-font-label)',
             fontSize: 'var(--mr-text-xs)',
@@ -85,10 +87,14 @@ export default function SearchResultsClient({
       hasMore={hasMore}
       onLoadMore={loadMore}
       loadingMore={loadingMore}
+      listTraceId="PG-STOREFRONT-CAT-004::EL-LIST-search-results-grid"
+      cardTraceIdPrefix="PG-STOREFRONT-CAT-004::EL-CARD-product-card"
+      loadMoreTraceId="PG-STOREFRONT-CAT-004::EL-BTN-load-more-search-results"
       emptyMessage="No products match your search"
       emptyAction={
         <button
           type="button"
+          data-trace-id="PG-STOREFRONT-CAT-004::EL-BTN-clear-search"
           onClick={() => router.push('/search')}
           style={{
             fontFamily: 'var(--mr-font-label)',

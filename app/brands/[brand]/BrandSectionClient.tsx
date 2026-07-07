@@ -43,6 +43,9 @@ export default function BrandSectionClient({
       onLoadMore={loadMore}
       loadingMore={loadingMore}
       emptyMessage="No products yet from this brand."
+      listTraceId="PG-STOREFRONT-CAT-002::EL-LIST-brand-product-grid"
+      cardTraceIdPrefix="PG-STOREFRONT-CAT-002::EL-CARD-product-card"
+      loadMoreTraceId="PG-STOREFRONT-CAT-002::EL-BTN-load-more-products"
     />
   );
 }

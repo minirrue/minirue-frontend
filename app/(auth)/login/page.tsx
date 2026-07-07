@@ -122,6 +122,7 @@ export default function LoginPage() {
       <form
         onSubmit={handleSubmit}
         noValidate
+        data-trace-id="PG-STOREFRONT-IAM-001::EL-FORM-login-form"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -133,6 +134,7 @@ export default function LoginPage() {
         {sessionExpired && !apiError && (
           <div
             role="status"
+            data-trace-id="PG-STOREFRONT-IAM-001::EL-REGION-session-expired-banner"
             style={{
               padding: '12px 16px',
               background: 'var(--mr-st-warn-bg)',
@@ -147,6 +149,7 @@ export default function LoginPage() {
         {apiError && (
           <ErrorBanner
             animated
+            traceId="PG-STOREFRONT-IAM-001::EL-REGION-api-error-banner"
             message={
               rateLimitCountdown > 0
                 ? `Too many attempts. Try again in ${rateLimitCountdown}s`
@@ -162,6 +165,7 @@ export default function LoginPage() {
           value={form.email}
           onChange={handleEmailChange}
           error={errors.email}
+          traceId="PG-STOREFRONT-IAM-001::EL-FIELD-email"
         />
         <FormField
           id="password"
@@ -171,6 +175,7 @@ export default function LoginPage() {
           value={form.password}
           onChange={handlePasswordChange}
           error={errors.password}
+          traceId="PG-STOREFRONT-IAM-001::EL-FIELD-password"
         />
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -179,6 +184,7 @@ export default function LoginPage() {
               type="checkbox"
               checked={form.remember ?? false}
               onChange={(e) => setForm((f) => ({ ...f, remember: e.target.checked }))}
+              data-trace-id="PG-STOREFRONT-IAM-001::EL-CHECK-remember-me"
               style={{ accentColor: 'var(--mr-gold-500)', width: 14, height: 14 }}
             />
             <span style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 13, color: 'var(--mr-ink-500)' }}>
@@ -187,6 +193,7 @@ export default function LoginPage() {
           </label>
           <Link
             href="/forgot"
+            data-trace-id="PG-STOREFRONT-IAM-001::EL-LINK-forgot-password"
             style={{
               fontFamily: 'Inter Tight, sans-serif',
               fontSize: 13,
@@ -198,7 +205,12 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        <Button type="submit" disabled={isSubmitDisabled} style={{ marginTop: 8 }}>
+        <Button
+          type="submit"
+          disabled={isSubmitDisabled}
+          style={{ marginTop: 8 }}
+          traceId="PG-STOREFRONT-IAM-001::EL-BTN-submit-login"
+        >
           {loading ? 'Signing in…' : rateLimitCountdown > 0 ? `Try again in ${rateLimitCountdown}s` : 'Sign in'}
         </Button>
       </form>
@@ -213,7 +225,11 @@ export default function LoginPage() {
         }}
       >
         New to MiniRue?{' '}
-        <Link href="/signup" style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}>
+        <Link
+          href="/signup"
+          data-trace-id="PG-STOREFRONT-IAM-001::EL-LINK-create-account"
+          style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}
+        >
           Create account →
         </Link>
       </p>

@@ -105,6 +105,7 @@ export default async function CategoryPage({ params }: PageProps) {
         >
           {/* Breadcrumb */}
           <nav
+            data-trace-id="PG-STOREFRONT-CAT-001::EL-REGION-breadcrumb-navigation"
             style={{
               fontFamily: 'var(--mr-font-label)',
               fontSize: 'var(--mr-text-xs)',
@@ -129,7 +130,10 @@ export default async function CategoryPage({ params }: PageProps) {
           </nav>
 
           {/* Page heading */}
-          <div style={{ marginBottom: 'var(--mr-sp-7)' }}>
+          <div
+            data-trace-id="PG-STOREFRONT-CAT-001::EL-REGION-category-page-heading"
+            style={{ marginBottom: 'var(--mr-sp-7)' }}
+          >
             <div
               style={{
                 fontFamily: 'var(--mr-font-label)',

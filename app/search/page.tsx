@@ -69,6 +69,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
         >
           {/* Breadcrumb */}
           <nav
+            data-trace-id="PG-STOREFRONT-CAT-004::EL-REGION-breadcrumb-navigation"
             style={{
               fontFamily: 'var(--mr-font-label)',
               fontSize: 'var(--mr-text-xs)',
@@ -89,7 +90,10 @@ export default async function SearchPage({ searchParams }: PageProps) {
           </nav>
 
           {/* Search header */}
-          <div style={{ marginBottom: 'var(--mr-sp-7)' }}>
+          <div
+            data-trace-id="PG-STOREFRONT-CAT-004::EL-REGION-search-results-heading"
+            style={{ marginBottom: 'var(--mr-sp-7)' }}
+          >
             {query.trim() ? (
               <>
                 <div

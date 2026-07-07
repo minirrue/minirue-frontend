@@ -59,7 +59,10 @@ function ResetPasswordContent() {
   if (!token) {
     return (
       <AuthShell>
-        <div style={{ textAlign: 'center' }}>
+        <div
+          data-trace-id="PG-STOREFRONT-IAM-004::EL-REGION-invalid-link-notice"
+          style={{ textAlign: 'center' }}
+        >
           <h2
             style={{
               fontFamily: 'Cormorant Garamond, serif',
@@ -84,6 +87,7 @@ function ResetPasswordContent() {
           </p>
           <Link
             href="/forgot"
+            data-trace-id="PG-STOREFRONT-IAM-004::EL-LINK-request-reset-link"
             style={{
               fontFamily: 'Jost, sans-serif',
               fontSize: 11,
@@ -128,6 +132,7 @@ function ResetPasswordContent() {
       <form
         onSubmit={handleSubmit}
         noValidate
+        data-trace-id="PG-STOREFRONT-IAM-004::EL-FORM-reset-password-form"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -138,10 +143,15 @@ function ResetPasswordContent() {
       >
         {apiError && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '12px' }}>
-            <ErrorBanner animated={false} message={apiError} />
+            <ErrorBanner
+              animated={false}
+              message={apiError}
+              traceId="PG-STOREFRONT-IAM-004::EL-REGION-api-error-banner"
+            />
             {(apiError.includes('expired') || apiError.includes('invalid')) && (
               <Link
                 href="/forgot"
+                data-trace-id="PG-STOREFRONT-IAM-004::EL-LINK-request-new-link"
                 style={{ fontSize: 13, color: 'var(--mr-crimson-700)', textDecoration: 'underline' }}
               >
                 Request a new link
@@ -161,6 +171,7 @@ function ResetPasswordContent() {
           }}
           error={errors.password}
           helper={PASSWORD_HELPER}
+          traceId="PG-STOREFRONT-IAM-004::EL-FIELD-new-password"
         />
         <FormField
           id="confirmPassword"
@@ -173,8 +184,14 @@ function ResetPasswordContent() {
             setErrors((err) => ({ ...err, confirmPassword: undefined }));
           }}
           error={errors.confirmPassword}
+          traceId="PG-STOREFRONT-IAM-004::EL-FIELD-confirm-new-password"
         />
-        <Button type="submit" disabled={loading} style={{ marginTop: 8 }}>
+        <Button
+          type="submit"
+          disabled={loading}
+          style={{ marginTop: 8 }}
+          traceId="PG-STOREFRONT-IAM-004::EL-BTN-set-new-password"
+        >
           {loading ? 'Saving…' : 'Set new password'}
         </Button>
       </form>
@@ -187,7 +204,11 @@ function ResetPasswordContent() {
           textAlign: 'center',
         }}
       >
-        <Link href="/login" style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}>
+        <Link
+          href="/login"
+          data-trace-id="PG-STOREFRONT-IAM-004::EL-LINK-back-to-sign-in"
+          style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}
+        >
           ← Back to sign in
         </Link>
       </p>

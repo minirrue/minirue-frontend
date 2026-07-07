@@ -169,6 +169,7 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                 <div style={{ position: 'relative' }}>
                   <button
                     onClick={() => setAccountOpen((o) => !o)}
+                    data-trace-id="PG-STOREFRONT-IAM-006::EL-BTN-account-menu-trigger"
                     style={{
                       background: 'none',
                       border: 'none',
@@ -185,6 +186,7 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                   </button>
                   {accountOpen && (
                     <div
+                      data-trace-id="PG-STOREFRONT-IAM-006::EL-MENU-account-dropdown"
                       style={{
                         position: 'absolute',
                         top: 'calc(100% + 8px)',
@@ -234,6 +236,7 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                           key={label}
                           href={href}
                           onClick={() => setAccountOpen(false)}
+                          data-trace-id={`PG-STOREFRONT-IAM-006::EL-LINK-account-nav-item@${label.toLowerCase()}`}
                           style={{
                             display: 'block',
                             padding: '12px 18px',
@@ -253,6 +256,7 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                         role="button"
                         tabIndex={0}
                         aria-disabled={logoutMutation.isPending}
+                        data-trace-id="PG-STOREFRONT-IAM-006::EL-BTN-sign-out-header"
                         onClick={() => {
                           // 2026-07-07 v5 §26 Rule 4 fix: was a parallel direct
                           // clearTokens() + clearSession() path. Now routes through

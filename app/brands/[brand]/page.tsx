@@ -123,6 +123,7 @@ export default async function BrandPage({ params }: PageProps) {
           }}
         >
           <nav
+            data-trace-id="PG-STOREFRONT-CAT-002::EL-REGION-breadcrumb-navigation"
             style={{
               fontFamily: 'var(--mr-font-label)',
               fontSize: 'var(--mr-text-xs)',
@@ -146,7 +147,10 @@ export default async function BrandPage({ params }: PageProps) {
             <span style={{ color: 'var(--mr-fg-2)' }}>{brandName}</span>
           </nav>
 
-          <header style={{ marginBottom: 'var(--mr-sp-7)' }}>
+          <header
+            data-trace-id="PG-STOREFRONT-CAT-002::EL-REGION-brand-header"
+            style={{ marginBottom: 'var(--mr-sp-7)' }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--mr-sp-4)', marginBottom: 'var(--mr-sp-4)' }}>
               {logoUrl ? (
                 <img

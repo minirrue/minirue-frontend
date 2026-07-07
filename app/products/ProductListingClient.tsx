@@ -79,6 +79,7 @@ export default function ProductListingClient({
     <div>
       {/* Filter bar */}
       <div
+        data-trace-id="PG-STOREFRONT-CAT-003::EL-REGION-gender-filter-bar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -109,6 +110,7 @@ export default function ProductListingClient({
             return (
               <button
                 key={opt.value}
+                data-trace-id={`PG-STOREFRONT-CAT-003::EL-TOGGLE-gender-filter-pill@${opt.value || 'all'}`}
                 onClick={() => applyGenderFilter(opt.value)}
                 disabled={filtering}
                 style={{
@@ -135,13 +137,19 @@ export default function ProductListingClient({
 
       {/* Grid */}
       {filtering ? (
-        <CatalogProductGridSkeleton count={8} />
+        <CatalogProductGridSkeleton
+          count={8}
+          traceId="PG-STOREFRONT-CAT-003::EL-REGION-product-grid-skeleton"
+        />
       ) : (
         <CatalogProductGrid
           products={products}
           hasMore={hasMore}
           onLoadMore={loadMore}
           loadingMore={loadingMore}
+          listTraceId="PG-STOREFRONT-CAT-003::EL-LIST-product-listing-grid"
+          cardTraceIdPrefix="PG-STOREFRONT-CAT-003::EL-CARD-product-card"
+          loadMoreTraceId="PG-STOREFRONT-CAT-003::EL-BTN-load-more-products"
           emptyMessage={
             gender
               ? 'No perfumes match these filters.'
@@ -150,6 +158,7 @@ export default function ProductListingClient({
           emptyAction={
             gender ? (
               <button
+                data-trace-id="PG-STOREFRONT-CAT-003::EL-BTN-reset-gender-filters"
                 onClick={resetFilters}
                 style={{
                   fontFamily: 'var(--mr-font-label)',

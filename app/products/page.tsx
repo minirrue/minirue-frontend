@@ -76,6 +76,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
         >
           {/* Breadcrumb */}
           <nav
+            data-trace-id="PG-STOREFRONT-CAT-003::EL-REGION-breadcrumb-navigation"
             style={{
               fontFamily: 'var(--mr-font-label)',
               fontSize: 'var(--mr-text-xs)',
@@ -96,7 +97,10 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           </nav>
 
           {/* Page heading */}
-          <div style={{ marginBottom: 'var(--mr-sp-7)' }}>
+          <div
+            data-trace-id="PG-STOREFRONT-CAT-003::EL-REGION-collection-page-heading"
+            style={{ marginBottom: 'var(--mr-sp-7)' }}
+          >
             <div
               style={{
                 fontFamily: 'var(--mr-font-label)',

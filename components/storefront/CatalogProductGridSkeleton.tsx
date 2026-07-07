@@ -4,13 +4,18 @@ import React from 'react';
 
 interface CatalogProductGridSkeletonProps {
   count?: number;
+  /** RULEBOOK §27 — full data-trace-id for this loading REGION, caller-supplied since this
+   * component is only used from ProductListingClient (PG-STOREFRONT-CAT-003) today. */
+  traceId?: string;
 }
 
 export default function CatalogProductGridSkeleton({
   count = 8,
+  traceId,
 }: CatalogProductGridSkeletonProps) {
   return (
     <div
+      data-trace-id={traceId}
       aria-busy="true"
       aria-label="Loading products"
       style={{

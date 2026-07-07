@@ -83,6 +83,7 @@ export default function SignupPage() {
       <form
         onSubmit={handleSubmit}
         noValidate
+        data-trace-id="PG-STOREFRONT-IAM-002::EL-FORM-signup-form"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -91,7 +92,13 @@ export default function SignupPage() {
           transition: 'opacity 0.2s ease-out',
         }}
       >
-        {apiError && <ErrorBanner animated={false} message={apiError} />}
+        {apiError && (
+          <ErrorBanner
+            animated={false}
+            message={apiError}
+            traceId="PG-STOREFRONT-IAM-002::EL-REGION-api-error-banner"
+          />
+        )}
         <FormField
           id="firstName"
           type="text"
@@ -100,6 +107,7 @@ export default function SignupPage() {
           value={form.firstName}
           onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
           error={errors.firstName}
+          traceId="PG-STOREFRONT-IAM-002::EL-FIELD-first-name"
         />
         <FormField
           id="email"
@@ -109,6 +117,7 @@ export default function SignupPage() {
           value={form.email}
           onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
           error={errors.email}
+          traceId="PG-STOREFRONT-IAM-002::EL-FIELD-email"
         />
         <FormField
           id="password"
@@ -119,6 +128,7 @@ export default function SignupPage() {
           onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
           error={errors.password}
           helper={PASSWORD_HELPER}
+          traceId="PG-STOREFRONT-IAM-002::EL-FIELD-password"
         />
         <FormField
           id="confirmPassword"
@@ -128,9 +138,15 @@ export default function SignupPage() {
           value={form.confirmPassword}
           onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
           error={errors.confirmPassword}
+          traceId="PG-STOREFRONT-IAM-002::EL-FIELD-confirm-password"
         />
 
-        <Button type="submit" disabled={loading} style={{ marginTop: 8 }}>
+        <Button
+          type="submit"
+          disabled={loading}
+          style={{ marginTop: 8 }}
+          traceId="PG-STOREFRONT-IAM-002::EL-BTN-submit-signup"
+        >
           {loading ? 'Creating account…' : 'Create account'}
         </Button>
       </form>
@@ -145,7 +161,11 @@ export default function SignupPage() {
         }}
       >
         Already a member?{' '}
-        <Link href="/login" style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}>
+        <Link
+          href="/login"
+          data-trace-id="PG-STOREFRONT-IAM-002::EL-LINK-sign-in"
+          style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}
+        >
           Sign in →
         </Link>
       </p>

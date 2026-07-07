@@ -88,11 +88,17 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
             </p>
             {logoutError && (
               <div style={{ padding: mobile ? '0 var(--mr-gutter) var(--mr-sp-3)' : '0 20px 16px' }}>
-                <ErrorBanner message={logoutError} onDismiss={() => setLogoutError(null)} />
+                <ErrorBanner
+                  message={logoutError}
+                  onDismiss={() => setLogoutError(null)}
+                  traceId="PG-STOREFRONT-IAM-005::EL-REGION-logout-error-banner"
+                  dismissTraceId="PG-STOREFRONT-IAM-005::EL-BTN-dismiss-logout-error"
+                />
               </div>
             )}
             <nav
               aria-label="Account sections"
+              data-trace-id="PG-STOREFRONT-IAM-005::EL-REGION-account-nav"
               style={
                 mobile
                   ? {
@@ -112,6 +118,7 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
                     key={href}
                     href={href}
                     aria-current={active ? 'page' : undefined}
+                    data-trace-id={`PG-STOREFRONT-IAM-005::EL-LINK-account-nav-item@${href.split('/').pop()}`}
                     style={{
                       display: 'block',
                       padding: mobile ? '10px 14px' : '10px 20px',
@@ -134,6 +141,7 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
             <button
               onClick={handleLogout}
               disabled={logoutMutation.isPending}
+              data-trace-id="PG-STOREFRONT-IAM-005::EL-BTN-sign-out-sidebar"
               style={{
                 display: 'block',
                 width: '100%',

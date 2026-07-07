@@ -11,6 +11,15 @@ interface CatalogProductGridProps {
   loadingMore?: boolean;
   emptyMessage?: string;
   emptyAction?: React.ReactNode;
+  /** RULEBOOK §27 — full data-trace-id for this grid's LIST region, e.g.
+   * "PG-STOREFRONT-CAT-001::EL-LIST-category-product-grid". Caller-supplied because this
+   * component is reused across multiple pages, each with its own PG-* id. */
+  listTraceId?: string;
+  /** §27 — data-trace-id PREFIX for each card, e.g. "PG-STOREFRONT-CAT-001::EL-CARD-product-card"
+   * — CatalogProductCard appends "@{slug}" itself since it owns the instance key. */
+  cardTraceIdPrefix?: string;
+  /** §27 — full data-trace-id for the "Load more" button. */
+  loadMoreTraceId?: string;
 }
 
 export default function CatalogProductGrid({
@@ -20,6 +29,9 @@ export default function CatalogProductGrid({
   loadingMore = false,
   emptyMessage = 'No products found.',
   emptyAction,
+  listTraceId,
+  cardTraceIdPrefix,
+  loadMoreTraceId,
 }: CatalogProductGridProps) {
   if (!products.length) {
     return (
@@ -48,6 +60,7 @@ export default function CatalogProductGrid({
   return (
     <div>
       <div
+        data-trace-id={listTraceId}
         style={{
           display: 'grid',
           gridTemplateColumns:
@@ -56,7 +69,12 @@ export default function CatalogProductGrid({
         }}
       >
         {products.map((p, i) => (
-          <CatalogProductCard key={p.id} product={p} index={i} />
+          <CatalogProductCard
+            key={p.id}
+            product={p}
+            index={i}
+            traceIdPrefix={cardTraceIdPrefix}
+          />
         ))}
       </div>
 
@@ -68,6 +86,7 @@ export default function CatalogProductGrid({
           }}
         >
           <button
+            data-trace-id={loadMoreTraceId}
             onClick={onLoadMore}
             disabled={loadingMore}
             style={{
