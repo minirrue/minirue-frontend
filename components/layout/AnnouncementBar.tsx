@@ -28,13 +28,55 @@ export default function AnnouncementBar({
 
   if (!enabled || messages.length === 0) return null;
 
+  // PATCH announcement-bar-collapse-on-first-scroll
+  // The first scroll gesture (wheel OR downward touch swipe) collapses the bar
+  // and is consumed — the page does not scroll on that gesture. Subsequent
+  // gestures scroll normally. Lenis listens on document.documentElement for
+  // `wheel`/`touchmove` in bubble phase; we register in capture phase on
+  // `window` with { passive: false } so preventDefault/stopPropagation runs
+  // before Lenis sees the event, and stopPropagation ensures Lenis never
+  // receives it. The handler self-removes after the first match.
   React.useEffect(() => {
-    const onScroll = () => {
-      setHidden(window.scrollY > 40);
+    let touchStartY: number | null = null;
+    const SWIPE_DOWN_DEADBAND = 4; // px before a touchmove counts as a downward swipe
+
+    const collapse = (event: Event) => {
+      if (!event.cancelable) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setHidden(true);
+      window.removeEventListener('wheel', onWheel, true);
+      window.removeEventListener('touchstart', onTouchStart, true);
+      window.removeEventListener('touchmove', onTouchMove, true);
     };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY <= 0) return; // only collapse on downward scroll intent
+      collapse(event);
+    };
+
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      touchStartY = touch ? touch.clientY : null;
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (touchStartY === null) return;
+      const touch = event.touches[0];
+      if (!touch) return;
+      const dy = touch.clientY - touchStartY;
+      if (dy <= SWIPE_DOWN_DEADBAND) return; // only collapse on swipe-down
+      collapse(event);
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true, capture: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+    return () => {
+      window.removeEventListener('wheel', onWheel, true);
+      window.removeEventListener('touchstart', onTouchStart, true);
+      window.removeEventListener('touchmove', onTouchMove, true);
+    };
   }, []);
 
   const doubled = [...messages, ...messages, ...messages];
