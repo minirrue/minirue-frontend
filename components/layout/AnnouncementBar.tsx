@@ -63,7 +63,7 @@ export default function AnnouncementBar({
   // `setHidden` name) also persists the collapse. Signature matches the
   // React state-setter shape so existing call sites (`setHidden(true)`)
   // keep working unchanged.
-  const setHidden = (value: boolean): void => {
+  const setHidden = React.useCallback((value: boolean): void => {
     setHiddenRaw(value);
     if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
       try {
@@ -78,7 +78,7 @@ export default function AnnouncementBar({
         // current page; persistence is best-effort.
       }
     }
-  };
+  }, []);
 
   // Phase 5 — Responsive sizing: scale down on mobile and small screens
   const bp = useBreakpoint();
@@ -145,7 +145,7 @@ export default function AnnouncementBar({
       window.removeEventListener('touchmove', onTouchMove, true);
     };
     // The effect intentionally runs only once on mount.
-    // setHidden is stable across renders (it closes over setHiddenRaw).
+    // setHidden is now stable across renders via useCallback.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -43,7 +43,7 @@ const SWEEP_HOVER: Record<Variant, React.CSSProperties> = {
   ghost:        { color: 'var(--mr-gold-700)' },
 };
 
-export default function Button({
+function Button({
   variant = 'primary',
   size = 'md',
   children,
@@ -57,6 +57,11 @@ export default function Button({
 }: ButtonProps) {
   const [h, setH] = React.useState(false);
   const [p, setP] = React.useState(false);
+
+  const handleMouseEnter = React.useCallback(() => setH(true), []);
+  const handleMouseLeave = React.useCallback(() => { setH(false); setP(false); }, []);
+  const handleMouseDown = React.useCallback(() => setP(true), []);
+  const handleMouseUp = React.useCallback(() => setP(false), []);
 
   const base: React.CSSProperties = {
     fontFamily: 'Jost, sans-serif',
@@ -72,7 +77,7 @@ export default function Button({
     justifyContent: 'center',
     gap: 10,
     opacity: disabled ? 0.4 : 1,
-    willChange: 'transform',
+    willChange: h || p ? 'transform' : 'auto',
     lineHeight: 1,
     ...style,
   };
@@ -93,10 +98,10 @@ export default function Button({
       className={sweep ? 'mr-btn-sweep' : undefined}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => { setH(false); setP(false); }}
-      onMouseDown={() => setP(true)}
-      onMouseUp={() => setP(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
       style={{
         ...base,
         ...VARIANTS[variant],
@@ -112,3 +117,5 @@ export default function Button({
     </button>
   );
 }
+
+export default React.memo(Button);

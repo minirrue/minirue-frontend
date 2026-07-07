@@ -23,7 +23,7 @@ const TONES: Record<Tone, { bg: string; fg: string; bgH: string }> = {
   glass: { bg: 'rgba(253,251,245,.12)', fg: 'var(--mr-cream-100)', bgH: 'rgba(253,251,245,.22)' },
 };
 
-export default function IconButton({
+function IconButton({
   icon,
   onClick,
   size = 44,
@@ -36,14 +36,19 @@ export default function IconButton({
   const [p, setP] = React.useState(false);
   const t = TONES[tone];
 
+  const handleMouseEnter = React.useCallback(() => setH(true), []);
+  const handleMouseLeave = React.useCallback(() => { setH(false); setP(false); }, []);
+  const handleMouseDown = React.useCallback(() => setP(true), []);
+  const handleMouseUp = React.useCallback(() => setP(false), []);
+
   return (
     <button
       aria-label={label}
       onClick={onClick}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => { setH(false); setP(false); }}
-      onMouseDown={() => setP(true)}
-      onMouseUp={() => setP(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
       style={{
         position: 'relative',
         width: size,
@@ -91,3 +96,5 @@ export default function IconButton({
     </button>
   );
 }
+
+export default React.memo(IconButton);
