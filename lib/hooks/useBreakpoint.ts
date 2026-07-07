@@ -13,9 +13,19 @@ export function useBreakpoint(): Breakpoint {
 
   React.useEffect(() => {
     setW(window.innerWidth);
-    const h = () => setW(window.innerWidth);
+    let rafId: number | null = null;
+    const h = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setW(window.innerWidth);
+        rafId = null;
+      });
+    };
     window.addEventListener('resize', h);
-    return () => window.removeEventListener('resize', h);
+    return () => {
+      window.removeEventListener('resize', h);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return { mobile: w < 640, tablet: w < 1024, w };
