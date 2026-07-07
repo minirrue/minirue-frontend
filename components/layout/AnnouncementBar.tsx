@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 
 interface AnnouncementBarProps {
   messages?: string[];
@@ -79,6 +80,16 @@ export default function AnnouncementBar({
     }
   };
 
+  // Phase 5 — Responsive sizing: scale down on mobile and small screens
+  const bp = useBreakpoint();
+  const isTiny = bp.w > 0 && bp.w <= 480;
+  const isMobile = bp.mobile; // w < 640
+
+  const barHeight = isTiny ? 24 : isMobile ? 28 : 34;
+  const textPadding = isTiny ? '0 12px' : isMobile ? '0 20px' : '0 32px';
+  const textFontSize = isMobile ? 10 : 11;
+  const marqueeDuration = isMobile ? '45s' : '90s';
+
   if (!enabled || messages.length === 0) return null;
 
   // PATCH announcement-bar-collapse-on-first-scroll
@@ -133,9 +144,23 @@ export default function AnnouncementBar({
       window.removeEventListener('touchstart', onTouchStart, true);
       window.removeEventListener('touchmove', onTouchMove, true);
     };
+    // The effect intentionally runs only once on mount.
+    // setHidden is stable across renders (it closes over setHiddenRaw).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const doubled = [...messages, ...messages, ...messages];
+
+  const textStyle: React.CSSProperties = {
+    padding: textPadding,
+    fontFamily: 'Jost, sans-serif',
+    fontSize: textFontSize,
+    letterSpacing: '0.28em',
+    textTransform: 'uppercase',
+    fontWeight: 500,
+    textShadow: '0 1px 2px rgba(11,11,11,0.35)',
+    color: 'inherit',
+  };
 
   return (
     <div
@@ -146,7 +171,7 @@ export default function AnnouncementBar({
         left: 0,
         right: 0,
         zIndex: 60,
-        height: hidden ? 0 : 34,
+        height: hidden ? 0 : barHeight,
         overflow: 'hidden',
         transition: 'height 320ms cubic-bezier(0.4,0,0.2,1)',
         background: background?.trim() || DEFAULT_BACKGROUND,
@@ -162,7 +187,7 @@ export default function AnnouncementBar({
           width: 'max-content',
           height: '100%',
           alignItems: 'center',
-          animation: 'mr-marquee 90s linear infinite',
+          animation: `mr-marquee ${marqueeDuration} linear infinite`,
           whiteSpace: 'nowrap',
         }}
       >
@@ -172,32 +197,14 @@ export default function AnnouncementBar({
               key={i}
               href={linkUrl}
               style={{
-                padding: '0 32px',
-                fontFamily: 'Jost, sans-serif',
-                fontSize: 11,
-                letterSpacing: '0.28em',
-                textTransform: 'uppercase',
-                fontWeight: 500,
-                textShadow: '0 1px 2px rgba(11,11,11,0.35)',
-                color: 'inherit',
+                ...textStyle,
                 textDecoration: 'none',
               }}
             >
               {m}
             </a>
           ) : (
-            <span
-              key={i}
-              style={{
-                padding: '0 32px',
-                fontFamily: 'Jost, sans-serif',
-                fontSize: 11,
-                letterSpacing: '0.28em',
-                textTransform: 'uppercase',
-                fontWeight: 500,
-                textShadow: '0 1px 2px rgba(11,11,11,0.35)',
-              }}
-            >
+            <span key={i} style={textStyle}>
               {m}
             </span>
           ),
