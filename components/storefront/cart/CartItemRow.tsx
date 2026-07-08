@@ -44,9 +44,11 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
     }
   }
 
-  const imgSrc = item.cloudinaryPublicId
-    ? `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/w_160,h_200,c_fill,q_auto,f_auto/${item.cloudinaryPublicId}`
-    : null;
+  const imgSrc = item.imageUrl
+    ? item.imageUrl
+    : item.cloudinaryPublicId
+      ? `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/w_160,h_200,c_fill,q_auto,f_auto/${item.cloudinaryPublicId}`
+      : null;
 
   const meta = [item.brand, item.sizeMl ? `${item.sizeMl} ml` : null, item.bottleType]
     .filter(Boolean)

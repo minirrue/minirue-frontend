@@ -21,6 +21,12 @@ export interface ProductVariant {
 export interface MediaAsset {
   id: string;
   cloudinaryPublicId: string;
+  // Set (and cloudinaryPublicId left empty) when this media row was linked
+  // from the Gallery module instead of the legacy Cloudinary flow — already
+  // a fully resolved, servable URL (imgproxy-transformed) from the backend,
+  // never a raw storage key. Use mediaImageUrl() below, not cloudinaryUrl()
+  // directly, so both media sources render correctly.
+  url?: string | null;
   width: number;
   height: number;
   altText: string;
@@ -86,6 +92,22 @@ export function cloudinaryUrl(
     .filter(Boolean)
     .join(',');
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${transforms}/${publicId}`;
+}
+
+/**
+ * Resolves a MediaAsset to a servable image URL. Gallery-linked media
+ * (`url` set, `cloudinaryPublicId` empty) is already a fully resolved URL
+ * from the backend — used as-is, no Cloudinary transform applied (imgproxy
+ * already handled resize/format server-side). Legacy Cloudinary-linked
+ * media still builds a Cloudinary transform URL from its public ID.
+ */
+export function mediaImageUrl(
+  media: MediaAsset,
+  opts: { w?: number; h?: number; q?: number } = {},
+): string | null {
+  if (media.url) return media.url;
+  if (media.cloudinaryPublicId) return cloudinaryUrl(media.cloudinaryPublicId, opts);
+  return null;
 }
 
 /** Returns the primary media asset for a product (lowest sortOrder). */

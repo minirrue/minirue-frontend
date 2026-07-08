@@ -3,7 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import type { ApiProduct, ProductVariant } from '@/lib/api/catalog';
-import { primaryMedia } from '@/lib/api/catalog';
+import { primaryMedia, mediaImageUrl } from '@/lib/api/catalog';
 import ApiProductDetail from '@/components/storefront/ApiProductDetail';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
@@ -34,6 +34,7 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
       sizeMl: variant.sizeMl,
       bottleType: variant.bottleType,
       cloudinaryPublicId: media?.cloudinaryPublicId,
+      imageUrl: media ? mediaImageUrl(media, { w: 160, h: 200 }) ?? undefined : undefined,
       altText: media?.altText,
     });
     openDrawer();

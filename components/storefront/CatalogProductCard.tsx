@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
-import { cloudinaryUrl, primaryMedia, lowestPrice } from '@/lib/api/catalog';
+import { mediaImageUrl, primaryMedia, lowestPrice } from '@/lib/api/catalog';
 import PriceDisplay from './PriceDisplay';
 
 interface CatalogProductCardProps {
@@ -23,9 +23,7 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
   const media = primaryMedia(product);
   const price = lowestPrice(product);
 
-  const imgSrc = media
-    ? cloudinaryUrl(media.cloudinaryPublicId, { w: 600, h: 750 })
-    : null;
+  const imgSrc = media ? mediaImageUrl(media, { w: 600, h: 750 }) : null;
 
   const imgAlt = media?.altText ?? product.name;
 

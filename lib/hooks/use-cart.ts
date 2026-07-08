@@ -13,6 +13,7 @@ export interface CartItemDto {
   sizeMl?: number;
   bottleType?: string;
   cloudinaryPublicId?: string;
+  imageUrl?: string;
   altText?: string;
 }
 

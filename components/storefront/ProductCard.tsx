@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import type { ApiProduct } from '@/lib/api/catalog';
-import { primaryMedia, cloudinaryUrl, lowestPrice } from '@/lib/api/catalog';
+import { primaryMedia, mediaImageUrl, lowestPrice } from '@/lib/api/catalog';
 import IconButton from '@/components/ui/IconButton';
 import { MR_TX } from '@/lib/motion/presets';
 import { useIsTouch } from '@/lib/hooks/useIsTouch';
@@ -27,7 +27,7 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
 
   const media = React.useMemo(() => primaryMedia(product), [product]);
   const imgSrc = React.useMemo(
-    () => (media ? cloudinaryUrl(media.cloudinaryPublicId, { w: 600, h: 750 }) : null),
+    () => (media ? mediaImageUrl(media, { w: 600, h: 750 }) : null),
     [media],
   );
   const price = React.useMemo(() => lowestPrice(product), [product]);

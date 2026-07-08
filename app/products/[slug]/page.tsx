@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { catalog, primaryMedia, cloudinaryUrl } from '@/lib/api/catalog';
+import { catalog, primaryMedia, mediaImageUrl } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
 import { productBySlugQueryOptions } from '@/lib/hooks/queries';
 import ProductPageClient from './ProductPageClient';
@@ -18,9 +18,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const p = await catalog.getProductBySlug(slug);
     const media = primaryMedia(p);
-    const imgUrl = media
-      ? cloudinaryUrl(media.cloudinaryPublicId, { w: 1200, h: 1200 })
-      : undefined;
+    const imgUrl = media ? mediaImageUrl(media, { w: 1200, h: 1200 }) ?? undefined : undefined;
     return {
       title: `${p.name} — ${p.brand}`,
       description: p.tagline ?? p.description ?? `${p.name} by ${p.brand}`,

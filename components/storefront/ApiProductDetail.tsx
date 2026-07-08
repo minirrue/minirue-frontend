@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import type { ApiProduct, ProductVariant } from '@/lib/api/catalog';
-import { primaryMedia, cloudinaryUrl, lowestPrice } from '@/lib/api/catalog';
+import { primaryMedia, mediaImageUrl, lowestPrice } from '@/lib/api/catalog';
 import VariantPicker from './VariantPicker';
 import PriceDisplay from './PriceDisplay';
 import Icon from '@/components/ui/Icon';
@@ -37,9 +37,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
   const ctaX = useCrossfade(priceLabel);
 
   const media = primaryMedia(product);
-  const imgSrc = media
-    ? cloudinaryUrl(media.cloudinaryPublicId, { w: 1200, h: 1500 })
-    : null;
+  const imgSrc = media ? mediaImageUrl(media, { w: 1200, h: 1500 }) : null;
   const imgAlt = media?.altText ?? product.name;
 
   const handleAdd = () => {

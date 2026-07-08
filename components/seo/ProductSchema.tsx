@@ -1,6 +1,6 @@
 import { JsonLd } from "./JsonLd";
 import type { ApiProduct } from "@/lib/api/catalog";
-import { primaryMedia, cloudinaryUrl, lowestPrice } from "@/lib/api/catalog";
+import { primaryMedia, mediaImageUrl, lowestPrice } from "@/lib/api/catalog";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -14,7 +14,7 @@ export default function ProductSchema({ slug, apiProductJson }: ProductSchemaPro
   const p = JSON.parse(apiProductJson) as ApiProduct;
   const media = primaryMedia(p);
   const price = lowestPrice(p);
-  const imgUrl = media ? cloudinaryUrl(media.cloudinaryPublicId, { w: 800, h: 1000 }) : undefined;
+  const imgUrl = media ? mediaImageUrl(media, { w: 800, h: 1000 }) ?? undefined : undefined;
 
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",

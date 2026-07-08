@@ -13,6 +13,10 @@ export interface VariantEnrichment {
   sizeMl?: number;
   bottleType?: string;
   cloudinaryPublicId?: string;
+  // Gallery-linked media's already-resolved URL (see MediaAsset.url in
+  // lib/api/catalog.ts) — takes priority over cloudinaryPublicId when
+  // building the cart line item's image (see CartItemRow.tsx).
+  imageUrl?: string;
   altText?: string;
 }
 
