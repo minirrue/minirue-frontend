@@ -4,8 +4,6 @@
  * Uses plain fetch (not apiFetch) — catalog is public, no auth required.
  */
 
-import { unstable_cacheLife as cacheLife } from 'next/cache';
-
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1/catalog';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -158,15 +156,8 @@ async function catalogFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export const catalog = {
-  /**
-   * GET /v1/catalog/products — list with optional filters
-   * Cached (Cache Components / `cacheComponents`) so navigation between
-   * listing routes hits the pre-warmed cache instead of falling back to
-   * `loading.tsx` on every request — see `products` profile in next.config.ts.
-   */
+  /** GET /v1/catalog/products — list with optional filters */
   async listProducts(filters: ProductListFilters = {}): Promise<PaginatedProducts> {
-    'use cache';
-    cacheLife('products');
     const params = new URLSearchParams();
     if (filters.gender) params.set('gender', filters.gender);
     if (filters.brand) params.set('brand', filters.brand);
@@ -181,15 +172,11 @@ export const catalog = {
 
   /** GET /v1/catalog/products/:id */
   async getProductById(id: string): Promise<ApiProduct> {
-    'use cache';
-    cacheLife('productDetail');
     return catalogFetch<ApiProduct>(`/products/${id}`);
   },
 
   /** GET /v1/catalog/products/slug/:slug */
   async getProductBySlug(slug: string): Promise<ApiProduct> {
-    'use cache';
-    cacheLife('productDetail');
     return catalogFetch<ApiProduct>(`/products/slug/${slug}`);
   },
 
@@ -203,8 +190,6 @@ export const catalog = {
 
   /** GET /v1/catalog/categories */
   async listCategories(): Promise<Category[]> {
-    'use cache';
-    cacheLife('categories');
     const res = await catalogFetch<{ data: Category[] }>('/categories');
     return res.data;
   },

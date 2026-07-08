@@ -1,5 +1,3 @@
-import { unstable_cacheLife as cacheLife } from 'next/cache';
-
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
 
 export interface HeroSlideConfig {
@@ -32,14 +30,7 @@ export interface PublicSettings {
   storefront: StorefrontPublicSettings;
 }
 
-/**
- * Rendered on every storefront page (FooterWithSettings, AnnouncementBar
- * config, etc.) — must be cached under Cache Components so it doesn't force
- * every route to be dynamic and re-trigger `loading.tsx` on each navigation.
- */
 export async function apiGetPublicSettings(): Promise<PublicSettings> {
-  'use cache';
-  cacheLife('settings');
   const res = await fetch(`${BASE}/settings/public`);
   if (!res.ok) {
     throw new Error('Failed to load store settings');
