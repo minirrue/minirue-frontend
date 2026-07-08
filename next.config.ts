@@ -39,6 +39,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "source.unsplash.com" },
       { protocol: "https", hostname: "fastly.picsum.photos" },
       { protocol: "https", hostname: "res.cloudinary.com" },
+      { protocol: "https", hostname: "img.minirueshop.com" },
+      { protocol: "https", hostname: "storage.minirueshop.com" },
     ],
   },
 };
