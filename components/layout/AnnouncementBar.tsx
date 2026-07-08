@@ -19,66 +19,20 @@ const FALLBACK_MESSAGES = [
 const DEFAULT_BACKGROUND =
   'linear-gradient(90deg, var(--mr-gold-500) 0%, var(--mr-gold-400) 30%, var(--mr-crimson-700) 70%, var(--mr-gold-500) 100%)';
 
-// PATCH announcement-bar-collapse-on-first-scroll (back-nav preservation)
-// sessionStorage key used to persist the bar's `hidden` state across
-// client-side navigations and the browser back button. The value is
-// written by the `setHidden` wrapper below and read in the re-hydration
-// useEffect on mount. Cleared (key removed) on full page refresh by the
-// browser itself, so the bar reappears on F5 / Cmd-R / pull-to-refresh.
-const HIDDEN_STORAGE_KEY = 'announcement-bar:hidden';
-
 export default function AnnouncementBar({
   messages = FALLBACK_MESSAGES,
   enabled = true,
   linkUrl = null,
   background = null,
 }: AnnouncementBarProps) {
-  const [hidden, setHiddenRaw] = React.useState(false);
-
-  // PATCH announcement-bar-collapse-on-first-scroll (back-nav preservation)
-  // Re-hydrate the `hidden` state from sessionStorage on mount so that the
-  // collapse survives client-side navigation and the browser back button.
-  // sessionStorage is per-tab — the design intent (see the K3 walkthrough
-  // in plans/announcement-bar-collapse-on-first-scroll/README.md) is that
-  // it is cleared on a full page refresh, so the bar reappears on F5 while
-  // staying collapsed across forward/back navigation within the same tab.
-  // The first render deliberately uses `hidden=false` so that the SSR
-  // HTML and the first client render match (no hydration mismatch); the
-  // sessionStorage read happens in an effect and may cause a one-frame
-  // flash of the visible bar on back-nav. That flash is acceptable
-  // because reading sessionStorage in a lazy initializer would produce
-  // a hydration mismatch.
-  React.useEffect(() => {
-    if (
-      typeof window !== 'undefined' &&
-      typeof sessionStorage !== 'undefined' &&
-      sessionStorage.getItem(HIDDEN_STORAGE_KEY) === 'true'
-    ) {
-      setHiddenRaw(true);
-    }
-  }, []);
-
-  // Stable setter wrapper that mirrors every state change to sessionStorage
-  // so that the existing first-scroll handler (which only knows the
-  // `setHidden` name) also persists the collapse. Signature matches the
-  // React state-setter shape so existing call sites (`setHidden(true)`)
-  // keep working unchanged.
-  const setHidden = React.useCallback((value: boolean): void => {
-    setHiddenRaw(value);
-    if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
-      try {
-        if (value) {
-          sessionStorage.setItem(HIDDEN_STORAGE_KEY, 'true');
-        } else {
-          sessionStorage.removeItem(HIDDEN_STORAGE_KEY);
-        }
-      } catch {
-        // sessionStorage can throw in private-mode Safari or when the
-        // quota is exhausted. The in-memory state still works for the
-        // current page; persistence is best-effort.
-      }
-    }
-  }, []);
+  // Plain in-memory state, deliberately not persisted anywhere — every full
+  // page load (refresh, new tab) starts clean/visible, and the first-scroll
+  // gesture within that page view collapses it as before. A prior version
+  // persisted this to sessionStorage on the theory that sessionStorage
+  // clears on refresh; it does not (only on tab close), so once a visitor
+  // scrolled once, the bar stayed collapsed on every subsequent refresh
+  // instead of resetting.
+  const [hidden, setHidden] = React.useState(false);
 
   // Phase 5 — Responsive sizing: scale down on mobile and small screens
   const bp = useBreakpoint();
