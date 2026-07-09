@@ -1,0 +1,199 @@
+[
+  {
+    "id": "US-SHOPPER-ACCT-001",
+    "routes": [
+      "minirue-frontend PAGE /account",
+      "minirue-frontend PAGE /account/profile"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-ACCT-002",
+    "routes": [
+      "minirue-frontend PAGE /account/addresses"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-ACCT-003",
+    "routes": [
+      "minirue-frontend PAGE /account/orders"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-BRAND-001",
+    "routes": [
+      "minirue-frontend PAGE /brands/:param"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-BRAND-002",
+    "routes": [
+      "minirue-frontend PAGE /"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-CART-001",
+    "routes": [
+      "minirue-frontend PAGE /cart"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-CART-004",
+    "routes": [
+      "minirue-frontend PAGE /checkout",
+      "minirue-frontend PAGE /checkout/payment",
+      "minirue-frontend PAGE /checkout/instapay",
+      "minirue-frontend PAGE /checkout/confirmation"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-CAT-001",
+    "routes": [
+      "minirue-frontend PAGE /products"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-CAT-003",
+    "routes": [
+      "minirue-frontend PAGE /products/:param"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-CAT-014",
+    "routes": [
+      "minirue-frontend PAGE /search"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-CAT-015",
+    "routes": [
+      "minirue-frontend PAGE /categories/:param"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-IAM-001",
+    "routes": [
+      "minirue-frontend PAGE /signup"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-IAM-002",
+    "routes": [
+      "minirue-frontend PAGE /login"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-IAM-005",
+    "routes": [
+      "minirue-frontend PAGE /forgot",
+      "minirue-frontend PAGE /reset-password"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-LOY-001",
+    "routes": [
+      "minirue-frontend PAGE /account/loyalty"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "draft"
+  },
+  {
+    "id": "US-SHOPPER-NOT-001",
+    "routes": [
+      "minirue-frontend PAGE /account/notifications"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "draft"
+  },
+  {
+    "id": "US-SHOPPER-OPS-005",
+    "routes": [
+      "minirue-frontend PAGE /account/orders/:param/refund"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-ORD-001",
+    "routes": [
+      "minirue-frontend PAGE /account/orders"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "US-SHOPPER-ORD-002",
+    "routes": [
+      "minirue-frontend PAGE /orders/:param/track",
+      "minirue-frontend PAGE /orders/:param/confirmation",
+      "minirue-frontend PAGE /account/orders/:param"
+    ],
+    "surfaces": [
+      "minirue-frontend"
+    ],
+    "status": "active"
+  }
+]
