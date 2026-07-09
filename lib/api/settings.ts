@@ -31,7 +31,11 @@ export interface PublicSettings {
 }
 
 export async function apiGetPublicSettings(): Promise<PublicSettings> {
-  const res = await fetch(`${BASE}/settings/public`);
+  // 60s revalidate (Next.js Data Cache) — plain fetch option, safe from both
+  // Server and Client Components, unlike the 'use cache' directive.
+  const res = await fetch(`${BASE}/settings/public`, {
+    next: { revalidate: 60 },
+  } as RequestInit);
   if (!res.ok) {
     throw new Error('Failed to load store settings');
   }

@@ -129,7 +129,10 @@ export function lowestPrice(product: ApiProduct): { amount: string; currency: st
 
 // ── Fetch helpers ────────────────────────────────────────────────────────────
 
-async function catalogFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function catalogFetch<T>(
+  path: string,
+  init?: RequestInit & { next?: { revalidate?: number | false } },
+): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
@@ -167,17 +170,24 @@ export const catalog = {
     if (filters.cursor) params.set('cursor', filters.cursor);
     if (filters.limit != null) params.set('limit', String(filters.limit));
     const qs = params.toString();
-    return catalogFetch<PaginatedProducts>(`/products${qs ? `?${qs}` : ''}`);
+    // 60s revalidate — real Next.js Data Cache (ISR), not the Cache Components
+    // 'use cache' directive: a plain fetch() option is safe to import from
+    // both Server and Client Components (browser fetch just ignores the
+    // extra `next` key), unlike 'use cache' which Turbopack forbids in any
+    // file also reachable from a Client Component (see 2026-07-08 revert).
+    return catalogFetch<PaginatedProducts>(`/products${qs ? `?${qs}` : ''}`, {
+      next: { revalidate: 60 },
+    });
   },
 
   /** GET /v1/catalog/products/:id */
   async getProductById(id: string): Promise<ApiProduct> {
-    return catalogFetch<ApiProduct>(`/products/${id}`);
+    return catalogFetch<ApiProduct>(`/products/${id}`, { next: { revalidate: 60 } });
   },
 
   /** GET /v1/catalog/products/slug/:slug */
   async getProductBySlug(slug: string): Promise<ApiProduct> {
-    return catalogFetch<ApiProduct>(`/products/slug/${slug}`);
+    return catalogFetch<ApiProduct>(`/products/slug/${slug}`, { next: { revalidate: 60 } });
   },
 
   /** GET /v1/catalog/search?q= */
@@ -185,12 +195,16 @@ export const catalog = {
     // Search is deliberately uncached — results must always be fresh
     const params = new URLSearchParams({ q });
     if (cursor) params.set('cursor', cursor);
-    return catalogFetch<PaginatedProducts>(`/search?${params.toString()}`);
+    return catalogFetch<PaginatedProducts>(`/search?${params.toString()}`, {
+      cache: 'no-store',
+    });
   },
 
   /** GET /v1/catalog/categories */
   async listCategories(): Promise<Category[]> {
-    const res = await catalogFetch<{ data: Category[] }>('/categories');
+    const res = await catalogFetch<{ data: Category[] }>('/categories', {
+      next: { revalidate: 300 },
+    });
     return res.data;
   },
 };
