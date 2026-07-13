@@ -7,6 +7,7 @@ export interface PublicCollaboratorBrand {
   description: string | null;
   storefrontHomeFeature?: boolean;
   storefrontNavLink?: boolean;
+  storefrontVisible?: boolean;
 }
 
 export interface CollaboratorBrandSection extends PublicCollaboratorBrand {
@@ -15,7 +16,7 @@ export interface CollaboratorBrandSection extends PublicCollaboratorBrand {
 
 export async function apiListPublicBrands(): Promise<PublicCollaboratorBrand[]> {
   const res = await fetch(`${BASE}/collab/brands`, {
-    next: { revalidate: 60 },
+    next: { revalidate: 15 },
   } as RequestInit);
   if (!res.ok) {
     throw new Error('Failed to load collaborator brands');

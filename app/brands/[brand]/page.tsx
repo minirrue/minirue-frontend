@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   let title = slug;
   try {
     const brands = await apiListPublicBrands();
-    const match = brands.find((b) => b.brandSlug === slug || b.brandName === slug);
+    const match = brands.find((b) => b.brandSlug === slug);
     if (match) title = match.brandName;
   } catch {
     /* use slug */
@@ -56,7 +56,7 @@ export default async function BrandPage({ params }: PageProps) {
 
   try {
     const brands = await apiListPublicBrands();
-    const match = brands.find((b) => b.brandSlug === slug || b.brandName === slug);
+    const match = brands.find((b) => b.brandSlug === slug);
     if (match) {
       brandName = match.brandName;
       description = match.description;
@@ -89,14 +89,14 @@ export default async function BrandPage({ params }: PageProps) {
   }
 
   // Non‑blocking prefetch — brand products can stream
-  void queryClient.prefetchQuery(productsQueryOptions({ brand: brandName, limit: 24 }));
+  void queryClient.prefetchQuery(productsQueryOptions({ brand: slug, limit: 24 }));
 
   let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
   let initialHasMore = false;
   let initialCursor: string | null = null;
 
   try {
-    const res = await catalog.listProducts({ brand: brandName, limit: 24 });
+    const res = await catalog.listProducts({ brand: slug, limit: 24 });
     initialProducts = res.data;
     initialHasMore = res.meta.hasMore;
     initialCursor = res.meta.cursor;

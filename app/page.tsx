@@ -26,7 +26,7 @@ export default async function HomePage() {
     brandSections = await Promise.all(
       featured.map(async (brand) => {
         try {
-          const res = await catalog.listProducts({ brand: brand.brandName, limit: 4 });
+          const res = await catalog.listProducts({ brand: brand.brandSlug, limit: 4 });
           return { ...brand, products: res.data };
         } catch {
           return { ...brand, products: [] };
