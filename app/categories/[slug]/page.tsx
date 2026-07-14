@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
 import type { Category } from '@/lib/api/catalog';
@@ -62,22 +63,34 @@ export default async function CategoryPage({ params }: PageProps) {
 
   const queryClient = getQueryClient();
 
-  // Categories are small — await so tree is ready for hydration
+  // Categories are small — await so we can resolve the slug to a real id.
   await queryClient.prefetchQuery(categoriesQueryOptions());
-  // Products can stream — non‑blocking prefetch
-  void queryClient.prefetchQuery(productsQueryOptions({ categoryId: slug, limit: 24 }));
 
-  let category: Category | null = null;
+  let categories: Category[] = [];
+  try {
+    categories = await catalog.listCategories();
+  } catch {
+    // API unavailable — graceful degradation
+  }
+
+  const category = findCategory(categories, slug);
+  if (!category) {
+    notFound();
+  }
+
+  // The list endpoint filters by category UUID, not slug — resolve it first.
+  void queryClient.prefetchQuery(
+    productsQueryOptions({ categoryId: category.id, limit: 24 }),
+  );
+
   let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
   let initialHasMore = false;
   let initialCursor: string | null = null;
 
   try {
-    const [categories, productsRes] = await Promise.all([
-      catalog.listCategories(),
-      catalog.listProducts({ categoryId: slug, limit: 24 }).catch(() => null),
-    ]);
-    category = findCategory(categories, slug);
+    const productsRes = await catalog
+      .listProducts({ categoryId: category.id, limit: 24 })
+      .catch(() => null);
     if (productsRes) {
       initialProducts = productsRes.data;
       initialHasMore = productsRes.meta.hasMore;
@@ -87,7 +100,7 @@ export default async function CategoryPage({ params }: PageProps) {
     // API unavailable — graceful degradation
   }
 
-  const displayName = category?.name ?? slug;
+  const displayName = category.name;
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -162,7 +175,7 @@ export default async function CategoryPage({ params }: PageProps) {
           </div>
 
           <CategoryClient
-            categoryId={category?.id ?? slug}
+            categoryId={category.id}
             initialProducts={initialProducts}
             initialHasMore={initialHasMore}
             initialCursor={initialCursor}
