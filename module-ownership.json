@@ -1,0 +1,12 @@
+[
+  { "module": "identity-access", "paths": ["app/(auth)/**", "components/auth/**"] },
+  { "module": "customer-accounts", "paths": ["app/account/**"] },
+  { "module": "loyalty", "paths": ["app/account/loyalty/**"] },
+  { "module": "notifications", "paths": ["app/account/notifications/**"] },
+  { "module": "orders", "paths": ["app/orders/**", "app/account/orders/**", "app/checkout/confirmation/**"] },
+  { "module": "cart-checkout", "paths": ["app/cart/**", "app/checkout/**", "components/checkout/**"] },
+  { "module": "payments", "paths": ["app/checkout/payment/**", "app/checkout/instapay/**"] },
+  { "module": "catalog", "paths": ["app/categories/**", "app/products/**", "app/search/**", "components/storefront/**"] },
+  { "module": "brand-presence", "paths": ["app/brands/**"] },
+  { "module": "customer-support", "paths": ["components/chat/**"] }
+]
