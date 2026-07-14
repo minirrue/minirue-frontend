@@ -211,7 +211,18 @@ export default function Footer({ tagline }: { tagline?: string | null }) {
             color: 'var(--mr-ink-400)',
           }}
         >
-          <span>© MMXXVI MiniRue Maison · Paris · Grasse</span>
+          {/*
+            The spaced "Mini Rue" is deliberate and load-bearing, not a typo. Google's own guidance
+            is "make sure your site includes the words people would type." Users search "mini rue
+            shop" / "mini rue store", but the spaced form previously appeared NOWHERE in visible
+            copy — only in <title> and JSON-LD. Structured data alone does not fully substitute for
+            the words existing as readable text on the page. One natural mention in the footer, on
+            every page, is the honest way to close that gap.
+          */}
+          <span>
+            © MMXXVI MiniRue Maison · Paris · Grasse — MiniRue is also known as Mini Rue, the
+            Mini Rue Shop.
+          </span>
           <span>Worldwide shipping · Duty-paid to 62 countries</span>
         </div>
       </div>
