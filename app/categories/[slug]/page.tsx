@@ -5,7 +5,7 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
 import type { Category } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
-import { productsQueryOptions, categoriesQueryOptions } from '@/lib/hooks/queries';
+import { categoriesQueryOptions } from '@/lib/hooks/queries';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
@@ -77,12 +77,6 @@ export default async function CategoryPage({ params }: PageProps) {
   if (!category) {
     notFound();
   }
-
-  // Resolution per UI_UX/catalog/page-tree.md: the backend has no ?category=:slug
-  // param, so resolve slug → id via the categories tree (frontend-level), then filter.
-  void queryClient.prefetchQuery(
-    productsQueryOptions({ categoryId: category.id, limit: 24 }),
-  );
 
   let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
   let initialHasMore = false;

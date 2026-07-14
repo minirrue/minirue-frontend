@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
-import { searchProductsQueryOptions } from '@/lib/hooks/queries';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
@@ -40,9 +39,6 @@ export default async function SearchPage({ searchParams }: PageProps) {
   let initialTotal = 0;
 
   if (query.trim()) {
-    // Streaming prefetch for search results
-    void queryClient.prefetchQuery(searchProductsQueryOptions(query.trim()));
-
     try {
       const res = await catalog.search(query.trim());
       initialProducts = res.data;

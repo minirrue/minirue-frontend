@@ -8,7 +8,6 @@ import {
   apiCheckCollaboratorBrandExists,
 } from '@/lib/api/collaborators';
 import { getQueryClient } from '@/lib/hooks/query-client';
-import { productsQueryOptions } from '@/lib/hooks/queries';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
@@ -87,9 +86,6 @@ export default async function BrandPage({ params }: PageProps) {
   } catch {
     /* defaults in AnnouncementBar */
   }
-
-  // Non‑blocking prefetch — brand products can stream
-  void queryClient.prefetchQuery(productsQueryOptions({ brand: slug, limit: 24 }));
 
   let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
   let initialHasMore = false;
