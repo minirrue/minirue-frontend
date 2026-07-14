@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import SplashScreen from '@/components/storefront/SplashScreen';
 import HomeView from '@/components/storefront/HomeView';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
@@ -22,7 +21,6 @@ interface Props {
 
 export default function HomePageClient({ products, publicSettings, brandSections = [] }: Props) {
   const router = useRouter();
-  const [showSplash, setShowSplash] = React.useState(true);
   const [chatOpen, setChatOpen] = React.useState(false);
   const { itemCount, openDrawer } = useCart();
 
@@ -37,10 +35,6 @@ export default function HomePageClient({ products, publicSettings, brandSections
 
   return (
     <>
-      {showSplash && (
-        <SplashScreen onComplete={() => setShowSplash(false)} />
-      )}
-
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={storefront?.announcementMessages}
