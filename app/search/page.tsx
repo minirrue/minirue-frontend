@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
-import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
+import HeaderWrapper from '@/app/products/HeaderWrapper';
 import SearchResultsClient from './SearchResultsClient';
 
 interface PageProps {
@@ -54,7 +54,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
     <HydrationBoundary state={dehydrate(queryClient)}>
       <div className="mr-page-sheet">
         <AnnouncementBar />
-        <Header onOpenCart={() => {}} cartCount={0} transparent={false} />
+        <HeaderWrapper />
 
         <main
           style={{

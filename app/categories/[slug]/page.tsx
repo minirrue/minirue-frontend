@@ -6,10 +6,10 @@ import { catalog } from '@/lib/api/catalog';
 import type { Category } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
 import { categoriesQueryOptions } from '@/lib/hooks/queries';
-import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import HeaderWrapper from '@/app/products/HeaderWrapper';
 import CategoryClient from './CategoryClient';
 
 interface PageProps {
@@ -102,7 +102,7 @@ export default async function CategoryPage({ params }: PageProps) {
       <BreadcrumbSchema productName={displayName} productSlug={`categories/${slug}`} />
       <div className="mr-page-sheet">
         <AnnouncementBar />
-        <Header onOpenCart={() => {}} cartCount={0} transparent={false} />
+        <HeaderWrapper />
 
         <main
           style={{
