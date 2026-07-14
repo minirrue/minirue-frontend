@@ -14,8 +14,10 @@ const ALTERNATE_NAMES = [
   "Mini Rue",
   "Mini Rue Shop",
   "MiniRue Shop",
-  "MiniRue Perfumes",
+  "Mini Rue Store",
+  "MiniRue Store",
   "Mini Rue Perfumes",
+  "MiniRue Perfumes",
   "minirueshop",
   "minirue",
 ];

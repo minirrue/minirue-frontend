@@ -66,6 +66,8 @@ export async function generateMetadata(): Promise<Metadata> {
       "Mini Rue",
       "Mini Rue Shop",
       "MiniRue Shop",
+      "Mini Rue Store",
+      "MiniRue Store",
       "minirueshop",
       "perfume",
       "cosmetics",
@@ -73,6 +75,16 @@ export async function generateMetadata(): Promise<Metadata> {
       "niche perfume",
       "oud",
     ],
+    // Search Console / Bing verification. A brand-new domain is not in Google's index AT ALL until
+    // it is verified and submitted — that, not metadata, is the gate on a brand name appearing in
+    // search. Set these as env vars (Vercel → Settings → Environment Variables) and redeploy; no
+    // code change needed. Google: Search Console → Add property → HTML tag → copy the content value.
+    verification: {
+      google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+      other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+        ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+        : undefined,
+    },
     referrer: "origin-when-cross-origin",
     creator: "MiniRue",
     publisher: "MiniRue",
