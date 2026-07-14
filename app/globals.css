@@ -8,10 +8,17 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--mr-ink-900); /* ink behind everything — no white peek ever */
+  /* Must match .mr-page-sheet's background. The sheet unmounts/remounts across a route
+     change, and whatever the body is shows through in that gap — an ink body here is what
+     produced the sub-second black flash between pages. The footer paints its own ink
+     background, so nothing depends on this being dark. */
+  background: var(--mr-cream-200);
 }
 html {
   scroll-behavior: auto; /* Lenis handles smooth scroll; native smooth interferes */
+  /* Light-only design. Without this, a dark-mode OS makes the browser paint a dark canvas
+     before our CSS applies — the other half of the black flash between pages. */
+  color-scheme: light;
 }
 
 @keyframes mr-skeleton-pulse {

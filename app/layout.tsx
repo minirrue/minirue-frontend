@@ -39,10 +39,9 @@ const interTight = Inter_Tight({
 });
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
+  // Light-only storefront. A dark themeColor variant made the browser chrome (and, on a
+  // dark-mode OS, the pre-paint canvas) go near-black between pages — see globals.css.
+  themeColor: "#F6F2E9", // --mr-cream-200, matches body + .mr-page-sheet
 };
 
 export async function generateMetadata(): Promise<Metadata> {
