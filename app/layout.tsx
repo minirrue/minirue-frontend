@@ -48,20 +48,30 @@ export async function generateMetadata(): Promise<Metadata> {
   const metadata: Metadata = {
     metadataBase: new URL(BASE_URL),
     title: {
-      default: "MiniRue — Original Quality Perfumes",
-      template: "%s | MiniRue",
+      // The spaced alias is deliberate: users search "mini rue shop" and the site never surfaced,
+      // because no on-page text or entity ever spelled the brand with a space. The title is the
+      // strongest on-page signal, so it carries the exact queried phrase once, naturally.
+      default: "MiniRue — Original Quality Perfumes | Mini Rue Shop",
+      template: "%s | MiniRue (Mini Rue)",
     },
     description:
-      "Discover MiniRue — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
+      "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
     applicationName: "MiniRue",
     authors: [{ name: "MiniRue" }],
+    // NOTE: Google has ignored <meta keywords> since 2009 — these are here for the non-Google
+    // engines that still read them (Bing/Yandex weight them lightly). The real brand-alias signal
+    // is `alternateName` in the Organization/WebSite JSON-LD (see components/seo/OrganizationSchema).
     keywords: [
+      "MiniRue",
+      "Mini Rue",
+      "Mini Rue Shop",
+      "MiniRue Shop",
+      "minirueshop",
       "perfume",
       "cosmetics",
       "fragrance",
       "niche perfume",
       "oud",
-      "MiniRue",
     ],
     referrer: "origin-when-cross-origin",
     creator: "MiniRue",
@@ -77,9 +87,9 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       locale: "en_US",
       siteName: "MiniRue",
-      title: "MiniRue — Original Quality Perfumes",
+      title: "MiniRue — Original Quality Perfumes | Mini Rue Shop",
       description:
-        "Discover MiniRue — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
+        "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
       url: BASE_URL,
       images: [
         {
@@ -92,9 +102,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: "MiniRue — Original Quality Perfumes",
+      title: "MiniRue — Original Quality Perfumes | Mini Rue Shop",
       description:
-        "Discover MiniRue — original quality perfumes and cosmetics.",
+        "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics.",
       images: [`${BASE_URL}/og-image.jpg`],
     },
     icons: {
