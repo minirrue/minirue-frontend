@@ -78,7 +78,8 @@ export default async function CategoryPage({ params }: PageProps) {
     notFound();
   }
 
-  // The list endpoint filters by category UUID, not slug — resolve it first.
+  // Resolution per UI_UX/catalog/page-tree.md: the backend has no ?category=:slug
+  // param, so resolve slug → id via the categories tree (frontend-level), then filter.
   void queryClient.prefetchQuery(
     productsQueryOptions({ categoryId: category.id, limit: 24 }),
   );
