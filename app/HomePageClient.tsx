@@ -35,6 +35,16 @@ export default function HomePageClient() {
     router.push(`/products/${product.slug}`);
   };
 
+  // The header's light/transparent treatment only reads correctly on top of
+  // a dark hero image. SectionRenderer drops a hero with no slides, so a
+  // leading "hero" section with an empty slide list renders nothing — the
+  // header would then float over the plain cream page with no dark backdrop.
+  // Mirror that skip logic here so we only ask for transparency when a hero
+  // will actually paint behind the header.
+  const firstSection = home.sections[0];
+  const heroLeadsPage =
+    firstSection?.type === 'hero' && firstSection.slides.length > 0;
+
   return (
     <>
       <div className="mr-page-sheet">
@@ -44,7 +54,12 @@ export default function HomePageClient() {
           linkUrl={chrome.announcement.linkUrl}
           background={chrome.announcement.background}
         />
-        <Header navbar={chrome.navbar} onOpenCart={openDrawer} cartCount={itemCount} transparent />
+        <Header
+          navbar={chrome.navbar}
+          onOpenCart={openDrawer}
+          cartCount={itemCount}
+          transparent={heroLeadsPage}
+        />
         <HomeView home={home} onSelect={goToProduct} />
       </div>
 
