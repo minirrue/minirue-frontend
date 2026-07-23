@@ -48,6 +48,7 @@ export interface ShippingAddressSnapshot {
 export interface Order {
   id: string;
   orderNumber: string;
+  orderSeq: number;
   userId: string;
   status: OrderStatus;
   subtotalAmount: string;
@@ -70,10 +71,15 @@ export interface OrdersResponse {
   limit: number;
 }
 
-export async function apiGetOrders(params?: { page?: number; limit?: number }): Promise<OrdersResponse> {
+export async function apiGetOrders(params?: {
+  page?: number;
+  limit?: number;
+  q?: string;
+}): Promise<OrdersResponse> {
   const qs = new URLSearchParams();
   if (params?.page != null) qs.set('page', String(params.page));
   if (params?.limit != null) qs.set('limit', String(params.limit));
+  if (params?.q) qs.set('q', params.q);
   const query = qs.toString() ? `?${qs.toString()}` : '';
   return apiFetch<OrdersResponse>(`/orders${query}`, { auth: true });
 }

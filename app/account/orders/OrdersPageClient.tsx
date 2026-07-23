@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useClientQuery } from '@/lib/hooks/use-client-query';
 import { apiGetOrders, type Order, type OrderStatus } from '@/lib/api/orders';
+import { formatOrderRef } from '@/lib/orders/order-format';
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: 'Pending',
@@ -75,7 +76,10 @@ function OrderRow({ order }: { order: Order }) {
           fontWeight: 500,
         }}
       >
-        {order.orderNumber}
+        {formatOrderRef(order)}
+        <span style={{ display: 'block', fontSize: 'var(--mr-text-xs)', color: 'var(--mr-fg-4)', fontWeight: 400 }}>
+          {order.orderNumber}
+        </span>
       </span>
       <span style={{ fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
         {new Date(order.createdAt).toLocaleDateString('en-GB', {
@@ -101,9 +105,17 @@ function OrderRow({ order }: { order: Order }) {
 }
 
 export default function OrdersPageClient() {
+  const [search, setSearch] = useState('');
+  const [debounced, setDebounced] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data, isLoading, isError, refetch } = useClientQuery({
-    queryKey: ['account', 'orders'],
-    queryFn: () => apiGetOrders({ limit: 20 }),
+    queryKey: ['account', 'orders', debounced],
+    queryFn: () => apiGetOrders({ limit: 20, q: debounced || undefined }),
   });
   const orders = data?.data ?? [];
 
@@ -120,6 +132,26 @@ export default function OrdersPageClient() {
       >
         Order History
       </h1>
+
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by order number, e.g. 47"
+        aria-label="Search your orders by order number"
+        style={{
+          width: '100%',
+          maxWidth: 320,
+          margin: '0 0 24px',
+          padding: '10px 12px',
+          border: '1px solid var(--mr-border)',
+          borderRadius: 'var(--mr-radius-sm)',
+          background: 'transparent',
+          color: 'var(--mr-fg)',
+          fontSize: 'var(--mr-text-sm)',
+          fontFamily: 'var(--mr-font-ui)',
+        }}
+      />
 
       {isLoading && (
         <p style={{ color: 'var(--mr-fg-4)', fontSize: 'var(--mr-text-sm)' }}>Loading orders…</p>
@@ -149,7 +181,9 @@ export default function OrdersPageClient() {
       )}
 
       {!isLoading && !isError && orders.length === 0 && (
-        <p style={{ color: 'var(--mr-fg-4)', fontSize: 'var(--mr-text-sm)' }}>No orders yet.</p>
+        <p style={{ color: 'var(--mr-fg-4)', fontSize: 'var(--mr-text-sm)' }}>
+          {debounced ? `No order matches "${debounced}".` : 'No orders yet.'}
+        </p>
       )}
 
       {orders.length > 0 && (
