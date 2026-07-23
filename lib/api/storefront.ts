@@ -160,8 +160,7 @@ export interface ResolvedChrome {
   announcement: AnnouncementConfig;
   faviconUrl: string | null;
   navbar: {
-    desktop: ResolvedNavItem[];
-    mobile: ResolvedNavItem[];
+    items: ResolvedNavItem[];
     showSearch: boolean;
     showAccount: boolean;
   };
@@ -176,7 +175,7 @@ export interface ResolvedChrome {
 export const FALLBACK_CHROME: ResolvedChrome = {
   announcement: { enabled: false, messages: [], linkUrl: null, background: null },
   faviconUrl: null,
-  navbar: { desktop: [], mobile: [], showSearch: true, showAccount: true },
+  navbar: { items: [], showSearch: true, showAccount: true },
   footer: {
     tagline: null,
     newsletterEnabled: false,

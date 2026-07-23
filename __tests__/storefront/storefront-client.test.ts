@@ -64,8 +64,7 @@ describe('fetchStorefrontChrome', () => {
 
 describe('FALLBACK_CHROME', () => {
   it('renders an empty nav rather than inventing links', () => {
-    expect(FALLBACK_CHROME.navbar.desktop).toEqual([]);
-    expect(FALLBACK_CHROME.navbar.mobile).toEqual([]);
+    expect(FALLBACK_CHROME.navbar.items).toEqual([]);
   });
 
   it('has no footer columns', () => {

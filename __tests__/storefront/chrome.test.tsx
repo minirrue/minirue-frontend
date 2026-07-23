@@ -27,7 +27,7 @@ describe('Header', () => {
       <Header
         navbar={{
           ...FALLBACK_CHROME.navbar,
-          desktop: [
+          items: [
             { id: 'n1', label: 'Perfume', href: '/categories/perfume' },
             { id: 'n2', label: 'Atelier X', href: '/brands/atelier-x' },
           ],

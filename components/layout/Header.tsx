@@ -101,7 +101,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 textTransform: 'uppercase',
               }}
             >
-              {navbar.desktop.map(({ id, href, label }) => (
+              {navbar.items.map(({ id, href, label }) => (
                 <a
                   key={id}
                   href={href}
@@ -358,7 +358,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 onClick={() => setMobileOpen(false)}
               />
             </div>
-            {navbar.mobile.map(({ id, href, label }, i) => (
+            {navbar.items.map(({ id, href, label }, i) => (
               <a
                 key={id}
                 href={href}
