@@ -214,3 +214,29 @@ export async function fetchStorefrontHome(): Promise<ResolvedHome> {
 export async function fetchStorefrontChrome(): Promise<ResolvedChrome> {
   return storefrontFetch<ResolvedChrome>('/chrome');
 }
+
+// ── Constant pages (Terms, Privacy, Shipping, Returns, …) ──────────────────
+
+export interface StorefrontPageContent {
+  slug: string;
+  title: string;
+  body: string;
+}
+
+/**
+ * Fetches a single admin-authored constant page by slug. A missing/disabled page is a normal
+ * 404 from the backend, not an error — returns `null` so the caller can render Next's not-found
+ * UI instead of an error boundary. Any other non-OK status still throws.
+ */
+export async function fetchStorefrontPage(slug: string): Promise<StorefrontPageContent | null> {
+  const res = await fetch(`${BASE}/storefront/pages/${encodeURIComponent(slug)}`, {
+    next: { revalidate: 60 },
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to load storefront page "${slug}": ${res.status}`);
+  }
+  return res.json() as Promise<StorefrontPageContent>;
+}

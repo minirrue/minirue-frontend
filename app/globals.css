@@ -43,6 +43,79 @@ html {
 }
 
 /* Fast downward pillar sweep — used by hero scroll cue */
+/* Constant-page article body (Terms, Privacy, Shipping, Returns, …). Centered reading column
+   using the same tokens/fonts as the rest of the shop — must read well on a 320px phone with
+   no horizontal overflow, so long links are allowed to wrap. */
+.mr-markdown {
+  max-width: 720px;
+  margin: 0 auto;
+  font-family: 'Inter Tight', sans-serif;
+  font-size: var(--mr-text-base, 16px);
+  line-height: 1.75;
+  color: var(--mr-fg-2, var(--mr-ink-700));
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.mr-markdown h1,
+.mr-markdown h2,
+.mr-markdown h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 400;
+  color: var(--mr-fg, var(--mr-ink-900));
+  line-height: 1.15;
+  margin: 2em 0 0.6em;
+}
+
+.mr-markdown h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.mr-markdown h2 {
+  font-size: clamp(1.4rem, 3vw, 1.85rem);
+}
+
+.mr-markdown h3 {
+  font-size: 1.25rem;
+}
+
+.mr-markdown h1:first-child,
+.mr-markdown h2:first-child,
+.mr-markdown h3:first-child {
+  margin-top: 0;
+}
+
+.mr-markdown p {
+  margin: 0 0 1.25em;
+}
+
+.mr-markdown ul {
+  margin: 0 0 1.25em;
+  padding-left: 1.4em;
+}
+
+.mr-markdown li {
+  margin-bottom: 0.5em;
+}
+
+.mr-markdown a {
+  color: var(--mr-gold-500, inherit);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.mr-markdown strong {
+  font-weight: 600;
+  color: var(--mr-fg, var(--mr-ink-900));
+}
+
+@media (max-width: 480px) {
+  .mr-markdown {
+    font-size: 15px;
+  }
+}
+
 @keyframes mr-pillar-sweep {
   0% {
     transform: scaleY(0);
