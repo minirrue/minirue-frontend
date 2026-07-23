@@ -2,59 +2,24 @@
 
 import React from 'react';
 import SlideContent from './SlideContent';
-import type { Slide } from './SlideContent';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import type { ResolvedHeroSlide } from '@/lib/api/storefront';
 
 interface HeroProps {
+  slides: ResolvedHeroSlide[];
+  autoplayMs: number;
+  ariaLabel?: string;
+  scrollCueLabel?: string | null;
   onShop?: () => void;
-  slides?: Slide[];
 }
 
-const DEFAULT_SLIDES: Slide[] = [
-  {
-    id: 0,
-    type: 'photo',
-    eyebrow: "New arrivals · S/S '26",
-    headline: 'Not just a scent.',
-    sub: 'A presence.',
-    tagline: 'A presence before you arrive.',
-    bg: '#0B0B0B',
-  },
-  {
-    id: 1,
-    type: 'editorial',
-    eyebrow: 'MiniRue Maison',
-    headline: 'Absolue Rose.',
-    sub: 'Turkish rose,',
-    tagline: 'Opened at dawn. № 01.',
-    bg: 'linear-gradient(135deg, #C9A87C 0%, #B09060 40%, #8C6A3A 100%)',
-    bottle: 'rose', cap: 'gold', tile: 'amber',
-  },
-  {
-    id: 2,
-    type: 'editorial',
-    eyebrow: 'MiniRue Maison',
-    headline: 'Oud Nocturne.',
-    sub: 'Smoked oud,',
-    tagline: 'Warm leather. The last hour of the night.',
-    bg: 'linear-gradient(135deg, #1A1815 0%, #0B0B0B 60%, #2E2A24 100%)',
-    bottle: 'oud', cap: 'gold', tile: 'ink',
-  },
-  {
-    id: 3,
-    type: 'editorial',
-    eyebrow: 'Tom Ford · Exclusive',
-    headline: 'Lost Cherry.',
-    sub: 'Bitter almond,',
-    tagline: 'Black cherry, tonka. − 20%.',
-    bg: 'linear-gradient(135deg, #3B0001 0%, #670003 50%, #1A0000 100%)',
-    bottle: 'crimson', cap: 'cream', tile: 'crimson',
-  },
-];
-
-const DURATION = 6000;
-
-export default function Hero({ onShop, slides = DEFAULT_SLIDES }: HeroProps) {
+export default function Hero({
+  slides,
+  autoplayMs,
+  ariaLabel = 'Featured products carousel',
+  scrollCueLabel,
+  onShop,
+}: HeroProps) {
   const { mobile } = useBreakpoint();
   const [current, setCurrent] = React.useState(0);
   const [prev, setPrev] = React.useState<number | null>(null);
@@ -84,7 +49,7 @@ export default function Hero({ onShop, slides = DEFAULT_SLIDES }: HeroProps) {
     const tick = (now: number) => {
       if (paused) return;
       const elapsed = now - startRef.current;
-      const p = Math.min(1, elapsed / DURATION);
+      const p = Math.min(1, elapsed / autoplayMs);
       progressRef.current = p;
       setProgress(p);
       if (p >= 1) {
@@ -93,10 +58,10 @@ export default function Hero({ onShop, slides = DEFAULT_SLIDES }: HeroProps) {
         timerRef.current = requestAnimationFrame(tick);
       }
     };
-    startRef.current = performance.now() - progressRef.current * DURATION;
+    startRef.current = performance.now() - progressRef.current * autoplayMs;
     timerRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(timerRef.current);
-  }, [current, paused, goTo]);
+  }, [current, paused, goTo, autoplayMs, slides.length]);
 
   // Keyboard navigation
   React.useEffect(() => {
@@ -108,14 +73,14 @@ export default function Hero({ onShop, slides = DEFAULT_SLIDES }: HeroProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [current, goTo]);
+  }, [current, goTo, slides.length]);
 
   const slide = slides[current];
   const prevSlide = prev !== null ? slides[prev] : null;
 
   return (
     <section
-      aria-label="Featured products carousel"
+      aria-label={ariaLabel}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       style={{
@@ -206,53 +171,55 @@ export default function Hero({ onShop, slides = DEFAULT_SLIDES }: HeroProps) {
       </div>
 
       {/* Scroll cue — far right, vertical rail, fast downward pillar sweep */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 32,
-          right: 40,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 10,
-          zIndex: 10,
-          animation: 'mr-fade-up 0.6s cubic-bezier(0.16,1,0.3,1) both',
-          animationDelay: '1200ms',
-        }}
-      >
+      {scrollCueLabel && (
         <div
           style={{
-            fontFamily: 'Jost, sans-serif',
-            fontSize: 9,
-            letterSpacing: '0.32em',
-            textTransform: 'uppercase',
-            color: 'rgba(238,230,209,0.55)',
-            writingMode: 'vertical-rl',
-            transform: 'rotate(180deg)',
-          }}
-        >
-          Scroll
-        </div>
-        {/* Pillar track — sweeping bar animates scaleY 0→1 top-down, fast loop */}
-        <div
-          style={{
-            width: 1,
-            height: 56,
-            position: 'relative',
-            background: 'rgba(238,230,209,0.12)',
-            overflow: 'hidden',
+            position: 'absolute',
+            bottom: 32,
+            right: 40,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 10,
+            zIndex: 10,
+            animation: 'mr-fade-up 0.6s cubic-bezier(0.16,1,0.3,1) both',
+            animationDelay: '1200ms',
           }}
         >
           <div
             style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(to bottom, rgba(238,230,209,0.85), rgba(238,230,209,0.1))',
-              animation: 'mr-pillar-sweep 900ms cubic-bezier(0.4,0,0.2,1) infinite',
+              fontFamily: 'Jost, sans-serif',
+              fontSize: 9,
+              letterSpacing: '0.32em',
+              textTransform: 'uppercase',
+              color: 'rgba(238,230,209,0.55)',
+              writingMode: 'vertical-rl',
+              transform: 'rotate(180deg)',
             }}
-          />
+          >
+            {scrollCueLabel}
+          </div>
+          {/* Pillar track — sweeping bar animates scaleY 0→1 top-down, fast loop */}
+          <div
+            style={{
+              width: 1,
+              height: 56,
+              position: 'relative',
+              background: 'rgba(238,230,209,0.12)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(to bottom, rgba(238,230,209,0.85), rgba(238,230,209,0.1))',
+                animation: 'mr-pillar-sweep 900ms cubic-bezier(0.4,0,0.2,1) infinite',
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

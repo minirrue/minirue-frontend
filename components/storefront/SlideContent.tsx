@@ -4,22 +4,10 @@ import React from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
 import BottleSVG from '@/components/ui/BottleSVG';
-
-export interface Slide {
-  id: number;
-  type: 'photo' | 'editorial';
-  eyebrow: string;
-  headline: string;
-  sub: string;
-  tagline: string;
-  bg: string;
-  bottle?: string;
-  cap?: string;
-  tile?: string;
-}
+import type { ResolvedHeroSlide } from '@/lib/api/storefront';
 
 interface SlideContentProps {
-  slide: Slide;
+  slide: ResolvedHeroSlide;
   mobile: boolean;
   isActive: boolean;
   onShop?: () => void;
@@ -38,18 +26,23 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       {/* Background */}
-      {slide.type === 'photo' ? (
-        <Image
-          src="/perfumes.png"
-          alt="MiniRue campaign"
-          fill
-          priority
-          sizes="100vw"
-          className="mr-hero-drift"
-          style={{ objectFit: 'cover', objectPosition: '62% 50%' }}
-        />
+      {slide.mode === 'image' ? (
+        slide.imageUrl ? (
+          <Image
+            src={slide.imageUrl}
+            alt={slide.imageAlt}
+            fill
+            priority
+            sizes="100vw"
+            unoptimized={Boolean(slide.imageUrl)}
+            className="mr-hero-drift"
+            style={{ objectFit: 'cover', objectPosition: '62% 50%' }}
+          />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, background: slide.background }} />
+        )
       ) : (
-        <div style={{ position: 'absolute', inset: 0, background: slide.bg }}>
+        <div style={{ position: 'absolute', inset: 0, background: slide.background }}>
           <div
             className="mr-hero-drift"
             style={{
@@ -152,7 +145,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
         >
           {slide.tagline}
         </p>
-        {isActive && (
+        {isActive && slide.ctaLabel && (
           <div
             style={{
               display: 'flex',
@@ -163,25 +156,21 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
               transition: `opacity 500ms cubic-bezier(0.16,1,0.3,1) ${textDelay + 360}ms, transform 500ms cubic-bezier(0.16,1,0.3,1) ${textDelay + 360}ms`,
             }}
           >
-            <Button
-              variant="outlineLight"
-              sweep
-              sweepColor="var(--mr-cream-100)"
-              sweepInk="var(--mr-ink-900)"
-              onClick={onShop}
-            >
-              Discover the edit
-            </Button>
-            <Button
-              variant="outlineLight"
-              sweep
-              sweepColor="rgba(253,251,245,.15)"
-              sweepInk="var(--mr-cream-100)"
-              onClick={onShop}
-              style={{ borderColor: 'rgba(253,251,245,.4)' }}
-            >
-              Read the story
-            </Button>
+            {slide.ctaHref ? (
+              <a href={slide.ctaHref} className="mr-hero-cta">
+                {slide.ctaLabel}
+              </a>
+            ) : (
+              <Button
+                variant="outlineLight"
+                sweep
+                sweepColor="var(--mr-cream-100)"
+                sweepInk="var(--mr-ink-900)"
+                onClick={onShop}
+              >
+                {slide.ctaLabel}
+              </Button>
+            )}
           </div>
         )}
       </div>

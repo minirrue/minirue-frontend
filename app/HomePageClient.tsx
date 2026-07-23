@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import HomeView from '@/components/storefront/HomeView';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
@@ -8,55 +9,46 @@ import Footer from '@/components/layout/Footer';
 import ChatButton from '@/components/chat/ChatButton';
 import ChatPanel from '@/components/chat/ChatPanel';
 import type { ApiProduct } from '@/lib/api/catalog';
-import type { PublicSettings } from '@/lib/api/settings';
-import type { CollaboratorBrandSection } from '@/lib/api/collaborators';
-import { useRouter } from 'next/navigation';
+import { FALLBACK_CHROME } from '@/lib/api/storefront';
+import type { ResolvedHome } from '@/lib/api/storefront';
+import { useStorefrontHome, useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { useCart } from '@/components/storefront/cart/CartContext';
 
-interface Props {
-  products: ApiProduct[];
-  publicSettings: PublicSettings | null;
-  brandSections?: CollaboratorBrandSection[];
-}
+const EMPTY_HOME: ResolvedHome = {
+  sections: [],
+  announcement: { enabled: false, messages: [], linkUrl: null, background: null },
+};
 
-export default function HomePageClient({ products, publicSettings, brandSections = [] }: Props) {
+export default function HomePageClient() {
   const router = useRouter();
   const [chatOpen, setChatOpen] = React.useState(false);
   const { itemCount, openDrawer } = useCart();
+
+  // The server already prefetched and dehydrated these queries (app/page.tsx),
+  // so this hydrates from SSR data on first paint, then keeps polling/SSE
+  // (lib/hooks/use-storefront.ts, StorefrontLiveUpdates) so an open tab
+  // reflects an admin's save without a reload.
+  const { data: home = EMPTY_HOME } = useStorefrontHome();
+  const { data: chrome = FALLBACK_CHROME } = useStorefrontChrome();
 
   const goToProduct = (product: ApiProduct) => {
     router.push(`/products/${product.slug}`);
   };
 
-  const storefront = publicSettings?.storefront;
-  const heroSlides = storefront?.heroSlides?.length
-    ? storefront.heroSlides
-    : undefined;
-
   return (
     <>
       <div className="mr-page-sheet">
         <AnnouncementBar
-          messages={storefront?.announcementMessages}
-          enabled={storefront?.announcementEnabled ?? true}
-          linkUrl={storefront?.announcementLinkUrl}
-          background={storefront?.announcementBackground}
+          messages={chrome.announcement.messages}
+          enabled={chrome.announcement.enabled}
+          linkUrl={chrome.announcement.linkUrl}
+          background={chrome.announcement.background}
         />
-        <Header
-          onOpenCart={openDrawer}
-          cartCount={itemCount}
-          transparent
-        />
-
-        <HomeView
-          products={products}
-          onSelect={goToProduct}
-          heroSlides={heroSlides}
-          brandSections={brandSections}
-        />
+        <Header navbar={chrome.navbar} onOpenCart={openDrawer} cartCount={itemCount} transparent />
+        <HomeView home={home} onSelect={goToProduct} />
       </div>
 
-      <Footer tagline={storefront?.footerTagline ?? undefined} />
+      <Footer config={chrome.footer} />
 
       <ChatButton onClick={() => setChatOpen((o) => !o)} />
       <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
