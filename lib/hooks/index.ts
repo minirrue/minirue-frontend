@@ -64,3 +64,11 @@ export {
   categoriesQueryOptions,
   searchProductsQueryOptions,
 } from './queries';
+
+// Storefront (resolved home/chrome) — live-updating read layer
+export {
+  useStorefrontHome,
+  useStorefrontChrome,
+  storefrontHomeQueryOptions,
+  storefrontChromeQueryOptions,
+} from './use-storefront';
