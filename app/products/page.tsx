@@ -33,8 +33,10 @@ function first(v: string | string[] | undefined): string | undefined {
 export default async function ProductsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
 
+  // Gender filtering was removed (2026-07-24) — it was a hardcoded concept and
+  // product attributes are admin-managed/free-entry now. `brand` stays because
+  // it is a real, dynamic value; real attribute-driven filters come later.
   const filters: ProductListFilters = {
-    gender: first(sp['gender']) as ProductListFilters['gender'],
     brand: first(sp['brand']),
     limit: 24,
   };
