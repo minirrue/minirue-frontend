@@ -25,3 +25,8 @@ minirue-frontend PAGE /_internal/preview
 # Unauthenticated payment-gateway webhook (HMAC-verified in-handler, no JWT guard) — a
 # machine-to-machine integration endpoint, not a user-facing route any persona interacts with.
 minirue-backend POST /v1/webhooks/payments/gateway
+
+# 2026-07-24 — constant content pages (terms, privacy, shipping, returns and
+# admin-created pages), rendered from the storefront layout document. Same
+# vault-is-gone reason as everything above.
+minirue-frontend PAGE /pages/:param
