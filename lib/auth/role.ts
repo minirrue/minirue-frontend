@@ -2,14 +2,18 @@
  * Canonical RBAC role vocabulary — mirrors
  * `apps/minirue-backend/src/common/enums/role.enum.ts`.
  *
- * Contract: `knowledge/specs/005-shared-enums-types/contracts/role-vocabulary.md`
+ * DEV and OWNER were retired by backend migration 0014: DEV was an environment
+ * bypass rather than a real account, and OWNER was folded into ADMIN. COLLAB is
+ * listed because the backend can return it, even though a brand partner has
+ * nothing to do on the storefront — an unknown role string would otherwise be
+ * treated as invalid and drop the session.
  */
 
 export const Role = {
-  DEV: 'DEV',
-  OWNER: 'OWNER',
+  SUPERADMIN: 'SUPERADMIN',
   ADMIN: 'ADMIN',
   STAFF: 'STAFF',
+  COLLAB: 'COLLAB',
   CUSTOMER: 'CUSTOMER',
 } as const;
 
@@ -23,10 +27,10 @@ export function isRole(value: unknown): value is Role {
 
 export function roleLabel(role: Role): string {
   const labels: Record<Role, string> = {
-    [Role.DEV]: 'Developer',
-    [Role.OWNER]: 'Owner',
-    [Role.ADMIN]: 'Administrator',
-    [Role.STAFF]: 'Staff',
+    [Role.SUPERADMIN]: 'Super Admin',
+    [Role.ADMIN]: 'Admin',
+    [Role.STAFF]: 'Support Staff',
+    [Role.COLLAB]: 'Collab',
     [Role.CUSTOMER]: 'Customer',
   };
   return labels[role];
