@@ -23,6 +23,7 @@ export interface OrderItemSummary {
 export interface OrderSummary {
   id: string;
   orderNumber: string;
+  orderSeq: number;
   status: string;
   totalAmount: string;
   totalCurrency: string;
@@ -52,11 +53,13 @@ export async function apiCheckout(
 export async function apiListOrders(
   page = 1,
   limit = 10,
+  q?: string,
 ): Promise<OrderListResponse> {
-  return apiFetch<OrderListResponse>(
-    `/orders?page=${page}&limit=${limit}`,
-    { auth: true },
-  );
+  const qs = new URLSearchParams();
+  qs.set('page', String(page));
+  qs.set('limit', String(limit));
+  if (q) qs.set('q', q);
+  return apiFetch<OrderListResponse>(`/orders?${qs.toString()}`, { auth: true });
 }
 
 export async function apiGetOrder(orderId: string): Promise<OrderSummary> {
