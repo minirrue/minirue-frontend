@@ -59,7 +59,7 @@ export default function AnnouncementBar({
   // forward/back navigation within the same tab.
   React.useEffect(() => {
     let touchStartY: number | null = null;
-    const SWIPE_DOWN_DEADBAND = 4; // px before a touchmove counts as a downward swipe
+    const SWIPE_DEADBAND = 4; // px of finger travel before a touchmove counts as intent
 
     const collapse = (event: Event) => {
       if (!event.cancelable) return;
@@ -86,7 +86,12 @@ export default function AnnouncementBar({
       const touch = event.touches[0];
       if (!touch) return;
       const dy = touch.clientY - touchStartY;
-      if (dy <= SWIPE_DOWN_DEADBAND) return; // only collapse on swipe-down
+      // Collapse when the user scrolls DOWN into the page. On a touchscreen that
+      // is a finger swipe UP (clientY decreases, dy negative) — the mirror of the
+      // desktop wheel handler's deltaY > 0. The previous check collapsed on a
+      // downward swipe (scrolling back toward the top), so on mobile the bar
+      // never collapsed during normal downward reading.
+      if (dy >= -SWIPE_DEADBAND) return;
       collapse(event);
     };
 
