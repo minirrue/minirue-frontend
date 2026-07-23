@@ -55,7 +55,6 @@ export interface ResolvedHeroSlide {
   background: string;
   bottle: string | null;
   cap: string | null;
-  tile: string | null;
   ctaLabel: string | null;
   ctaTarget: CtaTarget;
   /** Pre-resolved href for a product/category/brand target. */
