@@ -1,13 +1,13 @@
 import Footer from './Footer';
-import { apiGetPublicSettings } from '@/lib/api/settings';
+import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
 
 export default async function FooterWithSettings() {
-  let tagline: string | undefined;
+  let footer = FALLBACK_CHROME.footer;
   try {
-    const settings = await apiGetPublicSettings();
-    tagline = settings.storefront.footerTagline ?? undefined;
+    const chrome = await fetchStorefrontChrome();
+    footer = chrome.footer;
   } catch {
-    // use default copy in Footer
+    // use FALLBACK_CHROME.footer above
   }
-  return <Footer tagline={tagline} />;
+  return <Footer config={footer} />;
 }

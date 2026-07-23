@@ -7,44 +7,26 @@ import Wordmark from '@/components/ui/Wordmark';
 import IconButton from '@/components/ui/IconButton';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { getSession, type Session } from '@/lib/session';
-import { catalog, type Category } from '@/lib/api/catalog';
-import { apiListPublicBrands } from '@/lib/api/collaborators';
 import { useUser, useLogout } from '@/lib/hooks/use-auth';
 import CustomerRoleBadge from '@/components/account/CustomerRoleBadge';
+import type { ResolvedChrome } from '@/lib/api/storefront';
 
 interface HeaderProps {
+  navbar: ResolvedChrome['navbar'];
   onOpenCart?: () => void;
   cartCount?: number;
   transparent?: boolean;
 }
 
-const FALLBACK_NAV = ['Perfume', 'Skincare', 'Maison', 'Journal'];
-const FALLBACK_MOBILE_NAV = ['Perfume', 'Skincare', 'Maison', 'Journal', 'About'];
-
-export default function Header({ onOpenCart, cartCount = 0, transparent = false }: HeaderProps) {
+export default function Header({ navbar, onOpenCart, cartCount = 0, transparent = false }: HeaderProps) {
   const [scrolled, setScrolled] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [bump, setBump] = React.useState(false);
   const [session, setSession] = React.useState<Session | null>(null);
   const [accountOpen, setAccountOpen] = React.useState(false);
-  const [categories, setCategories] = React.useState<Category[]>([]);
-  const [partnerNav, setPartnerNav] = React.useState<Array<{ href: string; label: string }>>([]);
   const prevCount = React.useRef(cartCount);
   const router = useRouter();
   const logoutMutation = useLogout();
-
-  React.useEffect(() => {
-    catalog.listCategories().then(setCategories).catch(() => {});
-    apiListPublicBrands()
-      .then((brands) =>
-        setPartnerNav(
-          brands
-            .filter((b) => b.storefrontNavLink)
-            .map((b) => ({ href: `/brands/${b.brandSlug}`, label: b.brandName })),
-        ),
-      )
-      .catch(() => {});
-  }, []);
   const { data: authUser } = useUser();
   const { mobile } = useBreakpoint();
 
@@ -67,17 +49,6 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
     }
     prevCount.current = cartCount;
   }, [cartCount]);
-
-  const navItems = React.useMemo(
-    () => {
-      const base =
-        categories.length > 0
-          ? categories.map((c) => ({ href: `/categories/${c.slug}`, label: c.name }))
-          : FALLBACK_NAV.map((n) => ({ href: undefined as string | undefined, label: n }));
-      return [...base, ...partnerNav];
-    },
-    [categories, partnerNav],
-  );
 
   const isLight = transparent && !scrolled;
 
@@ -130,9 +101,9 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                 textTransform: 'uppercase',
               }}
             >
-              {navItems.map(({ href, label }) => (
+              {navbar.desktop.map(({ id, href, label }) => (
                 <a
-                  key={label}
+                  key={id}
                   href={href}
                   className="mr-nav-link"
                   style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
@@ -161,10 +132,10 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
               alignItems: 'center',
             }}
           >
-            {!mobile && (
+            {!mobile && navbar.showSearch && (
               <IconButton icon="search" label="Search" tone={isLight ? 'glass' : 'cream'} />
             )}
-            {!mobile && (
+            {!mobile && navbar.showAccount && (
               session ? (
                 <div style={{ position: 'relative' }}>
                   <button
@@ -387,12 +358,9 @@ export default function Header({ onOpenCart, cartCount = 0, transparent = false 
                 onClick={() => setMobileOpen(false)}
               />
             </div>
-            {(navItems.length > 0
-              ? [...navItems, { href: undefined, label: 'About' }]
-              : FALLBACK_MOBILE_NAV.map((n) => ({ href: undefined as string | undefined, label: n }))
-            ).map(({ href, label }, i) => (
+            {navbar.mobile.map(({ id, href, label }, i) => (
               <a
-                key={label}
+                key={id}
                 href={href}
                 onClick={() => setMobileOpen(false)}
                 style={{

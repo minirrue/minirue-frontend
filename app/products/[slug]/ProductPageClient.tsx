@@ -10,6 +10,8 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import ChatButton from '@/components/chat/ChatButton';
 import ChatPanel from '@/components/chat/ChatPanel';
 import { useCart } from '@/components/storefront/cart/CartContext';
+import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
+import { FALLBACK_CHROME } from '@/lib/api/storefront';
 
 interface Props {
   slug: string;
@@ -20,6 +22,7 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
   const router = useRouter();
   const [chatOpen, setChatOpen] = React.useState(false);
   const { itemCount, openDrawer, addItem } = useCart();
+  const { data: chrome } = useStorefrontChrome();
 
   const product: ApiProduct = React.useMemo(
     () => JSON.parse(apiProductJson) as ApiProduct,
@@ -45,6 +48,7 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
       <div className="mr-page-sheet">
         <AnnouncementBar />
         <Header
+          navbar={chrome?.navbar ?? FALLBACK_CHROME.navbar}
           onOpenCart={openDrawer}
           cartCount={itemCount}
           transparent={false}

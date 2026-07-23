@@ -10,6 +10,8 @@ import AccountIdentityStrip from '@/components/account/AccountIdentityStrip';
 import ErrorBanner from '@/components/ui/ErrorBanner';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { usePublicStorefront } from '@/lib/hooks/usePublicStorefront';
+import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
+import { FALLBACK_CHROME } from '@/lib/api/storefront';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { useLogout } from '@/lib/hooks/use-auth';
 
@@ -24,7 +26,8 @@ const NAV_LINKS = [
 export default function AccountLayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { itemCount, openDrawer } = useCart();
-  const { storefront, footerTagline } = usePublicStorefront();
+  const { storefront } = usePublicStorefront();
+  const { data: chrome } = useStorefrontChrome();
   const { mobile } = useBreakpoint();
   const router = useRouter();
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -53,7 +56,11 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
           linkUrl={storefront?.announcementLinkUrl}
           background={storefront?.announcementBackground}
         />
-        <Header onOpenCart={openDrawer} cartCount={itemCount} />
+        <Header
+          navbar={chrome?.navbar ?? FALLBACK_CHROME.navbar}
+          onOpenCart={openDrawer}
+          cartCount={itemCount}
+        />
 
         <div
           style={{
@@ -178,7 +185,7 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
           </main>
         </div>
       </div>
-      <Footer tagline={footerTagline} />
+      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} />
     </>
   );
 }

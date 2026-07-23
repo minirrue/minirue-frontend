@@ -2,37 +2,14 @@
 
 import React from 'react';
 import Wordmark from '@/components/ui/Wordmark';
+import PaymentBadge from '@/components/ui/PaymentBadge';
+import SocialIcon from '@/components/ui/SocialIcon';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import type { FooterConfig } from '@/lib/api/storefront';
 
-const FOOTER_COLS = [
-  { t: 'The House', l: ['About', 'Ateliers', 'Careers', 'Press'] },
-  { t: 'Service',   l: ['Contact', 'Shipping', 'Gift cards', 'Track order'] },
-  { t: 'Discover',  l: ['Journal', 'Fragrance guide', 'Find your scent', 'Engraving'] },
-  { t: 'Legal',     l: ['Terms', 'Privacy', 'Cookies', 'Imprint'] },
-];
-
-export default function Footer({ tagline }: { tagline?: string | null }) {
+export default function Footer({ config }: { config: FooterConfig }) {
   const { mobile } = useBreakpoint();
   const ref = React.useRef<HTMLElement | null>(null);
-  const [resolvedTagline, setResolvedTagline] = React.useState(tagline ?? null);
-
-  React.useEffect(() => {
-    setResolvedTagline(tagline ?? null);
-  }, [tagline]);
-
-  React.useEffect(() => {
-    if (tagline) return;
-    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002';
-    fetch(`${base}/v1/settings/public`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((settings) => {
-        const next = settings?.storefront?.footerTagline;
-        if (typeof next === 'string' && next.trim()) {
-          setResolvedTagline(next);
-        }
-      })
-      .catch(() => {});
-  }, [tagline]);
 
   React.useLayoutEffect(() => {
     const measure = () => {
@@ -72,75 +49,77 @@ export default function Footer({ tagline }: { tagline?: string | null }) {
           color="var(--mr-cream-100)"
           captionColor="var(--mr-ink-400)"
         />
-        <div style={{ marginTop: 44, maxWidth: 460, margin: '44px auto 0' }}>
-          <div
-            style={{
-              fontFamily: 'Jost, sans-serif',
-              fontSize: 10,
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              marginBottom: 16,
-              color: 'var(--mr-gold-300)',
-            }}
-          >
-            Letters from MiniRue
-          </div>
-          <p
-            style={{
-              fontFamily: 'Cormorant Garamond, serif',
-              fontStyle: 'italic',
-              fontSize: 20,
-              lineHeight: 1.4,
-              color: 'var(--mr-cream-200)',
-              margin: '0 0 24px',
-            }}
-          >
-            Occasional notes — new arrivals, private sales, a thought on scent.
-            {resolvedTagline ? ` ${resolvedTagline}` : ''}
-          </p>
-          <form
-            className="mr-underline-input"
-            style={{
-              display: 'flex',
-              paddingBottom: 8,
-              gap: 12,
-              alignItems: 'center',
-              borderBottom: '1px solid rgba(238,230,209,.2)',
-            }}
-            onSubmit={(e) => e.preventDefault()}
-          >
-            <input
-              placeholder="you@address.com"
+        {config.newsletterEnabled && (
+          <div style={{ marginTop: 44, maxWidth: 460, margin: '44px auto 0' }}>
+            <div
               style={{
-                flex: 1,
-                background: 'transparent',
-                border: 0,
-                color: 'var(--mr-cream-100)',
-                fontFamily: 'Inter Tight, sans-serif',
-                fontSize: 14,
-                padding: '8px 0',
-                outline: 'none',
-              }}
-            />
-            <button
-              style={{
-                background: 'none',
-                border: 0,
-                color: 'var(--mr-gold-300)',
-                cursor: 'pointer',
                 fontFamily: 'Jost, sans-serif',
                 fontSize: 10,
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
-                transition: 'color 200ms var(--mr-ease-out)',
+                marginBottom: 16,
+                color: 'var(--mr-gold-300)',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--mr-gold-500)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mr-gold-300)')}
             >
-              Subscribe <span className="mr-link-arrow">→</span>
-            </button>
-          </form>
-        </div>
+              {config.newsletterEyebrow}
+            </div>
+            <p
+              style={{
+                fontFamily: 'Cormorant Garamond, serif',
+                fontStyle: 'italic',
+                fontSize: 20,
+                lineHeight: 1.4,
+                color: 'var(--mr-cream-200)',
+                margin: '0 0 24px',
+              }}
+            >
+              {config.newsletterBlurb}
+              {config.tagline ? ` ${config.tagline}` : ''}
+            </p>
+            <form
+              className="mr-underline-input"
+              style={{
+                display: 'flex',
+                paddingBottom: 8,
+                gap: 12,
+                alignItems: 'center',
+                borderBottom: '1px solid rgba(238,230,209,.2)',
+              }}
+              onSubmit={(e) => e.preventDefault()}
+            >
+              <input
+                placeholder="you@address.com"
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 0,
+                  color: 'var(--mr-cream-100)',
+                  fontFamily: 'Inter Tight, sans-serif',
+                  fontSize: 14,
+                  padding: '8px 0',
+                  outline: 'none',
+                }}
+              />
+              <button
+                style={{
+                  background: 'none',
+                  border: 0,
+                  color: 'var(--mr-gold-300)',
+                  cursor: 'pointer',
+                  fontFamily: 'Jost, sans-serif',
+                  fontSize: 10,
+                  letterSpacing: '0.22em',
+                  textTransform: 'uppercase',
+                  transition: 'color 200ms var(--mr-ease-out)',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--mr-gold-500)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mr-gold-300)')}
+              >
+                Subscribe <span className="mr-link-arrow">→</span>
+              </button>
+            </form>
+          </div>
+        )}
 
         <div
           style={{
@@ -151,8 +130,8 @@ export default function Footer({ tagline }: { tagline?: string | null }) {
             textAlign: 'left',
           }}
         >
-          {FOOTER_COLS.map((c) => (
-            <div key={c.t}>
+          {config.columns.map((c) => (
+            <div key={c.id}>
               <div
                 style={{
                   fontFamily: 'Jost, sans-serif',
@@ -163,7 +142,7 @@ export default function Footer({ tagline }: { tagline?: string | null }) {
                   marginBottom: 16,
                 }}
               >
-                {c.t}
+                {c.title}
               </div>
               <ul
                 style={{
@@ -175,26 +154,51 @@ export default function Footer({ tagline }: { tagline?: string | null }) {
                   gap: 10,
                 }}
               >
-                {c.l.map((x) => (
-                  <li
-                    key={x}
-                    className="mr-nav-link"
-                    style={{
-                      fontFamily: 'Inter Tight, sans-serif',
-                      fontSize: 13,
-                      color: 'var(--mr-cream-200)',
-                      opacity: 0.75,
-                      cursor: 'pointer',
-                      display: 'inline-block',
-                      width: 'fit-content',
-                    }}
-                  >
-                    {x}
+                {c.links.map((link) => (
+                  <li key={link.id}>
+                    <a
+                      href={link.href}
+                      className="mr-nav-link"
+                      style={{
+                        fontFamily: 'Inter Tight, sans-serif',
+                        fontSize: 13,
+                        color: 'var(--mr-cream-200)',
+                        opacity: 0.75,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {link.label}
+                    </a>
                   </li>
                 ))}
               </ul>
             </div>
           ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: 44,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 16,
+          }}
+        >
+          <div style={{ display: 'flex', gap: 14 }}>
+            {config.socials.map((s) => (
+              <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer"
+                style={{ color: 'var(--mr-cream-200)', opacity: 0.75 }}>
+                <SocialIcon network={s.network} />
+              </a>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {config.paymentBadges.map((b) => (
+              <PaymentBadge key={b} badge={b} />
+            ))}
+          </div>
         </div>
 
         <div
@@ -217,13 +221,11 @@ export default function Footer({ tagline }: { tagline?: string | null }) {
             shop" / "mini rue store", but the spaced form previously appeared NOWHERE in visible
             copy — only in <title> and JSON-LD. Structured data alone does not fully substitute for
             the words existing as readable text on the page. One natural mention in the footer, on
-            every page, is the honest way to close that gap.
+            every page, is the honest way to close that gap. The line now lives in the database
+            (FooterConfig.legalLine) — keep this comment so nobody "fixes" the spelling away.
           */}
-          <span>
-            © MMXXVI MiniRue Maison · Paris · Grasse — MiniRue is also known as Mini Rue, the
-            Mini Rue Shop.
-          </span>
-          <span>Worldwide shipping · Duty-paid to 62 countries</span>
+          <span>{config.legalLine}</span>
+          <span>{config.secondaryLine}</span>
         </div>
       </div>
     </footer>
