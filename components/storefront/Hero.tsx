@@ -30,22 +30,34 @@ export default function Hero({
   const startRef = React.useRef(0);
   const progressRef = React.useRef(0);
 
+  // A live update (SSE/poll) can swap in a shorter `slides` array while
+  // `current` (and `prev`) still hold indices from the old, longer array.
+  // Clamp to the current bounds everywhere an index is read or advanced so
+  // a shrink can never produce `slides[current] === undefined` — that used
+  // to throw in SlideContent and white-screen the shop. Every consumer of
+  // "the current slide index" below reads `safeIndex`, never raw `current`,
+  // so the autoplay timer, keyboard nav, and dot navigation stay consistent
+  // with each other after a shrink.
+  const safeIndex = slides.length === 0 ? 0 : Math.min(current, slides.length - 1);
+  const safePrev =
+    prev !== null && slides.length > 0 ? Math.min(prev, slides.length - 1) : null;
+
   const goTo = React.useCallback(
     (idx: number) => {
-      if (animating || idx === current) return;
-      setPrev(current);
+      if (animating || idx === safeIndex) return;
+      setPrev(safeIndex);
       setCurrent(idx);
       setAnimating(true);
       setProgress(0);
       progressRef.current = 0;
       setTimeout(() => { setPrev(null); setAnimating(false); }, 650);
     },
-    [animating, current],
+    [animating, safeIndex],
   );
 
   // Progress ticker
   React.useEffect(() => {
-    if (paused) return;
+    if (paused || slides.length === 0) return;
     const tick = (now: number) => {
       if (paused) return;
       const elapsed = now - startRef.current;
@@ -53,7 +65,7 @@ export default function Hero({
       progressRef.current = p;
       setProgress(p);
       if (p >= 1) {
-        goTo((current + 1) % slides.length);
+        goTo((safeIndex + 1) % slides.length);
       } else {
         timerRef.current = requestAnimationFrame(tick);
       }
@@ -61,22 +73,25 @@ export default function Hero({
     startRef.current = performance.now() - progressRef.current * autoplayMs;
     timerRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(timerRef.current);
-  }, [current, paused, goTo, autoplayMs, slides.length]);
+  }, [safeIndex, paused, goTo, autoplayMs, slides.length]);
 
   // Keyboard navigation
   React.useEffect(() => {
+    if (slides.length === 0) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft')  goTo((current - 1 + slides.length) % slides.length);
-      if (e.key === 'ArrowRight') goTo((current + 1) % slides.length);
+      if (e.key === 'ArrowLeft')  goTo((safeIndex - 1 + slides.length) % slides.length);
+      if (e.key === 'ArrowRight') goTo((safeIndex + 1) % slides.length);
       if (e.key === 'Home') goTo(0);
       if (e.key === 'End')  goTo(slides.length - 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [current, goTo, slides.length]);
+  }, [safeIndex, goTo, slides.length]);
 
-  const slide = slides[current];
-  const prevSlide = prev !== null ? slides[prev] : null;
+  if (slides.length === 0) return null;
+
+  const slide = slides[safeIndex];
+  const prevSlide = safePrev !== null ? slides[safePrev] : null;
 
   return (
     <section
