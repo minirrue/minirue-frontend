@@ -19,12 +19,12 @@ import {
 } from '@/lib/api/support';
 
 const POLL_INTERVAL_MS = 4000;
-const META_POLL_INTERVAL_MS = 30000;
+const META_POLL_INTERVAL_MS = 8000;
 
 const STATUS_COLORS: Record<SupportMetaDto['status'], string> = {
   ONLINE: '#4CAF50',
-  IDLE: '#E0A400',
-  AWAY: '#9E9E9E',
+  IDLE: '#9E9E9E',
+  AWAY: '#E0A400',
   OFFLINE: '#C0392B',
 };
 
@@ -35,7 +35,9 @@ function formatTime(iso: string): string {
 }
 
 function mapMessage(dto: SupportMessageDto): ChatDisplayMessage {
-  const isAgent = dto.senderType === 'AGENT' || dto.senderType === 'SYSTEM';
+  // From the customer's view, anything not sent by the customer is the support side.
+  // Backend sender types are CUSTOMER | STAFF | ADMIN | COLLAB | SYSTEM (never 'AGENT').
+  const isAgent = dto.senderType !== 'CUSTOMER';
   return {
     id: dto.id,
     from: isAgent ? 'agent' : 'cx',
@@ -94,7 +96,7 @@ export default function SupportWidget() {
     fresh.forEach((d) => seenIdsRef.current.add(d.id));
     lastMessageIdRef.current = fresh[fresh.length - 1].id;
     setMessages((prev) => [...prev, ...fresh.map(mapMessage)]);
-    if (markUnreadIfClosed && fresh.some((d) => d.senderType === 'AGENT')) {
+    if (markUnreadIfClosed && fresh.some((d) => d.senderType !== 'CUSTOMER')) {
       setHasUnread(true);
     }
   }, []);

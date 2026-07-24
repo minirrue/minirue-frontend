@@ -149,7 +149,7 @@ export default function ChatPanel({
       onFocusCapture={(e) => { if (isFormField(e.target)) setFieldFocused(true); }}
       onBlurCapture={(e) => { if (isFormField(e.target)) setFieldFocused(false); }}
       style={{
-        position: 'fixed', bottom: isMobile ? 'calc(80px + 6.5vh)' : 88, right: 24, zIndex: 199,
+        position: 'fixed', bottom: isMobile ? 'calc(78px + 6.5vh)' : 80, right: 24, zIndex: 199,
         width: 'min(360px, calc(100vw - 48px))',
         height: isMobile ? 'min(560px, calc(100vh - 140px - 6.5vh))' : 'min(560px, calc(100vh - 140px))',
         background: 'rgba(253,251,245,0.97)',
