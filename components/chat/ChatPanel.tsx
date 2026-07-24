@@ -69,6 +69,7 @@ export default function ChatPanel({
       style={{
         position: 'fixed', bottom: 88, right: 24, zIndex: 199,
         width: 'min(360px, calc(100vw - 48px))',
+        height: 'min(560px, calc(100vh - 140px))',
         background: 'rgba(253,251,245,0.97)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
@@ -80,7 +81,7 @@ export default function ChatPanel({
         transform: open ? 'translateY(0) scale(1)' : 'translateY(24px) scale(0.94)',
         opacity: open ? 1 : 0,
         pointerEvents: open ? 'auto' : 'none',
-        transition: 'transform 380ms cubic-bezier(0.34,1.56,0.64,1), opacity 260ms cubic-bezier(0.16,1,0.3,1)',
+        transition: 'transform 380ms cubic-bezier(0.16,1,0.3,1), opacity 260ms cubic-bezier(0.16,1,0.3,1)',
         transformOrigin: 'bottom right',
       }}
     >
@@ -114,7 +115,7 @@ export default function ChatPanel({
       {/* Messages */}
       <div
         ref={bottomRef}
-        style={{ flex: 1, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 320, scrollbarWidth: 'none' }}
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 10, scrollbarWidth: 'none' }}
       >
         {messages.length === 0 && (
           <div style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 12, color: 'var(--mr-ink-400)', textAlign: 'center', padding: '24px 8px' }}>
@@ -158,7 +159,7 @@ export default function ChatPanel({
             onClick={send}
             aria-label="Send message"
             disabled={inputDisabled || sending}
-            style={{ width: 36, height: 36, borderRadius: '50%', background: input.trim() ? 'var(--mr-ink-900)' : 'var(--mr-cream-300)', border: 0, cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 200ms cubic-bezier(0.34,1.56,0.64,1), transform 160ms', transform: input.trim() ? 'scale(1)' : 'scale(0.9)', flexShrink: 0 }}
+            style={{ width: 36, height: 36, borderRadius: '50%', background: input.trim() ? 'var(--mr-ink-900)' : 'var(--mr-cream-300)', border: 0, cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 200ms cubic-bezier(0.16,1,0.3,1), transform 160ms', transform: input.trim() ? 'scale(1)' : 'scale(0.9)', flexShrink: 0 }}
             onMouseEnter={(e) => { if (input.trim()) e.currentTarget.style.transform = 'scale(1.1)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = input.trim() ? 'scale(1)' : 'scale(0.9)'; }}
           >
