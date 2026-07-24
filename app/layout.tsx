@@ -14,6 +14,8 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import SessionExpiredHandler from "@/components/auth/SessionExpiredHandler";
 import StorefrontLiveUpdates from "@/components/providers/StorefrontLiveUpdates";
 import { apiGetPublicSettings } from "@/lib/api/settings";
+import { SupportProvider } from "@/lib/support/support-context";
+import SupportWidget from "@/components/chat/SupportWidget";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -194,6 +196,9 @@ export default function RootLayout({
               <CartProvider>
                 <LenisProvider>{children}</LenisProvider>
                 <CartDrawer />
+                <SupportProvider>
+                  <SupportWidget />
+                </SupportProvider>
               </CartProvider>
             </HydrationBoundary>
           </RootQueryProvider>

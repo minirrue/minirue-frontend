@@ -7,11 +7,10 @@ import { primaryMedia, mediaImageUrl } from '@/lib/api/catalog';
 import ApiProductDetail from '@/components/storefront/ApiProductDetail';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
-import ChatButton from '@/components/chat/ChatButton';
-import ChatPanel from '@/components/chat/ChatPanel';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
+import { useSupportContext } from '@/lib/support/support-context';
 
 interface Props {
   slug: string;
@@ -20,14 +19,22 @@ interface Props {
 
 export default function ProductPageClient({ slug, apiProductJson }: Props) {
   const router = useRouter();
-  const [chatOpen, setChatOpen] = React.useState(false);
   const { itemCount, openDrawer, addItem } = useCart();
   const { data: chrome } = useStorefrontChrome();
+  const { setSubject } = useSupportContext();
 
   const product: ApiProduct = React.useMemo(
     () => JSON.parse(apiProductJson) as ApiProduct,
     [apiProductJson],
   );
+
+  // Auto-attach this product as the support widget's default subject so a
+  // guest/customer messaging from this page doesn't have to pick it manually.
+  React.useEffect(() => {
+    setSubject({ productId: product.id, subjectSnapshot: { name: product.name, slug } });
+    return () => setSubject(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id, product.name, slug]);
 
   const handleAddToBag = async (variant: ProductVariant) => {
     const media = primaryMedia(product);
@@ -59,9 +66,6 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
           onAddToBag={handleAddToBag}
         />
       </div>
-
-      <ChatButton onClick={() => setChatOpen((o) => !o)} />
-      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
     </>
   );
 }
