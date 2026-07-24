@@ -14,6 +14,10 @@ export interface ChatDisplayMessage {
   text: string;
   time: string;
   attachments?: ChatAttachment[];
+  /** Client-only optimistic-send status; only meaningful for `from: 'cx'` bubbles. */
+  status?: 'sending' | 'sent' | 'failed';
+  /** Client-only key used to retry a failed optimistic send. */
+  tempId?: string;
 }
 
 interface ChatPanelProps {
@@ -35,6 +39,8 @@ interface ChatPanelProps {
   onUpload?: (file: File) => Promise<{ url: string }>;
   /** Conversation id, shown as a small copyable reference once a thread exists. */
   referenceId?: string;
+  /** Retry a failed optimistic send, keyed by the message's `tempId`. */
+  onRetry?: (tempId: string) => void;
 }
 
 export default function ChatPanel({
@@ -51,6 +57,7 @@ export default function ChatPanel({
   bottomSlot,
   onUpload,
   referenceId,
+  onRetry,
 }: ChatPanelProps) {
   const [input, setInput] = React.useState('');
   const [refCopied, setRefCopied] = React.useState(false);
@@ -246,8 +253,22 @@ export default function ChatPanel({
                   </div>
                 )}
               </div>
-              <div style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 10, color: 'var(--mr-ink-400)', marginTop: 3, padding: '0 2px' }}>
-                {msg.name} · {msg.time}
+              <div style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 10, color: 'var(--mr-ink-400)', marginTop: 3, padding: '0 2px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{msg.name} · {msg.time}</span>
+                {!isAgent && msg.status === 'sending' && (
+                  <span style={{ opacity: 0.7 }}>Sending…</span>
+                )}
+                {!isAgent && msg.status === 'failed' && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#C0392B' }}>
+                    Failed ·
+                    <button
+                      onClick={() => msg.tempId && onRetry?.(msg.tempId)}
+                      style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer', color: '#C0392B', textDecoration: 'underline', font: 'inherit' }}
+                    >
+                      Retry
+                    </button>
+                  </span>
+                )}
               </div>
             </div>
           );

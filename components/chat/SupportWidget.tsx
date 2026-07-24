@@ -73,6 +73,11 @@ export default function SupportWidget() {
   const pendingBodyRef = React.useRef<{ text: string; attachments?: ChatAttachment[] } | null>(null);
   const seenIdsRef = React.useRef<Set<string>>(new Set());
   const lastMessageIdRef = React.useRef<string | undefined>(undefined);
+  const tempCounterRef = React.useRef(0);
+  // Retry payloads for failed optimistic sends, keyed by tempId.
+  const retryPayloadsRef = React.useRef<
+    Map<string, { text: string; attachments?: ChatAttachment[]; guest?: GuestContactValue }>
+  >(new Map());
 
   // Auto-attach the current page's subject (e.g. a product) when the widget
   // hasn't started a conversation yet.
@@ -211,6 +216,40 @@ export default function SupportWidget() {
     };
   }, [conversationId]);
 
+  // Optimistic-send helpers: show the customer's message immediately, then
+  // reconcile with the server response (or mark it failed with a retry).
+  const addOptimisticMessage = React.useCallback(
+    (text: string, attachments?: ChatAttachment[], guest?: GuestContactValue) => {
+      const tempId = `temp-${++tempCounterRef.current}`;
+      retryPayloadsRef.current.set(tempId, { text, attachments, guest });
+      const optimistic: ChatDisplayMessage = {
+        id: tempId,
+        from: 'cx',
+        name: 'You',
+        text,
+        time: formatTime(new Date().toISOString()),
+        attachments,
+        status: 'sending',
+        tempId,
+      };
+      setMessages((prev) => [...prev, optimistic]);
+      return tempId;
+    },
+    [],
+  );
+
+  const markSent = React.useCallback((tempId: string, real: SupportMessageDto) => {
+    // Register the real id BEFORE the next poll tick so appendMessages skips it.
+    seenIdsRef.current.add(real.id);
+    lastMessageIdRef.current = real.id;
+    retryPayloadsRef.current.delete(tempId);
+    setMessages((prev) => prev.map((m) => (m.tempId === tempId ? { ...mapMessage(real), status: 'sent' } : m)));
+  }, []);
+
+  const markFailed = React.useCallback((tempId: string) => {
+    setMessages((prev) => prev.map((m) => (m.tempId === tempId ? { ...m, status: 'failed' } : m)));
+  }, []);
+
   const currentSubjectInput = React.useCallback(() => {
     if (subjectChoice.type === 'ITEM') {
       return {
@@ -224,7 +263,8 @@ export default function SupportWidget() {
   }, [subjectChoice]);
 
   const startConversation = React.useCallback(
-    async (body: string, guest?: GuestContactValue, attachments?: ChatAttachment[]) => {
+    async (body: string, guest?: GuestContactValue, attachments?: ChatAttachment[], existingTempId?: string) => {
+      const tempId = existingTempId ?? addOptimisticMessage(body, attachments, guest);
       setSending(true);
       setError(null);
       try {
@@ -236,30 +276,33 @@ export default function SupportWidget() {
             ? { name: guest.name, email: guest.email, phoneCountry: guest.phoneCountry, phone: guest.phone }
             : undefined,
         });
-        seenIdsRef.current.add(result.message.id);
-        lastMessageIdRef.current = result.message.id;
-        setMessages([mapMessage(result.message)]);
         setConversationId(result.conversation.id);
+        markSent(tempId, result.message);
         if (guest && result.guestToken) {
           setGuestSupport({ conversationId: result.conversation.id, guestToken: result.guestToken });
         }
       } catch {
+        markFailed(tempId);
         setError('Could not send your message. Please try again.');
       } finally {
         setSending(false);
       }
     },
-    [currentSubjectInput],
+    [currentSubjectInput, addOptimisticMessage, markSent, markFailed],
   );
 
   const handleSend = React.useCallback(
     (text: string, attachments?: ChatAttachment[]) => {
       if (conversationId) {
+        const tempId = addOptimisticMessage(text, attachments);
         setSending(true);
         setError(null);
         apiSendSupport(conversationId, text, attachments)
-          .then((dto) => appendMessages([dto], false))
-          .catch(() => setError('Could not send your message. Please try again.'))
+          .then((dto) => markSent(tempId, dto))
+          .catch(() => {
+            markFailed(tempId);
+            setError('Could not send your message. Please try again.');
+          })
           .finally(() => setSending(false));
         return;
       }
@@ -273,7 +316,7 @@ export default function SupportWidget() {
       pendingBodyRef.current = { text, attachments };
       setAwaitingGuestInfo(true);
     },
-    [conversationId, startConversation, appendMessages, isLoggedIn],
+    [conversationId, startConversation, addOptimisticMessage, markSent, markFailed, isLoggedIn],
   );
 
   const handleGuestSubmit = React.useCallback(
@@ -286,6 +329,30 @@ export default function SupportWidget() {
       });
     },
     [startConversation],
+  );
+
+  const handleRetry = React.useCallback(
+    (tempId: string) => {
+      const payload = retryPayloadsRef.current.get(tempId);
+      if (!payload) return;
+      setMessages((prev) => prev.map((m) => (m.tempId === tempId ? { ...m, status: 'sending' } : m)));
+      if (conversationId) {
+        setSending(true);
+        setError(null);
+        apiSendSupport(conversationId, payload.text, payload.attachments)
+          .then((dto) => markSent(tempId, dto))
+          .catch(() => {
+            markFailed(tempId);
+            setError('Could not send your message. Please try again.');
+          })
+          .finally(() => setSending(false));
+        return;
+      }
+      // No conversation yet (the initial start failed) — retry via startConversation,
+      // reusing the same optimistic bubble instead of creating a new one.
+      void startConversation(payload.text, payload.guest, payload.attachments, tempId);
+    },
+    [conversationId, startConversation, markSent, markFailed],
   );
 
   const toggleOpen = () => {
@@ -307,6 +374,7 @@ export default function SupportWidget() {
         statusColor={STATUS_COLORS[meta?.status ?? 'ONLINE']}
         onUpload={apiSupportUpload}
         referenceId={conversationId ?? undefined}
+        onRetry={handleRetry}
         topSlot={
           !conversationId ? (
             <SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />
