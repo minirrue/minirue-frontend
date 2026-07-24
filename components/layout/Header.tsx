@@ -72,7 +72,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
           className="mr-header-inner"
           style={{
             display: 'grid',
-            gridTemplateColumns: mobile ? 'auto 1fr auto' : '1fr auto 1fr',
+            gridTemplateColumns: mobile ? '44px 1fr 44px' : '1fr auto 1fr',
             alignItems: 'center',
             padding: scrolled
               ? mobile ? '10px 16px' : '14px 48px'
@@ -139,26 +139,19 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
               alignItems: 'center',
             }}
           >
-            {/* Search — always visible (not dashboard-toggled): every shopper
-                needs it, so it is hardcoded on both mobile and desktop. */}
-            <IconButton
-              icon="search"
-              label="Search"
-              size={mobile ? 38 : 44}
-              tone={isLight ? 'glass' : 'cream'}
-              onClick={() => router.push('/search')}
-            />
-            {/* Account — always visible. Mobile gets a direct icon to the
-                account (or sign-in); desktop keeps the identity menu. */}
-            {mobile ? (
+            {/* Search — desktop only in the bar; on mobile it lives inside the
+                hamburger menu. Always shown on desktop (no dashboard toggle). */}
+            {!mobile && (
               <IconButton
-                icon="user"
-                label="Account"
-                size={38}
+                icon="search"
+                label="Search"
                 tone={isLight ? 'glass' : 'cream'}
-                onClick={() => router.push(session ? '/account/profile' : '/login')}
+                onClick={() => router.push('/search')}
               />
-            ) : (
+            )}
+            {/* Account — desktop identity menu; on mobile it lives inside the
+                hamburger menu. */}
+            {!mobile && (
               session ? (
                 <div style={{ position: 'relative' }}>
                   <button
@@ -322,7 +315,6 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             <IconButton
               icon="bag"
               label="Bag"
-              size={mobile ? 38 : 44}
               tone={isLight ? 'glass' : 'cream'}
               onClick={onOpenCart}
               badge={cartCount}
@@ -390,9 +382,16 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
               />
             </div>
             {[
-              // Home is hardcoded first so it is always reachable, regardless of
-              // the columns configured in the storefront dashboard.
+              // Home, Search and Account are hardcoded at the top of the menu so
+              // they are always reachable inside the hamburger, regardless of the
+              // columns configured in the storefront dashboard.
               { id: '__home', href: '/', label: 'Home' },
+              { id: '__search', href: '/search', label: 'Search' },
+              {
+                id: '__account',
+                href: session ? '/account/profile' : '/login',
+                label: session ? 'Account' : 'Sign in',
+              },
               ...navbar.items,
             ].map(({ id, href, label }, i) => (
               <a
