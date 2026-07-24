@@ -15,6 +15,7 @@ import VariantPicker from './VariantPicker';
 import PriceDisplay from './PriceDisplay';
 import Icon from '@/components/ui/Icon';
 import Sparkle from '@/components/ui/Sparkle';
+import ShareButton from './ShareButton';
 import WordReveal from '@/components/ui/WordReveal';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
@@ -263,6 +264,24 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
             <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.5l-1-.9a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
           </svg>
         </button>
+      </div>
+
+      {/* Share — OS share sheet on phones and Chrome/Windows, link copy
+          elsewhere. The URL unfurls with the cover photo via the page's
+          OpenGraph tags. */}
+      <div
+        style={{
+          marginBottom: 24,
+          animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
+          animationDelay: '520ms',
+        }}
+      >
+        <ShareButton
+          url={`/products/${product.slug}`}
+          title={product.name}
+          text={[productBrand(product), product.tagline].filter(Boolean).join(' — ')}
+          traceId="PG-STOREFRONT-CAT-005::EL-BTN-share-product"
+        />
       </div>
 
       {/* Gender + fragrance family badges */}
