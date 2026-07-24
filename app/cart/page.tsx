@@ -13,7 +13,7 @@ import Button from '@/components/ui/Button';
 import Toast from '@/components/ui/Toast';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { SHIPPING_AMOUNT_MINOR } from '@/lib/checkout/checkout-schemas';
-import { getAccessToken } from '@/lib/auth/tokens';
+import { isAuthenticated } from '@/lib/auth/tokens';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -30,7 +30,7 @@ export default function CartPage() {
   const shippingDisplay = minorToAmount(SHIPPING_AMOUNT_MINOR);
 
   React.useEffect(() => {
-    if (!getAccessToken()) {
+    if (!isAuthenticated()) {
       router.replace(`/login?returnUrl=${encodeURIComponent('/cart')}`);
       return;
     }

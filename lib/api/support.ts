@@ -1,14 +1,14 @@
 'use client';
 
 import { getGuestSupport } from '@/lib/support/session';
-import { getAccessToken } from '@/lib/auth/tokens';
 
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
 
+// Logged-in customers authenticate via the httpOnly session cookie (sent with
+// credentials:'include' below); guests carry the x-guest-token header. No
+// bearer token is read from JS anymore.
 function identityHeaders(): Record<string, string> {
   const h: Record<string, string> = {};
-  const token = getAccessToken?.();
-  if (token) h['Authorization'] = `Bearer ${token}`;
   const guest = getGuestSupport();
   if (guest) h['x-guest-token'] = guest.guestToken;
   return h;
@@ -17,6 +17,9 @@ function identityHeaders(): Record<string, string> {
 function headers(): HeadersInit {
   return { 'Content-Type': 'application/json', ...identityHeaders() };
 }
+
+// Every support call includes credentials so the session cookie rides along.
+const CREDS: RequestCredentials = 'include';
 
 export interface SupportAttachmentDto {
   url: string;
@@ -69,6 +72,7 @@ export async function apiStartSupport(input: StartSupportInput): Promise<StartSu
   const res = await fetch(`${BASE}/storefront/support/conversations`, {
     method: 'POST',
     headers: headers(),
+    credentials: CREDS,
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error('start failed');
@@ -77,7 +81,7 @@ export async function apiStartSupport(input: StartSupportInput): Promise<StartSu
 
 export async function apiSupportMine(): Promise<SupportConversationDto[]> {
   try {
-    const res = await fetch(`${BASE}/storefront/support/conversations/mine`, { headers: headers() });
+    const res = await fetch(`${BASE}/storefront/support/conversations/mine`, { headers: headers(), credentials: CREDS });
     if (!res.ok) return [];
     return (await res.json()) as SupportConversationDto[];
   } catch {
@@ -97,6 +101,7 @@ export async function apiSupportClaim(): Promise<{ id: string } | null> {
     const res = await fetch(`${BASE}/storefront/support/claim`, {
       method: 'POST',
       headers: headers(),
+      credentials: CREDS,
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { conversation: SupportConversationDto | null };
@@ -110,7 +115,7 @@ export async function apiSupportClaim(): Promise<{ id: string } | null> {
 export async function apiSupportMessages(id: string, after?: string): Promise<SupportMessageDto[]> {
   const res = await fetch(
     `${BASE}/storefront/support/conversations/${id}/messages${after ? `?after=${after}` : ''}`,
-    { headers: headers() },
+    { headers: headers(), credentials: CREDS },
   );
   if (!res.ok) throw new Error('messages failed');
   return res.json() as Promise<SupportMessageDto[]>;
@@ -124,6 +129,7 @@ export async function apiSendSupport(
   const res = await fetch(`${BASE}/storefront/support/conversations/${id}/messages`, {
     method: 'POST',
     headers: headers(),
+    credentials: CREDS,
     body: JSON.stringify({ body, ...(attachments && attachments.length > 0 ? { attachments } : {}) }),
   });
   if (!res.ok) throw new Error('send failed');
@@ -155,6 +161,7 @@ export async function apiSupportHeartbeat(
     await fetch(`${BASE}/storefront/support/heartbeat`, {
       method: 'POST',
       headers: headers(),
+      credentials: CREDS,
       body: JSON.stringify({ conversationId, state }),
     });
   } catch {
@@ -169,6 +176,7 @@ export async function apiSupportUpload(file: File): Promise<{ url: string }> {
   const res = await fetch(`${BASE}/storefront/support/uploads`, {
     method: 'POST',
     headers: identityHeaders(),
+    credentials: CREDS,
     body: form,
   });
   if (!res.ok) throw new Error('upload failed');

@@ -1,4 +1,4 @@
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '@/lib/auth/tokens';
+import { markAuthenticated, clearAuthFlag } from '@/lib/auth/tokens';
 import { clearSession } from '@/lib/session';
 
 export interface ApiError {
@@ -26,39 +26,38 @@ export async function apiFetch<T>(
   const headers = new Headers(fetchInit.headers);
   headers.set('Content-Type', 'application/json');
 
-  if (auth) {
-    const token = getAccessToken();
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+  // credentials:'include' sends the httpOnly auth cookies (mr_access/mr_refresh)
+  // on every request, including cross-subdomain to the API. No bearer token is
+  // read from JS anymore — the browser attaches the cookie automatically.
+  const res = await fetch(`${BASE}${path}`, {
+    ...fetchInit,
+    headers,
+    credentials: 'include',
+  });
+
+  // Only attempt a cookie-based refresh for calls that expect a session.
+  if (res.status === 401 && !_isRetry && auth) {
+    try {
+      const refreshRes = await fetch(`${BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        // Refresh token travels in the httpOnly cookie; empty JSON body.
+        body: '{}',
+      });
+      if (refreshRes.ok) {
+        markAuthenticated();
+        return apiFetch<T>(path, { ...init, _isRetry: true });
+      }
+    } catch {
+      // refresh network failure — fall through to clear + throw
     }
-  }
-
-  const res = await fetch(`${BASE}${path}`, { ...fetchInit, headers });
-
-  if (res.status === 401 && !_isRetry) {
-    const refreshToken = getRefreshToken();
-    if (refreshToken) {
-      try {
-        const refreshRes = await fetch(`${BASE}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        });
-        if (refreshRes.ok) {
-          const pair = (await refreshRes.json()) as { accessToken: string; refreshToken: string };
-          setTokens(pair.accessToken, pair.refreshToken);
-          return apiFetch<T>(path, { ...init, _isRetry: true });
-        }
-      } catch {
-        // refresh network failure — fall through to throw
-      }
-      // Refresh failed — clear stale tokens but DO NOT auto-redirect.
-      // Calling code (or page-level guards) decide what to do with a 401.
-      clearTokens();
-      clearSession();
-      if (onSessionExpired && typeof window !== 'undefined') {
-        onSessionExpired(window.location.pathname + window.location.search);
-      }
+    // Refresh failed — clear the UI hint + session but DO NOT auto-redirect.
+    // Calling code (or page-level guards) decide what to do with a 401.
+    clearAuthFlag();
+    clearSession();
+    if (onSessionExpired && typeof window !== 'undefined') {
+      onSessionExpired(window.location.pathname + window.location.search);
     }
     throw { status: 401, message: 'Session expired' } as ApiError;
   }

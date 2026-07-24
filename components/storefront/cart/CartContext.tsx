@@ -19,7 +19,7 @@ import {
   apiClearCart,
   getCartSessionId,
 } from '@/lib/api/cart';
-import { getAccessToken } from '@/lib/auth/tokens';
+import { isAuthenticated } from '@/lib/auth/tokens';
 import { applyEnrichmentToCart, cacheVariantEnrichment, type VariantEnrichment } from '@/lib/cart/enrichment';
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   async function hydrateCart() {
     // Skip API call for unidentified guests — session is created on first add.
-    if (!getAccessToken() && !getCartSessionId()) return;
+    if (!isAuthenticated() && !getCartSessionId()) return;
     try {
       setCartFromApi(await apiGetCart());
     } catch {

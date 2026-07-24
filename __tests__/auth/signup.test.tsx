@@ -22,10 +22,9 @@ jest.mock('@/lib/api/auth', () => ({
 }));
 
 jest.mock('@/lib/auth/tokens', () => ({
-  setTokens: jest.fn(),
-  getAccessToken: jest.fn(() => null),
-  getRefreshToken: jest.fn(() => null),
-  clearTokens: jest.fn(),
+  markAuthenticated: jest.fn(),
+  isAuthenticated: jest.fn(() => false),
+  clearAuthFlag: jest.fn(),
 }));
 
 jest.mock('@/lib/session', () => ({

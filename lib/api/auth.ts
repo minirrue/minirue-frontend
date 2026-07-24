@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import { setTokens } from '@/lib/auth/tokens';
+import { markAuthenticated } from '@/lib/auth/tokens';
 import { parseAuthUser } from '@/lib/auth/session-role';
 import type { AuthSuccessResponse, MeResponse, TokenPair } from '@/lib/auth/types';
 
@@ -19,7 +19,8 @@ export async function apiLogin(email: string, password: string): Promise<AuthSuc
     headers: { 'Idempotency-Key': createIdempotencyKey('login') },
     body: JSON.stringify({ email, password }),
   });
-  setTokens(data.accessToken, data.refreshToken);
+  // Backend has set the httpOnly token cookies; just flip the UI hint.
+  markAuthenticated();
   const user = await apiMe();
   return { ...data, user };
 }
@@ -34,27 +35,28 @@ export async function apiRegister(
     headers: { 'Idempotency-Key': createIdempotencyKey('register') },
     body: JSON.stringify({ name, email, password }),
   });
-  setTokens(data.accessToken, data.refreshToken);
+  // Backend has set the httpOnly token cookies; just flip the UI hint.
+  markAuthenticated();
   const user = await apiMe();
   return { ...data, user };
 }
 
-export async function apiRefresh(
-  refreshToken: string,
-): Promise<{ accessToken: string; refreshToken: string }> {
-  const pair = await apiFetch<AuthSuccessResponse>('/auth/refresh', {
+export async function apiRefresh(): Promise<void> {
+  // Refresh token travels in the httpOnly cookie; the backend rotates both
+  // cookies. Empty JSON body keeps the DTO validator happy.
+  await apiFetch<AuthSuccessResponse>('/auth/refresh', {
     method: 'POST',
-    body: JSON.stringify({ refreshToken }),
+    body: '{}',
   });
-  setTokens(pair.accessToken, pair.refreshToken);
-  return { accessToken: pair.accessToken, refreshToken: pair.refreshToken };
+  markAuthenticated();
 }
 
-export async function apiLogout(refreshToken: string): Promise<void> {
+export async function apiLogout(): Promise<void> {
+  // Backend reads the refresh token from the httpOnly cookie and clears both.
   await apiFetch<void>('/auth/logout', {
     method: 'POST',
     auth: true,
-    body: JSON.stringify({ refreshToken }),
+    body: '{}',
   });
 }
 

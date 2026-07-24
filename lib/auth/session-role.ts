@@ -1,4 +1,4 @@
-import { clearTokens } from '@/lib/auth/tokens';
+import { clearAuthFlag } from '@/lib/auth/tokens';
 import { isRole, type Role } from '@/lib/auth/role';
 import type { UserProfile } from '@/lib/auth/types';
 
@@ -12,7 +12,7 @@ export class InvalidSessionRoleError extends Error {
 /** Reject non-canonical roles from auth API responses (FR-008 parity). */
 export function assertCanonicalRole(role: unknown): asserts role is Role {
   if (!isRole(role)) {
-    clearTokens();
+    clearAuthFlag();
     throw new InvalidSessionRoleError();
   }
 }

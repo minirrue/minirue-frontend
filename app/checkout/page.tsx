@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useCustomerAddresses } from '@/lib/hooks/use-customer';
-import { getAccessToken } from '@/lib/auth/tokens';
+import { isAuthenticated } from '@/lib/auth/tokens';
 import { saveCheckoutSession } from '@/lib/checkout/checkout-session';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
@@ -33,7 +33,7 @@ export default function CheckoutPage() {
   const { mobile } = useBreakpoint();
 
   useEffect(() => {
-    if (!getAccessToken()) {
+    if (!isAuthenticated()) {
       router.replace(`/login?returnUrl=${encodeURIComponent('/checkout')}`);
     }
   }, [router]);

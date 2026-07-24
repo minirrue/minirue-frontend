@@ -9,8 +9,8 @@ import Button from '@/components/ui/Button';
 import ErrorBanner from '@/components/ui/ErrorBanner';
 import { loginSchema, type LoginFormData } from '@/lib/auth/schemas';
 import { setSession } from '@/lib/session';
-import { apiLogin } from '@/lib/api/auth';
-import { clearTokens } from '@/lib/auth/tokens';
+import { apiLogin, apiLogout } from '@/lib/api/auth';
+import { clearAuthFlag } from '@/lib/auth/tokens';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import type { ApiError } from '@/lib/api/client';
 
@@ -66,11 +66,12 @@ export default function LoginPage() {
 
       // The storefront is customer/guest-only — admin, staff, and
       // collaborator accounts belong on the dashboard, not here. apiLogin
-      // already persisted tokens for this account, so discard them
-      // immediately rather than letting a staff session leak into the
-      // storefront.
+      // already set httpOnly session cookies for this account, so revoke them
+      // server-side (apiLogout) and clear the local hint rather than letting a
+      // staff session leak into the storefront.
       if (data.user.role !== 'CUSTOMER') {
-        clearTokens();
+        await apiLogout().catch(() => undefined);
+        clearAuthFlag();
         setLoading(false);
         setApiError('This account cannot be used on the storefront.');
         return;

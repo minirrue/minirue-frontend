@@ -20,14 +20,14 @@ jest.mock('next/navigation', () => ({
 const mockApiLogin = jest.fn();
 jest.mock('@/lib/api/auth', () => ({
   apiLogin: (...args: unknown[]) => mockApiLogin(...args),
+  apiLogout: jest.fn(() => Promise.resolve()),
 }));
 
-// Prevent real localStorage side-effects bleeding between tests
+// Prevent real cookie side-effects bleeding between tests
 jest.mock('@/lib/auth/tokens', () => ({
-  setTokens: jest.fn(),
-  getAccessToken: jest.fn(() => null),
-  getRefreshToken: jest.fn(() => null),
-  clearTokens: jest.fn(),
+  markAuthenticated: jest.fn(),
+  isAuthenticated: jest.fn(() => false),
+  clearAuthFlag: jest.fn(),
 }));
 
 jest.mock('@/lib/session', () => ({
