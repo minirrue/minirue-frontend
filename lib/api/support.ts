@@ -131,6 +131,24 @@ export async function apiSupportMeta(): Promise<SupportMetaDto | null> {
   }
 }
 
+/**
+ * Presence heartbeat: tells the backend this customer is currently on the page
+ * for `conversationId`, marking them ONLINE for a short TTL. The widget polls
+ * this (Vercel hobby kills WebSockets). Best-effort — never throws.
+ */
+export async function apiSupportHeartbeat(conversationId: string): Promise<void> {
+  try {
+    await fetch(`${BASE}/storefront/support/heartbeat`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ conversationId }),
+    });
+  } catch {
+    // Presence is cosmetic; a dropped heartbeat just means "offline" until the
+    // next tick succeeds.
+  }
+}
+
 export async function apiSupportUpload(file: File): Promise<{ url: string }> {
   const form = new FormData();
   form.append('file', file);

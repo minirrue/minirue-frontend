@@ -16,12 +16,14 @@ import {
   apiSupportUpload,
   apiSupportClaim,
   apiSupportMine,
+  apiSupportHeartbeat,
   type SupportMessageDto,
   type SupportMetaDto,
 } from '@/lib/api/support';
 
 const POLL_INTERVAL_MS = 4000;
 const META_POLL_INTERVAL_MS = 8000;
+const HEARTBEAT_INTERVAL_MS = 20000;
 
 const STATUS_COLORS: Record<SupportMetaDto['status'], string> = {
   ONLINE: '#4CAF50',
@@ -175,6 +177,41 @@ export default function SupportWidget() {
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
   }, [conversationId, open, appendMessages]);
+
+  // Presence heartbeat: once a conversation exists, tell the backend this
+  // customer is on the page so the dashboard can show an online dot. No socket
+  // (Vercel hobby kills WebSockets) — poll instead. Pause while the tab is
+  // hidden to avoid pointless pings; resume on visibility change. Independent of
+  // the message/meta polling above.
+  React.useEffect(() => {
+    if (!conversationId) return;
+    let interval: number | undefined;
+    const beat = () => {
+      if (document.visibilityState === 'hidden') return;
+      void apiSupportHeartbeat(conversationId);
+    };
+    const start = () => {
+      if (interval !== undefined) return;
+      beat(); // immediate ping so presence shows without a 20s wait
+      interval = window.setInterval(beat, HEARTBEAT_INTERVAL_MS);
+    };
+    const stop = () => {
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+        interval = undefined;
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') stop();
+      else start();
+    };
+    if (document.visibilityState !== 'hidden') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      stop();
+    };
+  }, [conversationId]);
 
   const currentSubjectInput = React.useCallback(() => {
     if (subjectChoice.type === 'ITEM') {
