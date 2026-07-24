@@ -214,7 +214,7 @@ export default function SupportWidget() {
 
   return (
     <>
-      <ChatButton onClick={toggleOpen} hasUnread={hasUnread} />
+      <ChatButton onClick={toggleOpen} hasUnread={hasUnread} open={open} />
       <ChatPanel
         open={open}
         onClose={() => setOpen(false)}

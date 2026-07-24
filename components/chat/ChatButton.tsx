@@ -5,13 +5,17 @@ import React from 'react';
 interface ChatButtonProps {
   onClick: () => void;
   hasUnread?: boolean;
+  /** Whether the chat panel is open — on mobile the button lifts with the panel. */
+  open?: boolean;
 }
 
-export default function ChatButton({ onClick, hasUnread = false }: ChatButtonProps) {
+export default function ChatButton({ onClick, hasUnread = false, open = false }: ChatButtonProps) {
   const [hovered, setHovered] = React.useState(false);
   const [pressed, setPressed] = React.useState(false);
 
-  // On mobile, sit a little higher (vh-based) so the button clears the very bottom edge.
+  // Button rests in the bottom-right corner; on mobile it lifts (vh-based) with the
+  // panel only while open, so the keyboard/panel don't crowd it. Lifted via transform
+  // (never animate `bottom`) so it eases smoothly.
   const [isMobile, setIsMobile] = React.useState(false);
   React.useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -31,7 +35,7 @@ export default function ChatButton({ onClick, hasUnread = false }: ChatButtonPro
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       style={{
-        position: 'fixed', bottom: isMobile ? 'calc(24px + 5.5vh)' : 24, right: 24, zIndex: 200,
+        position: 'fixed', bottom: 24, right: 24, zIndex: 200,
         width: 52, height: 52, borderRadius: '50%',
         background: hovered ? 'var(--mr-ink-700)' : 'var(--mr-ink-900)',
         backdropFilter: 'blur(16px)',
@@ -42,7 +46,7 @@ export default function ChatButton({ onClick, hasUnread = false }: ChatButtonPro
           : '0 4px 20px rgba(11,11,11,0.28)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer',
-        transform: pressed ? 'scale(0.92)' : hovered ? 'scale(1.06)' : 'scale(1)',
+        transform: `${isMobile && open ? 'translateY(-6.5vh) ' : ''}${pressed ? 'scale(0.92)' : hovered ? 'scale(1.06)' : 'scale(1)'}`,
         transition: pressed
           ? 'transform 80ms cubic-bezier(0.4,0,0.2,1)'
           : 'transform 260ms cubic-bezier(0.16,1,0.3,1), background 200ms, box-shadow 260ms',
