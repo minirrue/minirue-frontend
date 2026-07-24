@@ -41,6 +41,22 @@ export default function ChatPanel({
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
+  // On mobile, lift the panel slightly when a field is focused so the on-screen
+  // keyboard doesn't cover the input/send button. Uses vh so it scales per device.
+  const [isMobile, setIsMobile] = React.useState(false);
+  const [fieldFocused, setFieldFocused] = React.useState(false);
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+  const keyboardLift = open && isMobile && fieldFocused;
+  const isFormField = (el: EventTarget | null) =>
+    el instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+
   React.useEffect(() => {
     if (open && !bottomSlot && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 380);
@@ -66,10 +82,12 @@ export default function ChatPanel({
       aria-modal="true"
       aria-label="Live support chat"
       aria-live="polite"
+      onFocusCapture={(e) => { if (isFormField(e.target)) setFieldFocused(true); }}
+      onBlurCapture={(e) => { if (isFormField(e.target)) setFieldFocused(false); }}
       style={{
         position: 'fixed', bottom: 88, right: 24, zIndex: 199,
         width: 'min(360px, calc(100vw - 48px))',
-        height: 'min(560px, calc(100vh - 140px))',
+        height: isMobile ? 'min(500px, calc(100vh - 176px))' : 'min(560px, calc(100vh - 140px))',
         background: 'rgba(253,251,245,0.97)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
@@ -78,7 +96,7 @@ export default function ChatPanel({
         boxShadow: '0 24px 60px rgba(11,11,11,0.22), 0 4px 16px rgba(11,11,11,0.08)',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
-        transform: open ? 'translateY(0) scale(1)' : 'translateY(24px) scale(0.94)',
+        transform: open ? `translateY(${keyboardLift ? '-4.5vh' : '0'}) scale(1)` : 'translateY(24px) scale(0.94)',
         opacity: open ? 1 : 0,
         pointerEvents: open ? 'auto' : 'none',
         transition: 'transform 380ms cubic-bezier(0.16,1,0.3,1), opacity 260ms cubic-bezier(0.16,1,0.3,1)',

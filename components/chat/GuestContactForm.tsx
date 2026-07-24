@@ -102,13 +102,14 @@ export default function GuestContactForm({ onSubmit, submitting = false }: Guest
 
       <div>
         <label style={labelStyle} htmlFor="mr-guest-phone">Phone</label>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
           <select
             id="mr-guest-phone-country"
             aria-label="Country code"
             value={phoneCountry}
             onChange={(e) => setPhoneCountry(e.target.value)}
-            style={{ ...fieldStyle, width: 'auto', flexShrink: 0 }}
+            title={COUNTRY_CODES.find((c) => c.dial === phoneCountry)?.label}
+            style={{ ...fieldStyle, width: 88, flexShrink: 0, padding: '9px 6px', textOverflow: 'ellipsis' }}
           >
             {COUNTRY_CODES.map((c) => (
               <option key={c.code} value={c.dial}>
@@ -120,7 +121,7 @@ export default function GuestContactForm({ onSubmit, submitting = false }: Guest
             id="mr-guest-phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            style={{ ...fieldStyle, flex: 1 }}
+            style={{ ...fieldStyle, flex: 1, minWidth: 0 }}
             placeholder="Phone number"
             autoComplete="tel-national"
             inputMode="tel"
