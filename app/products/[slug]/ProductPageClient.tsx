@@ -3,7 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import type { ApiProduct, ProductVariant } from '@/lib/api/catalog';
-import { primaryMedia, mediaImageUrl } from '@/lib/api/catalog';
+import { primaryMedia, mediaImageUrl, productBrand, variantLabel } from '@/lib/api/catalog';
 import ApiProductDetail from '@/components/storefront/ApiProductDetail';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
@@ -40,9 +40,11 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
     const media = primaryMedia(product);
     await addItem(variant.id, 1, {
       name: product.name,
-      brand: product.brand,
-      sizeMl: variant.sizeMl,
-      bottleType: variant.bottleType,
+      brand: productBrand(product) ?? undefined,
+      sizeMl: variant.sizeMl ?? undefined,
+      // Attribute-based variants have no bottleType column — carry the resolved
+      // attribute label so the cart row still shows what was picked.
+      bottleType: variant.bottleType ?? variantLabel(variant),
       cloudinaryPublicId: media?.cloudinaryPublicId,
       imageUrl: media ? mediaImageUrl(media, { w: 160, h: 200 }) ?? undefined : undefined,
       altText: media?.altText,

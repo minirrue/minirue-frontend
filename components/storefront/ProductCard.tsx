@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import type { ApiProduct } from '@/lib/api/catalog';
-import { primaryMedia, mediaImageUrl, lowestPrice } from '@/lib/api/catalog';
+import { primaryMedia, mediaImageUrl, lowestPrice, productByline } from '@/lib/api/catalog';
 import IconButton from '@/components/ui/IconButton';
 import { MR_TX } from '@/lib/motion/presets';
 import { useIsTouch } from '@/lib/hooks/useIsTouch';
@@ -32,8 +32,8 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
   );
   const price = React.useMemo(() => lowestPrice(product), [product]);
   const meta = React.useMemo(
-    () => [product.brand, product.fragranceFamily].filter(Boolean).join(' · '),
-    [product.brand, product.fragranceFamily],
+    () => productByline(product) || (product.categoryName ?? ''),
+    [product],
   );
 
   const showOverlays = React.useMemo(

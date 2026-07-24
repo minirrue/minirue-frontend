@@ -194,9 +194,13 @@ export default function RootLayout({
               <StorefrontLiveUpdates />
               <SessionExpiredHandler />
               <CartProvider>
-                <LenisProvider>{children}</LenisProvider>
-                <CartDrawer />
+                {/* SupportProvider must wrap {children} too — pages call
+                    useSupportContext() to set the widget's default subject
+                    (e.g. the product being viewed). Wrapping only the widget
+                    made every such page throw. */}
                 <SupportProvider>
+                  <LenisProvider>{children}</LenisProvider>
+                  <CartDrawer />
                   <SupportWidget />
                 </SupportProvider>
               </CartProvider>

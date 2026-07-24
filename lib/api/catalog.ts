@@ -8,14 +8,42 @@ const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+export interface VariantValue {
+  attributeId: string;
+  attributeName: string;
+  optionId: string;
+  optionName: string;
+}
+
 export interface ProductVariant {
   id: string;
   sku: string;
-  sizeMl: number;
-  bottleType: string;
+  /** Legacy fixed columns — null on products created under the attribute
+   * system. Render variantLabel() instead of reading these directly. */
+  sizeMl?: number | null;
+  bottleType?: string | null;
+  /** Resolved attribute answers, e.g. [{ attributeName: 'ML', optionName: '50' }]. */
+  values?: VariantValue[];
+  customValues?: Record<string, string>;
   priceAmount: string; // Always string (Dinero.js) — never parse as float
   priceCurrency: string;
   isActive: boolean;
+}
+
+/** Human label for a variant: its attribute answers ("50 ML · Amber"), falling
+ * back to the legacy size/bottle columns, then to the SKU. Never renders the
+ * "nullml" that reading sizeMl directly produces on attribute-based products. */
+export function variantLabel(v: ProductVariant): string {
+  const fromValues = (v.values ?? []).map(
+    (x) => `${x.optionName} ${x.attributeName}`,
+  );
+  const fromCustom = Object.entries(v.customValues ?? {}).map(
+    ([k, val]) => `${val} ${k}`,
+  );
+  const parts = [...fromValues, ...fromCustom];
+  if (parts.length) return parts.join(' · ');
+  const legacy = [v.sizeMl ? `${v.sizeMl}ml` : null, v.bottleType].filter(Boolean);
+  return legacy.length ? legacy.join(' · ') : v.sku;
 }
 
 export interface MediaAsset {
@@ -31,19 +59,29 @@ export interface MediaAsset {
   height: number;
   altText: string;
   sortOrder: number;
+  /** COVER = the single thumbnail shown outside the product (grids, cart, OG
+   * image). CAROUSEL = the images inside the product gallery. */
+  role?: 'COVER' | 'CAROUSEL';
+  /** Set when this image belongs to one variant rather than the product. */
+  variantId?: string | null;
 }
 
 export interface ApiProduct {
   id: string;
   slug: string;
   name: string;
-  brand: string;
-  fragranceFamily: string;
-  gender: 'men' | 'women' | 'unisex';
+  /** Resolved brand display name. The API sends `brandName`; `brand` is the
+   * legacy field name still present in older cached payloads. Read both via
+   * productBrand() rather than either one directly. */
+  brandName?: string | null;
+  brand?: string | null;
+  brandId?: string | null;
+  fragranceFamily?: string | null;
+  gender?: 'men' | 'women' | 'unisex' | null;
   description?: string;
   tagline?: string;
   categoryId?: string;
-  categoryName?: string;
+  categoryName?: string | null;
   variants: ProductVariant[];
   media: MediaAsset[];
 }
@@ -110,10 +148,53 @@ export function mediaImageUrl(
   return null;
 }
 
-/** Returns the primary media asset for a product (lowest sortOrder). */
+/** Brand display name, tolerant of both the current (`brandName`) and legacy
+ * (`brand`) API field names. Returns null when the product has no brand. */
+export function productBrand(product: {
+  brandName?: string | null;
+  brand?: string | null;
+}): string | null {
+  return product.brandName ?? product.brand ?? null;
+}
+
+/** Joins the label parts a product byline shows (brand · family), skipping any
+ * that are missing so the separator never renders on its own. */
+export function productByline(product: {
+  brandName?: string | null;
+  brand?: string | null;
+  fragranceFamily?: string | null;
+}): string {
+  return [productBrand(product), product.fragranceFamily]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * The product's cover thumbnail — the image shown OUTSIDE the product (grids,
+ * cart rows, OG image). Prefers the explicitly-flagged COVER row; falls back to
+ * the lowest sortOrder for products created before roles existed.
+ */
 export function primaryMedia(product: ApiProduct): MediaAsset | null {
   if (!product.media?.length) return null;
-  return [...product.media].sort((a, b) => a.sortOrder - b.sortOrder)[0];
+  const productLevel = product.media.filter((m) => !m.variantId);
+  const pool = productLevel.length ? productLevel : product.media;
+  return (
+    pool.find((m) => m.role === 'COVER') ??
+    [...pool].sort((a, b) => a.sortOrder - b.sortOrder)[0]
+  );
+}
+
+/**
+ * The images shown INSIDE the product carousel, in order: the cover first, then
+ * every other product-level image. Variant-scoped images are excluded — they
+ * belong to a variant view, not the product gallery.
+ */
+export function carouselMedia(product: ApiProduct): MediaAsset[] {
+  const cover = primaryMedia(product);
+  const rest = (product.media ?? [])
+    .filter((m) => !m.variantId && m.id !== cover?.id)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  return cover ? [cover, ...rest] : rest;
 }
 
 /** Returns the lowest priceAmount across active variants (string, not parsed). */

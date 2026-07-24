@@ -3,7 +3,14 @@
 import React from 'react';
 import Image from 'next/image';
 import type { ApiProduct, ProductVariant } from '@/lib/api/catalog';
-import { primaryMedia, mediaImageUrl, lowestPrice } from '@/lib/api/catalog';
+import {
+  primaryMedia,
+  carouselMedia,
+  mediaImageUrl,
+  productBrand,
+  productByline,
+  variantLabel,
+} from '@/lib/api/catalog';
 import VariantPicker from './VariantPicker';
 import PriceDisplay from './PriceDisplay';
 import Icon from '@/components/ui/Icon';
@@ -36,9 +43,12 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
     : '';
   const ctaX = useCrossfade(priceLabel);
 
+  // Cover = the thumbnail used everywhere outside this page. Carousel = the
+  // cover plus the product's other images, shown inside the page.
   const media = primaryMedia(product);
   const imgSrc = media ? mediaImageUrl(media, { w: 1200, h: 1500 }) : null;
   const imgAlt = media?.altText ?? product.name;
+  const gallery = carouselMedia(product);
 
   const handleAdd = () => {
     if (added || !selectedVariant) return;
@@ -93,7 +103,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
           animationDelay: '100ms',
         }}
       >
-        {product.brand} · {product.fragranceFamily}
+        {productByline(product) || product.categoryName}
       </div>
 
       <h1
@@ -319,7 +329,52 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
           <BackButton />
         </div>
 
-        {/* Hero image */}
+        {/* Carousel — cover first, then the product's other images. Horizontal
+            snap-scroll so a thumb-swipe moves exactly one image. */}
+        {gallery.length > 1 ? (
+          <div
+            data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-carousel"
+            style={{
+              display: 'flex',
+              gap: 12,
+              overflowX: 'auto',
+              scrollSnapType: 'x mandatory',
+              padding: '24px 20px 0',
+              scrollbarWidth: 'none',
+            }}
+          >
+            {gallery.map((m, i) => {
+              const src = mediaImageUrl(m, { w: 1200, h: 1500 });
+              if (!src) return null;
+              return (
+                <div
+                  key={m.id}
+                  data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
+                  style={{
+                    flex: '0 0 100%',
+                    aspectRatio: '3/4',
+                    background: 'var(--mr-cream-300)',
+                    borderRadius: 'var(--mr-radius-lg)',
+                    overflow: 'hidden',
+                    boxShadow: 'var(--mr-shadow-lg)',
+                    position: 'relative',
+                    scrollSnapAlign: 'center',
+                  }}
+                >
+                  <Image
+                    src={src}
+                    alt={m.altText ?? product.name}
+                    fill
+                    priority={i === 0}
+                    sizes="100vw"
+                    style={{ objectFit: 'cover' }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+        /* Hero image */
         <div
           data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-hero-image"
           style={{
@@ -358,6 +413,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
             </div>
           )}
         </div>
+        )}
 
         <div style={{ padding: '32px 20px 96px', ...copyEnt }}>
           <InfoPanel />
@@ -465,6 +521,33 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
           </div>
         </div>
 
+        {/* One full-height panel per remaining carousel image. The cover is
+            already Panel 1, so only the images after it repeat here. */}
+        {gallery.slice(1).map((m) => {
+          const src = mediaImageUrl(m, { w: 1400, h: 1750 });
+          if (!src) return null;
+          return (
+            <div
+              key={m.id}
+              data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
+              style={{
+                height: '100vh',
+                background: 'var(--mr-cream-300)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <Image
+                src={src}
+                alt={m.altText ?? product.name}
+                fill
+                sizes="60vw"
+                style={{ objectFit: 'cover' }}
+              />
+            </div>
+          );
+        })}
+
         {/* Panel 2 — Editorial dark moment */}
         <div
           data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-editorial-quote-panel"
@@ -513,7 +596,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
                 color: 'var(--mr-gold-400)',
               }}
             >
-              {product.brand}
+              {productBrand(product) ?? product.categoryName}
             </div>
           </div>
         </div>
@@ -570,7 +653,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
                       marginBottom: 12,
                     }}
                   >
-                    {v.bottleType}
+                    {v.sku}
                   </div>
                   <div
                     style={{
@@ -580,7 +663,7 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
                       marginBottom: 8,
                     }}
                   >
-                    {v.sizeMl}ml
+                    {variantLabel(v)}
                   </div>
                   <PriceDisplay
                     amount={v.priceAmount}

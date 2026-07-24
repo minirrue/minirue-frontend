@@ -1,6 +1,6 @@
 import { JsonLd } from "./JsonLd";
 import type { ApiProduct } from "@/lib/api/catalog";
-import { primaryMedia, mediaImageUrl, lowestPrice } from "@/lib/api/catalog";
+import { primaryMedia, mediaImageUrl, lowestPrice, productBrand } from "@/lib/api/catalog";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -23,7 +23,9 @@ export default function ProductSchema({ slug, apiProductJson }: ProductSchemaPro
     name: p.name,
     description: p.tagline ?? p.description,
     sku: p.id,
-    brand: { "@type": "Brand", name: p.brand },
+    ...(productBrand(p)
+      ? { brand: { "@type": "Brand", name: productBrand(p) } }
+      : {}),
     ...(imgUrl ? { image: imgUrl } : {}),
     offers: price
       ? {

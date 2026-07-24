@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { ProductVariant } from '@/lib/api/catalog';
+import { variantLabel } from '@/lib/api/catalog';
 import PriceDisplay from './PriceDisplay';
 
 interface VariantPickerProps {
@@ -31,7 +32,9 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
           marginBottom: 'var(--mr-sp-3)',
         }}
       >
-        Volume
+        {active[0]?.values?.length
+          ? active[0].values.map((x) => x.attributeName).join(' / ')
+          : 'Volume'}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--mr-sp-2)' }}>
         {active.map((v) => {
@@ -61,7 +64,7 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
                 gap: 6,
               }}
             >
-              <span>{v.sizeMl}ml</span>
+              <span>{variantLabel(v)}</span>
               <span
                 style={{
                   fontFamily: 'var(--mr-font-serif)',

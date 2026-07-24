@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
-import { mediaImageUrl, primaryMedia, lowestPrice } from '@/lib/api/catalog';
+import { mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
 import PriceDisplay from './PriceDisplay';
 
 interface CatalogProductCardProps {
@@ -150,7 +150,7 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
               marginBottom: 'var(--mr-sp-2)',
             }}
           >
-            {product.brand} · {product.fragranceFamily}
+            {productByline(product) || product.categoryName}
           </div>
           {price && (
             <PriceDisplay amount={price.amount} currency={price.currency} />
