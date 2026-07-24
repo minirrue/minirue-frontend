@@ -33,6 +33,8 @@ interface ChatPanelProps {
   bottomSlot?: React.ReactNode;
   /** Upload a file, returning its hosted URL. Enables paste/attach in the composer. */
   onUpload?: (file: File) => Promise<{ url: string }>;
+  /** Conversation id, shown as a small copyable reference once a thread exists. */
+  referenceId?: string;
 }
 
 export default function ChatPanel({
@@ -48,8 +50,22 @@ export default function ChatPanel({
   topSlot,
   bottomSlot,
   onUpload,
+  referenceId,
 }: ChatPanelProps) {
   const [input, setInput] = React.useState('');
+  const [refCopied, setRefCopied] = React.useState(false);
+  const copyReferenceId = React.useCallback(() => {
+    if (!referenceId) return;
+    navigator.clipboard?.writeText(referenceId).then(
+      () => {
+        setRefCopied(true);
+        window.setTimeout(() => setRefCopied(false), 1600);
+      },
+      () => {
+        // Clipboard permission denied or unavailable; silently no-op.
+      },
+    );
+  }, [referenceId]);
   const [pendingAttachments, setPendingAttachments] = React.useState<ChatAttachment[]>([]);
   const [uploading, setUploading] = React.useState(false);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
@@ -324,6 +340,22 @@ export default function ChatPanel({
       {!bottomSlot && (
         <div style={{ padding: '8px 14px', textAlign: 'center', fontFamily: 'Inter Tight, sans-serif', fontSize: 10, color: 'var(--mr-ink-400)', borderTop: '1px solid var(--mr-hairline)', background: 'var(--mr-cream-100)' }}>
           {headerSubtitle ?? 'We usually reply soon'} · MiniRue Maison
+          {referenceId && (
+            <div style={{ marginTop: 3 }}>
+              <button
+                onClick={copyReferenceId}
+                aria-label="Copy chat reference id"
+                title="Click to copy"
+                style={{
+                  background: 'transparent', border: 0, cursor: 'pointer', padding: 0,
+                  fontFamily: 'Inter Tight, sans-serif', fontSize: 9.5, color: 'var(--mr-ink-400)',
+                  opacity: 0.7, letterSpacing: 0.2,
+                }}
+              >
+                {refCopied ? 'Copied' : `Ref: ${referenceId}`}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

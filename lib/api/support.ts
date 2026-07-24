@@ -85,14 +85,23 @@ export async function apiSupportMine(): Promise<SupportConversationDto[]> {
   }
 }
 
-export async function apiSupportClaim(): Promise<{ conversation: SupportConversationDto | null } | null> {
+/**
+ * Merges the guest thread into the logged-in customer's existing thread and
+ * resolves to the surviving conversation's id. Resolves to `null` on any
+ * failure (network error, non-ok response, missing conversation) — never
+ * throws, so the caller can safely treat `null` as "claim did not happen"
+ * and keep the guest token around for a later retry.
+ */
+export async function apiSupportClaim(): Promise<{ id: string } | null> {
   try {
     const res = await fetch(`${BASE}/storefront/support/claim`, {
       method: 'POST',
       headers: headers(),
     });
     if (!res.ok) return null;
-    return (await res.json()) as { conversation: SupportConversationDto | null };
+    const data = (await res.json()) as { conversation: SupportConversationDto | null };
+    const id = data?.conversation?.id;
+    return id ? { id } : null;
   } catch {
     return null;
   }

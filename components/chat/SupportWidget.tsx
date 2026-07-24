@@ -116,11 +116,20 @@ export default function SupportWidget() {
       const claimIfNeeded = guest?.guestToken ? apiSupportClaim() : Promise.resolve(null);
       claimIfNeeded
         .catch(() => null)
-        .then(() => {
-          if (guest?.guestToken) clearGuestSupport();
-          return apiSupportMine();
+        .then((claimed) => {
+          // Only drop the guest token once the claim actually succeeded — if it
+          // failed (endpoint error / not yet deployed) keep the token so the
+          // guest thread can still be claimed later instead of being orphaned.
+          if (claimed) clearGuestSupport();
+          return apiSupportMine().then((mine) => ({ claimed, mine }));
         })
-        .then((mine) => {
+        .then(({ claimed, mine }) => {
+          if (claimed) {
+            // The claim already tells us the single surviving thread — resume
+            // it directly rather than guessing from `mine`.
+            resumeConversation(claimed.id);
+            return;
+          }
           const latest = mine?.[0];
           if (latest) resumeConversation(latest.id);
         })
@@ -297,6 +306,7 @@ export default function SupportWidget() {
         headerSubtitle={meta?.replyTimeText ?? undefined}
         statusColor={STATUS_COLORS[meta?.status ?? 'ONLINE']}
         onUpload={apiSupportUpload}
+        referenceId={conversationId ?? undefined}
         topSlot={
           !conversationId ? (
             <SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />
