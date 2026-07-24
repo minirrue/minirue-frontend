@@ -114,13 +114,20 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             </nav>
           )}
 
-          {/* Center: Wordmark */}
+          {/* Center: Wordmark — links home like any storefront logo */}
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <Wordmark
-              size={mobile ? 18 : 22}
-              color={isLight ? 'var(--mr-cream-100)' : 'var(--mr-gold-500)'}
-              captionColor={isLight ? 'rgba(253,251,245,0.65)' : 'var(--mr-ink-500)'}
-            />
+            <Link
+              href="/"
+              aria-label="MiniRue — home"
+              data-trace-id="PG-STOREFRONT-HOME-001::EL-LINK-wordmark-home"
+              style={{ display: 'inline-flex', textDecoration: 'none', color: 'inherit' }}
+            >
+              <Wordmark
+                size={mobile ? 18 : 22}
+                color={isLight ? 'var(--mr-cream-100)' : 'var(--mr-gold-500)'}
+                captionColor={isLight ? 'rgba(253,251,245,0.65)' : 'var(--mr-ink-500)'}
+              />
+            </Link>
           </div>
 
           {/* Right: Icons */}
@@ -349,7 +356,14 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 marginBottom: 32,
               }}
             >
-              <Wordmark size={20} />
+              <Link
+                href="/"
+                aria-label="MiniRue — home"
+                onClick={() => setMobileOpen(false)}
+                style={{ display: 'inline-flex', textDecoration: 'none', color: 'inherit' }}
+              >
+                <Wordmark size={20} />
+              </Link>
               <IconButton
                 icon="close"
                 size={36}

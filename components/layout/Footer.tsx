@@ -40,7 +40,9 @@ export default function Footer({ config }: { config: FooterConfig }) {
         zIndex: 0,
         background: 'var(--mr-ink-900)',
         color: 'var(--mr-cream-100)',
-        padding: mobile ? '48px 24px 28px' : '72px 48px 44px',
+        // Fluid padding: generous on desktop, compact on phones so the whole
+        // footer stays short enough for the reveal to show its top (the logo).
+        padding: 'clamp(32px, 6vw, 72px) clamp(20px, 5vw, 48px) clamp(20px, 3vw, 44px)',
       }}
     >
       <div style={{ maxWidth: 1280, margin: '0 auto', textAlign: 'center' }}>
@@ -50,7 +52,7 @@ export default function Footer({ config }: { config: FooterConfig }) {
           captionColor="var(--mr-ink-400)"
         />
         {config.newsletterEnabled && (
-          <div style={{ marginTop: 44, maxWidth: 460, margin: '44px auto 0' }}>
+          <div style={{ maxWidth: 460, margin: 'clamp(20px, 4vw, 44px) auto 0' }}>
             <div
               style={{
                 fontFamily: 'Jost, sans-serif',
@@ -125,8 +127,8 @@ export default function Footer({ config }: { config: FooterConfig }) {
           style={{
             display: 'grid',
             gridTemplateColumns: mobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)',
-            gap: mobile ? 28 : 44,
-            marginTop: 60,
+            gap: 'clamp(20px, 3vw, 44px)',
+            marginTop: 'clamp(28px, 5vw, 60px)',
             textAlign: 'left',
           }}
         >
@@ -178,15 +180,18 @@ export default function Footer({ config }: { config: FooterConfig }) {
 
         <div
           style={{
-            marginTop: 44,
+            marginTop: 'clamp(24px, 4vw, 44px)',
             display: 'flex',
-            justifyContent: 'space-between',
+            // Centre-cluster on phones so socials + payment badges share one
+            // tidy row instead of stretching edge-to-edge (or the badges
+            // dropping onto their own full-width line); space-between on desktop.
+            justifyContent: mobile ? 'center' : 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: 16,
+            gap: mobile ? '14px 24px' : 16,
           }}
         >
-          <div style={{ display: 'flex', gap: 14 }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
             {config.socials.map((s) => (
               <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer"
                 style={{ color: 'var(--mr-cream-200)', opacity: 0.75 }}>
@@ -194,7 +199,7 @@ export default function Footer({ config }: { config: FooterConfig }) {
               </a>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
             {config.paymentBadges.map((b) => (
               <PaymentBadge key={b} badge={b} />
             ))}
@@ -203,8 +208,8 @@ export default function Footer({ config }: { config: FooterConfig }) {
 
         <div
           style={{
-            marginTop: 56,
-            paddingTop: 28,
+            marginTop: 'clamp(24px, 4vw, 56px)',
+            paddingTop: 'clamp(16px, 2vw, 28px)',
             borderTop: '1px solid rgba(238,230,209,.1)',
             display: 'flex',
             justifyContent: 'space-between',
