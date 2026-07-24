@@ -20,7 +20,7 @@ export default function ChatButton({ onClick, hasUnread = false }: ChatButtonPro
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       style={{
-        position: 'fixed', bottom: 24, right: 24, zIndex: 200,
+        position: 'fixed', bottom: 'calc(24px + 4vh)', right: 24, zIndex: 200,
         width: 52, height: 52, borderRadius: '50%',
         background: hovered ? 'var(--mr-ink-700)' : 'var(--mr-ink-900)',
         backdropFilter: 'blur(16px)',
@@ -34,7 +34,7 @@ export default function ChatButton({ onClick, hasUnread = false }: ChatButtonPro
         transform: pressed ? 'scale(0.92)' : hovered ? 'scale(1.06)' : 'scale(1)',
         transition: pressed
           ? 'transform 80ms cubic-bezier(0.4,0,0.2,1)'
-          : 'transform 260ms cubic-bezier(0.34,1.56,0.64,1), background 200ms, box-shadow 260ms',
+          : 'transform 260ms cubic-bezier(0.16,1,0.3,1), background 200ms, box-shadow 260ms',
         willChange: 'transform',
       }}
     >
