@@ -6,7 +6,7 @@ import ChatPanel, { type ChatDisplayMessage, type ChatAttachment } from '@/compo
 import GuestContactForm, { type GuestContactValue } from '@/components/chat/GuestContactForm';
 import SubjectPicker, { type SubjectChoice } from '@/components/chat/SubjectPicker';
 import { useSupportContext } from '@/lib/support/support-context';
-import { getGuestSupport, setGuestSupport } from '@/lib/support/session';
+import { getGuestSupport, setGuestSupport, clearGuestSupport } from '@/lib/support/session';
 import { getSession } from '@/lib/session';
 import {
   apiStartSupport,
@@ -14,6 +14,8 @@ import {
   apiSendSupport,
   apiSupportMeta,
   apiSupportUpload,
+  apiSupportClaim,
+  apiSupportMine,
   type SupportMessageDto,
   type SupportMetaDto,
 } from '@/lib/api/support';
@@ -73,12 +75,11 @@ export default function SupportWidget() {
     }
   }, [pageSubject, conversationId]);
 
-  // Resume an existing guest conversation from localStorage, if any.
-  React.useEffect(() => {
-    const guest = getGuestSupport();
-    if (!guest) return;
-    setConversationId(guest.conversationId);
-    apiSupportMessages(guest.conversationId)
+  const bootstrappedRef = React.useRef(false);
+
+  const resumeConversation = React.useCallback((id: string) => {
+    setConversationId(id);
+    apiSupportMessages(id)
       .then((dtos) => {
         const mapped = dtos.map(mapMessage);
         mapped.forEach((m) => seenIdsRef.current.add(m.id));
@@ -86,9 +87,41 @@ export default function SupportWidget() {
         setMessages(mapped);
       })
       .catch(() => {
-        // Resume best-effort; if it fails the guest can just start a new thread.
+        // Resume best-effort; if it fails the visitor can just start a new thread.
       });
   }, []);
+
+  // Bootstrap once: claim any guest thread into the logged-in account, then
+  // resume the account's most recent conversation across devices/sessions.
+  // Guests (not logged in) just resume via their stored guest token.
+  React.useEffect(() => {
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
+
+    const session = getSession();
+    if (session) {
+      const guest = getGuestSupport();
+      const claimIfNeeded = guest?.guestToken ? apiSupportClaim() : Promise.resolve(null);
+      claimIfNeeded
+        .catch(() => null)
+        .then(() => {
+          if (guest?.guestToken) clearGuestSupport();
+          return apiSupportMine();
+        })
+        .then((mine) => {
+          const latest = mine?.[0];
+          if (latest) resumeConversation(latest.id);
+        })
+        .catch(() => {
+          // Bootstrap best-effort; a fresh conversation will start on send.
+        });
+      return;
+    }
+
+    const guest = getGuestSupport();
+    if (!guest) return;
+    resumeConversation(guest.conversationId);
+  }, [resumeConversation]);
 
   const appendMessages = React.useCallback((dtos: SupportMessageDto[], markUnreadIfClosed: boolean) => {
     const fresh = dtos.filter((d) => !seenIdsRef.current.has(d.id));

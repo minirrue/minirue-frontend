@@ -76,9 +76,26 @@ export async function apiStartSupport(input: StartSupportInput): Promise<StartSu
 }
 
 export async function apiSupportMine(): Promise<SupportConversationDto[]> {
-  const res = await fetch(`${BASE}/storefront/support/conversations`, { headers: headers() });
-  if (!res.ok) throw new Error('mine failed');
-  return res.json() as Promise<SupportConversationDto[]>;
+  try {
+    const res = await fetch(`${BASE}/storefront/support/conversations/mine`, { headers: headers() });
+    if (!res.ok) return [];
+    return (await res.json()) as SupportConversationDto[];
+  } catch {
+    return [];
+  }
+}
+
+export async function apiSupportClaim(): Promise<{ conversation: SupportConversationDto | null } | null> {
+  try {
+    const res = await fetch(`${BASE}/storefront/support/claim`, {
+      method: 'POST',
+      headers: headers(),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as { conversation: SupportConversationDto | null };
+  } catch {
+    return null;
+  }
 }
 
 export async function apiSupportMessages(id: string, after?: string): Promise<SupportMessageDto[]> {
