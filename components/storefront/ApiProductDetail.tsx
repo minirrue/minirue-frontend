@@ -15,6 +15,7 @@ import VariantPicker from './VariantPicker';
 import PriceDisplay from './PriceDisplay';
 import Icon from '@/components/ui/Icon';
 import Sparkle from '@/components/ui/Sparkle';
+import type { ProductSectionConfig } from '@/lib/api/storefront';
 import ShareButton from './ShareButton';
 import WordReveal from '@/components/ui/WordReveal';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
@@ -22,11 +23,18 @@ import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
 
 interface ApiProductDetailProps {
   product: ApiProduct;
+  /** Service promises from Storefront -> Product section. */
+  perks?: ProductSectionConfig['perks'];
   onBack: () => void;
   onAddToBag: (variant: ProductVariant) => void;
 }
 
-export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiProductDetailProps) {
+export default function ApiProductDetail({
+  product,
+  perks = [],
+  onBack,
+  onAddToBag,
+}: ApiProductDetailProps) {
   const { mobile, w } = useBreakpoint();
 
   const activeVariants = product.variants?.filter((v) => v.isActive) ?? [];
@@ -331,12 +339,17 @@ export default function ApiProductDetail({ product, onBack, onAddToBag }: ApiPro
           animationDelay: '600ms',
         }}
       >
-        <span style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
-          <Icon name="truck" size={14} /> Complimentary shipping over EGP 3,000
-        </span>
-        <span style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
-          <Icon name="gift" size={14} /> Two complimentary samples per order
-        </span>
+        {/* Admin-editable under Storefront -> Product section. Was hardcoded,
+            so changing a shipping threshold needed a code deploy. */}
+        {perks.map((perk) => (
+          <span
+            key={perk.id}
+            data-trace-id={`PG-STOREFRONT-CAT-005::EL-TEXT-product-perk@${perk.id}`}
+            style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}
+          >
+            <Icon name={perk.icon} size={14} /> {perk.text}
+          </span>
+        ))}
       </div>
     </div>
   );

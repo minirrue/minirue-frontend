@@ -64,6 +64,7 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
         />
         <ApiProductDetail
           product={product}
+          perks={chrome?.productSection?.perks ?? FALLBACK_CHROME.productSection.perks}
           onBack={() => router.push('/products')}
           onAddToBag={handleAddToBag}
         />
