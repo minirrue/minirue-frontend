@@ -32,6 +32,11 @@ const STATUS_COLORS: Record<SupportMetaDto['status'], string> = {
   OFFLINE: '#C0392B',
 };
 
+/** Shown until the real status is known. Neutral on purpose — defaulting to
+ *  ONLINE made the dot flash green and then flip to red on every open, and any
+ *  failed poll flipped it back again. */
+const STATUS_UNKNOWN_COLOR = '#9E9E9E';
+
 function formatTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -167,9 +172,15 @@ export default function SupportWidget() {
     if (!open) return;
     let cancelled = false;
     const load = () => {
-      apiSupportMeta().then((m) => {
-        if (!cancelled) setMeta(m);
-      });
+      apiSupportMeta()
+        .then((m) => {
+          // Keep the last known status when a poll returns nothing — an empty
+          // response is "we could not check", not "the store went offline".
+          if (!cancelled && m) setMeta(m);
+        })
+        .catch(() => {
+          // Same reasoning: a failed poll must not change the badge.
+        });
     };
     load();
     const interval = window.setInterval(load, META_POLL_INTERVAL_MS);
@@ -371,7 +382,7 @@ export default function SupportWidget() {
         sending={sending}
         inputDisabled={awaitingGuestInfo}
         headerSubtitle={meta?.replyTimeText ?? undefined}
-        statusColor={STATUS_COLORS[meta?.status ?? 'ONLINE']}
+        statusColor={meta ? STATUS_COLORS[meta.status] : STATUS_UNKNOWN_COLOR}
         onUpload={apiSupportUpload}
         referenceId={conversationId ?? undefined}
         onRetry={handleRetry}

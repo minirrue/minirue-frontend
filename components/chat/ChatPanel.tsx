@@ -76,6 +76,8 @@ export default function ChatPanel({
   const [pendingAttachments, setPendingAttachments] = React.useState<ChatAttachment[]>([]);
   const [uploading, setUploading] = React.useState(false);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
+  /** False until the thread has been auto-scrolled once for this opening. */
+  const openedRef = React.useRef(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -104,15 +106,29 @@ export default function ChatPanel({
   React.useEffect(() => {
     const el = bottomRef.current;
     if (!el) return;
+    // Only follow the newest message when the reader is already at the bottom
+    // (or the panel just opened). Polling used to snap the thread back down
+    // every few seconds, so scrolling up to read history was impossible.
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const shouldFollow = !openedRef.current || distanceFromBottom < 80;
+    openedRef.current = true;
+    if (!shouldFollow) return;
+
     const toBottom = () => { el.scrollTop = el.scrollHeight; };
-    // Jump to the newest message on open / new message. Run again after the
-    // next frame and a short delay so layout + late-loading images still land
-    // us at the bottom (opening a thread must start at the latest, not the top).
+    // Run again after the next frame and a short delay so layout +
+    // late-loading images still land us at the bottom (opening a thread must
+    // start at the latest, not the top).
     toBottom();
     const raf = requestAnimationFrame(toBottom);
     const t = window.setTimeout(toBottom, 80);
     return () => { cancelAnimationFrame(raf); window.clearTimeout(t); };
   }, [messages, open]);
+
+  // Reset the "already opened" latch each time the panel closes, so reopening
+  // always jumps to the newest message again.
+  React.useEffect(() => {
+    if (!open) openedRef.current = false;
+  }, [open]);
 
   const send = () => {
     const txt = input.trim();
@@ -229,7 +245,12 @@ export default function ChatPanel({
       {/* Messages */}
       <div
         ref={bottomRef}
-        style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 10, scrollbarWidth: 'none' }}
+        // Lenis runs in `root` mode with smoothWheel, so it swallows wheel
+        // events for the whole document — including this panel, which is why
+        // the thread would not scroll with a mouse on desktop. This attribute
+        // is Lenis's opt-out for nested scrollers.
+        data-lenis-prevent
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 10, scrollbarWidth: 'none' }}
       >
         {messages.length === 0 && (
           <div style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 12, color: 'var(--mr-ink-400)', textAlign: 'center', padding: '24px 8px' }}>
