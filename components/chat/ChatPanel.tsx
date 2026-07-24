@@ -287,11 +287,20 @@ export default function ChatPanel({
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && send()}
+              // Ignore the Enter that Android fires while the IME is still composing —
+              // that phantom event is what injects a stray character on keyboard dismiss.
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !(e.nativeEvent as { isComposing?: boolean }).isComposing) send();
+              }}
               onPaste={handlePaste}
               placeholder="Type a message…"
               aria-label="Type your message"
               disabled={inputDisabled}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              enterKeyHint="send"
               style={{ flex: 1, border: '1px solid var(--mr-hairline)', borderRadius: 8, padding: '9px 12px', outline: 'none', fontFamily: 'Inter Tight, sans-serif', fontSize: 13, color: 'var(--mr-ink-900)', background: 'var(--mr-cream-200)', transition: 'border-color 200ms' }}
               onFocus={(e) => (e.target.style.borderColor = 'var(--mr-gold-400)')}
               onBlur={(e) => (e.target.style.borderColor = 'var(--mr-hairline)')}
