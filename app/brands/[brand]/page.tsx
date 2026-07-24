@@ -1,13 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
 import {
   apiListPublicBrands,
   apiCheckCollaboratorBrandExists,
 } from '@/lib/api/collaborators';
-import { getQueryClient } from '@/lib/hooks/query-client';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
@@ -46,7 +44,12 @@ export default async function BrandPage({ params }: PageProps) {
   const { brand: brandParam } = await params;
   const slug = decodeURIComponent(brandParam);
 
-  const queryClient = getQueryClient();
+  // NOTE: no HydrationBoundary/dehydrate here. Nothing on this page consumed a
+  // prefetched query, but dehydrate() stamps entries with Date.now(), which
+  // baked a build-time timestamp into the partially-prerendered shell. The
+  // request-time tree then failed to match it ("Couldn't find all resumable
+  // slots by key/index during replaying"), so React discarded the server HTML
+  // and the page rendered blank behind the root layout's Suspense fallback.
 
   let brandName = slug;
   let description: string | null = null;
@@ -101,7 +104,7 @@ export default async function BrandPage({ params }: PageProps) {
   }
 
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
+    <>
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={storefrontAnnouncement?.announcementMessages}
@@ -196,6 +199,6 @@ export default async function BrandPage({ params }: PageProps) {
         </main>
       </div>
       <FooterWithSettings />
-    </HydrationBoundary>
+    </>
   );
 }

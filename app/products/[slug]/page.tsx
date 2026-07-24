@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog, primaryMedia, mediaImageUrl, productBrand } from '@/lib/api/catalog';
-import { getQueryClient } from '@/lib/hooks/query-client';
-import { productBySlugQueryOptions } from '@/lib/hooks/queries';
 import ProductPageClient from './ProductPageClient';
 import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
@@ -49,11 +46,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params;
-  const queryClient = getQueryClient();
 
-  // Blocking prefetch — critical for SEO, want data in the initial HTML
-  await queryClient.prefetchQuery(productBySlugQueryOptions(slug));
-
+  // NOTE: this page deliberately does NOT prefetch into React Query and wrap
+  // itself in a HydrationBoundary any more. Nothing here consumed that query —
+  // the product is passed to the client as `apiProductJson` — but dehydrate()
+  // stamps each entry with Date.now(), which baked a build-time timestamp into
+  // the partially-prerendered shell. At request time the replayed tree no
+  // longer matched it, so React logged "Couldn't find all resumable slots by
+  // key/index during replaying" and threw the server HTML away; with the root
+  // layout's <Suspense fallback={null}> that left the whole page blank behind
+  // the error boundary. The product data is still fetched below, so the markup
+  // is unchanged for SEO.
   let p;
   try {
     p = await catalog.getProductBySlug(slug);
@@ -64,11 +67,11 @@ export default async function ProductPage({ params }: PageProps) {
   }
   const apiProductJson = JSON.stringify(p);
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
+    <>
       <ProductSchema slug={slug} productName={p!.name} apiProductJson={apiProductJson} />
       <BreadcrumbSchema productName={p!.name} productSlug={slug} />
       <ProductPageClient slug={slug} apiProductJson={apiProductJson} />
       <FooterWithSettings />
-    </HydrationBoundary>
+    </>
   );
 }
