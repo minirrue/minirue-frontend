@@ -50,7 +50,16 @@ const nextConfig: NextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
   reactCompiler: true,
-  cacheComponents: true,
+  // Cache Components (PPR) is OFF deliberately. The root layout already wraps
+  // the whole body in <Suspense fallback={null}> to defer every route to
+  // request time, so partial prerendering bought nothing here — but its
+  // build-time shell still had to be "resumed" per request, and when the
+  // replayed tree did not match React discarded the server HTML ("Couldn't
+  // find all resumable slots by key/index during replaying", 26+ hits in
+  // production on /products/[slug] and /brands/[brand]). Behind that null
+  // fallback the result was a blank page. The cacheLife profiles below are
+  // kept for when this is revisited.
+  cacheComponents: false,
   cacheLife: {
     products: {
       stale: 60,        // 1 min fresh

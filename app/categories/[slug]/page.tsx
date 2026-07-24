@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { catalog } from '@/lib/api/catalog';
 import type { Category } from '@/lib/api/catalog';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
@@ -57,6 +58,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params;
+  // Opt out of the partially-prerendered shell — see the note in
+  // app/products/[slug]/page.tsx. The resumed tree never matched the stored
+  // shell, so React discarded the server HTML and the page rendered blank.
+  await connection();
 
 
   // Categories are small — await so we can resolve the slug to a real id.

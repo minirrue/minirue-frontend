@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import Link from 'next/link';
 import { catalog } from '@/lib/api/catalog';
 import {
@@ -43,6 +44,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function BrandPage({ params }: PageProps) {
   const { brand: brandParam } = await params;
   const slug = decodeURIComponent(brandParam);
+  // Opt out of the partially-prerendered shell — see the note in
+  // app/products/[slug]/page.tsx. The resumed tree never matched the stored
+  // shell, so React discarded the server HTML and the page rendered blank.
+  await connection();
 
   // NOTE: no HydrationBoundary/dehydrate here. Nothing on this page consumed a
   // prefetched query, but dehydrate() stamps entries with Date.now(), which

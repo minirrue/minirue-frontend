@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { catalog, primaryMedia, mediaImageUrl, productBrand } from '@/lib/api/catalog';
 import ProductPageClient from './ProductPageClient';
 import ProductSchema from '@/components/seo/ProductSchema';
@@ -46,6 +47,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params;
+  // Opt out of the partially-prerendered shell. With Cache Components this
+  // route was prerendered and then "resumed" at request time; the replayed
+  // tree never matched the stored one, so React logged "Couldn't find all
+  // resumable slots by key/index during replaying", discarded the server HTML
+  // and fell back to client rendering — which, behind the root layout's
+  // <Suspense fallback={null}>, showed an empty page. Rendering on demand
+  // removes the shell, so there is nothing to resume and nothing to mismatch.
+  await connection();
 
   // NOTE: this page deliberately does NOT prefetch into React Query and wrap
   // itself in a HydrationBoundary any more. Nothing here consumed that query —
