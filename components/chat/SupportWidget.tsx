@@ -2,7 +2,7 @@
 
 import React from 'react';
 import ChatButton from '@/components/chat/ChatButton';
-import ChatPanel, { type ChatDisplayMessage } from '@/components/chat/ChatPanel';
+import ChatPanel, { type ChatDisplayMessage, type ChatAttachment } from '@/components/chat/ChatPanel';
 import GuestContactForm, { type GuestContactValue } from '@/components/chat/GuestContactForm';
 import SubjectPicker, { type SubjectChoice } from '@/components/chat/SubjectPicker';
 import { useSupportContext } from '@/lib/support/support-context';
@@ -12,10 +12,21 @@ import {
   apiStartSupport,
   apiSupportMessages,
   apiSendSupport,
+  apiSupportMeta,
+  apiSupportUpload,
   type SupportMessageDto,
+  type SupportMetaDto,
 } from '@/lib/api/support';
 
 const POLL_INTERVAL_MS = 4000;
+const META_POLL_INTERVAL_MS = 30000;
+
+const STATUS_COLORS: Record<SupportMetaDto['status'], string> = {
+  ONLINE: '#4CAF50',
+  IDLE: '#E0A400',
+  AWAY: '#9E9E9E',
+  OFFLINE: '#C0392B',
+};
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -31,6 +42,7 @@ function mapMessage(dto: SupportMessageDto): ChatDisplayMessage {
     name: dto.senderName ?? (isAgent ? 'MiniRue Support' : 'You'),
     text: dto.body,
     time: formatTime(dto.createdAt),
+    attachments: dto.attachments,
   };
 }
 
@@ -45,8 +57,9 @@ export default function SupportWidget() {
   const [sending, setSending] = React.useState(false);
   const [awaitingGuestInfo, setAwaitingGuestInfo] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [meta, setMeta] = React.useState<SupportMetaDto | null>(null);
 
-  const pendingBodyRef = React.useRef<string | null>(null);
+  const pendingBodyRef = React.useRef<{ text: string; attachments?: ChatAttachment[] } | null>(null);
   const seenIdsRef = React.useRef<Set<string>>(new Set());
   const lastMessageIdRef = React.useRef<string | undefined>(undefined);
 
@@ -86,6 +99,23 @@ export default function SupportWidget() {
     }
   }, []);
 
+  // Fetch reply-time + presence when the panel opens, then poll while it's open.
+  React.useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const load = () => {
+      apiSupportMeta().then((m) => {
+        if (!cancelled) setMeta(m);
+      });
+    };
+    load();
+    const interval = window.setInterval(load, META_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [open]);
+
   // Poll for new messages once a conversation exists.
   React.useEffect(() => {
     if (!conversationId) return;
@@ -112,13 +142,14 @@ export default function SupportWidget() {
   }, [subjectChoice]);
 
   const startConversation = React.useCallback(
-    async (body: string, guest?: GuestContactValue) => {
+    async (body: string, guest?: GuestContactValue, attachments?: ChatAttachment[]) => {
       setSending(true);
       setError(null);
       try {
         const result = await apiStartSupport({
           ...currentSubjectInput(),
           body,
+          attachments,
           guest: guest
             ? { name: guest.name, email: guest.email, phoneCountry: guest.phoneCountry, phone: guest.phone }
             : undefined,
@@ -140,11 +171,11 @@ export default function SupportWidget() {
   );
 
   const handleSend = React.useCallback(
-    (text: string) => {
+    (text: string, attachments?: ChatAttachment[]) => {
       if (conversationId) {
         setSending(true);
         setError(null);
-        apiSendSupport(conversationId, text)
+        apiSendSupport(conversationId, text, attachments)
           .then((dto) => appendMessages([dto], false))
           .catch(() => setError('Could not send your message. Please try again.'))
           .finally(() => setSending(false));
@@ -153,12 +184,12 @@ export default function SupportWidget() {
 
       const session = getSession();
       if (session) {
-        void startConversation(text);
+        void startConversation(text, undefined, attachments);
         return;
       }
 
       // Guest: hold the message until contact details are provided.
-      pendingBodyRef.current = text;
+      pendingBodyRef.current = { text, attachments };
       setAwaitingGuestInfo(true);
     },
     [conversationId, startConversation, appendMessages],
@@ -166,9 +197,9 @@ export default function SupportWidget() {
 
   const handleGuestSubmit = React.useCallback(
     (contact: GuestContactValue) => {
-      const body = pendingBodyRef.current;
-      if (!body) return;
-      void startConversation(body, contact).then(() => {
+      const pending = pendingBodyRef.current;
+      if (!pending) return;
+      void startConversation(pending.text, contact, pending.attachments).then(() => {
         pendingBodyRef.current = null;
         setAwaitingGuestInfo(false);
       });
@@ -191,6 +222,9 @@ export default function SupportWidget() {
         onSend={handleSend}
         sending={sending}
         inputDisabled={awaitingGuestInfo}
+        headerSubtitle={meta?.replyTimeText ?? undefined}
+        statusColor={STATUS_COLORS[meta?.status ?? 'ONLINE']}
+        onUpload={apiSupportUpload}
         topSlot={
           !conversationId ? (
             <SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />
