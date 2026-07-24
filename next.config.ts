@@ -49,6 +49,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Storefront pages are canonical at /<slug>. This has to be a config-level
+  // redirect, not permanentRedirect() in the page: the root layout streams
+  // inside <Suspense>, so by the time the page component runs the response has
+  // already started and Next can only fall back to a client-side redirect —
+  // crawlers saw an empty 200 instead of a 308.
+  async redirects() {
+    return [
+      { source: "/pages/:slug", destination: "/:slug", permanent: true },
+    ];
+  },
   reactCompiler: true,
   // Cache Components (PPR) is OFF deliberately. The root layout already wraps
   // the whole body in <Suspense fallback={null}> to defer every route to
