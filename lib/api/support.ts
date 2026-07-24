@@ -132,20 +132,25 @@ export async function apiSupportMeta(): Promise<SupportMetaDto | null> {
 }
 
 /**
- * Presence heartbeat: tells the backend this customer is currently on the page
- * for `conversationId`, marking them ONLINE for a short TTL. The widget polls
- * this (Vercel hobby kills WebSockets). Best-effort — never throws.
+ * Presence heartbeat: reports this customer's tab state for `conversationId` —
+ * 'active' (tab focused) reads ONLINE, 'idle' (tab backgrounded) reads IDLE.
+ * The widget polls this (Vercel hobby kills WebSockets); when pings stop
+ * entirely (tab closed) the backend TTL lapses to OFFLINE. Best-effort — never
+ * throws.
  */
-export async function apiSupportHeartbeat(conversationId: string): Promise<void> {
+export async function apiSupportHeartbeat(
+  conversationId: string,
+  state: 'active' | 'idle',
+): Promise<void> {
   try {
     await fetch(`${BASE}/storefront/support/heartbeat`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ conversationId }),
+      body: JSON.stringify({ conversationId, state }),
     });
   } catch {
-    // Presence is cosmetic; a dropped heartbeat just means "offline" until the
-    // next tick succeeds.
+    // Presence is cosmetic; a dropped heartbeat just means the state is stale
+    // until the next tick succeeds.
   }
 }
 

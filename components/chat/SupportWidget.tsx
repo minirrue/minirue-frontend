@@ -178,38 +178,27 @@ export default function SupportWidget() {
     return () => window.clearInterval(interval);
   }, [conversationId, open, appendMessages]);
 
-  // Presence heartbeat: once a conversation exists, tell the backend this
-  // customer is on the page so the dashboard can show an online dot. No socket
-  // (Vercel hobby kills WebSockets) — poll instead. Pause while the tab is
-  // hidden to avoid pointless pings; resume on visibility change. Independent of
-  // the message/meta polling above.
+  // Presence heartbeat: once a conversation exists, tell the backend whether
+  // this customer's tab is focused ('active') or backgrounded ('idle') so the
+  // dashboard can show ONLINE / IDLE / OFFLINE. No socket (Vercel hobby kills
+  // WebSockets) — poll instead. Crucially we DO NOT pause when hidden: a
+  // backgrounded tab must still report 'idle' (which reads IDLE, not OFFLINE);
+  // OFFLINE is reserved for a genuinely closed tab, where pings stop and the
+  // backend TTL lapses. Independent of the message/meta polling above.
   React.useEffect(() => {
     if (!conversationId) return;
-    let interval: number | undefined;
     const beat = () => {
-      if (document.visibilityState === 'hidden') return;
-      void apiSupportHeartbeat(conversationId);
+      const state = document.visibilityState === 'hidden' ? 'idle' : 'active';
+      void apiSupportHeartbeat(conversationId, state);
     };
-    const start = () => {
-      if (interval !== undefined) return;
-      beat(); // immediate ping so presence shows without a 20s wait
-      interval = window.setInterval(beat, HEARTBEAT_INTERVAL_MS);
-    };
-    const stop = () => {
-      if (interval !== undefined) {
-        window.clearInterval(interval);
-        interval = undefined;
-      }
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') stop();
-      else start();
-    };
-    if (document.visibilityState !== 'hidden') start();
-    document.addEventListener('visibilitychange', onVisibility);
+    beat(); // immediate ping so presence shows without a 20s wait
+    const interval = window.setInterval(beat, HEARTBEAT_INTERVAL_MS);
+    // Fire immediately on tab switch so ONLINE⇄IDLE updates fast, not on the
+    // next 20s tick.
+    document.addEventListener('visibilitychange', beat);
     return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      stop();
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', beat);
     };
   }, [conversationId]);
 
