@@ -11,6 +11,17 @@ export default function ChatButton({ onClick, hasUnread = false }: ChatButtonPro
   const [hovered, setHovered] = React.useState(false);
   const [pressed, setPressed] = React.useState(false);
 
+  // On mobile, sit a little higher (vh-based) so the button clears the very bottom edge.
+  const [isMobile, setIsMobile] = React.useState(false);
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+
   return (
     <button
       aria-label="Open live support chat"
@@ -20,7 +31,7 @@ export default function ChatButton({ onClick, hasUnread = false }: ChatButtonPro
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       style={{
-        position: 'fixed', bottom: 'calc(24px + 4vh)', right: 24, zIndex: 200,
+        position: 'fixed', bottom: isMobile ? 'calc(24px + 5.5vh)' : 24, right: 24, zIndex: 200,
         width: 52, height: 52, borderRadius: '50%',
         background: hovered ? 'var(--mr-ink-700)' : 'var(--mr-ink-900)',
         backdropFilter: 'blur(16px)',
