@@ -72,7 +72,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
           className="mr-header-inner"
           style={{
             display: 'grid',
-            gridTemplateColumns: mobile ? '44px 1fr 44px' : '1fr auto 1fr',
+            gridTemplateColumns: mobile ? 'auto 1fr auto' : '1fr auto 1fr',
             alignItems: 'center',
             padding: scrolled
               ? mobile ? '10px 16px' : '14px 48px'
@@ -139,10 +139,26 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
               alignItems: 'center',
             }}
           >
-            {!mobile && navbar.showSearch && (
-              <IconButton icon="search" label="Search" tone={isLight ? 'glass' : 'cream'} />
-            )}
-            {!mobile && navbar.showAccount && (
+            {/* Search — always visible (not dashboard-toggled): every shopper
+                needs it, so it is hardcoded on both mobile and desktop. */}
+            <IconButton
+              icon="search"
+              label="Search"
+              size={mobile ? 38 : 44}
+              tone={isLight ? 'glass' : 'cream'}
+              onClick={() => router.push('/search')}
+            />
+            {/* Account — always visible. Mobile gets a direct icon to the
+                account (or sign-in); desktop keeps the identity menu. */}
+            {mobile ? (
+              <IconButton
+                icon="user"
+                label="Account"
+                size={38}
+                tone={isLight ? 'glass' : 'cream'}
+                onClick={() => router.push(session ? '/account/profile' : '/login')}
+              />
+            ) : (
               session ? (
                 <div style={{ position: 'relative' }}>
                   <button
@@ -306,6 +322,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             <IconButton
               icon="bag"
               label="Bag"
+              size={mobile ? 38 : 44}
               tone={isLight ? 'glass' : 'cream'}
               onClick={onOpenCart}
               badge={cartCount}
@@ -372,7 +389,12 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 onClick={() => setMobileOpen(false)}
               />
             </div>
-            {navbar.items.map(({ id, href, label }, i) => (
+            {[
+              // Home is hardcoded first so it is always reachable, regardless of
+              // the columns configured in the storefront dashboard.
+              { id: '__home', href: '/', label: 'Home' },
+              ...navbar.items,
+            ].map(({ id, href, label }, i) => (
               <a
                 key={id}
                 href={href}

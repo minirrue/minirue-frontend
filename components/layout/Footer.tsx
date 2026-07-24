@@ -178,33 +178,58 @@ export default function Footer({ config }: { config: FooterConfig }) {
           ))}
         </div>
 
-        <div
-          style={{
-            marginTop: 'clamp(24px, 4vw, 44px)',
-            display: 'flex',
-            // Centre-cluster on phones so socials + payment badges share one
-            // tidy row instead of stretching edge-to-edge (or the badges
-            // dropping onto their own full-width line); space-between on desktop.
-            justifyContent: mobile ? 'center' : 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: mobile ? '14px 24px' : 16,
-          }}
-        >
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {mobile ? (
+          // Phones: socials + payment badges flow together on ONE centred line.
+          // Flattened (not two grouped divs) so the tiny Visa/Mastercard/InstaPay
+          // badges trail the social icons and never wrap onto their own
+          // full-width row. Per-item wrap only as a last resort.
+          <div
+            style={{
+              marginTop: 'clamp(24px, 4vw, 44px)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '14px 16px',
+            }}
+          >
             {config.socials.map((s) => (
               <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer"
-                style={{ color: 'var(--mr-cream-200)', opacity: 0.75 }}>
+                style={{ color: 'var(--mr-cream-200)', opacity: 0.75, display: 'inline-flex' }}>
                 <SocialIcon network={s.network} />
               </a>
             ))}
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
             {config.paymentBadges.map((b) => (
               <PaymentBadge key={b} badge={b} />
             ))}
           </div>
-        </div>
+        ) : (
+          // Desktop: socials left, payment badges right.
+          <div
+            style={{
+              marginTop: 44,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 16,
+            }}
+          >
+            <div style={{ display: 'flex', gap: 14 }}>
+              {config.socials.map((s) => (
+                <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'var(--mr-cream-200)', opacity: 0.75 }}>
+                  <SocialIcon network={s.network} />
+                </a>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {config.paymentBadges.map((b) => (
+                <PaymentBadge key={b} badge={b} />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div
           style={{
