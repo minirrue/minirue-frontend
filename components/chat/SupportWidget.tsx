@@ -7,7 +7,7 @@ import GuestContactForm, { type GuestContactValue } from '@/components/chat/Gues
 import SubjectPicker, { type SubjectChoice } from '@/components/chat/SubjectPicker';
 import { useSupportContext } from '@/lib/support/support-context';
 import { getGuestSupport, setGuestSupport, clearGuestSupport } from '@/lib/support/session';
-import { getSession } from '@/lib/session';
+import { useUser } from '@/lib/hooks/use-auth';
 import {
   apiStartSupport,
   apiSupportMessages,
@@ -52,6 +52,11 @@ function mapMessage(dto: SupportMessageDto): ChatDisplayMessage {
 
 export default function SupportWidget() {
   const { subject: pageSubject } = useSupportContext();
+  // Reactive auth: `useUser().data` is the source of truth for "is this a logged-in
+  // customer" — it updates when login completes (unlike the localStorage snapshot,
+  // which is stale at widget-mount and never reacts to a login that happens later).
+  const { data: authUser, isLoading: authLoading } = useUser();
+  const isLoggedIn = !!authUser;
 
   const [open, setOpen] = React.useState(false);
   const [hasUnread, setHasUnread] = React.useState(false);
@@ -75,7 +80,8 @@ export default function SupportWidget() {
     }
   }, [pageSubject, conversationId]);
 
-  const bootstrappedRef = React.useRef(false);
+  const guestBootstrappedRef = React.useRef(false);
+  const accountBootstrappedRef = React.useRef(false);
 
   const resumeConversation = React.useCallback((id: string) => {
     setConversationId(id);
@@ -95,11 +101,15 @@ export default function SupportWidget() {
   // resume the account's most recent conversation across devices/sessions.
   // Guests (not logged in) just resume via their stored guest token.
   React.useEffect(() => {
-    if (bootstrappedRef.current) return;
-    bootstrappedRef.current = true;
+    // Wait until auth resolves so a logged-in customer never takes the guest path.
+    if (authLoading) return;
 
-    const session = getSession();
-    if (session) {
+    if (isLoggedIn) {
+      // Runs once when login becomes known: claim any per-browser guest thread into
+      // the account (so it becomes the SAME chat, no duplicate), then resume the
+      // account's most recent thread (persists across devices/sessions).
+      if (accountBootstrappedRef.current) return;
+      accountBootstrappedRef.current = true;
       const guest = getGuestSupport();
       const claimIfNeeded = guest?.guestToken ? apiSupportClaim() : Promise.resolve(null);
       claimIfNeeded
@@ -118,10 +128,12 @@ export default function SupportWidget() {
       return;
     }
 
+    // Guest: resume the per-browser thread from the stored token.
+    if (guestBootstrappedRef.current) return;
+    guestBootstrappedRef.current = true;
     const guest = getGuestSupport();
-    if (!guest) return;
-    resumeConversation(guest.conversationId);
-  }, [resumeConversation]);
+    if (guest) resumeConversation(guest.conversationId);
+  }, [isLoggedIn, authLoading, resumeConversation]);
 
   const appendMessages = React.useCallback((dtos: SupportMessageDto[], markUnreadIfClosed: boolean) => {
     const fresh = dtos.filter((d) => !seenIdsRef.current.has(d.id));
@@ -217,8 +229,7 @@ export default function SupportWidget() {
         return;
       }
 
-      const session = getSession();
-      if (session) {
+      if (isLoggedIn) {
         void startConversation(text, undefined, attachments);
         return;
       }
@@ -227,7 +238,7 @@ export default function SupportWidget() {
       pendingBodyRef.current = { text, attachments };
       setAwaitingGuestInfo(true);
     },
-    [conversationId, startConversation, appendMessages],
+    [conversationId, startConversation, appendMessages, isLoggedIn],
   );
 
   const handleGuestSubmit = React.useCallback(
