@@ -102,9 +102,16 @@ export default function ChatPanel({
   }, [open, bottomSlot]);
 
   React.useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollTop = bottomRef.current.scrollHeight;
-    }
+    const el = bottomRef.current;
+    if (!el) return;
+    const toBottom = () => { el.scrollTop = el.scrollHeight; };
+    // Jump to the newest message on open / new message. Run again after the
+    // next frame and a short delay so layout + late-loading images still land
+    // us at the bottom (opening a thread must start at the latest, not the top).
+    toBottom();
+    const raf = requestAnimationFrame(toBottom);
+    const t = window.setTimeout(toBottom, 80);
+    return () => { cancelAnimationFrame(raf); window.clearTimeout(t); };
   }, [messages, open]);
 
   const send = () => {
