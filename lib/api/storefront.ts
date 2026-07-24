@@ -50,6 +50,8 @@ export interface ResolvedHeroSlide {
   tagline: string;
   /** Loadable URL for an image slide; null when unset or the item vanished. */
   imageUrl: string | null;
+  /** Portrait crop for mobile; null falls back to imageUrl on every screen. */
+  mobileImageUrl: string | null;
   /** Admin-authored alt text for the rendered image. */
   imageAlt: string;
   background: string;

@@ -23,20 +23,36 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
 
   const textDelay = isActive ? 200 : 0;
 
+  // Pick the device-appropriate crop: the portrait image on phones (falling back
+  // to the landscape one when no mobile crop was set), the landscape image on
+  // larger screens.
+  const heroSrc =
+    slide.mode === 'image'
+      ? mobile
+        ? slide.mobileImageUrl ?? slide.imageUrl
+        : slide.imageUrl
+      : null;
+  const usingMobileCrop =
+    slide.mode === 'image' && mobile && Boolean(slide.mobileImageUrl);
+
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       {/* Background */}
       {slide.mode === 'image' ? (
-        slide.imageUrl ? (
+        heroSrc ? (
           <Image
-            src={slide.imageUrl}
+            key={heroSrc}
+            src={heroSrc}
             alt={slide.imageAlt}
             fill
             priority
             sizes="100vw"
-            unoptimized={Boolean(slide.imageUrl)}
+            unoptimized
             className="mr-hero-drift"
-            style={{ objectFit: 'cover', objectPosition: '62% 50%' }}
+            style={{
+              objectFit: 'cover',
+              objectPosition: usingMobileCrop ? '50% 50%' : '62% 50%',
+            }}
           />
         ) : (
           <div style={{ position: 'absolute', inset: 0, background: slide.background }} />

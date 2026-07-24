@@ -20,6 +20,7 @@ function makeSlide(id: string): ResolvedHeroSlide {
     sub: '',
     tagline: '',
     imageUrl: null,
+    mobileImageUrl: null,
     imageAlt: '',
     background: '#0B0B0B',
     bottle: null,
