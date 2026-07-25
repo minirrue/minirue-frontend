@@ -41,6 +41,15 @@ interface ChatPanelProps {
   referenceId?: string;
   /** Retry a failed optimistic send, keyed by the message's `tempId`. */
   onRetry?: (tempId: string) => void;
+  /**
+   * Replaces the message list AND the composer entirely — used for the
+   * conversation list and the new-conversation form, which are whole views rather
+   * than something layered over a thread. The header, close button and panel
+   * animation are kept, so switching views does not feel like a new window.
+   */
+  body?: React.ReactNode;
+  /** A back affordance in the header, e.g. returning from a thread to the list. */
+  onBack?: () => void;
 }
 
 export default function ChatPanel({
@@ -58,6 +67,8 @@ export default function ChatPanel({
   onUpload,
   referenceId,
   onRetry,
+  body,
+  onBack,
 }: ChatPanelProps) {
   const [input, setInput] = React.useState('');
   const [refCopied, setRefCopied] = React.useState(false);
@@ -215,9 +226,21 @@ export default function ChatPanel({
     >
       {/* Header */}
       <div style={{ padding: '16px 18px', background: 'var(--mr-ink-900)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--mr-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Cormorant Garamond, serif', fontSize: 14, color: 'var(--mr-cream-100)', flexShrink: 0 }}>
-          MR
-        </div>
+        {/* Back replaces the monogram rather than sitting beside it: with both, the
+            header on a small phone had no room left for the title. */}
+        {onBack ? (
+          <button
+            onClick={onBack}
+            aria-label="Back to conversations"
+            style={{ background: 'rgba(238,230,209,0.1)', border: 0, borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--mr-cream-100)', flexShrink: 0 }}
+          >
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+        ) : (
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--mr-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Cormorant Garamond, serif', fontSize: 14, color: 'var(--mr-cream-100)', flexShrink: 0 }}>
+            MR
+          </div>
+        )}
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: 'Inter Tight, sans-serif', fontWeight: 600, fontSize: 13, color: 'var(--mr-cream-100)', lineHeight: 1.2 }}>{headerTitle}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
@@ -240,6 +263,12 @@ export default function ChatPanel({
         </button>
       </div>
 
+      {body ? (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }} data-lenis-prevent>
+          {body}
+        </div>
+      ) : (
+        <>
       {topSlot}
 
       {/* Messages */}
@@ -406,6 +435,8 @@ export default function ChatPanel({
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );

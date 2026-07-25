@@ -21,6 +21,28 @@ function headers(): HeadersInit {
 // Every support call includes credentials so the session cookie rides along.
 const CREDS: RequestCredentials = 'include';
 
+/**
+ * The API's own message, when it has one.
+ *
+ * Support refusals are all things the shopper has to be told — "this conversation
+ * is closed", "attachments are not enabled yet" — and a bare `new Error('send
+ * failed')` threw that text away, leaving the widget to show a generic apology.
+ */
+async function supportError(res: Response, fallback: string): Promise<Error> {
+  try {
+    const body = (await res.json()) as { message?: unknown };
+    const message = Array.isArray(body?.message)
+      ? body.message.filter((m) => typeof m === 'string').join('. ')
+      : body?.message;
+    if (typeof message === 'string' && message.trim()) {
+      return Object.assign(new Error(message), { status: res.status });
+    }
+  } catch {
+    // Not JSON, or no body — fall through to the generic message.
+  }
+  return Object.assign(new Error(fallback), { status: res.status });
+}
+
 export interface SupportAttachmentDto {
   url: string;
   kind: 'image';
@@ -45,6 +67,15 @@ export interface SupportConversationDto {
   id: string;
   type: 'ITEM' | 'GENERAL' | string;
   status?: string;
+  /** The brand this thread is addressed to; absent/null means MiniRue direct. */
+  collaboratorId?: string | null;
+  brandName?: string | null;
+  lastMessageAt?: string;
+  lastMessagePreview?: string | null;
+  lastMessageSenderType?: string | null;
+  customerReadAt?: string | null;
+  /** Set when the team allowed this guest thread to attach images. */
+  guestAttachmentsAllowedAt?: string | null;
   productId?: string | null;
   orderId?: string | null;
   subjectSnapshot?: Record<string, unknown> | null;
@@ -54,6 +85,12 @@ export interface SupportConversationDto {
 
 export interface StartSupportInput {
   type: 'ITEM' | 'GENERAL';
+  /**
+   * Which brand the shopper wants to talk to. Only meaningful for GENERAL — an
+   * ITEM thread is routed by its product's own collaborator and cannot be
+   * redirected. Omitted or null means MiniRue direct.
+   */
+  collaboratorId?: string | null;
   productId?: string;
   orderId?: string;
   subjectSnapshot?: Record<string, unknown>;
@@ -75,7 +112,7 @@ export async function apiStartSupport(input: StartSupportInput): Promise<StartSu
     credentials: CREDS,
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error('start failed');
+  if (!res.ok) throw await supportError(res, 'start failed');
   return res.json() as Promise<StartSupportResult>;
 }
 
@@ -132,7 +169,7 @@ export async function apiSendSupport(
     credentials: CREDS,
     body: JSON.stringify({ body, ...(attachments && attachments.length > 0 ? { attachments } : {}) }),
   });
-  if (!res.ok) throw new Error('send failed');
+  if (!res.ok) throw await supportError(res, 'send failed');
   return res.json() as Promise<SupportMessageDto>;
 }
 
@@ -179,6 +216,6 @@ export async function apiSupportUpload(file: File): Promise<{ url: string }> {
     credentials: CREDS,
     body: form,
   });
-  if (!res.ok) throw new Error('upload failed');
+  if (!res.ok) throw await supportError(res, 'upload failed');
   return res.json() as Promise<{ url: string }>;
 }

@@ -17,9 +17,12 @@ import {
   apiSupportClaim,
   apiSupportMine,
   apiSupportHeartbeat,
+  type SupportConversationDto,
   type SupportMessageDto,
   type SupportMetaDto,
 } from '@/lib/api/support';
+import ConversationList from '@/components/chat/ConversationList';
+import NewChatComposer, { type NewChatDraft } from '@/components/chat/NewChatComposer';
 
 const POLL_INTERVAL_MS = 4000;
 const META_POLL_INTERVAL_MS = 8000;
@@ -43,6 +46,19 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+/** The start-conversation payload for a subject choice, shared by both entry points. */
+function subjectInputFor(choice: SubjectChoice) {
+  if (choice.type === 'ITEM') {
+    return {
+      type: 'ITEM' as const,
+      productId: choice.subject.productId,
+      orderId: choice.subject.orderId,
+      subjectSnapshot: choice.subject.subjectSnapshot,
+    };
+  }
+  return { type: 'GENERAL' as const };
+}
+
 function mapMessage(dto: SupportMessageDto): ChatDisplayMessage {
   // From the customer's view, anything not sent by the customer is the support side.
   // Backend sender types are CUSTOMER | STAFF | ADMIN | COLLAB | SYSTEM (never 'AGENT').
@@ -64,6 +80,15 @@ export default function SupportWidget() {
   // which is stale at widget-mount and never reacts to a login that happens later).
   const { data: authUser, isLoading: authLoading } = useUser();
   const isLoggedIn = !!authUser;
+
+  // Three views in one panel. 'thread' is the old behaviour; 'list' and 'new' are
+  // what a shopper with more than one conversation actually needs.
+  const [view, setView] = React.useState<'list' | 'thread' | 'new'>('thread');
+  const [conversations, setConversations] = React.useState<SupportConversationDto[]>([]);
+  const [listLoading, setListLoading] = React.useState(false);
+  // A guest picks their brand before they have given contact details, so the
+  // choice has to survive until the guest form is submitted.
+  const [pendingBrandId, setPendingBrandId] = React.useState<string | null>(null);
 
   const [open, setOpen] = React.useState(false);
   const [hasUnread, setHasUnread] = React.useState(false);
@@ -97,6 +122,12 @@ export default function SupportWidget() {
 
   const resumeConversation = React.useCallback((id: string) => {
     setConversationId(id);
+    setView('thread');
+    // A resumed thread starts empty, so clear what the previous one left behind
+    // rather than showing the wrong conversation's messages for a moment.
+    seenIdsRef.current = new Set();
+    lastMessageIdRef.current = undefined;
+    setMessages([]);
     apiSupportMessages(id)
       .then((dtos) => {
         const mapped = dtos.map(mapMessage);
@@ -134,14 +165,24 @@ export default function SupportWidget() {
           return apiSupportMine().then((mine) => ({ claimed, mine }));
         })
         .then(({ claimed, mine }) => {
+          if (mine) setConversations(mine);
           if (claimed) {
             // The claim already tells us the single surviving thread — resume
             // it directly rather than guessing from `mine`.
             resumeConversation(claimed.id);
             return;
           }
+          // With more than one conversation, dropping straight into the most
+          // recent hides the others and there was no way to reach them. Land on
+          // the list instead; a single thread still opens directly, since a list
+          // of one is just an extra tap.
+          if ((mine?.length ?? 0) > 1) {
+            setView('list');
+            return;
+          }
           const latest = mine?.[0];
           if (latest) resumeConversation(latest.id);
+          else setView('new');
         })
         .catch(() => {
           // Bootstrap best-effort; a fresh conversation will start on send.
@@ -166,6 +207,24 @@ export default function SupportWidget() {
       setHasUnread(true);
     }
   }, []);
+
+  const loadConversations = React.useCallback(async () => {
+    setListLoading(true);
+    try {
+      const mine = await apiSupportMine();
+      setConversations(mine);
+      return mine;
+    } finally {
+      setListLoading(false);
+    }
+  }, []);
+
+  // Opening the panel refreshes the list, so a thread the team replied to while
+  // the widget was shut shows as unread straight away.
+  React.useEffect(() => {
+    if (!open || !isLoggedIn) return;
+    void loadConversations();
+  }, [open, isLoggedIn, loadConversations]);
 
   // Fetch reply-time + presence when the panel opens, then poll while it's open.
   React.useEffect(() => {
@@ -261,26 +320,33 @@ export default function SupportWidget() {
     setMessages((prev) => prev.map((m) => (m.tempId === tempId ? { ...m, status: 'failed' } : m)));
   }, []);
 
-  const currentSubjectInput = React.useCallback(() => {
-    if (subjectChoice.type === 'ITEM') {
-      return {
-        type: 'ITEM' as const,
-        productId: subjectChoice.subject.productId,
-        orderId: subjectChoice.subject.orderId,
-        subjectSnapshot: subjectChoice.subject.subjectSnapshot,
-      };
-    }
-    return { type: 'GENERAL' as const };
-  }, [subjectChoice]);
+  const currentSubjectInput = React.useCallback(
+    () => subjectInputFor(subjectChoice),
+    [subjectChoice],
+  );
 
   const startConversation = React.useCallback(
-    async (body: string, guest?: GuestContactValue, attachments?: ChatAttachment[], existingTempId?: string) => {
+    async (
+      body: string,
+      guest?: GuestContactValue,
+      attachments?: ChatAttachment[],
+      existingTempId?: string,
+      override?: { collaboratorId?: string | null; subject?: SubjectChoice },
+    ) => {
       const tempId = existingTempId ?? addOptimisticMessage(body, attachments, guest);
       setSending(true);
       setError(null);
       try {
+        const subjectInput = override?.subject
+          ? subjectInputFor(override.subject)
+          : currentSubjectInput();
         const result = await apiStartSupport({
-          ...currentSubjectInput(),
+          ...subjectInput,
+          // Only a GENERAL thread carries a chosen brand; an ITEM thread is routed
+          // by its product and the API refuses to be redirected.
+          ...(subjectInput.type === 'GENERAL' && override?.collaboratorId
+            ? { collaboratorId: override.collaboratorId }
+            : {}),
           body,
           attachments,
           guest: guest
@@ -288,13 +354,19 @@ export default function SupportWidget() {
             : undefined,
         });
         setConversationId(result.conversation.id);
+        setView('thread');
         markSent(tempId, result.message);
         if (guest && result.guestToken) {
           setGuestSupport({ conversationId: result.conversation.id, guestToken: result.guestToken });
         }
-      } catch {
+      } catch (err: unknown) {
         markFailed(tempId);
-        setError('Could not send your message. Please try again.');
+        // The API says WHY — "this conversation is closed", "attachments are not
+        // enabled yet" — and that is what the shopper needs to read.
+        setError(
+          (err instanceof Error && err.message) ||
+            'Could not send your message. Please try again.',
+        );
       } finally {
         setSending(false);
       }
@@ -334,12 +406,21 @@ export default function SupportWidget() {
     (contact: GuestContactValue) => {
       const pending = pendingBodyRef.current;
       if (!pending) return;
-      void startConversation(pending.text, contact, pending.attachments).then(() => {
+      void startConversation(
+        pending.text,
+        contact,
+        pending.attachments,
+        undefined,
+        // Carries the brand a guest chose in the composer; undefined for the
+        // ordinary "type into the box" path, which keeps the page's own subject.
+        pendingBrandId ? { collaboratorId: pendingBrandId, subject: subjectChoice } : undefined,
+      ).then(() => {
         pendingBodyRef.current = null;
+        setPendingBrandId(null);
         setAwaitingGuestInfo(false);
       });
     },
-    [startConversation],
+    [startConversation, pendingBrandId, subjectChoice],
   );
 
   const handleRetry = React.useCallback(
@@ -371,6 +452,55 @@ export default function SupportWidget() {
     setHasUnread(false);
   };
 
+  const handleNewChat = React.useCallback(
+    (draft: NewChatDraft) => {
+      const subject: SubjectChoice = draft.subject
+        ? { type: 'ITEM', subject: draft.subject }
+        : { type: 'GENERAL' };
+
+      if (!isLoggedIn) {
+        // A guest still has to leave contact details first, so hold the draft and
+        // let the existing guest form take over — same path as a normal first
+        // message, just carrying the brand and product with it.
+        pendingBodyRef.current = { text: draft.body };
+        setSubjectChoice(subject);
+        setPendingBrandId(draft.collaboratorId);
+        setAwaitingGuestInfo(true);
+        setView('thread');
+        return;
+      }
+
+      void startConversation(draft.body, undefined, undefined, undefined, {
+        collaboratorId: draft.collaboratorId,
+        subject,
+      }).then(() => {
+        void loadConversations();
+      });
+    },
+    [isLoggedIn, startConversation, loadConversations],
+  );
+
+  // Only a customer can hold several threads; a guest is bound to the one their
+  // token names, so the list would always have exactly one row.
+  const canBrowseList = isLoggedIn;
+
+  const panelBody =
+    view === 'new' ? (
+      <NewChatComposer
+        pageSubject={pageSubject}
+        submitting={sending}
+        onSubmit={handleNewChat}
+        onCancel={() => setView(canBrowseList ? 'list' : 'thread')}
+      />
+    ) : view === 'list' ? (
+      <ConversationList
+        conversations={conversations}
+        loading={listLoading}
+        onOpen={(id) => resumeConversation(id)}
+        onNew={() => setView('new')}
+      />
+    ) : undefined;
+
   return (
     <>
       <ChatButton onClick={toggleOpen} hasUnread={hasUnread} open={open} />
@@ -386,6 +516,16 @@ export default function SupportWidget() {
         onUpload={apiSupportUpload}
         referenceId={conversationId ?? undefined}
         onRetry={handleRetry}
+        body={panelBody}
+        onBack={
+          // Only offer a way back when there is a list to go back TO.
+          canBrowseList && view === 'thread'
+            ? () => {
+                setView('list');
+                void loadConversations();
+              }
+            : undefined
+        }
         topSlot={
           !conversationId ? (
             <SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />

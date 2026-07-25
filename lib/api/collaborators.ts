@@ -1,6 +1,8 @@
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
 
 export interface PublicCollaboratorBrand {
+  /** Needed to address a support conversation to this brand. */
+  collaboratorId: string;
   brandSlug: string;
   brandName: string;
   logoUrl: string | null;
