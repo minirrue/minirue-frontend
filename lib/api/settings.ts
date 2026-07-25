@@ -24,6 +24,7 @@ export interface StorefrontPublicSettings {
 }
 
 export interface PublicSettings {
+  /** Constant, not an editable setting — the shop name is fixed. */
   storeName: string;
   currency: string;
   logoUrl: string | null;
