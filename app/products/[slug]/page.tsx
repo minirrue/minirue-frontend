@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { catalog, primaryMedia, mediaImageUrl, productBrand } from '@/lib/api/catalog';
+import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
 import ProductPageClient from './ProductPageClient';
 import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
@@ -75,11 +76,24 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
   const apiProductJson = JSON.stringify(p);
+
+  // Fetched here rather than through useStorefrontChrome() in the client so the
+  // service promises are in the server-rendered HTML. Read client-side only,
+  // they were absent from the SSR markup entirely — worse for crawlers than the
+  // hardcoded lines they replaced.
+  let perks = FALLBACK_CHROME.productSection.perks;
+  try {
+    const chrome = await fetchStorefrontChrome();
+    perks = chrome.productSection?.perks ?? perks;
+  } catch {
+    // A chrome fetch failure must not take the product page down with it.
+  }
+
   return (
     <>
       <ProductSchema slug={slug} productName={p!.name} apiProductJson={apiProductJson} />
       <BreadcrumbSchema productName={p!.name} productSlug={slug} />
-      <ProductPageClient slug={slug} apiProductJson={apiProductJson} />
+      <ProductPageClient slug={slug} apiProductJson={apiProductJson} perks={perks} />
       <FooterWithSettings />
     </>
   );

@@ -10,14 +10,17 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
+import type { ProductSectionConfig } from '@/lib/api/storefront';
 import { useSupportContext } from '@/lib/support/support-context';
 
 interface Props {
   slug: string;
   apiProductJson: string;
+  /** Resolved server-side so they render in the initial HTML. */
+  perks: ProductSectionConfig['perks'];
 }
 
-export default function ProductPageClient({ slug, apiProductJson }: Props) {
+export default function ProductPageClient({ slug, apiProductJson, perks }: Props) {
   const router = useRouter();
   const { itemCount, openDrawer, addItem } = useCart();
   const { data: chrome } = useStorefrontChrome();
@@ -64,7 +67,7 @@ export default function ProductPageClient({ slug, apiProductJson }: Props) {
         />
         <ApiProductDetail
           product={product}
-          perks={chrome?.productSection?.perks ?? FALLBACK_CHROME.productSection.perks}
+          perks={perks}
           onBack={() => router.push('/products')}
           onAddToBag={handleAddToBag}
         />
