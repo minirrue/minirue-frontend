@@ -36,7 +36,6 @@ export default async function SearchPage({ searchParams }: PageProps) {
   let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
   let initialHasMore = false;
   let initialCursor: string | null = null;
-  let initialTotal = 0;
 
   if (query.trim()) {
     try {
@@ -44,7 +43,6 @@ export default async function SearchPage({ searchParams }: PageProps) {
       initialProducts = res.data;
       initialHasMore = res.meta.hasMore;
       initialCursor = res.meta.cursor;
-      initialTotal = res.meta.total;
     } catch {
       // API unavailable — show empty state
     }
@@ -85,54 +83,27 @@ export default async function SearchPage({ searchParams }: PageProps) {
             <span style={{ color: 'var(--mr-fg-2)' }}>Search</span>
           </nav>
 
-          {/* Search header */}
+          {/* Search header. The live result count lives in the client
+              component alongside the input — rendering the server's count here
+              too would freeze at whatever the ?q= page load returned and
+              contradict the list as the shopper keeps typing. */}
           <div
             data-trace-id="PG-STOREFRONT-CAT-004::EL-REGION-search-results-heading"
-            style={{ marginBottom: 'var(--mr-sp-7)' }}
+            style={{ marginBottom: 'var(--mr-sp-6)' }}
           >
-            {query.trim() ? (
-              <>
-                <div
-                  style={{
-                    fontFamily: 'var(--mr-font-label)',
-                    fontSize: 'var(--mr-text-xs)',
-                    letterSpacing: '0.22em',
-                    textTransform: 'uppercase',
-                    color: 'var(--mr-fg-3)',
-                    marginBottom: 'var(--mr-sp-3)',
-                  }}
-                >
-                  {initialTotal > 0
-                    ? `${initialTotal} result${initialTotal !== 1 ? 's' : ''}`
-                    : 'No results'}
-                </div>
-                <h1
-                  style={{
-                    fontFamily: 'var(--mr-font-serif)',
-                    fontWeight: 400,
-                    fontSize: 'clamp(var(--mr-text-2xl), 4vw, var(--mr-text-3xl))',
-                    lineHeight: 1.08,
-                    letterSpacing: '-0.006em',
-                    margin: 0,
-                    color: 'var(--mr-fg)',
-                  }}
-                >
-                  Results for &ldquo;{query}&rdquo;
-                </h1>
-              </>
-            ) : (
-              <h1
-                style={{
-                  fontFamily: 'var(--mr-font-serif)',
-                  fontWeight: 400,
-                  fontSize: 'clamp(var(--mr-text-2xl), 4vw, var(--mr-text-3xl))',
-                  margin: 0,
-                  color: 'var(--mr-fg)',
-                }}
-              >
-                Search
-              </h1>
-            )}
+            <h1
+              style={{
+                fontFamily: 'var(--mr-font-serif)',
+                fontWeight: 400,
+                fontSize: 'clamp(var(--mr-text-2xl), 4vw, var(--mr-text-3xl))',
+                lineHeight: 1.08,
+                letterSpacing: '-0.006em',
+                margin: 0,
+                color: 'var(--mr-fg)',
+              }}
+            >
+              Search
+            </h1>
           </div>
 
           <SearchResultsClient
