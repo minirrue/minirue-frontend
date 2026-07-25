@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { apiCheckout } from '@/lib/checkout/checkout-api';
+import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
   loadCheckoutSession,
@@ -40,6 +41,13 @@ export default function CheckoutConfirmationPage() {
     setSessionChecked(true);
 
     if (submitted.current) return;
+    // Same reason as the Instapay page: an order is placed against a cart, so
+    // without one there is nothing to place and the API answers
+    // "cartId: Invalid uuid" after the customer has already been told to wait.
+    if (!cartId) {
+      setError('Your bag is empty. Add something to it before placing an order.');
+      return;
+    }
     submitted.current = true;
 
     void apiCheckout(
@@ -55,8 +63,10 @@ export default function CheckoutConfirmationPage() {
         clearCheckoutSession();
         void clearCart();
       })
-      .catch((err: { message?: string }) => {
-        setError(err.message ?? 'Checkout failed. Please try again.');
+      .catch((err: unknown) => {
+        // A 422 carries `message` as an array of {field, issue}; printing it
+        // straight gave the customer "[object Object]".
+        setError(formatApiError(err, 'Checkout failed. Please try again.'));
         submitted.current = false;
       });
   }, [cartId, clearCart, router]);

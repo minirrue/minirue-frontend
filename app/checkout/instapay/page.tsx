@@ -28,6 +28,10 @@ export default function InstapayCheckoutPage() {
   const { cartId, items, loading: cartLoading, clearCart } = useCart();
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Set the moment the order is accepted. The success path clears the cart, which
+  // would otherwise trip the empty-cart guard below and bounce the customer away
+  // from the confirmation page they are being sent to.
+  const [placed, setPlaced] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // A cart is what is being paid for, so no cart means there is nothing to pay.
@@ -35,7 +39,7 @@ export default function InstapayCheckoutPage() {
   // cart, and Submit posted an empty cartId — the customer uploaded a receipt and
   // got back "cartId: Invalid uuid" for their trouble. Wait for the cart to load
   // first, or this would bounce every genuine visit on the first render.
-  const cartEmpty = !cartLoading && (!cartId || items.length === 0);
+  const cartEmpty = !cartLoading && !placed && (!cartId || items.length === 0);
 
   useEffect(() => {
     const session = loadCheckoutSession();
@@ -94,6 +98,9 @@ export default function InstapayCheckoutPage() {
         },
         newIdempotencyKey(),
       );
+      // Before clearing anything: from here on an empty cart is the expected
+      // outcome, not a reason to redirect.
+      setPlaced(true);
       clearCheckoutSession();
       await clearCart();
       router.replace(`/checkout/confirmation?order=${encodeURIComponent(order.orderNumber)}`);
