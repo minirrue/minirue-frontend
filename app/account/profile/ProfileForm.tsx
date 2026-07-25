@@ -32,7 +32,10 @@ export default function ProfileForm({ profile }: Props) {
     setSuccess(false);
     try {
       await updateProfile.mutateAsync({
-        displayName: displayName || undefined,
+        // Emptying the box means "go back to my first name", so it has to send
+        // null. `undefined` is "leave it alone", which made the field impossible
+        // to clear once set.
+        displayName: displayName.trim() ? displayName.trim() : null,
         firstName,
         lastName,
       });

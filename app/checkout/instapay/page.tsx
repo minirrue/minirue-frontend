@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { apiCheckout } from '@/lib/checkout/checkout-api';
+import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
   loadCheckoutSession,
@@ -24,17 +25,28 @@ const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
 export default function InstapayCheckoutPage() {
   const router = useRouter();
-  const { cartId, clearCart } = useCart();
+  const { cartId, items, loading: cartLoading, clearCart } = useCart();
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // A cart is what is being paid for, so no cart means there is nothing to pay.
+  // Without this the page still rendered payment after a hard reload dropped the
+  // cart, and Submit posted an empty cartId — the customer uploaded a receipt and
+  // got back "cartId: Invalid uuid" for their trouble. Wait for the cart to load
+  // first, or this would bounce every genuine visit on the first render.
+  const cartEmpty = !cartLoading && (!cartId || items.length === 0);
 
   useEffect(() => {
     const session = loadCheckoutSession();
     if (!session?.shippingAddressId || session.paymentMethod !== 'INSTAPAY') {
       router.replace('/checkout');
+      return;
     }
-  }, [router]);
+    if (cartEmpty) {
+      router.replace('/cart');
+    }
+  }, [router, cartEmpty]);
 
   function onFile(file: File | null) {
     if (!file) return;
@@ -62,6 +74,13 @@ export default function InstapayCheckoutPage() {
   async function submit() {
     const session = loadCheckoutSession();
     if (!session?.shippingAddressId || !preview) return;
+    // Checked again at submit time: the cart can empty out between render and
+    // click (another tab, an expired cart), and the redirect above only runs on
+    // a state change.
+    if (!cartId || items.length === 0) {
+      setError('Your bag is empty. Add something to it before paying.');
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -79,11 +98,7 @@ export default function InstapayCheckoutPage() {
       await clearCart();
       router.replace(`/checkout/confirmation?order=${encodeURIComponent(order.orderNumber)}`);
     } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : 'Failed to submit receipt.';
-      setError(message);
+      setError(formatApiError(err, 'Failed to submit receipt.'));
     } finally {
       setSubmitting(false);
     }

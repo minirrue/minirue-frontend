@@ -28,6 +28,24 @@ export interface ProductVariant {
   priceAmount: string; // Always string (Dinero.js) — never parse as float
   priceCurrency: string;
   isActive: boolean;
+  /**
+   * Sellable units for this variant, from the product endpoint (backend 0.34.0).
+   * Optional because an older API response has neither field — absent is treated
+   * as IN stock so a stale deployment cannot make the whole catalogue look sold
+   * out, and checkout still refuses what is genuinely unavailable.
+   */
+  availableQuantity?: number;
+  inStock?: boolean;
+}
+
+/**
+ * Whether a variant can be bought. Absent stock fields mean "the API did not say"
+ * — treated as available on purpose (see availableQuantity).
+ */
+export function variantInStock(v: ProductVariant): boolean {
+  if (typeof v.inStock === 'boolean') return v.inStock;
+  if (typeof v.availableQuantity === 'number') return v.availableQuantity > 0;
+  return true;
 }
 
 /** Human label for a variant: its attribute answers ("50 ML · Amber"), falling

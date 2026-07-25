@@ -33,7 +33,8 @@ export interface Address {
 }
 
 export interface ProfileUpdateInput {
-  displayName?: string;
+  /** null clears it, so the greeting falls back to the first name. */
+  displayName?: string | null;
   firstName?: string;
   lastName?: string;
   phone?: string | null;

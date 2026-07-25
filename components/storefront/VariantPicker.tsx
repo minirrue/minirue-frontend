@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { ProductVariant } from '@/lib/api/catalog';
-import { variantLabel } from '@/lib/api/catalog';
+import { variantLabel, variantInStock } from '@/lib/api/catalog';
 import PriceDisplay from './PriceDisplay';
 
 interface VariantPickerProps {
@@ -39,15 +39,24 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--mr-sp-2)' }}>
         {active.map((v) => {
           const isSelected = v.id === selectedId;
+          // A sold-out size stays visible but unpickable: hiding it makes the
+          // product look like it never had that size, and letting it be picked
+          // only moves the refusal to checkout.
+          const sellable = variantInStock(v);
           return (
             <button
               key={v.id}
               data-trace-id={traceIdPrefix ? `${traceIdPrefix}@${v.id}` : undefined}
-              onClick={() => onChange(v)}
+              onClick={() => sellable && onChange(v)}
+              disabled={!sellable}
               aria-pressed={isSelected}
+              aria-disabled={!sellable}
+              title={sellable ? undefined : 'Out of stock'}
               style={{
                 padding: '11px 16px',
-                cursor: 'pointer',
+                cursor: sellable ? 'pointer' : 'not-allowed',
+                opacity: sellable ? 1 : 0.4,
+                textDecoration: sellable ? 'none' : 'line-through',
                 background: isSelected ? 'var(--mr-fg)' : 'transparent',
                 color: isSelected ? 'var(--mr-bg-raised)' : 'var(--mr-fg-2)',
                 border: `1px solid ${isSelected ? 'var(--mr-fg)' : 'var(--mr-border)'}`,

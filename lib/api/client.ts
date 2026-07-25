@@ -141,3 +141,42 @@ export async function apiFetch<T>(
 
   return res.json() as Promise<T>;
 }
+
+/**
+ * A readable sentence from any API error.
+ *
+ * The backend's 422 body carries `message` as an ARRAY of `{ field, issue }`
+ * (class-validator) or of plain strings (Zod), so `String(err.message)` rendered
+ * "[object Object]" on the checkout page — the customer was told nothing at all
+ * about why their order would not go through.
+ */
+export function formatApiError(err: unknown, fallback: string): string {
+  if (!err || typeof err !== 'object') return fallback;
+  const message = (err as { message?: unknown }).message;
+
+  if (typeof message === 'string' && message.trim()) return message;
+
+  if (Array.isArray(message)) {
+    const parts = message
+      .map((entry) => {
+        if (typeof entry === 'string') return entry;
+        if (entry && typeof entry === 'object') {
+          const e = entry as { field?: unknown; issue?: unknown; message?: unknown };
+          const field = typeof e.field === 'string' ? e.field : '';
+          const issue =
+            typeof e.issue === 'string'
+              ? e.issue
+              : typeof e.message === 'string'
+                ? e.message
+                : '';
+          if (field && issue) return `${field}: ${issue}`;
+          return issue || field;
+        }
+        return '';
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join('. ');
+  }
+
+  return fallback;
+}

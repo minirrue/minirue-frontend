@@ -9,8 +9,7 @@ import {
   mediaImageUrl,
   productBrand,
   productByline,
-  variantLabel,
-} from '@/lib/api/catalog';
+  variantLabel, variantInStock } from '@/lib/api/catalog';
 import VariantPicker from './VariantPicker';
 import PriceDisplay from './PriceDisplay';
 import Icon from '@/components/ui/Icon';
@@ -38,7 +37,10 @@ export default function ApiProductDetail({
   const { mobile, w } = useBreakpoint();
 
   const activeVariants = product.variants?.filter((v) => v.isActive) ?? [];
-  const defaultVariant = activeVariants[0] ?? null;
+  // Prefer a variant that is actually sellable, so a product whose first size is
+  // sold out does not open pre-selected on the one option nobody can buy.
+  const defaultVariant =
+    activeVariants.find((v) => variantInStock(v)) ?? activeVariants[0] ?? null;
   const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(defaultVariant);
   const [added, setAdded] = React.useState(false);
   const [addedAnim, setAddedAnim] = React.useState(false);
@@ -59,8 +61,16 @@ export default function ApiProductDetail({
   const imgAlt = media?.altText ?? product.name;
   const gallery = carouselMedia(product);
 
+  const soldOut = !!selectedVariant && !variantInStock(selectedVariant);
+  // Nothing on the product is buyable — every active variant is at zero.
+  const allSoldOut =
+    activeVariants.length > 0 && !activeVariants.some((v) => variantInStock(v));
+
   const handleAdd = () => {
-    if (added || !selectedVariant) return;
+    // Enforced here as well as by the disabled button: the click handler is what
+    // actually adds to the bag, and a keyboard or programmatic activation must
+    // not slip past a visual state.
+    if (added || !selectedVariant || soldOut) return;
     setAdded(true);
     setAddedAnim(true);
     onAddToBag(selectedVariant);
@@ -202,7 +212,7 @@ export default function ApiProductDetail({
         <button
           data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag"
           onClick={handleAdd}
-          disabled={!selectedVariant}
+          disabled={!selectedVariant || soldOut}
           style={{
             flex: 1,
             padding: '16px 24px',
@@ -210,7 +220,7 @@ export default function ApiProductDetail({
             background: added ? 'var(--mr-gold-500)' : 'var(--mr-ink-900)',
             color: 'var(--mr-cream-100)',
             border: 0,
-            cursor: selectedVariant ? 'pointer' : 'default',
+            cursor: selectedVariant && !soldOut ? 'pointer' : 'not-allowed',
             fontFamily: 'var(--mr-font-label)',
             fontSize: 'var(--mr-text-xs)',
             letterSpacing: '0.22em',
@@ -224,13 +234,15 @@ export default function ApiProductDetail({
               'background var(--mr-dur-medium) var(--mr-ease-out), transform var(--mr-dur-instant) var(--mr-ease-snappy), box-shadow var(--mr-dur-fast)',
             boxShadow: added ? 'none' : 'var(--mr-shadow-md)',
             willChange: 'transform',
-            opacity: selectedVariant ? 1 : 0.5,
+            opacity: selectedVariant && !soldOut ? 1 : 0.5,
           }}
         >
           {added ? (
             <>
               <Icon name="check" size={14} /> Added
             </>
+          ) : soldOut ? (
+            <>{allSoldOut ? 'Out of stock' : 'This size is out of stock'}</>
           ) : (
             <>Add to bag{selectedVariant ? ' — ' : ''}<span style={ctaX.style}>{ctaX.display}</span></>
           )}
