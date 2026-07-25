@@ -1,6 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useClientQuery } from '@/lib/hooks/use-client-query';
-import { apiLogin, apiRegister, apiLogout, apiMe, type AuthResponse } from '@/lib/api/auth';
+import {
+  apiLogin,
+  apiRegister,
+  apiLogout,
+  apiMe,
+  type AuthResponse,
+  type RegisterInput,
+} from '@/lib/api/auth';
 import { clearAuthFlag } from '@/lib/auth/tokens';
 import { setSession, clearSession } from '@/lib/session';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
@@ -34,17 +41,7 @@ export function useLogin() {
 export function useRegister() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      name,
-      email,
-      password,
-    }: {
-      name: string;
-      email: string;
-      password: string;
-    }) => {
-      return apiRegister(name, email, password);
-    },
+    mutationFn: async (input: RegisterInput) => apiRegister(input),
     onSuccess: async (data: AuthResponse) => {
       setSession({
         userId: data.user.userId,

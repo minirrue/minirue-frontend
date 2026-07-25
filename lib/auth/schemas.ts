@@ -11,8 +11,25 @@ export const loginSchema = z.object({
 
 export const signupSchema = z
   .object({
-    firstName: z.string().min(1, 'First name is required'),
+    firstName: z.string().trim().min(1, 'First name is required'),
+    lastName: z.string().trim().min(1, 'Last name is required'),
     email: z.string().email('Enter a valid email address'),
+    // Dial code and the local number are separate fields in the form so the
+    // shopper never has to know the + prefix; they are joined into one E.164
+    // string for the API.
+    dialCode: z.string().regex(/^\+\d{1,4}$/, 'Select a country'),
+    phoneNumber: z
+      .string()
+      .trim()
+      .min(1, 'Phone number is required')
+      .refine((v) => /^\d[\d\s-]*$/.test(v), 'Digits only')
+      .refine(
+        (v) => {
+          const digits = v.replace(/\D/g, '').replace(/^0+/, '');
+          return digits.length >= 6 && digits.length <= 14;
+        },
+        'Enter a valid phone number',
+      ),
     password: passwordField,
     confirmPassword: z.string(),
   })
@@ -20,6 +37,16 @@ export const signupSchema = z
     message: 'Passwords do not match',
     path: ['confirmPassword'],
   });
+
+/**
+ * A local number joined to its dial code as E.164, which is what the API takes.
+ * The leading zero of a national trunk prefix is dropped — an Egyptian shopper
+ * types 01001234567 and means +201001234567, not +2001001234567.
+ */
+export function toE164(dialCode: string, phoneNumber: string): string {
+  const digits = phoneNumber.replace(/\D/g, '').replace(/^0+/, '');
+  return `${dialCode}${digits}`;
+}
 
 export const forgotSchema = z.object({
   email: z.string().email('Enter a valid email address'),

@@ -25,15 +25,23 @@ export async function apiLogin(email: string, password: string): Promise<AuthSuc
   return { ...data, user };
 }
 
+export interface RegisterInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  /** E.164, dial code included. */
+  phone: string;
+}
+
 export async function apiRegister(
-  name: string,
-  email: string,
-  password: string,
+  input: RegisterInput,
 ): Promise<AuthSuccessResponse> {
+  const { firstName, lastName, email, password, phone } = input;
   const data = await apiFetch<TokenPair>('/auth/register', {
     method: 'POST',
     headers: { 'Idempotency-Key': createIdempotencyKey('register') },
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ firstName, lastName, email, password, phone }),
   });
   // Backend has set the httpOnly token cookies; just flip the UI hint.
   markAuthenticated();

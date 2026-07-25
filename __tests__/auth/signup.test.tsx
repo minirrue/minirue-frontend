@@ -55,10 +55,14 @@ const fillForm = async (
   email = 'new@example.com',
   password = 'Password1',
   confirmPassword = 'Password1',
+  lastName = 'Customer',
+  phoneNumber = '01001234567',
 ) => {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText(/first name/i), firstName);
+  await user.type(screen.getByLabelText(/last name/i), lastName);
   await user.type(screen.getByLabelText(/^email$/i), email);
+  await user.type(screen.getByLabelText(/phone number/i), phoneNumber);
   // There are two password fields; target by label text precisely
   const passwordFields = screen.getAllByLabelText(/password/i);
   await user.type(passwordFields[0], password);
@@ -77,10 +81,13 @@ describe('SignupPage', () => {
     expect(screen.getByRole('heading', { name: /create account/i })).toBeInTheDocument();
   });
 
-  it('renders all four fields', () => {
+  it('renders every field', () => {
     render(<SignupPage />);
     expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/last name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^email$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/country/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/phone number/i)).toBeInTheDocument();
     const passwordFields = screen.getAllByLabelText(/password/i);
     expect(passwordFields).toHaveLength(2);
   });
@@ -150,7 +157,15 @@ describe('SignupPage', () => {
       render(<SignupPage />);
       await fillForm();
       await waitFor(() =>
-        expect(mockApiRegister).toHaveBeenCalledWith('New', 'new@example.com', 'Password1'),
+        // The dial code defaults to Egypt and the local number's leading zero is
+        // dropped, so 01001234567 must reach the API as +201001234567.
+        expect(mockApiRegister).toHaveBeenCalledWith({
+          firstName: 'New',
+          lastName: 'Customer',
+          email: 'new@example.com',
+          password: 'Password1',
+          phone: '+201001234567',
+        }),
       );
     });
 
