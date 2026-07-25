@@ -44,11 +44,11 @@ async function refreshSession(): Promise<boolean> {
       } catch {
         return false;
       } finally {
-        // Cleared on the next tick so callers that arrive during teardown still
-        // join this attempt rather than starting another.
-        setTimeout(() => {
-          refreshInFlight = null;
-        }, 0);
+        // Cleared synchronously. Concurrent callers have already joined by
+        // awaiting this same promise; anyone arriving AFTER it settles must
+        // start a fresh attempt, not inherit a stale verdict from a refresh
+        // that has already finished.
+        refreshInFlight = null;
       }
     })();
   }
