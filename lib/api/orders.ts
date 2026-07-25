@@ -6,7 +6,9 @@ export type OrderStatus =
   | 'PROCESSING'
   | 'SHIPPED'
   | 'DELIVERED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  /** Set when a refund is paid out (backend 0.40.0). */
+  | 'REFUNDED';
 
 export interface ProductSnapshot {
   name: string;
