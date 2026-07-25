@@ -3,7 +3,159 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiListOrders, type OrderSummary } from '@/lib/checkout/checkout-api';
-import { formatOrderRef } from '@/lib/orders/order-format';
+import {
+  formatOrderRef,
+  formatOrderStatus,
+  formatOrderTotal,
+} from '@/lib/orders/order-format';
+
+/** Statuses that read as "in progress" versus finished or stopped. */
+const STATUS_TONE: Record<string, string> = {
+  PENDING: 'var(--mr-gold-500)',
+  CONFIRMED: 'var(--mr-gold-500)',
+  PROCESSING: 'var(--mr-gold-500)',
+  SHIPPED: 'var(--mr-gold-500)',
+  DELIVERED: 'var(--mr-fg-3)',
+  CANCELLED: 'var(--mr-crimson-700)',
+  REFUNDED: 'var(--mr-crimson-700)',
+};
+
+function OrderCard({ order }: { order: OrderSummary }) {
+  // Up to three thumbnails; beyond that a summary becomes a gallery.
+  const thumbs = order.items
+    .map((item) => item.productSnapshot?.imageUrl)
+    .filter((url): url is string => !!url)
+    .slice(0, 3);
+
+  const firstName = order.items[0]?.productSnapshot?.name;
+  const extra = order.items.length - 1;
+  const itemLabel = firstName
+    ? extra > 0
+      ? `${firstName} + ${extra} more`
+      : firstName
+    : `${order.items.length} item${order.items.length === 1 ? '' : 's'}`;
+
+  return (
+    <li>
+      <Link
+        href={`/account/orders/${order.id}`}
+        style={{
+          display: 'flex',
+          gap: 16,
+          alignItems: 'center',
+          padding: 16,
+          border: '1px solid var(--mr-border)',
+          borderRadius: 'var(--mr-radius-md)',
+          background: 'var(--mr-bg-raised)',
+          textDecoration: 'none',
+          color: 'inherit',
+          transition: 'border-color var(--mr-dur-fast) var(--mr-ease-out)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = 'var(--mr-fg-4)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = 'var(--mr-border)';
+        }}
+      >
+        {/* Overlapped so several items still fit on a phone. */}
+        <div style={{ display: 'flex', flexShrink: 0 }}>
+          {thumbs.length > 0 ? (
+            thumbs.map((url, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`${url}-${i}`}
+                src={url}
+                alt=""
+                width={56}
+                height={70}
+                style={{
+                  width: 56,
+                  height: 70,
+                  objectFit: 'cover',
+                  borderRadius: 'var(--mr-radius-sm)',
+                  border: '1px solid var(--mr-border)',
+                  background: 'var(--mr-bg-sunken)',
+                  marginLeft: i === 0 ? 0 : -20,
+                  position: 'relative',
+                  zIndex: thumbs.length - i,
+                }}
+              />
+            ))
+          ) : (
+            // No cover on any line — a placeholder keeps every card the same
+            // height instead of some rows collapsing.
+            <div
+              aria-hidden
+              style={{
+                width: 56,
+                height: 70,
+                borderRadius: 'var(--mr-radius-sm)',
+                border: '1px solid var(--mr-border)',
+                background: 'var(--mr-bg-sunken)',
+              }}
+            />
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 500 }}>{formatOrderRef(order)}</span>
+            <span
+              style={{
+                fontFamily: 'var(--mr-font-mono, monospace)',
+                fontSize: 'var(--mr-text-xs)',
+                color: 'var(--mr-fg-4)',
+              }}
+            >
+              {order.orderNumber}
+            </span>
+          </div>
+
+          <div
+            style={{
+              fontSize: 'var(--mr-text-sm)',
+              color: 'var(--mr-fg-2)',
+              marginTop: 4,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {itemLabel}
+          </div>
+
+          <div
+            style={{
+              fontSize: 'var(--mr-text-xs)',
+              color: 'var(--mr-fg-4)',
+              marginTop: 4,
+              display: 'flex',
+              gap: 8,
+              alignItems: 'center',
+            }}
+          >
+            <span style={{ color: STATUS_TONE[order.status] ?? 'var(--mr-fg-3)' }}>
+              {formatOrderStatus(order.status)}
+            </span>
+            <span aria-hidden>·</span>
+            <span>
+              {new Date(order.createdAt).toLocaleDateString(undefined, {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
+          </div>
+        </div>
+
+        <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+          {formatOrderTotal(order.totalAmount, order.totalCurrency)}
+        </span>
+      </Link>
+    </li>
+  );
+}
 
 export default function OrderHistoryClient() {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -46,17 +198,9 @@ export default function OrderHistoryClient() {
         </p>
       )}
 
-      <ul className="mt-8 divide-y">
+      <ul style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 32 }}>
         {orders.map((o) => (
-          <li key={o.id} className="py-4">
-            <Link href={`/account/orders/${o.id}`} className="flex items-baseline justify-between hover:underline">
-              <span>
-                <span className="font-medium">{formatOrderRef(o)}</span>
-                <span className="ml-2 text-xs text-neutral-500">{o.orderNumber}</span>
-              </span>
-              <span>{o.totalAmount} {o.totalCurrency}</span>
-            </Link>
-          </li>
+          <OrderCard key={o.id} order={o} />
         ))}
       </ul>
     </main>

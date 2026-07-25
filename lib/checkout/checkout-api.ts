@@ -18,6 +18,18 @@ export interface OrderItemSummary {
   qty: number;
   unitPriceAmount: string;
   lineTotalAmount: string;
+  /**
+   * What was bought, captured at purchase time. `imageUrl` is the product cover,
+   * resolved by the API at read time (backend 0.38.0) — optional, because it is
+   * null when the product has no cover.
+   */
+  productSnapshot?: {
+    name?: string;
+    brand?: string;
+    imageUrl?: string | null;
+    sku?: string;
+    variantValues?: Record<string, string>;
+  };
 }
 
 export interface OrderSummary {
