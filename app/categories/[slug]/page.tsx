@@ -139,8 +139,15 @@ export default async function CategoryPage({ params }: PageProps) {
             <Link href="/products" style={{ color: 'inherit', textDecoration: 'none' }}>
               Perfumes
             </Link>
-            <span>/</span>
-            <span style={{ color: 'var(--mr-fg-2)' }}>{displayName}</span>
+            {/* A category named "Perfumes" made this read Home / Perfumes /
+                Perfumes. The section crumb already names the place, so a final
+                crumb that only restates it is dropped. */}
+            {displayName.trim().toLowerCase() !== 'perfumes' && (
+              <>
+                <span>/</span>
+                <span style={{ color: 'var(--mr-fg-2)' }}>{displayName}</span>
+              </>
+            )}
           </nav>
 
           {/* Page heading */}
