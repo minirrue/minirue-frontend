@@ -74,7 +74,11 @@ export default function SignupPage() {
       if (!navigator.onLine || e.status === 0) {
         setApiError('Unable to connect. Check your connection.');
       } else if (e.status === 409) {
-        setApiError('An account with this email already exists.');
+        // Both the email and the phone are unique, so a 409 can mean either —
+        // show the server's own message rather than guessing at the email.
+        setApiError(
+          e.message ?? 'An account with these details already exists.',
+        );
       } else if (e.status === 422) {
         setApiError(e.message ?? 'Please check your details.');
       } else {
@@ -188,7 +192,14 @@ export default function SignupPage() {
               value={form.phoneNumber}
               onChange={(e) => setForm((f) => ({ ...f, phoneNumber: e.target.value }))}
               error={errors.phoneNumber}
-              helper="We use this for delivery updates only."
+              // Showing the E.164 result as they type is the point: a shopper who
+              // types 01012431350 can see it saved as +201012431350 and not
+              // +2001012431350, which is the mistake this field used to invite.
+              helper={
+                form.phoneNumber.trim()
+                  ? `Saved as ${toE164(form.dialCode, form.phoneNumber)}`
+                  : 'We use this for delivery updates only.'
+              }
               traceId="PG-STOREFRONT-IAM-002::EL-FIELD-phone-number"
             />
           </div>
