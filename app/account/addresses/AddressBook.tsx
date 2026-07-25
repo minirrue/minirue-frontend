@@ -18,16 +18,23 @@ interface Props {
 
 const MAX_ADDRESSES = 5;
 
+/** The backend refuses to delete the default address while it is the only one. */
+const SOLE_DEFAULT_HINT = 'Your only address cannot be deleted. Add another first.';
+
 function AddressCard({
   address,
   onDelete,
   onSetDefault,
   busy,
+  canDelete,
+  error,
 }: {
   address: Address;
   onDelete: (id: string) => void;
   onSetDefault: (id: string) => void;
   busy: boolean;
+  canDelete: boolean;
+  error: string | null;
 }) {
   return (
     <div
@@ -62,20 +69,45 @@ function AddressCard({
         <div>{address.countryCode}</div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 4, alignItems: 'center' }}>
         {!address.isDefault && (
           <button onClick={() => onSetDefault(address.id)} disabled={busy} style={ghostBtnStyle}>
             Set as default
           </button>
         )}
+        {!canDelete && (
+          <span
+            style={{
+              fontSize: 'var(--mr-text-xs)',
+              color: 'var(--mr-fg-4)',
+              lineHeight: 1.4,
+            }}
+          >
+            {SOLE_DEFAULT_HINT}
+          </span>
+        )}
         <button
           onClick={() => onDelete(address.id)}
-          disabled={busy}
-          style={{ ...ghostBtnStyle, color: 'var(--mr-danger)', marginLeft: 'auto' }}
+          disabled={busy || !canDelete}
+          title={canDelete ? undefined : SOLE_DEFAULT_HINT}
+          aria-disabled={!canDelete}
+          style={{
+            ...ghostBtnStyle,
+            color: canDelete ? 'var(--mr-danger)' : 'var(--mr-fg-4)',
+            marginLeft: 'auto',
+            cursor: canDelete && !busy ? 'pointer' : 'not-allowed',
+            opacity: canDelete ? 1 : 0.5,
+          }}
         >
           Delete
         </button>
       </div>
+
+      {error && (
+        <p role="alert" style={{ color: 'var(--mr-danger)', fontSize: 'var(--mr-text-xs)', margin: 0 }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -96,6 +128,7 @@ export default function AddressBook({ addresses }: Props) {
   const [form, setForm] = useState<AddressInput>(BLANK_FORM);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [cardError, setCardError] = useState<{ id: string; message: string } | null>(null);
 
   const createAddress = useCreateCustomerAddress();
   const deleteAddress = useDeleteCustomerAddress();
@@ -104,12 +137,16 @@ export default function AddressBook({ addresses }: Props) {
   const saving = createAddress.isPending;
   const atMax = addresses.length >= MAX_ADDRESSES;
 
+  // Both card actions used to swallow their error, so a refused delete looked
+  // like a click that did nothing at all.
   const handleDelete = async (id: string) => {
     setBusyId(id);
+    setCardError(null);
     try {
       await deleteAddress.mutateAsync(id);
-    } catch {
-      /* query cache refreshes on success */
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setCardError({ id, message: apiErr.message ?? 'Could not delete this address.' });
     } finally {
       setBusyId(null);
     }
@@ -117,10 +154,12 @@ export default function AddressBook({ addresses }: Props) {
 
   const handleSetDefault = async (id: string) => {
     setBusyId(id);
+    setCardError(null);
     try {
       await setDefaultAddress.mutateAsync(id);
-    } catch {
-      /* no-op */
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setCardError({ id, message: apiErr.message ?? 'Could not set this address as default.' });
     } finally {
       setBusyId(null);
     }
@@ -201,6 +240,8 @@ export default function AddressBook({ addresses }: Props) {
             onDelete={handleDelete}
             onSetDefault={handleSetDefault}
             busy={busyId === addr.id}
+            canDelete={!(addr.isDefault && addresses.length === 1)}
+            error={cardError?.id === addr.id ? cardError.message : null}
           />
         ))}
       </div>
@@ -272,7 +313,9 @@ export default function AddressBook({ addresses }: Props) {
               <input
                 type="text"
                 value={form.countryCode}
-                onChange={field('countryCode')}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, countryCode: e.target.value.toUpperCase() }))
+                }
                 required
                 maxLength={2}
                 placeholder="EG"
