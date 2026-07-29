@@ -29,6 +29,7 @@ import PriceDisplay from '@/components/storefront/PriceDisplay';
 import { catalog, mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { searchCanonicalPath } from '@/lib/search/query';
+import { useSheetDrag } from '@/lib/hooks/useSheetDrag';
 
 const DEBOUNCE_MS = 220;
 const PREVIEW_LIMIT = 6;
@@ -80,6 +81,16 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const requestId = React.useRef(0);
+  const sheetRef = React.useRef<HTMLDivElement>(null);
+  // Dismissed by pushing UP, because that is the edge it came from. A sheet
+  // that arrives from the top and leaves through the bottom is two different
+  // objects as far as the hand is concerned.
+  const drag = useSheetDrag({
+    direction: 'up',
+    enabled: open,
+    onDismiss: onClose,
+    sheetRef,
+  });
 
   const [term, setTerm] = React.useState('');
   // Results are stored WITH the term that produced them. Keying the payload
@@ -196,12 +207,15 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
           background: 'rgba(11,11,11,0.5)',
           backdropFilter: open ? 'blur(4px)' : 'blur(0)',
           WebkitBackdropFilter: open ? 'blur(4px)' : 'blur(0)',
-          opacity: open ? 1 : 0,
-          transition: 'opacity 400ms var(--mr-ease-snappy), backdrop-filter 400ms ease',
+          opacity: open ? 1 - drag.progress : 0,
+          transition: drag.dragging
+            ? 'none'
+            : 'opacity 400ms var(--mr-ease-snappy), backdrop-filter 400ms ease',
         }}
       />
 
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label="Search"
@@ -214,8 +228,10 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
           height: '100dvh',
           background: 'var(--mr-cream-100)',
           boxShadow: '0 18px 48px rgba(11,11,11,0.24)',
-          transform: open ? 'translateY(0)' : 'translateY(-100%)',
-          transition: `transform 600ms ${SHEET_EASE}`,
+          transform: open
+            ? `translateY(${-Math.max(drag.offset, 0)}px)`
+            : 'translateY(-100%)',
+          transition: drag.dragging ? 'none' : `transform 600ms ${SHEET_EASE}`,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -402,6 +418,37 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
               </>
             )}
           </div>
+        </div>
+
+        {/* Drag handle. On the sheet's bottom edge, not its top: that is the
+            free edge of a panel hanging from the top of the screen, and it is
+            the only edge a thumb can reach on a full-height sheet. Push it up
+            to send the sheet back where it came from. */}
+        <div
+          {...drag.handleProps}
+          role="button"
+          tabIndex={-1}
+          aria-label="Drag up to close search"
+          style={{
+            flex: '0 0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '10px 0 calc(12px + env(safe-area-inset-bottom))',
+            borderTop: '1px solid var(--mr-hairline)',
+            background: 'var(--mr-cream-200)',
+            ...drag.handleProps.style,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 48,
+              height: 4,
+              borderRadius: 2,
+              background: 'var(--mr-cream-400)',
+            }}
+          />
         </div>
       </div>
     </div>

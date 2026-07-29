@@ -31,6 +31,7 @@ import SocialIcon from '@/components/ui/SocialIcon';
 import Wordmark from '@/components/ui/Wordmark';
 import type { ApiProduct } from '@/lib/api/catalog';
 import type { ResolvedChrome, ResolvedNavItem } from '@/lib/api/storefront';
+import { useSheetDrag } from '@/lib/hooks/useSheetDrag';
 import NavProductTile from './NavProductTile';
 
 const SHEET_EASE = 'cubic-bezier(0.7,0,0.2,1)';
@@ -60,6 +61,13 @@ export default function MobileNavSheet({
   onOpenSearch,
 }: MobileNavSheetProps) {
   const [drilledId, setDrilledId] = React.useState<string | null>(null);
+  const sheetRef = React.useRef<HTMLDivElement>(null);
+  const drag = useSheetDrag({
+    direction: 'down',
+    enabled: open,
+    onDismiss: onClose,
+    sheetRef,
+  });
 
   // Closing resets the drill-down, but only after the sheet is gone — resetting
   // immediately would flip the panel back to root in full view on the way out.
@@ -126,13 +134,18 @@ export default function MobileNavSheet({
           background: 'rgba(11,11,11,0.5)',
           backdropFilter: open ? 'blur(4px)' : 'blur(0)',
           WebkitBackdropFilter: open ? 'blur(4px)' : 'blur(0)',
-          opacity: open ? 1 : 0,
-          transition: 'opacity 400ms var(--mr-ease-snappy), backdrop-filter 400ms ease',
+          // Fades as the sheet is dragged away, so the page behind comes back
+          // under the finger instead of after it.
+          opacity: open ? 1 - drag.progress : 0,
+          transition: drag.dragging
+            ? 'none'
+            : 'opacity 400ms var(--mr-ease-snappy), backdrop-filter 400ms ease',
         }}
       />
 
       {/* Sheet */}
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label="Menu"
@@ -147,15 +160,28 @@ export default function MobileNavSheet({
           background: 'var(--mr-cream-100)',
           borderRadius: '20px 20px 0 0',
           boxShadow: '0 -18px 48px rgba(11,11,11,0.24)',
-          transform: open ? 'translateY(0)' : 'translateY(100%)',
-          transition: `transform 600ms ${SHEET_EASE}`,
+          transform: open ? `translateY(${Math.max(drag.offset, 0)}px)` : 'translateY(100%)',
+          // No transition mid-drag: the sheet must track the finger exactly.
+          // It comes back for the release, which is what makes both the snap
+          // back and the slide out feel like the same object.
+          transition: drag.dragging ? 'none' : `transform 600ms ${SHEET_EASE}`,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
       >
-        {/* Header — grabber, title/back, close */}
-        <div style={{ position: 'relative', flex: '0 0 auto', padding: '18px 20px 12px' }}>
+        {/* Header — grabber, title/back, close. This whole strip is the drag
+            handle, not just the pill: a 4px-tall target is a decoration, and
+            the thumb aims at the top of the sheet, not at the pill. */}
+        <div
+          {...drag.handleProps}
+          style={{
+            position: 'relative',
+            flex: '0 0 auto',
+            padding: '18px 20px 12px',
+            ...drag.handleProps.style,
+          }}
+        >
           <span
             aria-hidden="true"
             style={{
