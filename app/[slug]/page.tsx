@@ -25,6 +25,19 @@ import { stripMarkdown } from '@/lib/storefront/strip-markdown';
  * take `terms` — and if a partner ever did vanish, 404ing is far better than
  * silently rendering an unrelated page under their address.
  */
+/**
+ * Rendered per request, never prerendered.
+ *
+ * `connection()` alone was not enough: the page served correct HTML — the H1
+ * and the space description are in it — and the browser showed header and
+ * footer with nothing between, which is React discarding a server tree it
+ * could not reconcile. Same failure the deleted /brands/[brand] page hit
+ * ("Couldn't find all resumable slots by key/index during replaying"), and the
+ * reason cacheComponents is off for this app. force-dynamic takes the shell
+ * out of the equation entirely rather than relying on opting out inside it.
+ */
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
@@ -73,7 +86,11 @@ export default async function StorefrontSlugPage({ params }: PageProps) {
   // in app/products/[slug]/page.tsx.
   await connection();
 
-  const space = await fetchSpace(slug).catch(() => null);
+  // Deliberately NOT caught. A failing API used to be swallowed into `null`
+  // here, fall through to the page lookup, and 404 — so a broken endpoint and
+  // a genuinely missing space looked identical, and the page just went blank.
+  // Let it throw: an error page naming the cause beats silence.
+  const space = await fetchSpace(slug);
 
   if (space) {
     let storefrontAnnouncement = null as
