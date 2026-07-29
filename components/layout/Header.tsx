@@ -8,7 +8,6 @@ import IconButton from '@/components/ui/IconButton';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { getSession, type Session } from '@/lib/session';
 import { useUser, useLogout } from '@/lib/hooks/use-auth';
-import CustomerRoleBadge from '@/components/account/CustomerRoleBadge';
 import MobileNavSheet from '@/components/layout/MobileNavSheet';
 import NavCategorySheet from '@/components/layout/NavCategorySheet';
 import SearchSheet from '@/components/layout/SearchSheet';
@@ -269,7 +268,10 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                         >
                           {authUser?.email ?? session.email}
                         </p>
-                        <CustomerRoleBadge role={authUser?.role ?? session.role} />
+                        {/* No role badge. Everyone who can see this menu is a
+                            customer, so labelling them one is telling a shopper
+                            something they already know in a word from our
+                            internal vocabulary. */}
                       </div>
                       {[
                         { label: 'Account', href: '/account/profile' },

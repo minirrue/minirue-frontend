@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import CustomerRoleBadge from './CustomerRoleBadge';
 import { useUser } from '@/lib/hooks/use-auth';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
 import { Role } from '@/lib/auth/role';
@@ -74,7 +73,6 @@ export default function AccountIdentityStrip() {
             >
               {displayName}
             </p>
-            <CustomerRoleBadge role={role} />
           </div>
           <p
             style={{
