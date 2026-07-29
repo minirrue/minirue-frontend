@@ -15,3 +15,21 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
     dispatchEvent: () => false,
   }) as unknown as MediaQueryList;
 }
+
+// jsdom implements neither observer. The carousel counts its visible slides
+// with an IntersectionObserver, and the Footer measures itself with a
+// ResizeObserver, so both have to exist before any component module loads.
+class NoopObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+if (typeof globalThis !== 'undefined') {
+  const g = globalThis as unknown as Record<string, unknown>;
+  g.IntersectionObserver ??= NoopObserver;
+  g.ResizeObserver ??= NoopObserver;
+}

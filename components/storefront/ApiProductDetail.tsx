@@ -1,12 +1,10 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import type { ApiProduct, ProductVariant } from '@/lib/api/catalog';
 import {
-  primaryMedia,
   carouselMedia,
-  mediaImageUrl,
   productBrand,
   productByline,
   variantLabel, variantInStock } from '@/lib/api/catalog';
@@ -18,6 +16,15 @@ import type { ProductSectionConfig } from '@/lib/api/storefront';
 import ShareButton from './ShareButton';
 import WordReveal from '@/components/ui/WordReveal';
 import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
+
+/**
+ * Split out on purpose. The carousel is the only thing on the shop that pulls
+ * in `motion` (~56KB gzipped with the primitive), and folding that into the
+ * product route's first load pushed it past the 250KB budget. Still rendered on
+ * the server — the first photograph is the page's largest paint and has to be
+ * in the HTML — but its JavaScript arrives as its own chunk.
+ */
+const ProductGallery = dynamic(() => import('./ProductGallery'));
 
 interface ApiProductDetailProps {
   product: ApiProduct;
@@ -472,11 +479,8 @@ export default function ApiProductDetail({
     : '';
   const ctaX = useCrossfade(priceLabel);
 
-  // Cover = the thumbnail used everywhere outside this page. Carousel = the
-  // cover plus the product's other images, shown inside the page.
-  const media = primaryMedia(product);
-  const imgSrc = media ? mediaImageUrl(media, { w: 1400, h: 1750 }) : null;
-  const imgAlt = media?.altText ?? product.name;
+  // Cover first, then the product's other photographs. Variant-scoped images
+  // are excluded — they belong to a variant view, not the product gallery.
   const gallery = carouselMedia(product);
 
   const soldOut = !!selectedVariant && !variantInStock(selectedVariant);
@@ -484,7 +488,10 @@ export default function ApiProductDetail({
   const allSoldOut =
     activeVariants.length > 0 && !activeVariants.some((v) => variantInStock(v));
 
-  const handleAdd = React.useCallback(() => {
+  // No useCallback here on purpose: the React Compiler is on for this app and
+  // memoises these itself. Wrapping them by hand made it bail out of optimising
+  // the whole component.
+  const handleAdd = () => {
     // Enforced here as well as by the disabled button: the click handler is what
     // actually adds to the bag, and a keyboard or programmatic activation must
     // not slip past a visual state.
@@ -494,9 +501,9 @@ export default function ApiProductDetail({
     onAddToBag(selectedVariant);
     setTimeout(() => setAddedAnim(false), 600);
     setTimeout(() => setAdded(false), 2400);
-  }, [added, selectedVariant, soldOut, onAddToBag]);
+  };
 
-  const handleToggleSaved = React.useCallback(() => setSaved((s) => !s), []);
+  const handleToggleSaved = () => setSaved((s) => !s);
 
   return (
     <div
@@ -546,35 +553,7 @@ export default function ApiProductDetail({
       {/* RIGHT on a laptop / FIRST on a phone: the photographs. */}
       <main className="order-2 lg:order-2 lg:min-h-screen lg:flex-1">
         {gallery.length > 0 ? (
-          gallery.map((m, i) => {
-            const src = mediaImageUrl(m, { w: 1400, h: 1750 });
-            if (!src) return null;
-            return (
-              <div
-                key={m.id}
-                data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
-                className="relative aspect-[4/5] w-full overflow-hidden lg:aspect-auto lg:h-screen"
-                style={{ background: 'var(--mr-cream-300)' }}
-              >
-                <Image
-                  src={src}
-                  alt={m.altText ?? product.name}
-                  fill
-                  priority={i === 0}
-                  sizes="(min-width: 1024px) 58vw, 100vw"
-                  style={{ objectFit: 'cover' }}
-                />
-              </div>
-            );
-          })
-        ) : imgSrc ? (
-          <div
-            data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-hero-image"
-            className="relative aspect-[4/5] w-full overflow-hidden lg:aspect-auto lg:h-screen"
-            style={{ background: 'var(--mr-cream-300)' }}
-          >
-            <Image src={imgSrc} alt={imgAlt} fill priority sizes="(min-width: 1024px) 58vw, 100vw" style={{ objectFit: 'cover' }} />
-          </div>
+          <ProductGallery product={product} items={gallery} />
         ) : (
           <MediaFallback name={product.name} />
         )}
