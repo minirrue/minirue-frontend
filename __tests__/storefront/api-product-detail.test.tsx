@@ -1,8 +1,22 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ApiProductDetail from '@/components/storefront/ApiProductDetail';
 import { PRODUCT_FIXTURE } from './fixtures/product';
+
+// The page saves favourites and reads reviews through React Query, and sends a
+// signed-out visitor to /login, so it needs both a client and a router.
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), prefetch: jest.fn() }),
+}));
+
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 /**
  * The bug this file locks down: BackButton and InfoPanel used to be declared
@@ -26,13 +40,26 @@ function renderDetail() {
   );
 }
 
+/**
+ * The buy button and the heart each appear twice — once in the copy column and
+ * once in the sticky bar — and CSS shows one or the other by width. Queries
+ * here name which copy they mean rather than guessing.
+ */
+function byTrace(traceId: string): HTMLElement {
+  const el = document.querySelector<HTMLElement>(`[data-trace-id="${traceId}"]`);
+  if (!el) throw new Error(`No element with trace id ${traceId}`);
+  return el;
+}
+
 describe('ApiProductDetail', () => {
   it('does not remount the info panel when the wishlist heart is tapped', async () => {
     renderDetail();
     const panelBefore = screen.getByTestId('product-info-panel');
     const titleBefore = screen.getByTestId('product-title');
 
-    await userEvent.click(screen.getByRole('button', { name: /save to wishlist/i }));
+    await userEvent.click(
+      byTrace('PG-STOREFRONT-CAT-005::EL-BTN-toggle-wishlist'),
+    );
 
     expect(screen.getByTestId('product-info-panel')).toBe(panelBefore);
     expect(screen.getByTestId('product-title')).toBe(titleBefore);
@@ -43,10 +70,35 @@ describe('ApiProductDetail', () => {
     const panelBefore = screen.getByTestId('product-info-panel');
     const titleBefore = screen.getByTestId('product-title');
 
-    await userEvent.click(screen.getByRole('button', { name: /add to bag/i }));
+    await userEvent.click(byTrace('PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag'));
 
     expect(screen.getByTestId('product-info-panel')).toBe(panelBefore);
     expect(screen.getByTestId('product-title')).toBe(titleBefore);
+  });
+
+  it('keeps a buy button under the thumb on a phone', () => {
+    renderDetail();
+    const bar = screen.getByTestId('buy-bar');
+
+    // Sticky rather than fixed, so it sits in the flow and cannot cover the
+    // end of the page; hidden on a laptop, where the copy column is pinned
+    // already and this would be a second button saying the same thing.
+    expect(bar.className).toContain('sticky');
+    expect(bar.className).toContain('lg:hidden');
+    expect(
+      byTrace('PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag-sticky'),
+    ).toBeInTheDocument();
+  });
+
+  it('ends the page on the closing photograph and not on a sizes panel', () => {
+    renderDetail();
+    // The fixture marks no closing image, so neither should be there.
+    expect(screen.queryByText(/available sizes/i)).toBeNull();
+    expect(
+      document.querySelector(
+        '[data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-closing-image"]',
+      ),
+    ).toBeNull();
   });
 
   it('does not remount the info panel when a different size is picked', async () => {

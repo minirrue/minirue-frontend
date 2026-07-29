@@ -78,8 +78,9 @@ export interface MediaAsset {
   altText: string;
   sortOrder: number;
   /** COVER = the single thumbnail shown outside the product (grids, cart, OG
-   * image). CAROUSEL = the images inside the product gallery. */
-  role?: 'COVER' | 'CAROUSEL';
+   * image). CAROUSEL = the images inside the product gallery. CLOSING = the
+   * photograph the product page ends on. */
+  role?: 'COVER' | 'CAROUSEL' | 'CLOSING';
   /** Set when this image belongs to one variant rather than the product. */
   variantId?: string | null;
 }
@@ -102,6 +103,10 @@ export interface ApiProduct {
   categoryName?: string | null;
   variants: ProductVariant[];
   media: MediaAsset[];
+  /** Average of APPROVED reviews, rounded to one decimal. null when nobody has
+   * reviewed it — which is not the same as everyone giving it zero. */
+  reviewsAverage?: number | null;
+  reviewsCount?: number;
 }
 
 export interface Category {
@@ -196,21 +201,38 @@ export function primaryMedia(product: ApiProduct): MediaAsset | null {
   if (!product.media?.length) return null;
   const productLevel = product.media.filter((m) => !m.variantId);
   const pool = productLevel.length ? productLevel : product.media;
+  const explicit = pool.find((m) => m.role === 'COVER');
+  if (explicit) return explicit;
+  // Fall back to the lowest sortOrder for products made before roles existed,
+  // but never to the closing image — that one has a job at the end of the page,
+  // and promoting it would put the same photograph in the grid and the bag.
+  const fallbackPool = pool.filter((m) => m.role !== 'CLOSING');
+  const usable = fallbackPool.length ? fallbackPool : pool;
+  return [...usable].sort((a, b) => a.sortOrder - b.sortOrder)[0];
+}
+
+/**
+ * The photograph the product page ends on, chosen by an admin. Null when none
+ * is set, in which case the page simply ends after the editorial moment.
+ */
+export function closingMedia(product: ApiProduct): MediaAsset | null {
   return (
-    pool.find((m) => m.role === 'COVER') ??
-    [...pool].sort((a, b) => a.sortOrder - b.sortOrder)[0]
+    (product.media ?? []).find((m) => !m.variantId && m.role === 'CLOSING') ??
+    null
   );
 }
 
 /**
  * The images shown INSIDE the product carousel, in order: the cover first, then
  * every other product-level image. Variant-scoped images are excluded — they
- * belong to a variant view, not the product gallery.
+ * belong to a variant view, not the product gallery. So is the closing image:
+ * it has its own place at the end of the page, and leaving it in here would
+ * show the same photograph twice.
  */
 export function carouselMedia(product: ApiProduct): MediaAsset[] {
   const cover = primaryMedia(product);
   const rest = (product.media ?? [])
-    .filter((m) => !m.variantId && m.id !== cover?.id)
+    .filter((m) => !m.variantId && m.role !== 'CLOSING' && m.id !== cover?.id)
     .sort((a, b) => a.sortOrder - b.sortOrder);
   return cover ? [cover, ...rest] : rest;
 }

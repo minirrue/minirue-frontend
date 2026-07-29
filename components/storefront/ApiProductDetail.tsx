@@ -1,13 +1,17 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import type { ApiProduct, ProductVariant } from '@/lib/api/catalog';
 import {
   carouselMedia,
+  closingMedia,
+  mediaImageUrl,
   productBrand,
   productByline,
   variantLabel, variantInStock } from '@/lib/api/catalog';
+import WishlistHeart from './WishlistHeart';
 import VariantPicker from './VariantPicker';
 import PriceDisplay from './PriceDisplay';
 import Icon from '@/components/ui/Icon';
@@ -25,6 +29,16 @@ import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
  * in the HTML — but its JavaScript arrives as its own chunk.
  */
 const ProductGallery = dynamic(() => import('./ProductGallery'));
+
+/**
+ * Split for the same reason as the gallery: reviews sit below the editorial
+ * moment, and they carry two sheets, a star picker and an upload form that
+ * most shoppers never open. Folding all of it into the product route's first
+ * load pushed the route past the 250KB ceiling on its own. Still rendered on
+ * the server, so the star summary is in the HTML for anyone who scrolls
+ * straight to it.
+ */
+const ProductReviews = dynamic(() => import('./reviews/ProductReviews'));
 
 interface ApiProductDetailProps {
   product: ApiProduct;
@@ -74,54 +88,6 @@ const ProductBackButton = React.memo(function ProductBackButton({
   );
 });
 
-const WishlistHeartButton = React.memo(function WishlistHeartButton({
-  saved,
-  onToggle,
-}: {
-  saved: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-toggle-wishlist"
-      onClick={onToggle}
-      style={{
-        width: 52,
-        height: 52,
-        borderRadius: 'var(--mr-radius-pill)',
-        background: 'var(--mr-cream-200)',
-        border: '1px solid var(--mr-border)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        transition: 'transform var(--mr-dur-fast) var(--mr-ease-spring), background var(--mr-dur-fast)',
-        transform: saved ? 'scale(1.08)' : 'scale(1)',
-        flexShrink: 0,
-      }}
-      aria-pressed={saved}
-      aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
-    >
-      <svg
-        width={18}
-        height={18}
-        viewBox="0 0 24 24"
-        fill={saved ? 'var(--mr-crimson-500)' : 'none'}
-        stroke={saved ? 'var(--mr-crimson-500)' : 'var(--mr-ink-700)'}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{
-          transition: 'transform var(--mr-dur-medium) var(--mr-ease-spring), fill var(--mr-dur-medium), stroke var(--mr-dur-medium)',
-          transform: saved ? 'scale(1.1)' : 'scale(1)',
-        }}
-      >
-        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.5l-1-.9a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
-      </svg>
-    </button>
-  );
-});
-
 interface ProductInfoPanelProps {
   product: ApiProduct;
   perks: ProductSectionConfig['perks'];
@@ -133,8 +99,6 @@ interface ProductInfoPanelProps {
   soldOut: boolean;
   allSoldOut: boolean;
   onAdd: () => void;
-  saved: boolean;
-  onToggleSaved: () => void;
   ctaStyle: React.CSSProperties;
   ctaDisplay: string;
 }
@@ -150,8 +114,6 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
   soldOut,
   allSoldOut,
   onAdd,
-  saved,
-  onToggleSaved,
   ctaStyle,
   ctaDisplay,
 }: ProductInfoPanelProps) {
@@ -303,7 +265,11 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           )}
         </button>
 
-        <WishlistHeartButton saved={saved} onToggle={onToggleSaved} />
+        <WishlistHeart
+          productId={product.id}
+          returnTo={`/products/${product.slug}`}
+          variant="pill"
+        />
       </div>
 
       {/* Share — OS share sheet on phones and Chrome/Windows, link copy
@@ -467,7 +433,10 @@ export default function ApiProductDetail({
   const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(defaultVariant);
   const [added, setAdded] = React.useState(false);
   const [addedAnim, setAddedAnim] = React.useState(false);
-  const [saved, setSaved] = React.useState(false);
+
+  // Saving is owned by WishlistHeart itself — see that component. Nothing here
+  // needs to know about it, which is why there is no wishlist state on this
+  // page any more.
 
   // Lives on the WRAPPER, never inside the panel. It was applied in both places,
   // so the copy travelled twice the intended distance on phones.
@@ -480,8 +449,11 @@ export default function ApiProductDetail({
   const ctaX = useCrossfade(priceLabel);
 
   // Cover first, then the product's other photographs. Variant-scoped images
-  // are excluded — they belong to a variant view, not the product gallery.
+  // are excluded — they belong to a variant view, not the product gallery —
+  // and so is the closing image, which has its own place at the end.
   const gallery = carouselMedia(product);
+  const closing = closingMedia(product);
+  const closingSrc = closing ? mediaImageUrl(closing, { w: 1400, h: 1750 }) : null;
 
   const soldOut = !!selectedVariant && !variantInStock(selectedVariant);
   // Nothing on the product is buyable — every active variant is at zero.
@@ -503,7 +475,6 @@ export default function ApiProductDetail({
     setTimeout(() => setAdded(false), 2400);
   };
 
-  const handleToggleSaved = () => setSaved((s) => !s);
 
   return (
     <div
@@ -541,8 +512,6 @@ export default function ApiProductDetail({
               soldOut={soldOut}
               allSoldOut={allSoldOut}
               onAdd={handleAdd}
-              saved={saved}
-              onToggleSaved={handleToggleSaved}
               ctaStyle={ctaX.style}
               ctaDisplay={ctaX.display}
             />
@@ -560,74 +529,120 @@ export default function ApiProductDetail({
 
         <EditorialMoment product={product} />
 
-        {/* Available sizes — a repeat of the picker the shopper already used
-            above. Replaced by the admin-marked closing photograph. */}
-        {activeVariants.length > 0 && (
+        <ProductReviews
+          productId={product.id}
+          productName={product.name}
+          initialAverage={product.reviewsAverage ?? null}
+          initialCount={product.reviewsCount ?? 0}
+        />
+
+        {/* The page ends on a photograph. What used to be here was an
+            "Available sizes" panel repeating the size the shopper had already
+            picked at the top. When no closing image is marked, the page simply
+            ends — the panel is not coming back. */}
+        {closing && closingSrc ? (
           <div
-            className="flex flex-col items-center justify-center gap-12 px-[clamp(24px,6vw,64px)] py-[clamp(64px,14vw,96px)]"
-            style={{ background: 'var(--mr-cream-300)', minHeight: '60vh' }}
+            data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-closing-image"
+            className="relative aspect-[4/5] w-full overflow-hidden lg:aspect-auto lg:h-screen"
+            style={{ background: 'var(--mr-cream-300)' }}
           >
-            <div
-              style={{
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 'var(--mr-text-xs)',
-                letterSpacing: '0.28em',
-                textTransform: 'uppercase',
-                color: 'var(--mr-fg-3)',
-              }}
-            >
-              Available sizes
-            </div>
-            <div className="flex flex-wrap justify-center gap-6">
-              {activeVariants.map((v, i) => (
-                <div
-                  key={v.id}
-                  data-trace-id={`PG-STOREFRONT-CAT-005::EL-CARD-variant-size-card@${v.id}`}
-                  style={{
-                    padding: '28px 24px',
-                    background: 'rgba(255,255,255,0.7)',
-                    borderRadius: 'var(--mr-radius-lg)',
-                    border: '1px solid var(--mr-hairline)',
-                    textAlign: 'center',
-                    backdropFilter: 'blur(12px)',
-                    minWidth: 140,
-                    animation: 'mr-fade-up 0.6s cubic-bezier(0.16,1,0.3,1) both',
-                    animationDelay: `${i * 80}ms`,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontFamily: 'var(--mr-font-label)',
-                      fontSize: 'var(--mr-text-xs)',
-                      letterSpacing: '0.22em',
-                      textTransform: 'uppercase',
-                      color: 'var(--mr-gold-700)',
-                      marginBottom: 12,
-                    }}
-                  >
-                    {v.sku}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: 'var(--mr-font-serif)',
-                      fontSize: 'var(--mr-text-lg)',
-                      color: 'var(--mr-fg)',
-                      marginBottom: 8,
-                    }}
-                  >
-                    {variantLabel(v)}
-                  </div>
-                  <PriceDisplay
-                    amount={v.priceAmount}
-                    currency={v.priceCurrency}
-                    style={{ fontSize: 'var(--mr-text-sm)' }}
-                  />
-                </div>
-              ))}
-            </div>
+            <Image
+              src={closingSrc}
+              alt={closing.altText ?? product.name}
+              fill
+              sizes="(min-width: 1024px) 58vw, 100vw"
+              style={{ objectFit: 'cover' }}
+            />
           </div>
-        )}
+        ) : null}
       </main>
+
+      {/* Sticky buy bar — phones only. The CTA in the copy column scrolls away
+          the moment someone looks at the photographs, and on a phone the whole
+          point is that buying stays under the thumb. On a laptop the copy
+          column is already pinned, so this would be a second button saying the
+          same thing. */}
+      <div
+        data-testid="buy-bar"
+        data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-sticky-buy-bar"
+        className="sticky bottom-0 z-30 order-4 flex items-center gap-3 border-t px-[clamp(16px,4vw,24px)] pt-3 lg:hidden"
+        style={{
+          borderColor: 'var(--mr-hairline)',
+          background: 'color-mix(in oklab, var(--mr-cream-100) 88%, transparent)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+        }}
+      >
+        <div style={{ minWidth: 0, flex: '0 1 auto' }}>
+          <div
+            style={{
+              fontFamily: 'var(--mr-font-label)',
+              fontSize: 11,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--mr-fg-3)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {selectedVariant ? variantLabel(selectedVariant) : product.name}
+          </div>
+          {selectedVariant ? (
+            <PriceDisplay
+              amount={selectedVariant.priceAmount}
+              currency={selectedVariant.priceCurrency}
+              style={{ fontSize: 'var(--mr-text-md)' }}
+            />
+          ) : null}
+        </div>
+
+        <button
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag-sticky"
+          onClick={handleAdd}
+          disabled={!selectedVariant || soldOut}
+          style={{
+            flex: 1,
+            minHeight: 48,
+            padding: '14px 20px',
+            borderRadius: 'var(--mr-radius-pill)',
+            background: added ? 'var(--mr-gold-500)' : 'var(--mr-ink-900)',
+            color: 'var(--mr-cream-100)',
+            border: 0,
+            cursor: selectedVariant && !soldOut ? 'pointer' : 'not-allowed',
+            fontFamily: 'var(--mr-font-label)',
+            fontSize: 'var(--mr-text-xs)',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            opacity: selectedVariant && !soldOut ? 1 : 0.6,
+            transform: addedAnim ? 'scale(0.97)' : 'scale(1)',
+            transition:
+              'background var(--mr-dur-medium) var(--mr-ease-out), transform var(--mr-dur-instant) var(--mr-ease-snappy)',
+          }}
+        >
+          {added ? (
+            <>
+              <Icon name="check" size={14} /> Added
+            </>
+          ) : soldOut ? (
+            <>{allSoldOut ? 'Out of stock' : 'This size is out'}</>
+          ) : (
+            <>Add to bag</>
+          )}
+        </button>
+
+        <WishlistHeart
+          productId={product.id}
+          returnTo={`/products/${product.slug}`}
+          size={44}
+          traceId="PG-STOREFRONT-CAT-005::EL-BTN-toggle-wishlist-sticky"
+        />
+      </div>
     </div>
   );
 }

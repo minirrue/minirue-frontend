@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { primaryMedia, mediaImageUrl, lowestPrice, productByline } from '@/lib/api/catalog';
-import IconButton from '@/components/ui/IconButton';
+import WishlistHeart from './WishlistHeart';
 import { MR_TX } from '@/lib/motion/presets';
 import { useIsTouch } from '@/lib/hooks/useIsTouch';
 
@@ -150,8 +150,18 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
             pointerEvents: showOverlays ? 'auto' : 'none',
           }}
         >
+          {/* stopPropagation, or saving something also opens it. */}
           <span onClick={(e) => e.stopPropagation()}>
-            <IconButton icon="heart" size={34} tone="cream" label="Save" />
+            <WishlistHeart
+              productId={product.id}
+              returnTo={`/products/${product.slug}`}
+              size={34}
+              traceId={
+                traceIdPrefix
+                  ? `${traceIdPrefix.replace('EL-CARD', 'EL-BTN')}-save@${product.id}`
+                  : undefined
+              }
+            />
           </span>
         </div>
 

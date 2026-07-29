@@ -142,7 +142,13 @@ export async function apiFetch<T>(
   const { auth = false, _isRetry = false, ...fetchInit } = init ?? {};
 
   const headers = new Headers(fetchInit.headers);
-  headers.set('Content-Type', 'application/json');
+  // A multipart upload has to set its own Content-Type, because only the
+  // browser knows the boundary string it generated. Forcing application/json
+  // here makes the body unparseable at the other end, and the failure looks
+  // like a rejected file rather than a broken header.
+  if (!(fetchInit.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
 
   // credentials:'include' sends the httpOnly auth cookies (mr_access/mr_refresh)
   // on every request, including cross-subdomain to the API. No bearer token is

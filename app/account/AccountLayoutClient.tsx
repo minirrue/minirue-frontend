@@ -18,6 +18,7 @@ import { useLogout } from '@/lib/hooks/use-auth';
 const NAV_LINKS = [
   { href: '/account/profile', label: 'Profile' },
   { href: '/account/addresses', label: 'Addresses' },
+  { href: '/account/saved', label: 'Saved' },
   { href: '/account/orders', label: 'Orders' },
   { href: '/account/notifications', label: 'Notifications' },
   // Loyalty is hidden while the module is under maintenance. Left in place rather
