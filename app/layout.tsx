@@ -6,7 +6,6 @@ import { Cormorant_Garamond, Jost, Inter_Tight } from "next/font/google";
 import "./globals.css";
 import LenisProvider from "@/components/providers/LenisProvider";
 import OrganizationSchema from "@/components/seo/OrganizationSchema";
-import { JsonLd } from "@/components/seo/JsonLd";
 import { CartProvider } from "@/components/storefront/cart/CartContext";
 import CartDrawer from "@/components/storefront/cart/CartDrawer";
 import { RootQueryProvider, getQueryClient } from "@/lib/hooks";
@@ -147,18 +146,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const queryClient = getQueryClient();
-  const websiteSchema: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "@id": `${BASE_URL}/#website`,
-    url: BASE_URL,
-    name: "MiniRue",
-    description:
-      "Discover MiniRue — original quality perfumes and cosmetics.",
-    publisher: {
-      "@id": `${BASE_URL}/#organization`,
-    },
-  };
+
+  // NOTE: the WebSite node that used to be built here has been removed. It
+  // declared the same `@id` (`/#website`) as the one inside <OrganizationSchema>
+  // two lines below, so every page emitted two conflicting definitions of the
+  // same entity — and the loser was the richer one, which carries the brand
+  // alternateNames and the SearchAction that makes the site eligible for a
+  // sitelinks search box. One node, one @id.
 
   return (
     <html
@@ -188,7 +182,6 @@ export default function RootLayout({
         */}
         <Suspense fallback={null}>
           <OrganizationSchema />
-          <JsonLd data={websiteSchema} />
           <RootQueryProvider>
             <HydrationBoundary state={dehydrate(queryClient)}>
               <StorefrontLiveUpdates />

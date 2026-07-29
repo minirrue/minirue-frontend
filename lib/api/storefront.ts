@@ -138,6 +138,13 @@ export interface ResolvedNavItem {
   id: string;
   label: string;
   href: string;
+  /**
+   * Category items only: up to 3 products the admin pinned to this item, used
+   * by the desktop hover dropdown and the mobile drill-down panel. Absent —
+   * not empty — when the item has no dropdown, so `featured?.length` is the
+   * single test for "does this item open a panel".
+   */
+  featured?: ResolvedProduct[];
 }
 
 export interface FooterColumn {

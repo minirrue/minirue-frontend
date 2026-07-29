@@ -9,7 +9,11 @@ import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { getSession, type Session } from '@/lib/session';
 import { useUser, useLogout } from '@/lib/hooks/use-auth';
 import CustomerRoleBadge from '@/components/account/CustomerRoleBadge';
-import type { ResolvedChrome } from '@/lib/api/storefront';
+import MobileNavSheet from '@/components/layout/MobileNavSheet';
+import NavCategorySheet from '@/components/layout/NavCategorySheet';
+import SearchSheet from '@/components/layout/SearchSheet';
+import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
+import type { ResolvedChrome, ResolvedNavItem } from '@/lib/api/storefront';
 
 interface HeaderProps {
   navbar: ResolvedChrome['navbar'];
@@ -18,17 +22,31 @@ interface HeaderProps {
   transparent?: boolean;
 }
 
+/** Hover intent: opening on the first pixel makes the menu fire while the
+ *  pointer is only passing through; closing on the first pixel out makes the
+ *  gap between the link and the panel a dead zone. */
+const HOVER_OPEN_MS = 90;
+const HOVER_CLOSE_MS = 220;
+
 export default function Header({ navbar, onOpenCart, cartCount = 0, transparent = false }: HeaderProps) {
   const [scrolled, setScrolled] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [hoveredNavId, setHoveredNavId] = React.useState<string | null>(null);
   const [bump, setBump] = React.useState(false);
   const [session, setSession] = React.useState<Session | null>(null);
   const [accountOpen, setAccountOpen] = React.useState(false);
   const prevCount = React.useRef(cartCount);
+  const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const logoutMutation = useLogout();
   const { data: authUser } = useUser();
   const { mobile } = useBreakpoint();
+  // Socials for the mobile sheet's footer bar. Read from the same cached chrome
+  // query the page already resolved, so this costs no extra request; an empty
+  // list simply renders no icons.
+  const { data: chrome } = useStorefrontChrome();
+  const socials = chrome?.footer.socials ?? [];
 
   React.useEffect(() => {
     setSession(getSession());
@@ -50,7 +68,31 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
     prevCount.current = cartCount;
   }, [cartCount]);
 
-  const isLight = transparent && !scrolled;
+  React.useEffect(() => () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+  }, []);
+
+  const scheduleHover = (id: string | null, delay: number) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHoveredNavId(id), delay);
+  };
+
+  /** Only category items the admin pinned products to open a panel. */
+  const panelItems = React.useMemo(
+    () => navbar.items.filter((i) => (i.featured?.length ?? 0) > 0),
+    [navbar.items],
+  );
+  const hoveredItem: ResolvedNavItem | null =
+    panelItems.find((i) => i.id === hoveredNavId) ?? null;
+
+  const closeDropdown = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setHoveredNavId(null);
+  };
+
+  // The dropdown is a cream panel; a transparent header sitting on top of it
+  // would render its links cream-on-cream. Opening one forces the solid state.
+  const isLight = transparent && !scrolled && hoveredItem === null;
 
   return (
     <>
@@ -101,16 +143,30 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 textTransform: 'uppercase',
               }}
             >
-              {navbar.items.map(({ id, href, label }) => (
-                <a
-                  key={id}
-                  href={href}
-                  className="mr-nav-link"
-                  style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
-                >
-                  {label}
-                </a>
-              ))}
+              {navbar.items.map((item) => {
+                const hasPanel = (item.featured?.length ?? 0) > 0;
+                return (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    className="mr-nav-link"
+                    aria-expanded={hasPanel ? hoveredNavId === item.id : undefined}
+                    onMouseEnter={() =>
+                      scheduleHover(hasPanel ? item.id : null, HOVER_OPEN_MS)
+                    }
+                    onMouseLeave={() => scheduleHover(null, HOVER_CLOSE_MS)}
+                    // Keyboard users get the same panel: focusing the link opens it,
+                    // Escape closes it without leaving the link.
+                    onFocus={() => hasPanel && setHoveredNavId(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') closeDropdown();
+                    }}
+                    style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
+                  >
+                    {item.label}
+                  </a>
+                );
+              })}
             </nav>
           )}
 
@@ -139,16 +195,16 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
               alignItems: 'center',
             }}
           >
-            {/* Search — desktop only in the bar; on mobile it lives inside the
-                hamburger menu. Always shown on desktop (no dashboard toggle). */}
-            {!mobile && (
-              <IconButton
-                icon="search"
-                label="Search"
-                tone={isLight ? 'glass' : 'cream'}
-                onClick={() => router.push('/search')}
-              />
-            )}
+            {/* Search — now in the bar on phones too. It opens a sheet rather
+                than navigating, so it costs no page load; burying the single
+                most-used control one tap deep inside the hamburger was the
+                wrong trade on a mobile-first storefront. */}
+            <IconButton
+              icon="search"
+              label="Search"
+              tone={isLight ? 'glass' : 'cream'}
+              onClick={() => setSearchOpen(true)}
+            />
             {/* Account — desktop identity menu; on mobile it lives inside the
                 hamburger menu. */}
             {!mobile && (
@@ -322,104 +378,41 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             />
           </div>
         </div>
+
+        {/* Desktop category dropdown. Rendered inside <header> so it hangs off
+            the sticky bar and travels with it; never on phones, where the
+            bottom sheet owns the same content. */}
+        {!mobile && panelItems.length > 0 && (
+          <NavCategorySheet
+            item={hoveredItem}
+            open={hoveredItem !== null}
+            onMouseEnter={() => {
+              if (hoverTimer.current) clearTimeout(hoverTimer.current);
+            }}
+            onMouseLeave={() => scheduleHover(null, HOVER_CLOSE_MS)}
+            onNavigate={closeDropdown}
+          />
+        )}
       </header>
 
-      {/* Mobile nav drawer */}
+      <SearchSheet
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        suggestions={navbar.items.map((i) => i.label)}
+      />
+
+      {/* Mobile nav — bottom sheet */}
       {mobile && (
-        <>
-          <div
-            onClick={() => setMobileOpen(false)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(11,11,11,0.5)',
-              backdropFilter: mobileOpen ? 'blur(4px)' : 'blur(0)',
-              opacity: mobileOpen ? 1 : 0,
-              pointerEvents: mobileOpen ? 'auto' : 'none',
-              transition: 'opacity 280ms var(--mr-ease-snappy), backdrop-filter 280ms',
-              zIndex: 60,
-            }}
-          />
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              bottom: 0,
-              width: 280,
-              background: 'var(--mr-cream-100)',
-              zIndex: 70,
-              transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
-              transition: 'transform 340ms var(--mr-ease-out)',
-              padding: '32px 28px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 32,
-              }}
-            >
-              <Link
-                href="/"
-                aria-label="MiniRue — home"
-                onClick={() => setMobileOpen(false)}
-                style={{ display: 'inline-flex', textDecoration: 'none', color: 'inherit' }}
-              >
-                <Wordmark size={20} />
-              </Link>
-              <IconButton
-                icon="close"
-                size={36}
-                tone="cream"
-                label="Close"
-                onClick={() => setMobileOpen(false)}
-              />
-            </div>
-            {[
-              // Home, Search and Account are hardcoded at the top of the menu so
-              // they are always reachable inside the hamburger, regardless of the
-              // columns configured in the storefront dashboard.
-              { id: '__home', href: '/', label: 'Home' },
-              { id: '__search', href: '/search', label: 'Search' },
-              {
-                id: '__account',
-                href: session ? '/account/profile' : '/login',
-                label: session ? 'Account' : 'Sign in',
-              },
-              ...navbar.items,
-            ].map(({ id, href, label }, i) => (
-              <a
-                key={id}
-                href={href}
-                onClick={() => setMobileOpen(false)}
-                style={{
-                  display: 'block',
-                  background: 'none',
-                  border: 0,
-                  textAlign: 'left',
-                  padding: '14px 0',
-                  borderBottom: '1px solid var(--mr-hairline)',
-                  fontFamily: 'Cormorant Garamond, serif',
-                  fontSize: 22,
-                  color: 'var(--mr-ink-900)',
-                  cursor: 'pointer',
-                  textDecoration: 'none',
-                  animation: 'mr-fade-up 0.4s cubic-bezier(0.16,1,0.3,1) both',
-                  animationDelay: mobileOpen ? `${i * 40 + 80}ms` : '0ms',
-                }}
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-        </>
+        <MobileNavSheet
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          navbar={navbar}
+          socials={socials}
+          signedIn={Boolean(session)}
+          onOpenSearch={() => setSearchOpen(true)}
+        />
       )}
+
     </>
   );
 }

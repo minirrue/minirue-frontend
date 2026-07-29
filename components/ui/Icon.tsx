@@ -5,7 +5,7 @@ import React from 'react';
 type IconName =
   | 'search' | 'user' | 'bag' | 'heart' | 'close' | 'arrowRight' | 'arrowLeft'
   | 'minus' | 'plus' | 'check' | 'gift' | 'truck' | 'menu' | 'x' | 'grid' | 'external'
-  | 'share';
+  | 'share' | 'chevronRight' | 'chevronLeft' | 'chevronDown' | 'home';
 
 interface IconProps {
   name: IconName;
@@ -32,6 +32,10 @@ const PATHS: Record<IconName, React.ReactNode> = {
   grid:       <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>,
   share:      <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></>,
   external:   <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></>,
+  chevronRight: <><path d="M9 5l7 7-7 7"/></>,
+  chevronLeft:  <><path d="M15 5l-7 7 7 7"/></>,
+  chevronDown:  <><path d="M5 9l7 7 7-7"/></>,
+  home:         <><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5z"/></>,
 };
 
 export default function Icon({ name, size = 18, stroke = 1.5, color = 'currentColor' }: IconProps) {
