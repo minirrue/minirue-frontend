@@ -129,6 +129,11 @@ export default function SpaceView({
         maxWidth: 'var(--mr-content-max)',
         margin: '0 auto',
         padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+        /* A space with no categories and no brands yet has almost nothing to
+           render, and without a floor the footer rode straight up under the
+           navbar — the page read as broken rather than as new. 60vh keeps a
+           full screen under the header whatever the space holds. */
+        minHeight: '60vh',
       }}
     >
       <Breadcrumb space={space} />
@@ -228,8 +233,10 @@ export default function SpaceView({
       )}
 
       {categories.length === 0 && brands.length === 0 && (
-        <p style={{ color: 'var(--mr-fg-3)', fontStyle: 'italic' }}>
-          Nothing here yet.
+        <p style={{ color: 'var(--mr-fg-3)', fontStyle: 'italic', margin: 0 }}>
+          {space.kind === 'PARTNER'
+            ? `${space.name} has not added any categories or brands yet.`
+            : 'Nothing here yet.'}
         </p>
       )}
     </main>
