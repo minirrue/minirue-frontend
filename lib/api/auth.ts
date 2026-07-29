@@ -13,11 +13,21 @@ function createIdempotencyKey(prefix: string): string {
   return `${prefix}-${id}`;
 }
 
-export async function apiLogin(email: string, password: string): Promise<AuthSuccessResponse> {
+/**
+ * `rememberMe` decides how long the session survives a browser restart —
+ * the full configured window when ticked, one day when not. The checkbox on
+ * the sign-in page existed for a long time without being sent anywhere;
+ * backend 0.52.0 is what made it mean something.
+ */
+export async function apiLogin(
+  email: string,
+  password: string,
+  rememberMe = false,
+): Promise<AuthSuccessResponse> {
   const data = await apiFetch<TokenPair>('/auth/login', {
     method: 'POST',
     headers: { 'Idempotency-Key': createIdempotencyKey('login') },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, rememberMe }),
   });
   // Backend has set the httpOnly token cookies; just flip the UI hint.
   markAuthenticated();

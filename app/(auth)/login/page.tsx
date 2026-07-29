@@ -17,15 +17,31 @@ import type { ApiError } from '@/lib/api/client';
 export default function LoginPage() {
   const router = useRouter();
   const [sessionExpired, setSessionExpired] = React.useState(false);
+  const [signInRequired, setSignInRequired] = React.useState(false);
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setSessionExpired(params.get('reason') === 'session-expired');
+    setSignInRequired(params.get('reason') === 'sign-in-required');
   }, []);
 
+  /**
+   * Where to go after signing in.
+   *
+   * Reads BOTH names. The session-expired handler sends `next`, but the cart
+   * and checkout guards have always sent `returnUrl` — a name this only ever
+   * ignored. So a shopper bounced out of their cart signed in and landed on
+   * the home page, with the cart they were trying to reach one click away and
+   * no sign anything had gone wrong.
+   *
+   * Still only accepts a path, never an absolute URL: an open redirect here
+   * would let a crafted sign-in link send someone elsewhere after they enter
+   * a password.
+   */
   const getNextPath = () => {
-    const next = new URLSearchParams(window.location.search).get('next');
-    return next?.startsWith('/') ? next : '/';
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get('next') ?? params.get('returnUrl');
+    return target?.startsWith('/') && !target.startsWith('//') ? target : '/';
   };
   const [form, setForm] = React.useState<LoginFormData>({ email: '', password: '', remember: false });
   const [errors, setErrors] = React.useState<Partial<Record<keyof LoginFormData, string>>>({});
@@ -62,7 +78,7 @@ export default function LoginPage() {
     setApiError(null);
     setLoading(true);
     try {
-      const data = await apiLogin(form.email, form.password);
+      const data = await apiLogin(form.email, form.password, form.remember === true);
 
       // The storefront is customer/guest-only — admin, staff, and
       // collaborator accounts belong on the dashboard, not here. apiLogin
@@ -159,6 +175,24 @@ export default function LoginPage() {
             }}
           >
             Your session expired. Sign in again to continue.
+          </div>
+        )}
+        {/* The cart and checkout guards sent no reason at all, so a shopper
+            bounced out of their basket got a bare sign-in form with nothing
+            explaining why they were looking at it. */}
+        {signInRequired && !sessionExpired && !apiError && (
+          <div
+            role="status"
+            data-trace-id="PG-STOREFRONT-IAM-001::EL-REGION-sign-in-required-banner"
+            style={{
+              padding: '12px 16px',
+              background: 'var(--mr-st-info-bg)',
+              color: 'var(--mr-st-info-fg)',
+              borderRadius: 'var(--mr-radius-md)',
+              fontSize: 14,
+            }}
+          >
+            Sign in to continue — we&apos;ll take you straight back.
           </div>
         )}
         {apiError && (

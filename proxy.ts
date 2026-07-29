@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Routes that require authentication
-const PROTECTED = ['/account', '/checkout', '/cart']
+/**
+ * Routes with no meaning for a guest, so a redirect is the honest answer.
+ *
+ * /cart and /checkout used to be here and are not any more. A guest CAN have a
+ * cart — it is keyed by the mr-cart-session cookie and the backend accepts it
+ * through OptionalJwtAuthGuard — and can fill in a delivery address. Bouncing
+ * them at the door meant a shopper who added something and clicked the basket
+ * was thrown at a sign-in form before they had decided to buy anything.
+ * Identity is asked for once, at Place order, where it is genuinely needed.
+ *
+ * /account and /orders stay: there is nothing to show a guest on either.
+ */
+const PROTECTED = ['/account', '/orders']
 // Auth pages — redirect away if already logged in
 const AUTH_PAGES = ['/login', '/signup', '/forgot', '/reset-password']
 // Cookie name — must match tokens.ts (mr-auth)

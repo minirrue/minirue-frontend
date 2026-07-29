@@ -13,7 +13,6 @@ import Button from '@/components/ui/Button';
 import Toast from '@/components/ui/Toast';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { SHIPPING_AMOUNT_MINOR } from '@/lib/checkout/checkout-schemas';
-import { isAuthenticated } from '@/lib/auth/tokens';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -29,13 +28,13 @@ export default function CartPage() {
 
   const shippingDisplay = minorToAmount(SHIPPING_AMOUNT_MINOR);
 
+  // No auth gate. A guest has a cart — it is keyed by the mr-cart-session
+  // cookie and the backend accepts it — so bouncing them here threw a shopper
+  // at a sign-in form the moment they clicked the basket, before they had
+  // decided to buy anything. Identity is asked for once, at checkout.
   React.useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace(`/login?returnUrl=${encodeURIComponent('/cart')}`);
-      return;
-    }
     setAuthChecked(true);
-  }, [router]);
+  }, []);
 
   const handleRemove = async (itemId: string) => {
     const item = items.find((row) => row.id === itemId);

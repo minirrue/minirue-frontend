@@ -32,9 +32,20 @@ export default function CheckoutPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { mobile } = useBreakpoint();
 
+  /**
+   * The ONE place a guest is asked to sign in.
+   *
+   * /cart no longer redirects — a guest has a real cart and can browse it —
+   * so this is the single prompt, at the point identity is genuinely needed:
+   * checkout reads the customer's saved addresses, and an order has to belong
+   * to someone. `next` (not `returnUrl`, which the sign-in page never read)
+   * brings them straight back with their cart intact.
+   */
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.replace(`/login?returnUrl=${encodeURIComponent('/checkout')}`);
+      router.replace(
+        `/login?next=${encodeURIComponent('/checkout')}&reason=sign-in-required`,
+      );
     }
   }, [router]);
 

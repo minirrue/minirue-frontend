@@ -19,8 +19,16 @@ const ME_QUERY_KEY = ['auth', 'me'];
 export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      return apiLogin(email, password);
+    mutationFn: async ({
+      email,
+      password,
+      rememberMe,
+    }: {
+      email: string;
+      password: string;
+      rememberMe?: boolean;
+    }) => {
+      return apiLogin(email, password, rememberMe === true);
     },
     onSuccess: async (data: AuthResponse) => {
       setSession({

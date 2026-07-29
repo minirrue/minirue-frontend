@@ -25,7 +25,58 @@ export function setSessionExpiredHandler(handler: SessionExpiredHandler | null):
  */
 let refreshInFlight: Promise<boolean> | null = null;
 
+/**
+ * Tells the shopper's OTHER tabs when a refresh has just happened.
+ *
+ * The de-dupe above is per tab, so two tabs could still post the same
+ * single-use refresh token milliseconds apart — one won, the other was told
+ * its session had expired and bounced to /login. That is the "random" logout
+ * with several MiniRue tabs open.
+ *
+ * Backend 0.52.0 fixes this properly with a rotation grace window, so this is
+ * belt and braces: it also stops the second call being made at all, which
+ * saves a round trip and a needless token rotation. Absent in older browsers,
+ * where the server-side grace window still covers it.
+ */
+const AUTH_CHANNEL = 'mr-auth';
+let lastRefreshAt = 0;
+const REFRESH_ECHO_MS = 3_000;
+
+function announceRefresh() {
+  lastRefreshAt = Date.now();
+  try {
+    if (typeof BroadcastChannel === 'undefined') return;
+    const ch = new BroadcastChannel(AUTH_CHANNEL);
+    ch.postMessage({ kind: 'refreshed', at: lastRefreshAt });
+    ch.close();
+  } catch {
+    // A browser that refuses the channel simply falls back to the server's
+    // grace window.
+  }
+}
+
+if (typeof BroadcastChannel !== 'undefined') {
+  try {
+    const ch = new BroadcastChannel(AUTH_CHANNEL);
+    ch.onmessage = (e: MessageEvent<{ kind?: string; at?: number }>) => {
+      if (e.data?.kind === 'refreshed') {
+        lastRefreshAt = Math.max(lastRefreshAt, e.data.at ?? Date.now());
+        markAuthenticated();
+      }
+    };
+  } catch {
+    // Non-fatal — see above.
+  }
+}
+
 async function refreshSession(): Promise<boolean> {
+  // Another tab refreshed a moment ago, so the cookies in this tab are already
+  // fresh. Posting the spent token would only rotate it again for nothing.
+  if (Date.now() - lastRefreshAt < REFRESH_ECHO_MS) {
+    markAuthenticated();
+    return true;
+  }
+
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
@@ -38,6 +89,7 @@ async function refreshSession(): Promise<boolean> {
         });
         if (res.ok) {
           markAuthenticated();
+          announceRefresh();
           return true;
         }
         return false;
