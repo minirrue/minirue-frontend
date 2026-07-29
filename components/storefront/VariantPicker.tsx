@@ -55,11 +55,13 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
               style={{
                 padding: '11px 16px',
                 cursor: sellable ? 'pointer' : 'not-allowed',
-                opacity: sellable ? 1 : 0.4,
-                textDecoration: sellable ? 'none' : 'line-through',
+                // One refusal, not two. Strikethrough plus 40% opacity made the
+                // size AND the price unreadable; the words "Sold out" say it
+                // once and the pill stays above 4.5:1.
+                opacity: sellable ? 1 : 0.72,
                 background: isSelected ? 'var(--mr-fg)' : 'transparent',
                 color: isSelected ? 'var(--mr-bg-raised)' : 'var(--mr-fg-2)',
-                border: `1px solid ${isSelected ? 'var(--mr-fg)' : 'var(--mr-border)'}`,
+                border: `1px ${sellable ? 'solid' : 'dashed'} ${isSelected ? 'var(--mr-fg)' : 'var(--mr-border)'}`,
                 borderRadius: 'var(--mr-radius-pill)',
                 fontFamily: 'var(--mr-font-label)',
                 fontSize: 'var(--mr-text-xs)',
@@ -74,22 +76,36 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
               }}
             >
               <span>{variantLabel(v)}</span>
-              <span
-                style={{
-                  fontFamily: 'var(--mr-font-serif)',
-                  fontWeight: 500,
-                  fontSize: 'var(--mr-text-sm)',
-                  opacity: 0.75,
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                ·{' '}
-                <PriceDisplay
-                  amount={v.priceAmount}
-                  currency={v.priceCurrency}
-                  style={{ fontSize: 'inherit', fontFamily: 'inherit', color: 'inherit' }}
-                />
-              </span>
+              {sellable ? (
+                <span
+                  style={{
+                    fontFamily: 'var(--mr-font-serif)',
+                    fontWeight: 500,
+                    fontSize: 'var(--mr-text-sm)',
+                    opacity: 0.75,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  ·{' '}
+                  <PriceDisplay
+                    amount={v.priceAmount}
+                    currency={v.priceCurrency}
+                    style={{ fontSize: 'inherit', fontFamily: 'inherit', color: 'inherit' }}
+                  />
+                </span>
+              ) : (
+                // A price you cannot act on is noise. The reason takes its place.
+                <span
+                  style={{
+                    fontFamily: 'var(--mr-font-label)',
+                    fontSize: 'var(--mr-text-xs)',
+                    letterSpacing: '0.16em',
+                    color: 'var(--mr-fg-3)',
+                  }}
+                >
+                  · Sold out
+                </span>
+              )}
             </button>
           );
         })}

@@ -1,7 +1,16 @@
-import { render, screen } from '@testing-library/react';
+import React from 'react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
+
+// Header polls the resolved chrome through React Query, so it needs a client
+// even when the nav items come in as props.
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 jest.mock('@/lib/hooks/use-auth', () => ({
   useUser: () => ({ data: null }),
@@ -34,8 +43,16 @@ describe('Header', () => {
         }}
       />,
     );
-    expect(screen.getByRole('link', { name: 'Perfume' })).toHaveAttribute('href', '/categories/perfume');
-    expect(screen.getByRole('link', { name: 'Atelier X' })).toHaveAttribute('href', '/brands/atelier-x');
+    // Scope to the nav landmark: the Header also renders search suggestions
+    // that happen to share a label ("Perfume" -> /search?q=perfume), which are
+    // not nav items and must not be what this test reads.
+    const navs = Array.from(document.querySelectorAll('nav'));
+    const navLinks = navs.flatMap((n) => Array.from(n.querySelectorAll('a')));
+    const href = (label: string) =>
+      navLinks.find((a) => a.textContent?.trim() === label)?.getAttribute('href');
+
+    expect(href('Perfume')).toBe('/categories/perfume');
+    expect(href('Atelier X')).toBe('/brands/atelier-x');
   });
 
   it('renders no nav links when the admin listed none', () => {

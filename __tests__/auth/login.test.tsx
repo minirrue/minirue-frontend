@@ -112,7 +112,8 @@ describe('LoginPage', () => {
       render(<LoginPage />);
       await fillAndSubmit();
       await waitFor(() =>
-        expect(mockApiLogin).toHaveBeenCalledWith('user@example.com', 'Password1'),
+        // Third arg is "remember me", off unless the box is ticked.
+        expect(mockApiLogin).toHaveBeenCalledWith('user@example.com', 'Password1', false),
       );
     });
 

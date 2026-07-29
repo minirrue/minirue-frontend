@@ -17,7 +17,6 @@ import Sparkle from '@/components/ui/Sparkle';
 import type { ProductSectionConfig } from '@/lib/api/storefront';
 import ShareButton from './ShareButton';
 import WordReveal from '@/components/ui/WordReveal';
-import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
 
 interface ApiProductDetailProps {
@@ -28,57 +27,20 @@ interface ApiProductDetailProps {
   onAddToBag: (variant: ProductVariant) => void;
 }
 
-export default function ApiProductDetail({
-  product,
-  perks = [],
+/* ────────────────────────────────────────────────────────────────────────────
+   Every piece of the page below is declared at MODULE level, on purpose.
+   Declared inside the parent's body they would be a new component *type* on
+   every render, and React unmounts a subtree whose type changed. Each remount
+   restarts the CSS entrance keyframes, which is why tapping the heart used to
+   replay the whole copy block. Keep them out here.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+const ProductBackButton = React.memo(function ProductBackButton({
   onBack,
-  onAddToBag,
-}: ApiProductDetailProps) {
-  const { mobile, w } = useBreakpoint();
-
-  const activeVariants = product.variants?.filter((v) => v.isActive) ?? [];
-  // Prefer a variant that is actually sellable, so a product whose first size is
-  // sold out does not open pre-selected on the one option nobody can buy.
-  const defaultVariant =
-    activeVariants.find((v) => variantInStock(v)) ?? activeVariants[0] ?? null;
-  const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(defaultVariant);
-  const [added, setAdded] = React.useState(false);
-  const [addedAnim, setAddedAnim] = React.useState(false);
-  const [saved, setSaved] = React.useState(false);
-
-  const copyEnt = useEnterSpring({ preset: 'default', from: { y: 14, opacity: 0, scale: 1 }, delay: 60 });
-
-  // For price crossfade when variant changes
-  const priceLabel = selectedVariant
-    ? `${selectedVariant.priceCurrency} ${selectedVariant.priceAmount}`
-    : '';
-  const ctaX = useCrossfade(priceLabel);
-
-  // Cover = the thumbnail used everywhere outside this page. Carousel = the
-  // cover plus the product's other images, shown inside the page.
-  const media = primaryMedia(product);
-  const imgSrc = media ? mediaImageUrl(media, { w: 1200, h: 1500 }) : null;
-  const imgAlt = media?.altText ?? product.name;
-  const gallery = carouselMedia(product);
-
-  const soldOut = !!selectedVariant && !variantInStock(selectedVariant);
-  // Nothing on the product is buyable — every active variant is at zero.
-  const allSoldOut =
-    activeVariants.length > 0 && !activeVariants.some((v) => variantInStock(v));
-
-  const handleAdd = () => {
-    // Enforced here as well as by the disabled button: the click handler is what
-    // actually adds to the bag, and a keyboard or programmatic activation must
-    // not slip past a visual state.
-    if (added || !selectedVariant || soldOut) return;
-    setAdded(true);
-    setAddedAnim(true);
-    onAddToBag(selectedVariant);
-    setTimeout(() => setAddedAnim(false), 600);
-    setTimeout(() => setAdded(false), 2400);
-  };
-
-  const BackButton = () => (
+}: {
+  onBack: () => void;
+}) {
+  return (
     <button
       data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-back-to-all-perfumes"
       onClick={onBack}
@@ -103,20 +65,103 @@ export default function ApiProductDetail({
       <Icon name="arrowLeft" size={13} /> All perfumes
     </button>
   );
+});
 
-  const InfoPanel = () => (
-    <div
-      data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-info-panel"
-      style={{ ...copyEnt, flex: 1, display: 'flex', flexDirection: 'column' }}
+const WishlistHeartButton = React.memo(function WishlistHeartButton({
+  saved,
+  onToggle,
+}: {
+  saved: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-toggle-wishlist"
+      onClick={onToggle}
+      style={{
+        width: 52,
+        height: 52,
+        borderRadius: 'var(--mr-radius-pill)',
+        background: 'var(--mr-cream-200)',
+        border: '1px solid var(--mr-border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        transition: 'transform var(--mr-dur-fast) var(--mr-ease-spring), background var(--mr-dur-fast)',
+        transform: saved ? 'scale(1.08)' : 'scale(1)',
+        flexShrink: 0,
+      }}
+      aria-pressed={saved}
+      aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
     >
+      <svg
+        width={18}
+        height={18}
+        viewBox="0 0 24 24"
+        fill={saved ? 'var(--mr-crimson-500)' : 'none'}
+        stroke={saved ? 'var(--mr-crimson-500)' : 'var(--mr-ink-700)'}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{
+          transition: 'transform var(--mr-dur-medium) var(--mr-ease-spring), fill var(--mr-dur-medium), stroke var(--mr-dur-medium)',
+          transform: saved ? 'scale(1.1)' : 'scale(1)',
+        }}
+      >
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.5l-1-.9a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
+      </svg>
+    </button>
+  );
+});
 
+interface ProductInfoPanelProps {
+  product: ApiProduct;
+  perks: ProductSectionConfig['perks'];
+  activeVariants: ProductVariant[];
+  selectedVariant: ProductVariant | null;
+  onSelectVariant: (v: ProductVariant) => void;
+  added: boolean;
+  addedAnim: boolean;
+  soldOut: boolean;
+  allSoldOut: boolean;
+  onAdd: () => void;
+  saved: boolean;
+  onToggleSaved: () => void;
+  ctaStyle: React.CSSProperties;
+  ctaDisplay: string;
+}
+
+const ProductInfoPanel = React.memo(function ProductInfoPanel({
+  product,
+  perks,
+  activeVariants,
+  selectedVariant,
+  onSelectVariant,
+  added,
+  addedAnim,
+  soldOut,
+  allSoldOut,
+  onAdd,
+  saved,
+  onToggleSaved,
+  ctaStyle,
+  ctaDisplay,
+}: ProductInfoPanelProps) {
+  return (
+    <div
+      data-testid="product-info-panel"
+      data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-info-panel"
+      style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+    >
       <div
         style={{
           fontFamily: 'var(--mr-font-label)',
           fontSize: 'var(--mr-text-xs)',
           letterSpacing: '0.28em',
           textTransform: 'uppercase',
-          color: 'var(--mr-fg-4)',
+          // fg-4 (#8A8376) on cream fails 4.5:1 at this size; fg-3 clears it.
+          color: 'var(--mr-fg-3)',
           marginBottom: 16,
           animation: 'mr-word-in 0.5s cubic-bezier(0.16,1,0.3,1) both',
           animationDelay: '100ms',
@@ -126,12 +171,14 @@ export default function ApiProductDetail({
       </div>
 
       <h1
+        data-testid="product-title"
         style={{
           fontFamily: 'var(--mr-font-serif)',
           fontWeight: 400,
           fontSize: 'clamp(38px, 3.8vw, 56px)',
           lineHeight: 1.0,
           letterSpacing: '-0.015em',
+          textWrap: 'balance',
           margin: '0 0 20px',
           color: 'var(--mr-fg)',
           animation: 'mr-word-in 0.6s cubic-bezier(0.16,1,0.3,1) both',
@@ -151,7 +198,7 @@ export default function ApiProductDetail({
             animationDelay: '300ms',
           }}
         >
-          <span style={ctaX.style}>
+          <span style={ctaStyle}>
             <PriceDisplay
               amount={selectedVariant.priceAmount}
               currency={selectedVariant.priceCurrency}
@@ -169,6 +216,7 @@ export default function ApiProductDetail({
             fontStyle: 'italic',
             fontSize: 18,
             lineHeight: 1.5,
+            textWrap: 'pretty',
             color: 'var(--mr-fg-2)',
             margin: '0 0 36px',
             animation: 'mr-word-in 0.6s cubic-bezier(0.16,1,0.3,1) both',
@@ -192,7 +240,7 @@ export default function ApiProductDetail({
           <VariantPicker
             variants={activeVariants}
             selectedId={selectedVariant?.id ?? null}
-            onChange={setSelectedVariant}
+            onChange={onSelectVariant}
             traceIdPrefix="PG-STOREFRONT-CAT-005::EL-TOGGLE-variant-option"
           />
         </div>
@@ -211,7 +259,7 @@ export default function ApiProductDetail({
       >
         <button
           data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag"
-          onClick={handleAdd}
+          onClick={onAdd}
           disabled={!selectedVariant || soldOut}
           style={{
             flex: 1,
@@ -234,7 +282,7 @@ export default function ApiProductDetail({
               'background var(--mr-dur-medium) var(--mr-ease-out), transform var(--mr-dur-instant) var(--mr-ease-snappy), box-shadow var(--mr-dur-fast)',
             boxShadow: added ? 'none' : 'var(--mr-shadow-md)',
             willChange: 'transform',
-            opacity: selectedVariant && !soldOut ? 1 : 0.5,
+            opacity: selectedVariant && !soldOut ? 1 : 0.6,
           }}
         >
           {added ? (
@@ -244,46 +292,11 @@ export default function ApiProductDetail({
           ) : soldOut ? (
             <>{allSoldOut ? 'Out of stock' : 'This size is out of stock'}</>
           ) : (
-            <>Add to bag{selectedVariant ? ' — ' : ''}<span style={ctaX.style}>{ctaX.display}</span></>
+            <>Add to bag{selectedVariant ? ' — ' : ''}<span style={ctaStyle}>{ctaDisplay}</span></>
           )}
         </button>
 
-        <button
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-toggle-wishlist"
-          onClick={() => setSaved((s) => !s)}
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 'var(--mr-radius-pill)',
-            background: 'var(--mr-cream-200)',
-            border: '1px solid var(--mr-border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all var(--mr-dur-fast) var(--mr-ease-spring)',
-            transform: saved ? 'scale(1.08)' : 'scale(1)',
-            flexShrink: 0,
-          }}
-          aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
-        >
-          <svg
-            width={18}
-            height={18}
-            viewBox="0 0 24 24"
-            fill={saved ? 'var(--mr-crimson-500)' : 'none'}
-            stroke={saved ? 'var(--mr-crimson-500)' : 'var(--mr-ink-700)'}
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{
-              transition: 'all var(--mr-dur-medium) var(--mr-ease-spring)',
-              transform: saved ? 'scale(1.1)' : 'scale(1)',
-            }}
-          >
-            <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.5l-1-.9a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
-          </svg>
-        </button>
+        <WishlistHeartButton saved={saved} onToggle={onToggleSaved} />
       </div>
 
       {/* Share — OS share sheet on phones and Chrome/Windows, link copy
@@ -346,7 +359,7 @@ export default function ApiProductDetail({
           gap: 12,
           fontFamily: 'var(--mr-font-ui)',
           fontSize: 'var(--mr-text-xs)',
-          color: 'var(--mr-fg-4)',
+          color: 'var(--mr-fg-3)',
           animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
           animationDelay: '600ms',
         }}
@@ -365,299 +378,215 @@ export default function ApiProductDetail({
       </div>
     </div>
   );
+});
 
-  if (mobile) {
-    return (
-      <div style={{ background: 'var(--mr-cream-200)' }}>
-        <div style={{ padding: '28px 20px 0' }}>
-          <BackButton />
-        </div>
-
-        {/* Carousel — cover first, then the product's other images. Horizontal
-            snap-scroll so a thumb-swipe moves exactly one image. */}
-        {gallery.length > 1 ? (
-          <div
-            data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-carousel"
-            style={{
-              display: 'flex',
-              gap: 12,
-              overflowX: 'auto',
-              scrollSnapType: 'x mandatory',
-              padding: '24px 20px 0',
-              scrollbarWidth: 'none',
-            }}
-          >
-            {gallery.map((m, i) => {
-              const src = mediaImageUrl(m, { w: 1200, h: 1500 });
-              if (!src) return null;
-              return (
-                <div
-                  key={m.id}
-                  data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
-                  style={{
-                    flex: '0 0 100%',
-                    aspectRatio: '3/4',
-                    background: 'var(--mr-cream-300)',
-                    borderRadius: 'var(--mr-radius-lg)',
-                    overflow: 'hidden',
-                    boxShadow: 'var(--mr-shadow-lg)',
-                    position: 'relative',
-                    scrollSnapAlign: 'center',
-                  }}
-                >
-                  <Image
-                    src={src}
-                    alt={m.altText ?? product.name}
-                    fill
-                    priority={i === 0}
-                    sizes="100vw"
-                    style={{ objectFit: 'cover' }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-        /* Hero image */
-        <div
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-hero-image"
-          style={{
-            margin: '24px 20px 0',
-            aspectRatio: '3/4',
-            background: 'var(--mr-cream-300)',
-            borderRadius: 'var(--mr-radius-lg)',
-            overflow: 'hidden',
-            boxShadow: 'var(--mr-shadow-lg)',
-            position: 'relative',
-          }}
-        >
-          {imgSrc ? (
-            <Image
-              src={imgSrc}
-              alt={imgAlt}
-              fill
-              priority
-              sizes="100vw"
-              style={{ objectFit: 'cover' }}
-            />
-          ) : (
-            <div
-              style={{
-                inset: 0,
-                position: 'absolute',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--mr-fg-4)',
-                fontFamily: 'var(--mr-font-serif)',
-                fontStyle: 'italic',
-              }}
-            >
-              {product.name}
-            </div>
-          )}
-        </div>
-        )}
-
-        <div style={{ padding: '32px 20px 96px', ...copyEnt }}>
-          <InfoPanel />
-        </div>
-      </div>
-    );
-  }
-
-  // Desktop: sticky left + scrollable right
+/** The dark editorial pause between the photographs and the closing panel. */
+const EditorialMoment = React.memo(function EditorialMoment({
+  product,
+}: {
+  product: ApiProduct;
+}) {
   return (
     <div
-      style={{
-        background: 'var(--mr-cream-200)',
-        display: 'flex',
-        minHeight: '100vh',
-        position: 'relative',
-      }}
+      data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-editorial-quote-panel"
+      className="relative flex items-center justify-center overflow-hidden py-[clamp(96px,22vw,160px)] lg:h-screen lg:py-0"
+      style={{ background: 'var(--mr-ink-900)', minHeight: '60vh' }}
     >
-      {/* LEFT: sticky info panel */}
-      <div
-        style={{
-          width: w < 1100 ? '48%' : '42%',
-          flexShrink: 0,
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          borderRight: '1px solid var(--mr-hairline)',
-          background: 'var(--mr-cream-100)',
-          scrollbarWidth: 'none',
-        }}
-      >
-        <div
+      <div className="relative z-[1] px-[clamp(24px,6vw,64px)] text-center">
+        <div className="mr-breath" style={{ display: 'inline-flex', marginBottom: 32 }}>
+          <Sparkle size={28} color="var(--mr-gold-400)" />
+        </div>
+        <blockquote
           style={{
-            padding:
-              'calc(var(--mr-sp-6) + var(--mr-sp-2)) calc(var(--mr-sp-7) + var(--mr-sp-1)) calc(var(--mr-sp-7) + var(--mr-sp-3))',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
+            fontFamily: 'var(--mr-font-serif)',
+            fontStyle: 'italic',
+            fontWeight: 400,
+            fontSize: 'clamp(26px, 3.5vw, 48px)',
+            lineHeight: 1.15,
+            letterSpacing: '-0.01em',
+            textWrap: 'balance',
+            color: 'var(--mr-cream-100)',
+            margin: '0 0 32px',
+            maxWidth: 540,
           }}
         >
-          <div style={{ marginBottom: 48 }}>
-            <BackButton />
-          </div>
-          <InfoPanel />
+          &ldquo;{product.tagline ?? product.name}&rdquo;
+        </blockquote>
+        <div
+          style={{
+            fontFamily: 'var(--mr-font-label)',
+            fontSize: 'var(--mr-text-xs)',
+            letterSpacing: '0.28em',
+            textTransform: 'uppercase',
+            color: 'var(--mr-gold-400)',
+          }}
+        >
+          {productBrand(product) ?? product.categoryName}
         </div>
       </div>
+    </div>
+  );
+});
 
-      {/* RIGHT: scrollable imagery panels */}
-      <div style={{ flex: 1, minHeight: '100vh' }}>
+/** Placeholder shown when a product has no photographs at all. */
+const MediaFallback = React.memo(function MediaFallback({ name }: { name: string }) {
+  return (
+    <div
+      className="flex aspect-[4/5] w-full items-center justify-center lg:aspect-auto lg:h-screen"
+      style={{
+        background: 'var(--mr-cream-300)',
+        fontFamily: 'var(--mr-font-serif)',
+        fontStyle: 'italic',
+        fontSize: 'var(--mr-text-xl)',
+        color: 'var(--mr-fg-3)',
+      }}
+    >
+      {name}
+    </div>
+  );
+});
 
-        {/* Panel 1 — Hero image */}
+export default function ApiProductDetail({
+  product,
+  perks = [],
+  onBack,
+  onAddToBag,
+}: ApiProductDetailProps) {
+  const activeVariants = product.variants?.filter((v) => v.isActive) ?? [];
+  // Prefer a variant that is actually sellable, so a product whose first size is
+  // sold out does not open pre-selected on the one option nobody can buy.
+  const defaultVariant =
+    activeVariants.find((v) => variantInStock(v)) ?? activeVariants[0] ?? null;
+  const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(defaultVariant);
+  const [added, setAdded] = React.useState(false);
+  const [addedAnim, setAddedAnim] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  // Lives on the WRAPPER, never inside the panel. It was applied in both places,
+  // so the copy travelled twice the intended distance on phones.
+  const copyEnt = useEnterSpring({ preset: 'default', from: { y: 14, opacity: 0, scale: 1 }, delay: 60 });
+
+  // For price crossfade when variant changes
+  const priceLabel = selectedVariant
+    ? `${selectedVariant.priceCurrency} ${selectedVariant.priceAmount}`
+    : '';
+  const ctaX = useCrossfade(priceLabel);
+
+  // Cover = the thumbnail used everywhere outside this page. Carousel = the
+  // cover plus the product's other images, shown inside the page.
+  const media = primaryMedia(product);
+  const imgSrc = media ? mediaImageUrl(media, { w: 1400, h: 1750 }) : null;
+  const imgAlt = media?.altText ?? product.name;
+  const gallery = carouselMedia(product);
+
+  const soldOut = !!selectedVariant && !variantInStock(selectedVariant);
+  // Nothing on the product is buyable — every active variant is at zero.
+  const allSoldOut =
+    activeVariants.length > 0 && !activeVariants.some((v) => variantInStock(v));
+
+  const handleAdd = React.useCallback(() => {
+    // Enforced here as well as by the disabled button: the click handler is what
+    // actually adds to the bag, and a keyboard or programmatic activation must
+    // not slip past a visual state.
+    if (added || !selectedVariant || soldOut) return;
+    setAdded(true);
+    setAddedAnim(true);
+    onAddToBag(selectedVariant);
+    setTimeout(() => setAddedAnim(false), 600);
+    setTimeout(() => setAdded(false), 2400);
+  }, [added, selectedVariant, soldOut, onAddToBag]);
+
+  const handleToggleSaved = React.useCallback(() => setSaved((s) => !s), []);
+
+  return (
+    <div
+      data-testid="product-layout"
+      className="flex flex-col lg:min-h-screen lg:flex-row"
+      style={{ background: 'var(--mr-cream-200)' }}
+    >
+      {/* Back — above the photographs on a phone, inside the sticky column on a
+          laptop. Two placements, one component, no JS width check. */}
+      <div className="order-1 px-[clamp(20px,5vw,32px)] pt-7 lg:hidden">
+        <ProductBackButton onBack={onBack} />
+      </div>
+
+      {/* LEFT on a laptop / BELOW the photographs on a phone: the copy. */}
+      <aside
+        className="order-3 lg:order-1 lg:sticky lg:top-0 lg:h-screen lg:w-[46%] lg:flex-shrink-0 lg:self-start lg:overflow-y-auto lg:border-r xl:w-[42%] scrollbar-hide"
+        style={{ borderColor: 'var(--mr-hairline)' }}
+      >
         <div
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-hero-image"
-          style={{
-            height: '100vh',
-            background: 'var(--mr-cream-300)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
+          className="flex flex-col px-[clamp(20px,5vw,32px)] pb-[clamp(64px,14vw,96px)] pt-[clamp(32px,8vw,56px)] lg:h-full lg:px-[clamp(32px,4vw,56px)] lg:pt-[clamp(40px,5vw,64px)]"
+          style={{ background: 'inherit' }}
         >
-          {imgSrc ? (
-            <Image
-              src={imgSrc}
-              alt={imgAlt}
-              fill
-              priority
-              sizes="60vw"
-              style={{
-                objectFit: 'cover',
-                animation: 'mr-fade-up 0.9s cubic-bezier(0.16,1,0.3,1) both',
-                animationDelay: '200ms',
-              }}
+          <div className="mb-12 hidden lg:block">
+            <ProductBackButton onBack={onBack} />
+          </div>
+          <div style={{ ...copyEnt, display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <ProductInfoPanel
+              product={product}
+              perks={perks}
+              activeVariants={activeVariants}
+              selectedVariant={selectedVariant}
+              onSelectVariant={setSelectedVariant}
+              added={added}
+              addedAnim={addedAnim}
+              soldOut={soldOut}
+              allSoldOut={allSoldOut}
+              onAdd={handleAdd}
+              saved={saved}
+              onToggleSaved={handleToggleSaved}
+              ctaStyle={ctaX.style}
+              ctaDisplay={ctaX.display}
             />
-          ) : (
-            <div
-              style={{
-                fontFamily: 'var(--mr-font-serif)',
-                fontStyle: 'italic',
-                fontSize: 'var(--mr-text-3xl)',
-                color: 'var(--mr-fg-4)',
-              }}
-            >
-              {product.name}
-            </div>
-          )}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 40,
-              left: 40,
-              fontFamily: 'var(--mr-font-label)',
-              fontSize: 'var(--mr-text-xs)',
-              letterSpacing: '0.28em',
-              textTransform: 'uppercase',
-              color: 'rgba(11,11,11,0.35)',
-            }}
-          >
-            Scroll to explore
           </div>
         </div>
+      </aside>
 
-        {/* One full-height panel per remaining carousel image. The cover is
-            already Panel 1, so only the images after it repeat here. */}
-        {gallery.slice(1).map((m) => {
-          const src = mediaImageUrl(m, { w: 1400, h: 1750 });
-          if (!src) return null;
-          return (
-            <div
-              key={m.id}
-              data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
-              style={{
-                height: '100vh',
-                background: 'var(--mr-cream-300)',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              <Image
-                src={src}
-                alt={m.altText ?? product.name}
-                fill
-                sizes="60vw"
-                style={{ objectFit: 'cover' }}
-              />
-            </div>
-          );
-        })}
-
-        {/* Panel 2 — Editorial dark moment */}
-        <div
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-editorial-quote-panel"
-          style={{
-            height: '100vh',
-            background: 'var(--mr-ink-900)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
+      {/* RIGHT on a laptop / FIRST on a phone: the photographs. */}
+      <main className="order-2 lg:order-2 lg:min-h-screen lg:flex-1">
+        {gallery.length > 0 ? (
+          gallery.map((m, i) => {
+            const src = mediaImageUrl(m, { w: 1400, h: 1750 });
+            if (!src) return null;
+            return (
+              <div
+                key={m.id}
+                data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
+                className="relative aspect-[4/5] w-full overflow-hidden lg:aspect-auto lg:h-screen"
+                style={{ background: 'var(--mr-cream-300)' }}
+              >
+                <Image
+                  src={src}
+                  alt={m.altText ?? product.name}
+                  fill
+                  priority={i === 0}
+                  sizes="(min-width: 1024px) 58vw, 100vw"
+                  style={{ objectFit: 'cover' }}
+                />
+              </div>
+            );
+          })
+        ) : imgSrc ? (
           <div
-            style={{
-              textAlign: 'center',
-              padding: '0 64px',
-              zIndex: 1,
-              position: 'relative',
-            }}
+            data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-hero-image"
+            className="relative aspect-[4/5] w-full overflow-hidden lg:aspect-auto lg:h-screen"
+            style={{ background: 'var(--mr-cream-300)' }}
           >
-            <div className="mr-breath" style={{ display: 'inline-flex', marginBottom: 32 }}>
-              <Sparkle size={28} color="var(--mr-gold-400)" />
-            </div>
-            <blockquote
-              style={{
-                fontFamily: 'var(--mr-font-serif)',
-                fontStyle: 'italic',
-                fontWeight: 400,
-                fontSize: 'clamp(28px, 3.5vw, 48px)',
-                lineHeight: 1.15,
-                letterSpacing: '-0.01em',
-                color: 'var(--mr-cream-100)',
-                margin: '0 0 32px',
-                maxWidth: 540,
-              }}
-            >
-              &ldquo;{product.tagline ?? product.name}&rdquo;
-            </blockquote>
-            <div
-              style={{
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 'var(--mr-text-xs)',
-                letterSpacing: '0.28em',
-                textTransform: 'uppercase',
-                color: 'var(--mr-gold-400)',
-              }}
-            >
-              {productBrand(product) ?? product.categoryName}
-            </div>
+            <Image src={imgSrc} alt={imgAlt} fill priority sizes="(min-width: 1024px) 58vw, 100vw" style={{ objectFit: 'cover' }} />
           </div>
-        </div>
+        ) : (
+          <MediaFallback name={product.name} />
+        )}
 
-        {/* Panel 3 — Variants / details */}
+        <EditorialMoment product={product} />
+
+        {/* Available sizes — a repeat of the picker the shopper already used
+            above. Replaced by the admin-marked closing photograph. */}
         {activeVariants.length > 0 && (
           <div
-            style={{
-              minHeight: '60vh',
-              background: 'var(--mr-cream-300)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 48,
-              padding: 64,
-            }}
+            className="flex flex-col items-center justify-center gap-12 px-[clamp(24px,6vw,64px)] py-[clamp(64px,14vw,96px)]"
+            style={{ background: 'var(--mr-cream-300)', minHeight: '60vh' }}
           >
             <div
               style={{
@@ -670,7 +599,7 @@ export default function ApiProductDetail({
             >
               Available sizes
             </div>
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div className="flex flex-wrap justify-center gap-6">
               {activeVariants.map((v, i) => (
                 <div
                   key={v.id}
@@ -693,7 +622,7 @@ export default function ApiProductDetail({
                       fontSize: 'var(--mr-text-xs)',
                       letterSpacing: '0.22em',
                       textTransform: 'uppercase',
-                      color: 'var(--mr-gold-500)',
+                      color: 'var(--mr-gold-700)',
                       marginBottom: 12,
                     }}
                   >
@@ -719,7 +648,7 @@ export default function ApiProductDetail({
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

@@ -19,6 +19,29 @@ import { apiRegister } from '@/lib/api/auth';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import type { ApiError } from '@/lib/api/client';
 
+/**
+ * A message worth showing a shopper. Some backend paths send nothing but the
+ * HTTP reason phrase ("Conflict", "Unprocessable Entity"), and printing that
+ * verbatim tells the person nothing about what to do next — so treat it as no
+ * message at all and let the caller's own sentence through.
+ */
+const HTTP_REASON_PHRASES = new Set([
+  'bad request',
+  'unauthorized',
+  'forbidden',
+  'not found',
+  'conflict',
+  'unprocessable entity',
+  'too many requests',
+  'internal server error',
+]);
+
+function humanMessage(message: string | undefined | null): string | undefined {
+  const trimmed = message?.trim();
+  if (!trimmed) return undefined;
+  return HTTP_REASON_PHRASES.has(trimmed.toLowerCase()) ? undefined : trimmed;
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = React.useState<SignupFormData>({
@@ -77,10 +100,10 @@ export default function SignupPage() {
         // Both the email and the phone are unique, so a 409 can mean either —
         // show the server's own message rather than guessing at the email.
         setApiError(
-          e.message ?? 'An account with these details already exists.',
+          humanMessage(e.message) ?? 'An account with these details already exists.',
         );
       } else if (e.status === 422) {
-        setApiError(e.message ?? 'Please check your details.');
+        setApiError(humanMessage(e.message) ?? 'Please check your details.');
       } else {
         setApiError('Something went wrong. Please try again.');
       }
