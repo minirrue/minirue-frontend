@@ -3,10 +3,13 @@
 import React from 'react';
 import ChatButton from '@/components/chat/ChatButton';
 import ChatPanel, { type ChatDisplayMessage, type ChatAttachment } from '@/components/chat/ChatPanel';
-import GuestContactForm, { type GuestContactValue } from '@/components/chat/GuestContactForm';
+import SignInToChat from '@/components/chat/SignInToChat';
 import SubjectPicker, { type SubjectChoice } from '@/components/chat/SubjectPicker';
 import { useSupportContext } from '@/lib/support/support-context';
-import { getGuestSupport, setGuestSupport, clearGuestSupport } from '@/lib/support/session';
+// setGuestSupport is gone with guest chat. getGuestSupport/clearGuestSupport
+// stay: tokens issued before backend 0.53.x are still honoured for READING and
+// replying to a thread already started, so nobody is cut off mid-conversation.
+import { getGuestSupport, clearGuestSupport } from '@/lib/support/session';
 import { useUser } from '@/lib/hooks/use-auth';
 import {
   apiStartSupport,
@@ -88,7 +91,6 @@ export default function SupportWidget() {
   const [listLoading, setListLoading] = React.useState(false);
   // A guest picks their brand before they have given contact details, so the
   // choice has to survive until the guest form is submitted.
-  const [pendingBrandId, setPendingBrandId] = React.useState<string | null>(null);
 
   const [open, setOpen] = React.useState(false);
   const [hasUnread, setHasUnread] = React.useState(false);
@@ -96,17 +98,22 @@ export default function SupportWidget() {
   const [conversationId, setConversationId] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<ChatDisplayMessage[]>([]);
   const [sending, setSending] = React.useState(false);
-  const [awaitingGuestInfo, setAwaitingGuestInfo] = React.useState(false);
+  /**
+   * Retired with guest chat (owner decision, 2026-07-29). Kept as a constant
+   * rather than threaded out of every call site, because the guest→customer
+   * CLAIM flow still runs for the threads migration 0038 archived — if one of
+   * those people signs up, their thread still attaches to the new account.
+   */
+  const awaitingGuestInfo = false;
   const [error, setError] = React.useState<string | null>(null);
   const [meta, setMeta] = React.useState<SupportMetaDto | null>(null);
 
-  const pendingBodyRef = React.useRef<{ text: string; attachments?: ChatAttachment[] } | null>(null);
   const seenIdsRef = React.useRef<Set<string>>(new Set());
   const lastMessageIdRef = React.useRef<string | undefined>(undefined);
   const tempCounterRef = React.useRef(0);
   // Retry payloads for failed optimistic sends, keyed by tempId.
   const retryPayloadsRef = React.useRef<
-    Map<string, { text: string; attachments?: ChatAttachment[]; guest?: GuestContactValue }>
+    Map<string, { text: string; attachments?: ChatAttachment[] }>
   >(new Map());
 
   // Auto-attach the current page's subject (e.g. a product) when the widget
@@ -289,9 +296,9 @@ export default function SupportWidget() {
   // Optimistic-send helpers: show the customer's message immediately, then
   // reconcile with the server response (or mark it failed with a retry).
   const addOptimisticMessage = React.useCallback(
-    (text: string, attachments?: ChatAttachment[], guest?: GuestContactValue) => {
+    (text: string, attachments?: ChatAttachment[]) => {
       const tempId = `temp-${++tempCounterRef.current}`;
-      retryPayloadsRef.current.set(tempId, { text, attachments, guest });
+      retryPayloadsRef.current.set(tempId, { text, attachments });
       const optimistic: ChatDisplayMessage = {
         id: tempId,
         from: 'cx',
@@ -328,12 +335,11 @@ export default function SupportWidget() {
   const startConversation = React.useCallback(
     async (
       body: string,
-      guest?: GuestContactValue,
       attachments?: ChatAttachment[],
       existingTempId?: string,
       override?: { collaboratorId?: string | null; subject?: SubjectChoice },
     ) => {
-      const tempId = existingTempId ?? addOptimisticMessage(body, attachments, guest);
+      const tempId = existingTempId ?? addOptimisticMessage(body, attachments);
       setSending(true);
       setError(null);
       try {
@@ -349,16 +355,12 @@ export default function SupportWidget() {
             : {}),
           body,
           attachments,
-          guest: guest
-            ? { name: guest.name, email: guest.email, phoneCountry: guest.phoneCountry, phone: guest.phone }
-            : undefined,
+          // No `guest` field: starting a conversation needs an account, and
+          // the server refuses a guest start outright (backend 0.53.x).
         });
         setConversationId(result.conversation.id);
         setView('thread');
         markSent(tempId, result.message);
-        if (guest && result.guestToken) {
-          setGuestSupport({ conversationId: result.conversation.id, guestToken: result.guestToken });
-        }
       } catch (err: unknown) {
         markFailed(tempId);
         // The API says WHY — "this conversation is closed", "attachments are not
@@ -390,37 +392,13 @@ export default function SupportWidget() {
         return;
       }
 
-      if (isLoggedIn) {
-        void startConversation(text, undefined, attachments);
-        return;
-      }
-
-      // Guest: hold the message until contact details are provided.
-      pendingBodyRef.current = { text, attachments };
-      setAwaitingGuestInfo(true);
+      // Only a signed-in customer reaches the composer at all — a guest gets
+      // SignInToChat instead — so there is nothing to hold back and no contact
+      // form to collect. This used to park the message and ask for a name,
+      // email and phone.
+      void startConversation(text, attachments);
     },
     [conversationId, startConversation, addOptimisticMessage, markSent, markFailed, isLoggedIn],
-  );
-
-  const handleGuestSubmit = React.useCallback(
-    (contact: GuestContactValue) => {
-      const pending = pendingBodyRef.current;
-      if (!pending) return;
-      void startConversation(
-        pending.text,
-        contact,
-        pending.attachments,
-        undefined,
-        // Carries the brand a guest chose in the composer; undefined for the
-        // ordinary "type into the box" path, which keeps the page's own subject.
-        pendingBrandId ? { collaboratorId: pendingBrandId, subject: subjectChoice } : undefined,
-      ).then(() => {
-        pendingBodyRef.current = null;
-        setPendingBrandId(null);
-        setAwaitingGuestInfo(false);
-      });
-    },
-    [startConversation, pendingBrandId, subjectChoice],
   );
 
   const handleRetry = React.useCallback(
@@ -442,7 +420,7 @@ export default function SupportWidget() {
       }
       // No conversation yet (the initial start failed) — retry via startConversation,
       // reusing the same optimistic bubble instead of creating a new one.
-      void startConversation(payload.text, payload.guest, payload.attachments, tempId);
+      void startConversation(payload.text, payload.attachments, tempId);
     },
     [conversationId, startConversation, markSent, markFailed],
   );
@@ -458,19 +436,9 @@ export default function SupportWidget() {
         ? { type: 'ITEM', subject: draft.subject }
         : { type: 'GENERAL' };
 
-      if (!isLoggedIn) {
-        // A guest still has to leave contact details first, so hold the draft and
-        // let the existing guest form take over — same path as a normal first
-        // message, just carrying the brand and product with it.
-        pendingBodyRef.current = { text: draft.body };
-        setSubjectChoice(subject);
-        setPendingBrandId(draft.collaboratorId);
-        setAwaitingGuestInfo(true);
-        setView('thread');
-        return;
-      }
-
-      void startConversation(draft.body, undefined, undefined, undefined, {
+      // No guest branch: a guest never reaches this composer, so the draft
+      // always belongs to a signed-in customer.
+      void startConversation(draft.body, undefined, undefined, {
         collaboratorId: draft.collaboratorId,
         subject,
       }).then(() => {
@@ -484,8 +452,21 @@ export default function SupportWidget() {
   // token names, so the list would always have exactly one row.
   const canBrowseList = isLoggedIn;
 
-  const panelBody =
-    view === 'new' ? (
+  /**
+   * A guest gets the sign-in panel and nothing else — no subject picker, no
+   * composer, no thread. Messaging needs an account (owner decision,
+   * 2026-07-29), and the server refuses a guest start regardless, so offering
+   * the form would only produce a 401 after they had typed.
+   *
+   * `authLoading` is deliberately excluded: showing "sign in" for a moment to
+   * someone who IS signed in reads as being logged out, so the panel stays
+   * empty until we know.
+   */
+  const guestBlocked = !isLoggedIn && !authLoading;
+
+  const panelBody = guestBlocked ? (
+    <SignInToChat />
+  ) : view === 'new' ? (
       <NewChatComposer
         pageSubject={pageSubject}
         submitting={sending}
@@ -526,12 +507,15 @@ export default function SupportWidget() {
               }
             : undefined
         }
+        // bottomSlot renders INSTEAD of the composer, so an empty one closes
+        // it: a guest has nothing to send to, and an inviting text box that
+        // 401s on submit is worse than no box.
+        bottomSlot={guestBlocked ? <span /> : undefined}
         topSlot={
-          !conversationId ? (
+          !guestBlocked && !conversationId ? (
             <SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />
           ) : undefined
         }
-        bottomSlot={awaitingGuestInfo ? <GuestContactForm onSubmit={handleGuestSubmit} submitting={sending} /> : undefined}
       />
       {error && (
         <div
