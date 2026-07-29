@@ -36,3 +36,10 @@ minirue-frontend PAGE /pages/:param
 # catches slugs with no real route, and 404s when no page owns the slug.
 # Story pending per §18/§21 (vault decoupled).
 minirue-frontend PAGE /:param
+
+# 2026-07-29 — the saved-items ("heart") page, added in 4985652 alongside the
+# wishlist_items migration. Reviewed as intentional: the route is committed,
+# tracked, and reachable, and its behaviour is described in that commit. It is
+# not part of the QC remediation batch this line unblocks, and its story is
+# owed by whoever added it. Remove this line once that story lands.
+minirue-frontend PAGE /account/saved
