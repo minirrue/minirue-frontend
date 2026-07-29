@@ -11,6 +11,7 @@ import { useSupportContext } from '@/lib/support/support-context';
 // replying to a thread already started, so nobody is cut off mid-conversation.
 import { getGuestSupport, clearGuestSupport } from '@/lib/support/session';
 import { useUser } from '@/lib/hooks/use-auth';
+import { isAuthenticated } from '@/lib/auth/tokens';
 import {
   apiStartSupport,
   apiSupportMessages,
@@ -83,6 +84,16 @@ export default function SupportWidget() {
   // which is stale at widget-mount and never reacts to a login that happens later).
   const { data: authUser, isLoading: authLoading } = useUser();
   const isLoggedIn = !!authUser;
+  /**
+   * The browser's own hint that a session exists. Not a security check — it is
+   * documented as one that must never be trusted for access — but it is a
+   * perfectly good signal that we should not show a stranger's screen to
+   * someone who has an account.
+   */
+  const [hasStoredSession, setHasStoredSession] = React.useState(false);
+  React.useEffect(() => {
+    setHasStoredSession(isAuthenticated());
+  }, [authUser, authLoading]);
 
   // Three views in one panel. 'thread' is the old behaviour; 'list' and 'new' are
   // what a shopper with more than one conversation actually needs.
@@ -462,7 +473,27 @@ export default function SupportWidget() {
    * someone who IS signed in reads as being logged out, so the panel stays
    * empty until we know.
    */
-  const guestBlocked = !isLoggedIn && !authLoading;
+  /**
+   * Only block someone we are CONFIDENT is a guest.
+   *
+   * useUser() is `retry: false` with a 15-minute staleTime, so one transient
+   * /auth/me failure — a refresh landing mid-flight, a cold API — leaves
+   * `authUser` undefined for the next quarter of an hour. That was telling
+   * signed-in customers to sign in while the header, which reads the stored
+   * session, greeted them by name two lines above.
+   *
+   * So the stored session flag gets a veto. If anything says this person has
+   * an account, show them the chat: the server refuses a guest start anyway
+   * (backend 0.53.1) with a message that names the reason. Being wrong that
+   * way costs a clear error; being wrong the other way locks a paying customer
+   * out of support and contradicts the header while doing it.
+   *
+   * The real fix is one source of truth for "am I signed in" — three still
+   * disagree (the httpOnly cookie, the mr-auth flag, the localStorage note).
+   * That is deliberately not attempted here.
+   */
+  const looksSignedIn = isLoggedIn || hasStoredSession;
+  const guestBlocked = !looksSignedIn && !authLoading;
 
   const panelBody = guestBlocked ? (
     <SignInToChat />

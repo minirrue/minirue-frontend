@@ -128,8 +128,25 @@ export function markSessionRecovered(): void {
   sessionExpiryAnnounced = false;
 }
 
+/**
+ * Set when the shopper deliberately signs out.
+ *
+ * Signing out clears the cookies, and any authed request already in flight —
+ * a poll, the support widget, the cart — then 401s and lands here. Without
+ * this, a normal sign-out announced "Your session expired", which is both
+ * wrong and slightly alarming: nothing expired, they left.
+ */
+let deliberateSignOutAt = 0;
+const SIGN_OUT_QUIET_MS = 5_000;
+
+export function markDeliberateSignOut(): void {
+  deliberateSignOutAt = Date.now();
+  sessionExpiryAnnounced = true;
+}
+
 function announceSessionExpired(): void {
   if (typeof window === 'undefined') return;
+  if (Date.now() - deliberateSignOutAt < SIGN_OUT_QUIET_MS) return;
   if (sessionExpiryAnnounced || isOnAuthRoute()) return;
   sessionExpiryAnnounced = true;
   onSessionExpired?.(window.location.pathname + window.location.search);

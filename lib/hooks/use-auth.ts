@@ -9,6 +9,7 @@ import {
   type RegisterInput,
 } from '@/lib/api/auth';
 import { clearAuthFlag } from '@/lib/auth/tokens';
+import { markDeliberateSignOut } from '@/lib/api/client';
 import { setSession, clearSession } from '@/lib/session';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import { CUSTOMER_ADDRESSES_KEY, CUSTOMER_PROFILE_KEY } from '@/lib/hooks/use-customer';
@@ -93,6 +94,10 @@ export function useLogout() {
       // signed in — the UI hint + session must be cleared regardless (and the
       // backend also clears the httpOnly cookies on its side). The e2e "defense
       // in depth" test in `e2e/auth/logout.spec.ts` exercises this.
+      // Before clearing anything: an authed request already in flight will
+      // 401 the moment the cookies go, and the expiry handler would announce
+      // "Your session expired" for what is simply someone leaving.
+      markDeliberateSignOut();
       clearAuthFlag();
       clearSession();
       queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });
