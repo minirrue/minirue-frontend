@@ -28,7 +28,9 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
           fontSize: 'var(--mr-text-xs)',
           letterSpacing: '0.22em',
           textTransform: 'uppercase',
-          color: 'var(--mr-fg-4)',
+          // fg-4 is ~3.5:1 on cream, and this is 12px uppercase text that
+          // needs 4.5:1. It is the "ML" above the size pills.
+          color: 'var(--mr-fg-3)',
           marginBottom: 'var(--mr-sp-3)',
         }}
       >

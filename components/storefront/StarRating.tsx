@@ -13,7 +13,9 @@ interface StarRatingProps {
 }
 
 const GOLD = 'var(--mr-gold-500)';
-const EMPTY = 'var(--mr-ink-300)';
+// ink-300 is under 2:1 on cream, which makes the unfilled stars vanish — and a
+// 2-star rating then reads as "two stars" rather than "two out of five".
+const EMPTY = 'var(--mr-ink-400)';
 
 function Star({ filled, size }: { filled: boolean; size: number }) {
   return (

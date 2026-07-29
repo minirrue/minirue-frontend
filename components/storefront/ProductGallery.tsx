@@ -112,7 +112,9 @@ export default function ProductGallery({ product, items }: ProductGalleryProps) 
                   className={
                     index === i
                       ? 'block h-1.5 w-[18px] rounded-full bg-[var(--mr-gold-500)] lg:bg-[var(--mr-gold-300)]'
-                      : 'block h-1.5 w-1.5 rounded-full bg-[var(--mr-ink-300)] lg:bg-[color-mix(in_oklab,var(--mr-cream-100)_60%,transparent)]'
+                      // ink-400 rather than ink-300: an inactive dot still has
+                      // to be visible enough to aim at.
+                      : 'block h-1.5 w-1.5 rounded-full bg-[var(--mr-ink-400)] lg:bg-[color-mix(in_oklab,var(--mr-cream-100)_70%,transparent)]'
                   }
                   style={{
                     transition: reduceMotion
