@@ -33,7 +33,8 @@
   {
     "id": "US-SHOPPER-BRAND-001",
     "routes": [
-      "minirue-frontend PAGE /brands/:param"
+      "minirue-frontend PAGE /:param",
+      "minirue-frontend PAGE /:param/:param"
     ],
     "surfaces": [
       "minirue-frontend"
