@@ -57,6 +57,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/pages/:slug", destination: "/:slug", permanent: true },
+      // A partner used to live at /brands/<slug>; they now own /<slug>
+      // outright. Permanent so anything already shared — a link in an
+      // Instagram bio, an existing Google result — keeps landing, and so the
+      // ranking follows the new address rather than splitting across two.
+      { source: "/brands/:slug", destination: "/:slug", permanent: true },
     ];
   },
   reactCompiler: true,

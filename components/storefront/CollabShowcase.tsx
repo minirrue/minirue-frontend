@@ -210,7 +210,7 @@ export default function CollabShowcase({
           )}
         </div>
         <Link
-          href={`/brands/${encodeURIComponent(tab.brandSlug)}`}
+          href={`/${encodeURIComponent(tab.brandSlug)}`}
           style={{
             fontFamily: 'var(--mr-font-label)',
             fontSize: 11,

@@ -1,34 +1,110 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import StorefrontPageView from '@/components/storefront/StorefrontPageView';
-import { fetchStorefrontPage } from '@/lib/api/storefront';
+import AnnouncementBar from '@/components/layout/AnnouncementBar';
+import FooterWithSettings from '@/components/layout/FooterWithSettings';
+import HeaderWrapper from '@/app/products/HeaderWrapper';
+import SpaceView from './SpaceView';
+import { fetchSpace, fetchStorefrontPage } from '@/lib/api/storefront';
+import { apiGetPublicSettings } from '@/lib/api/settings';
 import { stripMarkdown } from '@/lib/storefront/strip-markdown';
 
 /**
- * Canonical route for admin-authored pages: minirueshop.com/<slug>, not
- * /pages/<slug>. Static segments (/products, /cart, /account, …) still win over
- * this dynamic one, so it only ever catches slugs Next has no real route for —
- * and 404s when no page owns that slug.
+ * Two different things live at minirueshop.com/<slug>:
+ *
+ *   /helia   — a partner's own shop (a "space")
+ *   /terms   — an admin-authored page
+ *
+ * Static segments (/products, /cart, /account, …) still win over this dynamic
+ * route, so it only catches slugs Next has no real route for.
+ *
+ * A space is tried first. Collisions are impossible by construction — the
+ * backend guards the whole root namespace in both directions since
+ * minirue-backend@0.48.0, so a page cannot take `helia` and a partner cannot
+ * take `terms` — and if a partner ever did vanish, 404ing is far better than
+ * silently rendering an unrelated page under their address.
  */
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const page = await fetchStorefrontPage(slug);
-  if (!page) {
-    return { title: 'Page not found' };
+  const { slug: raw } = await params;
+  const slug = decodeURIComponent(raw);
+
+  const space = await fetchSpace(slug).catch(() => null);
+  if (space) {
+    const description =
+      space.space.description?.trim() || `Shop ${space.space.name} at MiniRue.`;
+    return {
+      title: `${space.space.name} — MiniRue`,
+      description,
+      // The reason the address is /helia and not /brands/helia: a root-level
+      // path is what makes a search for the partner's own name land here.
+      alternates: { canonical: `/${slug}` },
+      openGraph: {
+        title: `${space.space.name} | MiniRue`,
+        description,
+        type: 'website',
+      },
+    };
   }
-  return {
-    title: `${page.title} — MiniRue`,
-    description: stripMarkdown(page.body).slice(0, 150),
-    alternates: { canonical: `/${slug}` },
-  };
+
+  const page = await fetchStorefrontPage(slug).catch(() => null);
+  if (page) {
+    return {
+      title: `${page.title} — MiniRue`,
+      description: stripMarkdown(page.body).slice(0, 150),
+      alternates: { canonical: `/${slug}` },
+    };
+  }
+
+  return { title: 'Page not found' };
 }
 
 export default async function StorefrontSlugPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { slug: raw } = await params;
+  const slug = decodeURIComponent(raw);
+
+  // Opt out of the partially-prerendered shell. On the old brand page the
+  // resumed tree never matched the stored shell, so React discarded the server
+  // HTML and the page rendered blank — same risk here, same fix. See the note
+  // in app/products/[slug]/page.tsx.
+  await connection();
+
+  const space = await fetchSpace(slug).catch(() => null);
+
+  if (space) {
+    let storefrontAnnouncement = null as
+      | Awaited<ReturnType<typeof apiGetPublicSettings>>['storefront']
+      | null;
+    try {
+      const settings = await apiGetPublicSettings();
+      storefrontAnnouncement = settings.storefront;
+    } catch {
+      /* AnnouncementBar has its own defaults */
+    }
+
+    return (
+      <div className="mr-page-sheet">
+        <AnnouncementBar
+          messages={storefrontAnnouncement?.announcementMessages}
+          enabled={storefrontAnnouncement?.announcementEnabled ?? true}
+          linkUrl={storefrontAnnouncement?.announcementLinkUrl}
+          background={storefrontAnnouncement?.announcementBackground}
+        />
+        <HeaderWrapper />
+        <SpaceView
+          space={space.space}
+          categories={space.categories}
+          brands={space.brands}
+        />
+        <FooterWithSettings />
+      </div>
+    );
+  }
+
   const page = await fetchStorefrontPage(slug);
   if (!page) notFound();
   return <StorefrontPageView title={page.title} body={page.body} />;

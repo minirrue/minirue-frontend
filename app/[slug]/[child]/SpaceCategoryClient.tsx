@@ -1,23 +1,30 @@
 'use client';
 
 import React from 'react';
+import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
 import { catalog } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
-import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
 
-interface BrandSectionClientProps {
-  brand: string;
+/**
+ * The products inside one of a space's own categories, with load-more.
+ *
+ * Lifted straight from BrandSectionClient, which did the same job for the old
+ * /brands/<slug> page — same grid, same paging, same trace-id shape — so the
+ * two pages behave identically and there is only ever one grid to maintain.
+ */
+interface SpaceCategoryClientProps {
+  categoryId: string;
   initialProducts: ApiProduct[];
   initialHasMore: boolean;
   initialCursor: string | null;
 }
 
-export default function BrandSectionClient({
-  brand,
+export default function SpaceCategoryClient({
+  categoryId,
   initialProducts,
   initialHasMore,
   initialCursor,
-}: BrandSectionClientProps) {
+}: SpaceCategoryClientProps) {
   const [products, setProducts] = React.useState(initialProducts);
   const [hasMore, setHasMore] = React.useState(initialHasMore);
   const [cursor, setCursor] = React.useState(initialCursor);
@@ -27,7 +34,11 @@ export default function BrandSectionClient({
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await catalog.listProducts({ brand, cursor, limit: 24 });
+      const res = await catalog.listProducts({
+        categoryId,
+        cursor,
+        limit: 24,
+      });
       setProducts((prev) => [...prev, ...res.data]);
       setHasMore(res.meta.hasMore);
       setCursor(res.meta.cursor);
@@ -42,10 +53,10 @@ export default function BrandSectionClient({
       hasMore={hasMore}
       onLoadMore={loadMore}
       loadingMore={loadingMore}
-      emptyMessage="No products yet from this brand."
-      listTraceId="PG-STOREFRONT-CAT-002::EL-LIST-brand-product-grid"
-      cardTraceIdPrefix="PG-STOREFRONT-CAT-002::EL-CARD-product-card"
-      loadMoreTraceId="PG-STOREFRONT-CAT-002::EL-BTN-load-more-products"
+      emptyMessage="No products in this category yet."
+      listTraceId="PG-STOREFRONT-SPACE-002::EL-LIST-space-category-grid"
+      cardTraceIdPrefix="PG-STOREFRONT-SPACE-002::EL-CARD-product-card"
+      loadMoreTraceId="PG-STOREFRONT-SPACE-002::EL-BTN-load-more-products"
     />
   );
 }

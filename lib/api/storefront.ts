@@ -261,3 +261,82 @@ export async function fetchStorefrontPage(slug: string): Promise<StorefrontPageC
   }
   return res.json() as Promise<StorefrontPageContent>;
 }
+
+/* ── Spaces ──
+   A space is a seller: MiniRue, or a partner like Helia. It owns brands and its
+   own categories, and lives at /<slug>. Replaces the old /brands/<slug> route,
+   where a partner WAS a single brand and the page hardcoded "Perfumes" above
+   every one of them regardless of what they actually sold. */
+
+export interface StorefrontSpace {
+  /** null = MiniRue, which renders at the domain root rather than /minirue. */
+  id: string | null;
+  slug: string;
+  name: string;
+  kind: 'HOUSE' | 'PARTNER';
+  description: string | null;
+  logoUrl: string | null;
+}
+
+export interface StorefrontSpaceCategory {
+  id: string;
+  slug: string;
+  name: string;
+  sortOrder: number;
+  /** Already a servable URL — the backend resolves the gallery item and asks
+   *  imgproxy for a 480px square, since these render as a grid on a phone. */
+  imageUrl: string | null;
+}
+
+export interface StorefrontSpaceBrand {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+}
+
+export interface StorefrontSpaceDetail {
+  space: StorefrontSpace;
+  categories: StorefrontSpaceCategory[];
+  brands: StorefrontSpaceBrand[];
+}
+
+/** The space at /<slug>, or null when nothing lives there. */
+export async function fetchSpace(slug: string): Promise<StorefrontSpaceDetail | null> {
+  const res = await fetch(`${BASE}/storefront/spaces/${encodeURIComponent(slug)}`, {
+    next: { revalidate: 60 },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to load space "${slug}": ${res.status}`);
+  return res.json() as Promise<StorefrontSpaceDetail>;
+}
+
+/** Every space a shopper can reach. Feeds the sitemap. */
+export async function fetchSpaces(): Promise<StorefrontSpace[]> {
+  const res = await fetch(`${BASE}/storefront/spaces`, { next: { revalidate: 300 } });
+  if (!res.ok) throw new Error(`Failed to load spaces: ${res.status}`);
+  const body = (await res.json()) as { data: StorefrontSpace[] };
+  return body.data;
+}
+
+export type SpaceChild =
+  | { space: StorefrontSpace; kind: 'category'; category: StorefrontSpaceCategory }
+  | { space: StorefrontSpace; kind: 'product'; productId: string };
+
+/**
+ * What /<space>/<child> is. The URL alone cannot say whether /helia/jewellery
+ * is a category or a product, so the server decides — category wins a tie.
+ */
+export async function fetchSpaceChild(
+  slug: string,
+  child: string,
+): Promise<SpaceChild | null> {
+  const res = await fetch(
+    `${BASE}/storefront/spaces/${encodeURIComponent(slug)}/resolve/${encodeURIComponent(child)}`,
+    { next: { revalidate: 60 } },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to resolve /${slug}/${child}: ${res.status}`);
+  return res.json() as Promise<SpaceChild>;
+}

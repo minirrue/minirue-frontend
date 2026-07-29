@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { catalog } from "@/lib/api/catalog";
-import { apiListPublicBrands } from "@/lib/api/collaborators";
+import { fetchSpace, fetchSpaces } from "@/lib/api/storefront";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -76,18 +76,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    const brands = await apiListPublicBrands();
-    for (const brand of brands) {
+    // Partners live at /<slug> now, not /brands/<slug> — a root-level path is
+    // the whole reason that address was chosen, and indexing the old one would
+    // point Google at a permanent redirect. Their own categories are listed
+    // too: /helia/jewellery is a real page with its own products.
+    const spaces = await fetchSpaces();
+    for (const space of spaces) {
+      if (space.kind === 'HOUSE') continue; // the house IS the domain root
       entries.push({
-        url: `${BASE_URL}/brands/${brand.brandSlug}`,
+        url: `${BASE_URL}/${space.slug}`,
         lastModified: new Date(),
         changeFrequency: "weekly",
-        priority: 0.6,
+        priority: 0.7,
       });
-      searchTerms.add(brand.brandName);
+      searchTerms.add(space.name);
+
+      try {
+        const detail = await fetchSpace(space.slug);
+        for (const category of detail?.categories ?? []) {
+          entries.push({
+            url: `${BASE_URL}/${space.slug}/${category.slug}`,
+            lastModified: new Date(),
+            changeFrequency: "weekly",
+            priority: 0.6,
+          });
+        }
+      } catch {
+        // One partner's categories failing must not empty the whole sitemap.
+      }
     }
   } catch (err) {
-    console.error("[sitemap] apiListPublicBrands FAILED — no brand URLs in sitemap:", err);
+    console.error("[sitemap] fetchSpaces FAILED — no partner URLs in sitemap:", err);
   }
 
   for (const term of searchTerms) {
