@@ -35,9 +35,8 @@ const DEBOUNCE_MS = 220;
 const PREVIEW_LIMIT = 6;
 const RECENT_KEY = 'mr:recent-searches';
 const RECENT_MAX = 5;
-const SHEET_EASE = 'cubic-bezier(0.7,0,0.2,1)';
-const ITEM_TRANSITION =
-  'transform 600ms cubic-bezier(0.075,0.82,0.165,1), opacity 600ms cubic-bezier(0.19,1,0.22,1)';
+// Shared with MobileNavSheet and MobileSheet — see lib/motion/sheet.ts.
+import { SHEET_EASE, ITEM_TRANSITION } from '@/lib/motion/sheet';
 
 /** Always the canonical form, so an internal link never points at a URL the
  *  destination page disowns via its own canonical tag. */

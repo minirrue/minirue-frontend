@@ -34,14 +34,9 @@ import type { ResolvedChrome, ResolvedNavItem } from '@/lib/api/storefront';
 import { useSheetDrag } from '@/lib/hooks/useSheetDrag';
 import NavProductTile from './NavProductTile';
 
-const SHEET_EASE = 'cubic-bezier(0.7,0,0.2,1)';
-const ITEM_TRANSITION =
-  'transform 600ms cubic-bezier(0.075,0.82,0.165,1), opacity 600ms cubic-bezier(0.19,1,0.22,1)';
-
-/** 300ms base + 100ms per item, capped so long menus stay snappy. */
-function itemDelay(index: number): string {
-  return `${Math.min(300 + index * 100, 900)}ms`;
-}
+// The timing lives in lib/motion/sheet.ts so this sheet, SearchSheet and any
+// new one share a single definition instead of three copies drifting apart.
+import { SHEET_EASE, ITEM_TRANSITION, itemDelay } from '@/lib/motion/sheet';
 
 interface MobileNavSheetProps {
   open: boolean;
