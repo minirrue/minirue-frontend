@@ -1,19 +1,24 @@
 'use client';
 
 import React from 'react';
-import { apiListPublicBrands, type PublicCollaboratorBrand } from '@/lib/api/collaborators';
-import { catalog, type ApiProduct } from '@/lib/api/catalog';
+import { catalog, mediaImageUrl, productBrand, type ApiProduct } from '@/lib/api/catalog';
 import type { SupportSubject } from '@/lib/support/support-context';
 
 /**
- * Starting a conversation: who it is for, optionally which product, and the first
- * message.
+ * Starting a conversation: which product it is about, and the first message.
  *
- * Before this the widget guessed — general questions all went to MiniRue and the
- * only way to reach a brand was to open a chat from one of their product pages.
- * A shopper who wanted to ask a partner something had no route to them.
+ * There used to be a "Who would you like to talk to?" select above this. It is
+ * gone, and it was never doing what it appeared to: for a question about a
+ * product the server derives the owner from the product itself and DISCARDS
+ * whatever the shopper picked, so the field only ever affected general
+ * questions — and a guest could never reach this form at all.
+ *
+ * Asking a shopper to choose a department is asking them to know the business.
+ * The product is the thing they actually know, and the product decides who
+ * answers.
  */
 export interface NewChatDraft {
+  /** Always null now: routing is derived server-side from the product. */
   collaboratorId: string | null;
   subject: SupportSubject | null;
   body: string;
@@ -27,6 +32,8 @@ interface Props {
   submitting?: boolean;
 }
 
+const TRACE = 'PG-STOREFRONT-SUP-001';
+
 function productSubject(product: ApiProduct): SupportSubject {
   return {
     productId: product.id,
@@ -34,34 +41,55 @@ function productSubject(product: ApiProduct): SupportSubject {
   };
 }
 
+const fieldStyle: React.CSSProperties = {
+  font: 'inherit',
+  // 16px stops iOS zooming the whole page when the field takes focus.
+  fontSize: 16,
+  padding: '11px 12px',
+  borderRadius: 10,
+  border: '1px solid var(--mr-line)',
+  background: 'var(--mr-bg)',
+  color: 'var(--mr-fg)',
+  width: '100%',
+  minWidth: 0,
+};
+
+const resultRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  width: '100%',
+  // The thumbnail sets the target height, well past the 44px tap floor.
+  minHeight: 56,
+  padding: '8px 10px',
+  border: '1px solid transparent',
+  borderRadius: 10,
+  background: 'transparent',
+  textAlign: 'left',
+  cursor: 'pointer',
+  font: 'inherit',
+  color: 'inherit',
+};
+
 export default function NewChatComposer({
   pageSubject,
   onSubmit,
   onCancel,
   submitting,
 }: Props) {
-  const [brands, setBrands] = React.useState<PublicCollaboratorBrand[]>([]);
-  const [collaboratorId, setCollaboratorId] = React.useState('');
   const [body, setBody] = React.useState('');
   const [subject, setSubject] = React.useState<SupportSubject | null>(pageSubject);
+  const [picked, setPicked] = React.useState<ApiProduct | null>(null);
+  /** Set by "Just a general question": the shopper has said no product applies. */
+  const [general, setGeneral] = React.useState(false);
 
-  // Product search, only opened if the shopper wants to attach one.
-  const [productQuery, setProductQuery] = React.useState('');
+  const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<ApiProduct[]>([]);
   const [searching, setSearching] = React.useState(false);
 
-  React.useEffect(() => {
-    // Only storefront-visible active brands come back, which is exactly the set
-    // the API will accept — anything else is refused as "not available for
-    // support", so offering it would be a trap.
-    apiListPublicBrands()
-      .then(setBrands)
-      .catch(() => setBrands([]));
-  }, []);
-
   // Debounced so typing does not fire a request per keystroke.
   React.useEffect(() => {
-    const q = productQuery.trim();
+    const q = query.trim();
     if (!q) {
       setResults([]);
       return;
@@ -70,16 +98,24 @@ export default function NewChatComposer({
     const t = setTimeout(() => {
       catalog
         .search(q)
-        // Five is enough to pick from inside a chat panel; more turns the
-        // composer into a search page.
+        // Five fits a chat panel; more turns this into a search page.
         .then((res) => setResults((res.data ?? []).slice(0, 5)))
         .catch(() => setResults([]))
         .finally(() => setSearching(false));
     }, 250);
     return () => clearTimeout(t);
-  }, [productQuery]);
+  }, [query]);
 
-  const canSend = !!body.trim() && !submitting;
+  const chosen = subject !== null || general;
+  const canSend = !!body.trim() && chosen && !submitting;
+
+  function pick(product: ApiProduct) {
+    setPicked(product);
+    setSubject(productSubject(product));
+    setGeneral(false);
+    setQuery('');
+    setResults([]);
+  }
 
   return (
     <form
@@ -87,7 +123,9 @@ export default function NewChatComposer({
         e.preventDefault();
         if (!canSend) return;
         onSubmit({
-          collaboratorId: collaboratorId || null,
+          // Never sent: an ITEM thread is routed by the product's own owner,
+          // and a general question goes to MiniRue.
+          collaboratorId: null,
           subject,
           body: body.trim(),
         });
@@ -95,154 +133,202 @@ export default function NewChatComposer({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 12,
+        gap: 14,
         padding: 14,
         overflowY: 'auto',
         minHeight: 0,
       }}
+      data-trace-id={`${TRACE}::EL-FORM-new-chat`}
     >
-      <label style={labelStyle}>
-        <span style={labelTextStyle}>Who would you like to talk to?</span>
-        <select
-          value={collaboratorId}
-          onChange={(e) => setCollaboratorId(e.target.value)}
-          style={controlStyle}
-          data-trace-id="PG-STOREFRONT-SUP-001::EL-FIELD-new-chat-brand"
-        >
-          <option value="">MiniRue</option>
-          {brands.map((b) => (
-            <option key={b.collaboratorId} value={b.collaboratorId}>
-              {b.brandName}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div style={labelStyle}>
-        <span style={labelTextStyle}>About a product? (optional)</span>
-        {subject ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 10px',
-              border: '1px solid var(--mr-hairline)',
-              borderRadius: 8,
-              background: 'var(--mr-cream-200)',
-              fontSize: 12,
-              color: 'var(--mr-ink-900)',
-              fontFamily: 'Inter Tight, sans-serif',
-            }}
-          >
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {String(subject.subjectSnapshot?.['name'] ?? 'Selected product')}
+      {!chosen ? (
+        <>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 13, color: 'var(--mr-fg-2)' }}>
+              What is it about?
             </span>
-            <button
-              type="button"
-              onClick={() => {
-                setSubject(null);
-                setProductQuery('');
-              }}
-              style={{
-                border: 'none',
-                background: 'none',
-                cursor: 'pointer',
-                fontSize: 11,
-                color: 'var(--mr-ink-400)',
-              }}
-            >
-              Remove
-            </button>
-          </div>
-        ) : (
-          <>
             <input
-              type="search"
-              value={productQuery}
-              onChange={(e) => setProductQuery(e.target.value)}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Search for a product…"
-              style={controlStyle}
-              data-trace-id="PG-STOREFRONT-SUP-001::EL-FIELD-new-chat-product"
+              autoFocus
+              style={fieldStyle}
+              data-trace-id={`${TRACE}::EL-FIELD-new-chat-product`}
             />
-            {productQuery.trim() && (
-              <div
-                style={{
-                  border: '1px solid var(--mr-hairline)',
-                  borderRadius: 8,
-                  marginTop: 6,
-                  maxHeight: 132,
-                  overflowY: 'auto',
-                }}
-              >
-                {searching && results.length === 0 ? (
-                  <p style={hintStyle}>Searching…</p>
-                ) : results.length === 0 ? (
-                  <p style={hintStyle}>No product matches that.</p>
-                ) : (
-                  results.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setSubject(productSubject(p));
-                        setProductQuery('');
-                        setResults([]);
-                      }}
+          </label>
+
+          {searching && query.trim() && (
+            <span style={{ fontSize: 13, color: 'var(--mr-fg-3)' }}>Searching…</span>
+          )}
+
+          {!searching && query.trim() && results.length === 0 && (
+            <span style={{ fontSize: 13, color: 'var(--mr-fg-3)' }}>
+              Nothing matched. Try another word, or ask a general question below.
+            </span>
+          )}
+
+          {results.length > 0 && (
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+              data-trace-id={`${TRACE}::EL-LIST-new-chat-products`}
+            >
+              {results.map((p) => {
+                const image = p.media?.[0]
+                  ? mediaImageUrl(p.media[0], { w: 112, h: 112 })
+                  : null;
+                const brand = productBrand(p);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    style={resultRowStyle}
+                    onClick={() => pick(p)}
+                    data-trace-id={`${TRACE}::EL-BTN-pick-product@${p.id}`}
+                  >
+                    <span
+                      aria-hidden="true"
                       style={{
-                        display: 'block',
-                        width: '100%',
-                        textAlign: 'left',
-                        padding: '8px 10px',
-                        border: 'none',
-                        borderBottom: '1px solid var(--mr-hairline)',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        fontFamily: 'Inter Tight, sans-serif',
-                        fontSize: 12,
-                        color: 'var(--mr-ink-900)',
+                        width: 56,
+                        height: 56,
+                        flexShrink: 0,
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        background: 'var(--mr-bg-2, #f4f1ec)',
                       }}
                     >
-                      {p.name}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+                      {image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={image}
+                          alt=""
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                      ) : null}
+                    </span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: 14 }}>{p.name}</span>
+                      {brand && (
+                        <span
+                          style={{ display: 'block', fontSize: 12, color: 'var(--mr-fg-3)' }}
+                        >
+                          {brand}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-      <label style={labelStyle}>
-        <span style={labelTextStyle}>Your message</span>
+          {/* The escape hatch. Someone whose question is not about a product
+              should not have to search for one to get past this step. */}
+          <button
+            type="button"
+            onClick={() => setGeneral(true)}
+            style={{
+              alignSelf: 'flex-start',
+              font: 'inherit',
+              fontSize: 13,
+              minHeight: 44,
+              padding: '0 14px',
+              borderRadius: 10,
+              border: '1px solid var(--mr-line)',
+              background: 'transparent',
+              color: 'var(--mr-fg-2)',
+              cursor: 'pointer',
+            }}
+            data-trace-id={`${TRACE}::EL-BTN-general-question`}
+          >
+            Just a general question
+          </button>
+        </>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ minWidth: 0, flex: 1, fontSize: 14 }}>
+            {picked ? (
+              <>
+                About <strong>{picked.name}</strong>
+                {productBrand(picked) && (
+                  <span style={{ color: 'var(--mr-fg-3)' }}> · {productBrand(picked)}</span>
+                )}
+              </>
+            ) : subject ? (
+              <>
+                About{' '}
+                <strong>
+                  {/* subjectSnapshot is an untyped record — it comes back from
+                      the API as-is — so the name is narrowed rather than
+                      assumed. */}
+                  {typeof subject.subjectSnapshot?.name === 'string'
+                    ? subject.subjectSnapshot.name
+                    : 'this product'}
+                </strong>
+              </>
+            ) : (
+              'A general question'
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setPicked(null);
+              setSubject(null);
+              setGeneral(false);
+            }}
+            style={{
+              font: 'inherit',
+              fontSize: 13,
+              minHeight: 44,
+              padding: '0 10px',
+              border: 0,
+              background: 'none',
+              color: 'var(--mr-fg-3)',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+            data-trace-id={`${TRACE}::EL-BTN-change-subject`}
+          >
+            Change
+          </button>
+        </div>
+      )}
+
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span style={{ fontSize: 13, color: 'var(--mr-fg-2)' }}>Your message</span>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={4}
           placeholder="How can we help?"
-          style={{ ...controlStyle, resize: 'vertical', minHeight: 76 }}
-          data-trace-id="PG-STOREFRONT-SUP-001::EL-FIELD-new-chat-body"
+          style={{ ...fieldStyle, resize: 'vertical' }}
+          data-trace-id={`${TRACE}::EL-FIELD-new-chat-body`}
         />
       </label>
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button
           type="submit"
           disabled={!canSend}
           style={{
-            flex: 1,
-            padding: '10px 14px',
-            border: 'none',
-            borderRadius: 8,
-            background: 'var(--mr-ink-900)',
-            color: 'var(--mr-cream-100)',
-            fontFamily: 'Jost, sans-serif',
-            fontSize: 11,
-            letterSpacing: '0.16em',
+            font: 'inherit',
+            fontSize: 13,
+            letterSpacing: '0.08em',
             textTransform: 'uppercase',
+            minHeight: 48,
+            padding: '0 20px',
+            borderRadius: 10,
+            border: 0,
+            background: canSend ? 'var(--mr-fg)' : 'var(--mr-fg-4, #9a938a)',
+            color: 'var(--mr-bg, #fff)',
             cursor: canSend ? 'pointer' : 'not-allowed',
-            opacity: canSend ? 1 : 0.5,
+            flex: '1 1 auto',
           }}
+          data-trace-id={`${TRACE}::EL-BTN-start-conversation`}
         >
           {submitting ? 'Sending…' : 'Start conversation'}
         </button>
@@ -250,15 +336,14 @@ export default function NewChatComposer({
           type="button"
           onClick={onCancel}
           style={{
-            padding: '10px 14px',
-            border: '1px solid var(--mr-hairline)',
-            borderRadius: 8,
+            font: 'inherit',
+            fontSize: 13,
+            minHeight: 48,
+            padding: '0 16px',
+            borderRadius: 10,
+            border: '1px solid var(--mr-line)',
             background: 'transparent',
-            fontFamily: 'Jost, sans-serif',
-            fontSize: 11,
-            letterSpacing: '0.16em',
-            textTransform: 'uppercase',
-            color: 'var(--mr-ink-400)',
+            color: 'var(--mr-fg-2)',
             cursor: 'pointer',
           }}
         >
@@ -268,36 +353,3 @@ export default function NewChatComposer({
     </form>
   );
 }
-
-const labelStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 5,
-};
-
-const labelTextStyle: React.CSSProperties = {
-  fontFamily: 'Inter Tight, sans-serif',
-  fontSize: 10,
-  color: 'var(--mr-ink-400)',
-};
-
-const controlStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--mr-hairline)',
-  borderRadius: 8,
-  padding: '8px 10px',
-  outline: 'none',
-  fontFamily: 'Inter Tight, sans-serif',
-  fontSize: 12,
-  color: 'var(--mr-ink-900)',
-  background: 'var(--mr-cream-200)',
-  boxSizing: 'border-box',
-};
-
-const hintStyle: React.CSSProperties = {
-  margin: 0,
-  padding: '8px 10px',
-  fontFamily: 'Inter Tight, sans-serif',
-  fontSize: 11,
-  color: 'var(--mr-ink-400)',
-};
