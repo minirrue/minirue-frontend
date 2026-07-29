@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { catalog } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import SearchResultsSchema from '@/components/seo/SearchResultsSchema';
 import { JsonLd } from '@/components/seo/JsonLd';
+import { normalizeSearchTerm, searchCanonicalPath } from '@/lib/search/query';
+import { getSearchResults, isIndexableSearchPage } from './search-data';
 import SearchResultsClient from './SearchResultsClient';
 
 const BASE_URL = 'https://minirueshop.com';
@@ -22,9 +23,10 @@ function first(v: string | string[] | undefined): string {
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const { q } = await searchParams;
-  const query = first(q).trim();
+  const raw = first(q);
+  const term = normalizeSearchTerm(raw);
 
-  if (!query) {
+  if (!term) {
     // The bare /search page has no content of its own — it is a form. Indexing
     // it competes with the query pages that DO answer something, so it stays
     // out of the index while still passing link equity through.
@@ -36,52 +38,63 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     };
   }
 
-  // Brand-first title: the query a shopper typed into Google is usually
-  // "<brand> <thing>", so leading with the term and closing with MiniRue is
-  // what matches the query text in the SERP.
-  const title = `${query} — MiniRue`;
-  const description = `Shop ${query} at MiniRue. Original quality perfumes and cosmetics, with free worldwide shipping.`;
-  const canonical = `/search?q=${encodeURIComponent(query)}`;
+  // Deduped with the page body below — one API call serves both.
+  const outcome = await getSearchResults(term);
+  const indexable = isIndexableSearchPage(term, outcome);
+
+  // Term-first title: the phrase a shopper typed into Google is what has to
+  // match the SERP line, so it leads and the brand closes.
+  const title = `${term} — MiniRue`;
+  const description = indexable
+    ? `${outcome.total} product${outcome.total === 1 ? '' : 's'} matching “${term}” at MiniRue. Original quality perfumes and cosmetics, with free worldwide shipping.`
+    : `Search results for “${term}” at MiniRue.`;
+  // Canonical is built from the NORMALISED term, not the one in the address
+  // bar. ?q=Dior and ?q=dior therefore both point at ?q=dior — one page
+  // collecting the signals instead of two splitting them.
+  const canonical = searchCanonicalPath(term);
 
   return {
     title,
     description,
-    // Self-referential canonical on the exact query URL. Without it, every
-    // /search?q=… variant (different casing, extra params) is a duplicate of
-    // every other and Google picks one at random — or none.
     alternates: { canonical },
-    robots: { index: true, follow: true },
+    // Only a page that answers something may be indexed. A junk term, a term
+    // with no matches, and a backend outage all land here as noindex — the
+    // outage case especially, since publishing "no results" during a blip
+    // tells Google this shop does not stock what it stocks. `follow` stays on
+    // so the product links on the page are still crawled either way.
+    robots: { index: indexable, follow: true },
     openGraph: {
       type: 'website',
       siteName: 'MiniRue',
       title,
       description,
       url: `${BASE_URL}${canonical}`,
+      // Named explicitly: a child route's `openGraph` replaces the root
+      // layout's wholesale, so omitting this silently ships search links with
+      // no share image at all.
+      images: [{ url: `${BASE_URL}/og-image.jpg`, width: 1200, height: 630, alt: 'MiniRue' }],
     },
-    twitter: { card: 'summary_large_image', title, description },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [`${BASE_URL}/og-image.jpg`],
+    },
   };
 }
 
 export default async function SearchPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const query = first(sp['q']).trim();
+  // The normalised term is what the page renders, links to and describes, so
+  // the visible page and the canonical URL can never disagree.
+  const query = normalizeSearchTerm(first(sp['q']));
 
   const queryClient = getQueryClient();
 
-  let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
-  let initialHasMore = false;
-  let initialCursor: string | null = null;
-
-  if (query) {
-    try {
-      const res = await catalog.search(query);
-      initialProducts = res.data;
-      initialHasMore = res.meta.hasMore;
-      initialCursor = res.meta.cursor;
-    } catch {
-      // API unavailable — show empty state
-    }
-  }
+  // Already resolved during generateMetadata — React's cache() makes this the
+  // same request, not a second one.
+  const outcome = await getSearchResults(query);
+  const { products: initialProducts, total, hasMore: initialHasMore, cursor: initialCursor } = outcome;
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -99,7 +112,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
                     '@type': 'ListItem',
                     position: 3,
                     name: query,
-                    item: `${BASE_URL}/search?q=${encodeURIComponent(query)}`,
+                    item: `${BASE_URL}${searchCanonicalPath(query)}`,
                   },
                 ],
               }}
@@ -173,6 +186,23 @@ export default async function SearchPage({ searchParams }: PageProps) {
                   crawler nothing that matches what was searched for. */}
               {query ? <>Results for &ldquo;{query}&rdquo;</> : 'Search'}
             </h1>
+            {/* Server-rendered, so the count is in the HTML a crawler reads.
+                The live count next to the input is the client's job and drifts
+                as the shopper keeps typing; this one describes the URL. */}
+            {query && outcome.ok && (
+              <p
+                style={{
+                  margin: 'var(--mr-sp-3) 0 0',
+                  fontFamily: 'var(--mr-font-ui)',
+                  fontSize: 'var(--mr-text-sm)',
+                  color: 'var(--mr-fg-3)',
+                }}
+              >
+                {total === 0
+                  ? `No products match “${query}” at MiniRue right now.`
+                  : `${total} product${total === 1 ? '' : 's'} matching “${query}” at MiniRue.`}
+              </p>
+            )}
           </div>
 
           <SearchResultsClient

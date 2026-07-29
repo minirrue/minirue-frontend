@@ -1,6 +1,12 @@
 import { JsonLd } from "./JsonLd";
 import type { ApiProduct } from "@/lib/api/catalog";
-import { lowestPrice, productBrand } from "@/lib/api/catalog";
+import {
+  lowestPrice,
+  mediaImageUrl,
+  primaryMedia,
+  productBrand,
+  variantInStock,
+} from "@/lib/api/catalog";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -40,13 +46,23 @@ export default function SearchResultsSchema({ query, products }: SearchResultsSc
       itemListElement: products.map((product, i) => {
         const price = lowestPrice(product);
         const brand = productBrand(product);
+        const media = primaryMedia(product);
+        const image = media ? mediaImageUrl(media, { w: 800, h: 1000 }) : null;
+        // In stock if ANY active variant is — a sold-out 50ml does not make the
+        // product unavailable when the 100ml is on the shelf.
+        const inStock = (product.variants ?? []).some(
+          (v) => v.isActive && variantInStock(v),
+        );
+        const productUrl = `${BASE_URL}/products/${product.slug}`;
         return {
           "@type": "ListItem",
           position: i + 1,
           item: {
             "@type": "Product",
             name: product.name,
-            url: `${BASE_URL}/products/${product.slug}`,
+            url: productUrl,
+            ...(image ? { image } : {}),
+            ...(product.description ? { description: product.description } : {}),
             ...(brand ? { brand: { "@type": "Brand", name: brand } } : {}),
             ...(price
               ? {
@@ -56,7 +72,11 @@ export default function SearchResultsSchema({ query, products }: SearchResultsSc
                     // parsing it to a float here would round money for SEO.
                     price: price.amount,
                     priceCurrency: price.currency,
-                    url: `${BASE_URL}/products/${product.slug}`,
+                    url: productUrl,
+                    itemCondition: "https://schema.org/NewCondition",
+                    availability: inStock
+                      ? "https://schema.org/InStock"
+                      : "https://schema.org/OutOfStock",
                   },
                 }
               : {}),

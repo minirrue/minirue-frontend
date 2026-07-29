@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { catalog } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
+import { searchCanonicalPath } from '@/lib/search/query';
 import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
 import Icon from '@/components/ui/Icon';
 
@@ -97,9 +98,9 @@ export default function SearchResultsClient({
       const q = term.trim();
       // replace(), not push(): typing should not fill the back stack with a
       // history entry per keystroke.
-      router.replace(q ? `/search?q=${encodeURIComponent(q)}` : '/search', {
-        scroll: false,
-      });
+      // Canonical form, so the address bar the shopper copies and shares is the
+      // same URL the page declares as its own.
+      router.replace(searchCanonicalPath(q), { scroll: false });
     }, DEBOUNCE_MS);
 
     return () => window.clearTimeout(handle);

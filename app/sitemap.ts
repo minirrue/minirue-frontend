@@ -1,6 +1,11 @@
 import type { MetadataRoute } from "next";
 import { catalog } from "@/lib/api/catalog";
 import { fetchSpace, fetchSpaces } from "@/lib/api/storefront";
+import {
+  isIndexableSearchTerm,
+  normalizeSearchTerm,
+  searchCanonicalPath,
+} from "@/lib/search/query";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -109,17 +114,45 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] fetchSpaces FAILED — no partner URLs in sitemap:", err);
   }
 
-  for (const term of searchTerms) {
-    const trimmed = term.trim();
-    if (!trimmed) continue;
+  // Two rules this loop exists to keep:
+  //
+  // 1. Submit the CANONICAL url, not a variant of it. `?q=Perfumes` canonicalises
+  //    to `?q=perfumes`, so submitting the capitalised one asks Google to index a
+  //    URL the page itself disowns.
+  // 2. Submit only pages that will actually be indexable. A search page with zero
+  //    results is `noindex` by design, and listing a noindex URL in a sitemap is
+  //    the same self-contradiction as listing a robots-blocked one — the very
+  //    thing the note at the top of this file warns about. So each term is
+  //    verified against the real search endpoint before it is included.
+  const verified = await Promise.all(
+    [...searchTerms].map(async (raw) => {
+      const term = normalizeSearchTerm(raw);
+      if (!isIndexableSearchTerm(term)) return null;
+      try {
+        const res = await catalog.search(term);
+        return res.meta.total > 0 ? term : null;
+      } catch {
+        // Unverifiable is not the same as empty, but a term we could not check
+        // is one we should not vouch for in a sitemap.
+        return null;
+      }
+    }),
+  );
+
+  const includedTerms = [...new Set(verified.filter((t): t is string => t !== null))];
+  for (const term of includedTerms) {
     entries.push({
-      url: `${BASE_URL}/search?q=${encodeURIComponent(trimmed)}`,
+      url: `${BASE_URL}${searchCanonicalPath(term)}`,
       lastModified: new Date(),
       changeFrequency: "weekly",
-      // Below the canonical /categories and /brands pages on purpose: a search
+      // Below the canonical /categories and partner pages on purpose: a search
       // URL is a second route to the same goods, not a competitor to them.
       priority: 0.4,
     });
+  }
+  const skipped = searchTerms.size - includedTerms.length;
+  if (skipped > 0) {
+    console.warn(`[sitemap] ${skipped} search term(s) skipped — no results or unverifiable.`);
   }
 
   console.log(`[sitemap] generated ${entries.length} URLs.`);

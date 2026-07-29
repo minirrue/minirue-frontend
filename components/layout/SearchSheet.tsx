@@ -28,6 +28,7 @@ import IconButton from '@/components/ui/IconButton';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import { catalog, mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
+import { searchCanonicalPath } from '@/lib/search/query';
 
 const DEBOUNCE_MS = 220;
 const PREVIEW_LIMIT = 6;
@@ -37,8 +38,10 @@ const SHEET_EASE = 'cubic-bezier(0.7,0,0.2,1)';
 const ITEM_TRANSITION =
   'transform 600ms cubic-bezier(0.075,0.82,0.165,1), opacity 600ms cubic-bezier(0.19,1,0.22,1)';
 
+/** Always the canonical form, so an internal link never points at a URL the
+ *  destination page disowns via its own canonical tag. */
 export function searchHref(term: string): string {
-  return `/search?q=${encodeURIComponent(term)}`;
+  return searchCanonicalPath(term);
 }
 
 function readRecent(): string[] {
