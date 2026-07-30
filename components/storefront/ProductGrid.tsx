@@ -15,7 +15,6 @@ interface ProductGridProps {
   brands: ResolvedBrandCard[];
   display: 'products' | 'brands';
   viewAllHref: string | null;
-  onSelect: (product: ApiProduct) => void;
 }
 
 export default function ProductGrid({
@@ -25,7 +24,6 @@ export default function ProductGrid({
   brands,
   display,
   viewAllHref,
-  onSelect,
 }: ProductGridProps) {
   const head = useScrollReveal({ from: { y: 20, opacity: 0, scale: 1 } });
   const { mobile, w } = useBreakpoint();
@@ -96,7 +94,6 @@ export default function ProductGrid({
                 key={p.id as string}
                 product={p as unknown as ApiProduct}
                 index={i}
-                onClick={() => onSelect(p as unknown as ApiProduct)}
               />
             ))}
       </div>

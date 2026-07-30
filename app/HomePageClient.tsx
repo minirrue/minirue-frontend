@@ -1,11 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import HomeView from '@/components/storefront/HomeView';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import Footer from '@/components/layout/Footer';
-import type { ApiProduct } from '@/lib/api/catalog';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
 import type { ResolvedHome } from '@/lib/api/storefront';
 import { useStorefrontHome, useStorefrontChrome } from '@/lib/hooks/use-storefront';
@@ -17,7 +15,6 @@ const EMPTY_HOME: ResolvedHome = {
 };
 
 export default function HomePageClient() {
-  const router = useRouter();
   const { itemCount, openDrawer } = useCart();
 
   // The server already prefetched and dehydrated these queries (app/page.tsx),
@@ -26,10 +23,6 @@ export default function HomePageClient() {
   // reflects an admin's save without a reload.
   const { data: home = EMPTY_HOME } = useStorefrontHome();
   const { data: chrome = FALLBACK_CHROME } = useStorefrontChrome();
-
-  const goToProduct = (product: ApiProduct) => {
-    router.push(`/products/${product.slug}`);
-  };
 
   // The header's light/transparent treatment only reads correctly on top of
   // a dark hero image. SectionRenderer drops a hero with no slides, so a
@@ -56,7 +49,7 @@ export default function HomePageClient() {
           cartCount={itemCount}
           transparent={heroLeadsPage}
         />
-        <HomeView home={home} onSelect={goToProduct} />
+        <HomeView home={home} />
       </div>
 
       <Footer config={chrome.footer} />

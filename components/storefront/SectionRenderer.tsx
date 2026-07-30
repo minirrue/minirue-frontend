@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import type { ApiProduct } from '@/lib/api/catalog';
 import type { ResolvedSection } from '@/lib/api/storefront';
 import Hero from './Hero';
 import Marquee from '@/components/ui/Marquee';
@@ -11,11 +10,9 @@ import CollabShowcase from './CollabShowcase';
 
 export default function SectionRenderer({
   section,
-  onSelect,
   onScrollToProducts,
 }: {
   section: ResolvedSection;
-  onSelect: (product: ApiProduct) => void;
   onScrollToProducts: () => void;
 }) {
   switch (section.type) {
@@ -52,7 +49,6 @@ export default function SectionRenderer({
           products={section.products}
           brands={section.brands}
           display={section.display}
-          onSelect={onSelect}
         />
       );
 
@@ -60,7 +56,7 @@ export default function SectionRenderer({
       return <EditorialBlock section={section} />;
 
     case 'collabShowcase':
-      return <CollabShowcase section={section} onSelect={onSelect} />;
+      return <CollabShowcase section={section} />;
 
     default:
       return null;

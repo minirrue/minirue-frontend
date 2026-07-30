@@ -12,7 +12,7 @@ import type { ResolvedHome } from '@/lib/api/storefront';
 describe('HomeView', () => {
   it('does not autofocus anything on mount', () => {
     const home = { sections: [], announcement: {} } as unknown as ResolvedHome;
-    render(<HomeView home={home} onSelect={() => {}} />);
+    render(<HomeView home={home} />);
     expect(document.activeElement).toBe(document.body);
   });
 });

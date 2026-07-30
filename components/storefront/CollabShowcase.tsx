@@ -16,10 +16,8 @@ export function stepIndex(current: number, direction: -1 | 1, length: number): n
 
 export default function CollabShowcase({
   section,
-  onSelect,
 }: {
   section: Section;
-  onSelect: (product: ApiProduct) => void;
 }) {
   const { mobile } = useBreakpoint();
   const [active, setActive] = React.useState(0);
@@ -243,7 +241,6 @@ export default function CollabShowcase({
               key={p.id as string}
               product={p as unknown as ApiProduct}
               index={i}
-              onClick={() => onSelect(p as unknown as ApiProduct)}
               traceIdPrefix="PG-STOREFRONT-COLLAB-002::EL-CARD-product-card"
             />
           ))}
