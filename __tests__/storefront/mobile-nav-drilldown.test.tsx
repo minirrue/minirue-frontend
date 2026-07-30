@@ -70,6 +70,40 @@ describe('MobileNavSheet — category drill-down', () => {
     expect(screen.getByRole('button', { name: /rose/i })).toBeInTheDocument();
   });
 
+  it('a category with no subcategories and no pinned products still drills in on its own real products', async () => {
+    // The reported bug: a shop that never pinned anything AND has no
+    // subcategories under a category (a very common, unconfigured state)
+    // used to fall through to a plain link. `item.products` — the
+    // category's own catalog products, resolved server-side, not
+    // admin-curated — must be enough on its own to open the panel.
+    const withProducts: ResolvedNavItem = {
+      id: 'nav-perfume',
+      label: 'Perfume',
+      href: '/categories/perfume',
+      products: [
+        { id: 'p1', slug: 'rose-absolue', name: 'Rose Absolue' } as unknown as Record<
+          string,
+          unknown
+        >,
+        { id: 'p2', slug: 'oud-royal', name: 'Oud Royal' } as unknown as Record<string, unknown>,
+      ],
+    };
+    renderSheet({ items: [withProducts], showSearch: true, showAccount: true });
+
+    expect(screen.queryByRole('link', { name: /^perfume$/i })).toBeNull();
+    const trigger = screen.getByRole('button', { name: /^perfume$/i });
+    await userEvent.click(trigger);
+
+    expect(screen.getByText('Rose Absolue')).toBeInTheDocument();
+    expect(screen.getByText('Oud Royal')).toBeInTheDocument();
+    // The category page must still be reachable even though the panel
+    // opened instead of navigating straight there.
+    expect(screen.getByRole('link', { name: /all perfume/i })).toHaveAttribute(
+      'href',
+      '/categories/perfume',
+    );
+  });
+
   it('a category with neither children nor pinned products is a plain link and navigates', () => {
     const plain: ResolvedNavItem = { id: 'nav-plain', label: 'Journal', href: '/journal' };
     renderSheet({ items: [plain], showSearch: true, showAccount: true });

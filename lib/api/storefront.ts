@@ -153,6 +153,15 @@ export interface ResolvedNavItem {
    * `featured`: a category with either drills in on the mobile sheet.
    */
   children?: ResolvedNavItem[];
+  /**
+   * Category items only: real published products in this exact category —
+   * not admin-curated (that's `featured`). Populated only for a leaf (no
+   * `children`), and only for whatever isn't already in `featured`, so a
+   * category with nothing pinned and no subcategories still has something to
+   * drill into on the mobile sheet instead of falling through to a plain
+   * link. Absent (not empty) when the category has none of its own.
+   */
+  products?: ResolvedProduct[];
 }
 
 /** Mirrors the storefront's own `components/ui/Icon.tsx` glyph names — not

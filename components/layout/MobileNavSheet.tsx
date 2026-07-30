@@ -29,11 +29,16 @@
  * gets the Home/Search/Account defaults, unchanged from before this existed.
  *
  * A category nav item drills in when it has real subcategories
- * (`item.children`, resolved from the catalog tree) or pinned products
- * (`item.featured`, admin-configured) — either is enough. Drilling is a
- * stack, not a single `drilledId`: a subcategory can itself have children,
- * so the shopper can go arbitrarily deep, with Escape / the back button
- * unwinding one level at a time.
+ * (`item.children`, resolved from the catalog tree), pinned products
+ * (`item.featured`, admin-configured), or — when a category has neither, the
+ * common case for a shop that never curated its nav — its own real products
+ * (`item.products`, resolved from the catalog). Any one is enough. Without
+ * that last fallback, a leaf category nobody pinned anything to had nothing
+ * to open a panel with and fell through to a plain link even though it was
+ * full of products — that was the reported bug ("Perfumes" navigating away
+ * instead of drilling). Drilling is a stack, not a single `drilledId`: a
+ * subcategory can itself have children, so the shopper can go arbitrarily
+ * deep, with Escape / the back button unwinding one level at a time.
  */
 
 import React from 'react';
@@ -93,12 +98,29 @@ interface MobileNavSheetProps {
   onOpenSearch: () => void;
 }
 
-/** Whether a nav item opens a drill-down panel — real subcategories or
- *  pinned products, either is enough. Shared by the root list and every
- *  nested panel, since a resolved child has the same shape as a top-level
- *  nav item. */
+/** Whether a nav item opens a drill-down panel — real subcategories, pinned
+ *  products, or (when neither was set up) the category's own real products,
+ *  any one is enough. Without `products` in this check, a category nobody
+ *  ever pinned anything to and that has no subcategories would still look
+ *  "flat" and fall through to a plain link — the exact bug this exists to
+ *  close. Shared by the root list and every nested panel, since a resolved
+ *  child has the same shape as a top-level nav item. */
 function canDrill(item: ResolvedNavItem): boolean {
-  return (item.children?.length ?? 0) > 0 || (item.featured?.length ?? 0) > 0;
+  return (
+    (item.children?.length ?? 0) > 0 ||
+    (item.featured?.length ?? 0) > 0 ||
+    (item.products?.length ?? 0) > 0
+  );
+}
+
+/** The product tiles a drill panel shows: admin-pinned first, then the
+ *  category's own real products (already excludes anything pinned — the
+ *  backend does that once so every reader doesn't have to). */
+function panelProducts(item: ResolvedNavItem): ApiProduct[] {
+  return [
+    ...((item.featured as unknown as ApiProduct[] | undefined) ?? []),
+    ...((item.products as unknown as ApiProduct[] | undefined) ?? []),
+  ];
 }
 
 export default function MobileNavSheet({
@@ -438,17 +460,15 @@ export default function MobileNavSheet({
                     />
                   </div>
                 ))}
-                {((item.featured as unknown as ApiProduct[] | undefined) ?? []).map(
-                  (product, i) => (
-                    <NavProductTile
-                      key={product.id}
-                      product={product}
-                      index={(item.children?.length ?? 0) + i}
-                      revealed={depth + 1 === drillPath.length}
-                      onNavigate={onClose}
-                    />
-                  ),
-                )}
+                {panelProducts(item).map((product, i) => (
+                  <NavProductTile
+                    key={product.id}
+                    product={product}
+                    index={(item.children?.length ?? 0) + i}
+                    revealed={depth + 1 === drillPath.length}
+                    onNavigate={onClose}
+                  />
+                ))}
               </div>
 
               <Link
@@ -475,7 +495,7 @@ export default function MobileNavSheet({
                   transition: ITEM_TRANSITION,
                   transitionDelay:
                     depth + 1 === drillPath.length
-                      ? itemDelay((item.children?.length ?? 0) + (item.featured?.length ?? 0))
+                      ? itemDelay((item.children?.length ?? 0) + panelProducts(item).length)
                       : '0ms',
                 }}
               >
