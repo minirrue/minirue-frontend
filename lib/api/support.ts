@@ -97,6 +97,14 @@ export interface StartSupportInput {
   guest?: { name: string; email: string; phoneCountry: string; phone: string };
   body: string;
   attachments?: SupportAttachmentDto[];
+  /**
+   * An explicit "New conversation" press, as opposed to the widget resuming
+   * or appending to whatever the customer already has open. Only the New
+   * conversation button sends this — the bootstrap auto-resume path never
+   * does, since opening the widget and typing is not the same instruction
+   * as pressing the button.
+   */
+  forceNew?: boolean;
 }
 
 export interface StartSupportResult {

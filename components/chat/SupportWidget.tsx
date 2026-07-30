@@ -348,7 +348,17 @@ export default function SupportWidget() {
       body: string,
       attachments?: ChatAttachment[],
       existingTempId?: string,
-      override?: { collaboratorId?: string | null; subject?: SubjectChoice },
+      override?: {
+        collaboratorId?: string | null;
+        subject?: SubjectChoice;
+        /**
+         * An explicit "New conversation" press. Only handleNewChat sets this —
+         * the bootstrap auto-resume path and the plain composer send never do,
+         * since opening the widget and typing is the IMPLICIT path the server
+         * still dedups, not an instruction to open another room.
+         */
+        forceNew?: boolean;
+      },
     ) => {
       const tempId = existingTempId ?? addOptimisticMessage(body, attachments);
       setSending(true);
@@ -366,6 +376,7 @@ export default function SupportWidget() {
             : {}),
           body,
           attachments,
+          ...(override?.forceNew ? { forceNew: true } : {}),
           // No `guest` field: starting a conversation needs an account, and
           // the server refuses a guest start outright (backend 0.53.x).
         });
@@ -449,9 +460,18 @@ export default function SupportWidget() {
 
       // No guest branch: a guest never reaches this composer, so the draft
       // always belongs to a signed-in customer.
+      //
+      // forceNew: true unconditionally — pressing "New conversation" is an
+      // explicit instruction the server now obeys with no conditions (owner
+      // decision, W1.6): not if the old thread is open, not if it's resolved,
+      // not if it's five minutes old. Every OTHER call to startConversation
+      // (the bootstrap auto-resume, the plain composer send) omits it, so the
+      // implicit "widget opened, message typed, button never pressed" path
+      // still dedups into the shopper's live thread exactly as before.
       void startConversation(draft.body, undefined, undefined, {
         collaboratorId: draft.collaboratorId,
         subject,
+        forceNew: true,
       }).then(() => {
         void loadConversations();
       });
