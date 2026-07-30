@@ -17,6 +17,7 @@ import { SupportProvider } from "@/lib/support/support-context";
 import SupportWidget from "@/components/chat/SupportWidget";
 import { AnnouncementBarProvider } from "@/components/layout/AnnouncementBar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -225,6 +226,7 @@ export default function RootLayout({
             </HydrationBoundary>
           </RootQueryProvider>
           <Analytics />
+          <AnalyticsProvider />
           <SpeedInsights />
         </Suspense>
       </body>
