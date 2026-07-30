@@ -125,8 +125,16 @@ export default function MobileSheet({
           position: 'absolute',
           inset: 0,
           background: 'rgba(11,11,11,0.5)',
-          backdropFilter: open ? 'blur(4px)' : 'blur(0)',
-          WebkitBackdropFilter: open ? 'blur(4px)' : 'blur(0)',
+          // `none`, not `blur(0)`, when closed. A backdrop-filter of any value
+          // — zero included — promotes this to its own compositing layer that
+          // keeps sampling everything behind it. This wrapper is z-index 60,
+          // above the site header at 50, so that layer sat over the top bar on
+          // every page whether or not a sheet was open.
+          backdropFilter: open ? 'blur(4px)' : 'none',
+          WebkitBackdropFilter: open ? 'blur(4px)' : 'none',
+          // Belt and braces with the opacity: a closed backdrop is not merely
+          // transparent, it is absent.
+          visibility: open ? 'visible' : 'hidden',
           opacity: open ? 1 - drag.progress : 0,
           transition: drag.dragging
             ? 'none'
@@ -155,10 +163,29 @@ export default function MobileSheet({
           transform: open
             ? `translateY(${Math.max(drag.offset, 0)}px)`
             : 'translateY(100%)',
+          // A closed sheet is HIDDEN, not merely pushed below the fold.
+          //
+          // translateY(100%) parks it just under the bottom of this wrapper,
+          // and the wrapper is `position: fixed; inset: 0` — which on a mobile
+          // browser is the SMALL viewport, measured with the URL bar showing.
+          // The moment any scroll collapses that bar the visual viewport grows
+          // taller than the fixed wrapper, the wrapper's bottom edge is no
+          // longer the bottom of the screen, and the sheet parked just beneath
+          // it slides into view as a blank rounded panel above the home
+          // indicator. That is why the tiniest scroll — the owner measured it
+          // at 0.000001 — was enough to reveal it on the home and space pages,
+          // where no sheet is open at all.
+          //
+          // `visibility` is delayed by the slide duration when closing, so the
+          // sheet is still painted while it animates out and only then stops
+          // existing visually. Opening flips it back with no delay.
+          visibility: open ? 'visible' : 'hidden',
           // No transition mid-drag: the sheet has to track the finger exactly.
           // It comes back for the release, which is what makes the snap-back and
           // the slide-out feel like the same object.
-          transition: drag.dragging ? 'none' : `transform ${SHEET_DURATION_MS}ms ${SHEET_EASE}`,
+          transition: drag.dragging
+            ? 'none'
+            : `transform ${SHEET_DURATION_MS}ms ${SHEET_EASE}, visibility 0s linear ${open ? 0 : SHEET_DURATION_MS}ms`,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

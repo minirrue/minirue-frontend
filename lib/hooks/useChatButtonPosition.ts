@@ -33,20 +33,45 @@ export interface ChatButtonPosition {
    *  (when `tucked`) which edge the button docks against. */
   edge: ChatButtonEdge;
   /**
-   * Whether the button is currently docked 50% off-screen against `edge`
-   * (true) vs. fully on screen wherever it was released (false). Decided
-   * once, when a drag settles, by proximity to the nearest viewport edge —
-   * see `EDGE_PROXIMITY_PX` in ChatButton.tsx — and then preserved verbatim
-   * by every re-clamp after that (resize, hydrate from storage) so a
-   * fully-visible button re-homes back to fully visible, not into a corner
-   * it was never dragged near.
+   * Whether the button is currently docked against `edge` — 20% off-screen,
+   * so 80% of it still shows — versus fully on screen wherever it was
+   * released. Decided once, when a drag settles, by whether the release
+   * landed inside `chatButtonEdgeBandPx` of the LEFT or RIGHT side, then
+   * preserved verbatim by every re-clamp after that (resize, hydrate from
+   * storage) so a fully-visible button re-homes back to fully visible, not
+   * into a corner it was never dragged near.
    */
   tucked: boolean;
 }
 
 export const CHAT_BUTTON_SIZE = 52;
-/** How far past the edge the button tucks — half its own width. */
-const TUCK_FRACTION = 0.5;
+/** The fraction of the button that goes PAST the edge when docked — so it
+ *  stays 80% visible. It was half, which hid enough of the icon that the
+ *  docked button read as broken rather than parked. */
+const TUCK_FRACTION = 0.2;
+
+/**
+ * The band running down the LEFT and RIGHT sides of the viewport, as a
+ * fraction of its width. It does two jobs, and they are the same number on
+ * purpose:
+ *
+ *   - Release the button INSIDE the band and it docks against that side, 20%
+ *     off-screen — 80% of it still shows.
+ *   - Release it OUTSIDE the band and it stays whole — resting no nearer the
+ *     side than the band's inner edge, so a fully-visible button always has
+ *     this much air beside it.
+ *
+ * Only the left and right sides count. Height is irrelevant: a bubble dropped
+ * low in the middle of the screen is not "at an edge", and treating it as one
+ * is why the button used to half-hide itself almost anywhere on a phone.
+ */
+export const CHAT_BUTTON_EDGE_BAND_VW = 0.04;
+
+/** The band in px for a given viewport width. Floored so the gutter never
+ *  collapses to nothing on a very narrow screen. */
+export function chatButtonEdgeBandPx(viewportW: number): number {
+  return Math.max(8, Math.round(viewportW * CHAT_BUTTON_EDGE_BAND_VW));
+}
 /** In px: exactly how far a tucked button sits off screen, and therefore how
  *  far a tap must shift it to bring it fully into view (ChatButton.tsx,
  *  Bug 2). Exported so that file doesn't hardcode a second copy of the same
@@ -99,8 +124,13 @@ export function clampChatButtonPosition(
     return { x, y, edge: pos.edge, tucked: true };
   }
 
-  const minX = 0;
-  const maxX = Math.max(minX, viewportW - size);
+  // Fully visible means fully visible WITH air beside it: the same band that
+  // decides whether to tuck is also the closest a whole button may rest to a
+  // side. Without this a button released just outside the band still sat
+  // flush against the glass, which reads as clipped even though it is not.
+  const band = chatButtonEdgeBandPx(viewportW);
+  const minX = band;
+  const maxX = Math.max(minX, viewportW - size - band);
   const x = Math.min(Math.max(pos.x, minX), maxX);
   return { x, y, edge: pos.edge, tucked: false };
 }

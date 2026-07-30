@@ -117,22 +117,40 @@ describe('ChatButton snap-to-edge and persistence (W4a.3)', () => {
   // where the pointer visually started — these deltas are chosen to land
   // past the midline in each direction on that basis.
 
-  it('released past the midline, the button snaps to the right edge, tucked half off-screen', () => {
+  it('released inside the right-hand band, the button docks 20% off-screen', () => {
     render(<ChatButton onClick={jest.fn()} />);
 
+    // Band on a 1000px viewport is 4vw = 40px. x=950 leaves the button's right
+    // edge past the viewport, so it is unambiguously inside the band.
     pointerDown(0, 400);
-    pointerMove(800, 400); // drag distance alone carries the center past the 1000/2 midline
-    pointerUp(800, 400);
+    pointerMove(950, 400);
+    pointerUp(950, 400);
     click(); // suppressed — proves this really was read as a drag
 
     const el = button();
-    // Tucked: left edge sits at viewportWidth - size/2, i.e. only half the
+    // Tucked: left edge sits at viewportWidth - size/2, i.e. 80% of the
     // button remains on screen.
-    const expectedLeft = 1000 - CHAT_BUTTON_SIZE / 2;
+    const expectedLeft = 1000 - CHAT_BUTTON_SIZE + CHAT_BUTTON_TUCK_PX;
     expect(el.style.left).toBe(`${expectedLeft}px`);
   });
 
-  it('released before the midline, it snaps to the left edge, tucked half off-screen', () => {
+  it('released just OUTSIDE the band, it stays whole and keeps the band as a gutter', () => {
+    render(<ChatButton onClick={jest.fn()} />);
+
+    // x=20 is inside the 40px band, so nudge to 60: outside it, and the button
+    // must stay fully visible rather than docking.
+    pointerDown(0, 400);
+    pointerMove(60, 400);
+    pointerUp(60, 400);
+
+    const el = button();
+    expect(parseFloat(el.style.left)).toBe(60);
+    // Whole button on screen, never flush against the glass.
+    expect(parseFloat(el.style.left)).toBeGreaterThanOrEqual(40);
+    expect(parseFloat(el.style.left) + CHAT_BUTTON_SIZE).toBeLessThanOrEqual(1000 - 40);
+  });
+
+  it('released before the midline, it docks against the left edge, 20% off-screen', () => {
     render(<ChatButton onClick={jest.fn()} />);
 
     pointerDown(0, 400);
@@ -140,7 +158,7 @@ describe('ChatButton snap-to-edge and persistence (W4a.3)', () => {
     pointerUp(30, 400);
 
     const el = button();
-    const expectedLeft = -(CHAT_BUTTON_SIZE / 2);
+    const expectedLeft = -(CHAT_BUTTON_TUCK_PX);
     expect(el.style.left).toBe(`${expectedLeft}px`);
   });
 
@@ -173,7 +191,7 @@ describe('ChatButton snap-to-edge and persistence (W4a.3)', () => {
     expect(top).toBeGreaterThanOrEqual(8);
     // Still tucked at its stored edge, but re-homed to the CURRENT viewport
     // width (1000), not the stale 1900 it was saved with.
-    expect(el.style.left).toBe(`${1000 - CHAT_BUTTON_SIZE / 2}px`);
+    expect(el.style.left).toBe(`${1000 - CHAT_BUTTON_SIZE + CHAT_BUTTON_TUCK_PX}px`);
   });
 
   it('re-clamps on resize so a custom position can never end up unreachable', () => {
@@ -234,18 +252,23 @@ describe('ChatButton edge-proximity visibility (Bug 3)', () => {
     expect(800 - (top + CHAT_BUTTON_SIZE)).toBeGreaterThan(80);
   });
 
-  it('released near the TOP edge (even horizontally centered), it still tucks 50% against the nearest side', () => {
+  it('released near the TOP edge but horizontally centered, it stays FULLY visible', () => {
     render(<ChatButton onClick={jest.fn()} />);
 
-    // x lands left-of-center (so it docks left) while y lands just 20px
-    // from the top — proximity to ANY of the four edges triggers the tuck,
-    // not just the left/right ones.
+    // Only the left and right bands can dock. Height is irrelevant: a bubble
+    // dropped 20px from the top but 400px from either side is not "at an
+    // edge". This asserted the opposite until 2026-07-30 — the rule measured
+    // all four edges, and since jsdom reports y=0 for an unlaid-out element,
+    // EVERY drop in this file counted as near-the-top and tucked. The tests
+    // were green and the behaviour was wrong: on a real phone almost nowhere
+    // is far enough from the top and bottom, so the button half-hid itself
+    // wherever you put it.
     pointerDown(0, 0);
     pointerMove(400, 20);
     pointerUp(400, 20);
 
     const el = button();
-    expect(el.style.left).toBe(`${-(CHAT_BUTTON_SIZE / 2)}px`);
+    expect(parseFloat(el.style.left)).toBe(400);
   });
 });
 
@@ -253,14 +276,16 @@ describe('ChatButton comes fully into view on open (Bug 2)', () => {
   it('tapping a tucked bubble shifts it fully on screen via transform, and it returns to tucked on close', () => {
     const { rerender } = render(<ChatButton onClick={jest.fn()} open={false} />);
 
-    // Drag past the midline and near the right edge so it settles tucked.
+    // Drag INTO the right-hand band (4vw = 40px on a 1000px viewport) so it
+    // settles docked. 800 would leave it 148px clear of the edge, which is
+    // outside the band and correctly stays fully visible.
     pointerDown(0, 400);
-    pointerMove(800, 400);
-    pointerUp(800, 400);
+    pointerMove(950, 400);
+    pointerUp(950, 400);
 
     const el = button();
     const tuckedLeft = parseFloat(el.style.left);
-    expect(tuckedLeft).toBe(1000 - CHAT_BUTTON_SIZE / 2);
+    expect(tuckedLeft).toBe(1000 - CHAT_BUTTON_SIZE + CHAT_BUTTON_TUCK_PX);
     // Still tucked while closed — no into-view shift applied.
     expect(el.style.transform).not.toContain('translateX');
 
@@ -288,7 +313,7 @@ describe('ChatButton comes fully into view on open (Bug 2)', () => {
 
     const el = button();
     const tuckedLeft = parseFloat(el.style.left);
-    expect(tuckedLeft).toBe(-(CHAT_BUTTON_SIZE / 2));
+    expect(tuckedLeft).toBe(-(CHAT_BUTTON_TUCK_PX));
 
     rerender(<ChatButton onClick={jest.fn()} open />);
 

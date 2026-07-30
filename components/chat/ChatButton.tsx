@@ -4,6 +4,7 @@ import React from 'react';
 import {
   CHAT_BUTTON_SIZE,
   CHAT_BUTTON_TUCK_PX,
+  chatButtonEdgeBandPx,
   clampChatButtonPosition,
   hydrateChatButtonPosition,
   reclampChatButtonPosition,
@@ -24,14 +25,15 @@ interface ChatButtonProps {
  *  finger or a slightly-off mouse click still opens the chat. */
 const DRAG_THRESHOLD_PX = 6;
 
-/** Bug 3: within this many px of ANY of the four viewport edges, a released
- *  drag tucks 50% off-screen against the nearest left/right side — the same
- *  behavior this button always had. Farther than this from every edge, it
- *  stays fully visible exactly where it was released. Big enough that a
- *  release "near" a rail still reads as an intentional dock (matches a
- *  comfortable thumb drop-precision), small enough that most of a real phone
- *  or laptop screen counts as "the middle". */
-const EDGE_PROXIMITY_PX = 80;
+/* Whether a released drag docks is decided by ONE band, `chatButtonEdgeBandPx`
+ * — see useChatButtonPosition.ts. Inside it, the button docks 20% off-screen
+ * against that side, leaving 80% showing; outside it, the button stays whole
+ * and rests at the band's inner edge.
+ *
+ * This used to be a flat 80px measured against ALL FOUR edges, and the top and
+ * bottom were the mistake: on a phone almost nowhere is 80px from every edge,
+ * so a button dropped in the middle of the screen half-hid itself anyway. Only
+ * the left and right sides can dock, so only they may decide. */
 
 function distance(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(bx - ax, by - ay);
@@ -133,14 +135,11 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
     const center = finalPos.x + CHAT_BUTTON_SIZE / 2;
     const edge: ChatButtonEdge = center < vw / 2 ? 'left' : 'right';
 
-    // Bug 3: tuck only when the release lands close to one of the four
-    // edges; otherwise leave it fully visible right where it was dropped.
+    // Dock only when the release lands inside the left/right band; otherwise
+    // leave it whole, right where it was dropped.
     const distLeft = finalPos.x;
     const distRight = vw - (finalPos.x + CHAT_BUTTON_SIZE);
-    const distTop = finalPos.y;
-    const distBottom = vh - (finalPos.y + CHAT_BUTTON_SIZE);
-    const nearestEdgeDistance = Math.min(distLeft, distRight, distTop, distBottom);
-    const tucked = nearestEdgeDistance <= EDGE_PROXIMITY_PX;
+    const tucked = Math.min(distLeft, distRight) <= chatButtonEdgeBandPx(vw);
 
     const snapped = clampChatButtonPosition(
       { x: finalPos.x, y: finalPos.y, edge, tucked },
@@ -197,7 +196,7 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
       // on the other piece of fixed-positioned chrome this task audited.
       { right: 24, bottom: 'calc(84px + env(safe-area-inset-bottom))', left: 'auto', top: 'auto' };
 
-  // Bug 2: a tucked (50%-hidden) button must come FULLY on screen before its
+  // Bug 2: a tucked (20%-hidden) button must come FULLY on screen before its
   // panel opens, and may return to its tucked resting spot on close. This is
   // purely a visual shift on top of `positionStyle` — `left`/`top` (and the
   // persisted store) are never touched, so closing the panel always restores
