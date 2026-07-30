@@ -97,11 +97,42 @@ export default function Footer({ config }: { config: FooterConfig }) {
         }}
       >
       <div style={{ maxWidth: 1280, margin: '0 auto', textAlign: 'center' }}>
-        <Wordmark
-          size={mobile ? 26 : 38}
-          color="var(--mr-cream-100)"
-          captionColor="var(--mr-ink-400)"
-        />
+        {/*
+          Task 15d (2026-07-30): wordmark left, InstaPay/Visa/Mastercard right,
+          one row — replacing the old centred wordmark plus its own
+          standalone payment-marks row (deleted below, along with the
+          vertical space it carried). `flex-wrap` + `gap` rather than a fixed
+          full-width row so the two still fit if the smallest breakpoint
+          genuinely can't share a line — see the project rule against masking
+          overflow with a clip.
+        */}
+        <div
+          data-testid="footer-brand-row"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 16,
+            textAlign: 'left',
+          }}
+        >
+          <div data-testid="footer-wordmark">
+            <Wordmark
+              size={mobile ? 26 : 38}
+              color="var(--mr-cream-100)"
+              captionColor="var(--mr-ink-400)"
+            />
+          </div>
+          <div
+            data-testid="footer-payments"
+            style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}
+          >
+            {config.paymentBadges.map((b) => (
+              <PaymentBadge key={b} badge={b} />
+            ))}
+          </div>
+        </div>
         {config.newsletterEnabled && (
           <div style={{ maxWidth: 460, margin: 'clamp(20px, 4vw, 44px) auto 0' }}>
             <div
@@ -229,58 +260,28 @@ export default function Footer({ config }: { config: FooterConfig }) {
           ))}
         </div>
 
-        {mobile ? (
-          // Phones: socials + payment badges flow together on ONE centred line.
-          // Flattened (not two grouped divs) so the tiny Visa/Mastercard/InstaPay
-          // badges trail the social icons and never wrap onto their own
-          // full-width row. Per-item wrap only as a last resort.
-          <div
-            style={{
-              marginTop: 'clamp(24px, 4vw, 44px)',
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '14px 16px',
-            }}
-          >
-            {config.socials.map((s) => (
-              <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer"
-                style={{ color: 'var(--mr-cream-200)', opacity: 0.75, display: 'inline-flex' }}>
-                <SocialIcon network={s.network} />
-              </a>
-            ))}
-            {config.paymentBadges.map((b) => (
-              <PaymentBadge key={b} badge={b} />
-            ))}
-          </div>
-        ) : (
-          // Desktop: socials left, payment badges right.
-          <div
-            style={{
-              marginTop: 44,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 16,
-            }}
-          >
-            <div style={{ display: 'flex', gap: 14 }}>
-              {config.socials.map((s) => (
-                <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'var(--mr-cream-200)', opacity: 0.75 }}>
-                  <SocialIcon network={s.network} />
-                </a>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {config.paymentBadges.map((b) => (
-                <PaymentBadge key={b} badge={b} />
-              ))}
-            </div>
-          </div>
-        )}
+        {/*
+          Task 15d: payment badges moved up into the brand row above, so this
+          is socials only now — no more mobile/desktop split, since that
+          split existed purely to fit the payment badges in alongside them.
+        */}
+        <div
+          style={{
+            marginTop: mobile ? 'clamp(24px, 4vw, 44px)' : 44,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: mobile ? 'center' : 'flex-start',
+            gap: 14,
+          }}
+        >
+          {config.socials.map((s) => (
+            <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer"
+              style={{ color: 'var(--mr-cream-200)', opacity: 0.75, display: 'inline-flex' }}>
+              <SocialIcon network={s.network} />
+            </a>
+          ))}
+        </div>
 
         <div
           style={{

@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import Footer from '@/components/layout/Footer';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
+import type { PaymentBadge } from '@/lib/api/storefront';
 
 /**
  * W4a.1 — the footer's root fix: `position: fixed` -> `sticky`, and the
@@ -163,4 +164,46 @@ describe('Footer placement — outside .mr-page-sheet (W4a.1)', () => {
       expect(footerMatch!.index).toBeGreaterThan(closeIdx as number);
     },
   );
+});
+
+/**
+ * Task 15d (2026-07-30): logo left, payment marks right, one row. Replaces
+ * the old centred wordmark plus a standalone full-width payment-marks row.
+ */
+describe('Footer brand row — wordmark left, payment marks right (Task 15d)', () => {
+  // FALLBACK_CHROME.footer ships with no payment badges configured — give
+  // these tests real ones so there is something to assert about.
+  const configWithBadges = {
+    ...FALLBACK_CHROME.footer,
+    paymentBadges: ['visa', 'mastercard', 'instapay'] as PaymentBadge[],
+  };
+
+  it('puts the wordmark and the payment marks in one row', () => {
+    render(<Footer config={configWithBadges} />);
+    const row = screen.getByTestId('footer-brand-row');
+    expect(row).toContainElement(screen.getByTestId('footer-wordmark'));
+    expect(row).toContainElement(screen.getByTestId('footer-payments'));
+    expect(row).toHaveStyle({ justifyContent: 'space-between' });
+  });
+
+  it('renders the wordmark before the payment marks in document order (left, then right)', () => {
+    render(<Footer config={configWithBadges} />);
+    const wordmark = screen.getByTestId('footer-wordmark');
+    const payments = screen.getByTestId('footer-payments');
+    const position = wordmark.compareDocumentPosition(payments);
+    // eslint-disable-next-line no-bitwise
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('no longer renders a standalone full-width payment-marks row — every badge lives inside footer-payments', () => {
+    const { container } = render(<Footer config={configWithBadges} />);
+    const payments = screen.getByTestId('footer-payments');
+    const allBadges = container.querySelectorAll(
+      '[aria-label="Visa"], [aria-label="Mastercard"], [aria-label="InstaPay"]',
+    );
+    expect(allBadges.length).toBe(3);
+    allBadges.forEach((badge) => {
+      expect(payments.contains(badge)).toBe(true);
+    });
+  });
 });

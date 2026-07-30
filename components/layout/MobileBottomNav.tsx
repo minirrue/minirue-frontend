@@ -63,7 +63,7 @@ const ITEMS: NavItem[] = [
 
 export default function MobileBottomNav() {
   const { tablet, w } = useBreakpoint();
-  const { direction, atTop } = useScrollDirection();
+  const { direction, atTop, atBottom } = useScrollDirection();
   const reducedMotion = usePrefersReducedMotion();
   const { itemCount, openDrawer } = useCart();
   const pathname = usePathname();
@@ -85,7 +85,13 @@ export default function MobileBottomNav() {
   // Same rule as the top bar, mirrored: near the top, the top bar wins and
   // this stays hidden; once the page has scrolled down, this bar takes the
   // edge back on the next downward scroll and the top bar cedes it.
-  const visible = belowBreakpoint && !atTop && direction === 'down';
+  //
+  // Task 15a: also hidden at `atBottom`. Reaching the very end of a page IS a
+  // downward scroll, so a bar gated only on `direction === 'down'` was most
+  // visible exactly where it covers the footer. `atBottom` only fires within
+  // a couple px of the true end, so this never hides the bar "near" the
+  // bottom, only at it.
+  const visible = belowBreakpoint && !atTop && !atBottom && direction === 'down';
 
   const accountHref = session ? '/account/profile' : '/login';
 

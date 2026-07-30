@@ -64,6 +64,21 @@ function bar(): HTMLElement {
   return screen.getByTestId('mobile-bottom-nav');
 }
 
+/**
+ * `computeAtBottom` (useScrollDirection.ts) reads `document.documentElement.
+ * scrollHeight` and `window.innerHeight` — jsdom never lays anything out, so
+ * both default to values that don't represent a real page. Mock both so the
+ * "at the very bottom" tests below are exercising real arithmetic, not jsdom
+ * defaults.
+ */
+function mockPageMetrics({ scrollHeight, innerHeight }: { scrollHeight: number; innerHeight: number }) {
+  Object.defineProperty(document.documentElement, 'scrollHeight', {
+    configurable: true,
+    value: scrollHeight,
+  });
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: innerHeight });
+}
+
 describe('MobileBottomNav (W4a.2)', () => {
   afterEach(() => {
     setViewportWidth(1024);
@@ -161,5 +176,35 @@ describe('MobileBottomNav (W4a.2)', () => {
     expect(bar().style.transition).toBe('none');
 
     window.matchMedia = original;
+  });
+});
+
+/**
+ * Task 15a: the bar used to show whenever the page was scrolled and moving
+ * down — but reaching the very bottom of a page IS a downward scroll, so it
+ * was most visible exactly where it covers the footer. `useScrollDirection`'s
+ * new `atBottom` flag fixes this without a second scroll listener.
+ */
+describe('MobileBottomNav — gets out of the way of the footer (Task 15a)', () => {
+  afterEach(() => {
+    mockPageMetrics({ scrollHeight: 0, innerHeight: 768 });
+  });
+
+  it('hides at the very bottom of the page so the footer is fully visible', () => {
+    setViewportWidth(600);
+    mockPageMetrics({ scrollHeight: 2600, innerHeight: 600 });
+    renderNav();
+    scrollTo(1500);
+    scrollTo(2000); // scrolling down, and 2000 + 600 = 2600 — the very bottom
+    expect(bar().style.transform).toBe('translateY(100%)');
+  });
+
+  it('still shows while scrolling down mid-page, well short of the bottom', () => {
+    setViewportWidth(600);
+    mockPageMetrics({ scrollHeight: 2600, innerHeight: 600 });
+    renderNav();
+    scrollTo(700);
+    scrollTo(900); // scrolling down, but 900 + 600 = 1500 — nowhere near 2600
+    expect(bar().style.transform).toBe('translateY(0)');
   });
 });

@@ -47,12 +47,27 @@ export default function WriteReviewSheet({
   const [done, setDone] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
-  // Object URLs are a memory leak if they are never handed back.
+  // Object URLs are a memory leak if they are never handed back. This used to
+  // register with a `[]` dep array, so its closure only ever saw the initial
+  // (empty) `attachments` and revoked nothing on unmount — every URL created
+  // after mount leaked.
+  //
+  // Putting `attachments` directly in this effect's own deps would be a
+  // different bug: React runs the PREVIOUS cleanup before every dependency
+  // change, so simply adding one more photo (a new array reference) would
+  // immediately revoke the URLs already on screen, breaking their previews
+  // while they are still attached. A ref sidesteps that — it is kept in sync
+  // on every change but the unmount-only effect below reads its *current*
+  // value at cleanup time, not a stale closure over the first render.
+  const attachmentsRef = React.useRef(attachments);
+  React.useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
   React.useEffect(() => {
     return () => {
-      attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+      attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const imageCount = attachments.filter((a) => a.kind === 'IMAGE').length;
