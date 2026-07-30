@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useClientQuery } from '@/lib/hooks/use-client-query';
 import {
@@ -115,10 +118,45 @@ export function useLogout() {
 }
 
 export function useUser() {
-  return useClientQuery({
+  const queryClient = useQueryClient();
+
+  // Cross-tab sign-out: `clearSession()` (useLogout's onSettled, and
+  // apiFetch's 401 handler on a dead session) always removes the
+  // `mr-session` localStorage key, in THIS tab. A native `storage` event
+  // fires in every OTHER tab when that happens — for free, no BroadcastChannel
+  // needed — but nothing was listening, so a second tab kept whatever it had
+  // last fetched (see the `isError` note below) until it happened to refetch
+  // on its own. Backstop: force this tab's cached "who am I" to be re-fetched
+  // the moment another tab signs the browser out.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === 'mr-session' && e.newValue == null) {
+        queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
+      }
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [queryClient]);
+
+  const query = useClientQuery({
     queryKey: ME_QUERY_KEY,
     queryFn: apiMe,
     staleTime: 1000 * 60 * 15,
     retry: false,
   });
+
+  // React Query does NOT reset `data` to undefined when a background refetch
+  // fails — a query that once succeeded keeps returning its last-known-good
+  // `data` alongside `isError: true` / a populated `error`. A session that
+  // expires (or is revoked) without the user clicking "Sign out" never runs
+  // useLogout, so nothing ever removes this query; the next background poll's
+  // 401 flips `isError` but `authUser` (every caller that reads `data` alone —
+  // this is what SupportWidget did) kept reporting the OLD signed-in user
+  // indefinitely, for the rest of the 15-minute staleTime and beyond. Any
+  // caller of useUser() gets the corrected contract here, once, rather than
+  // requiring every consumer to remember to also check `isError`.
+  if (query.isError) {
+    return { ...query, data: undefined } as typeof query;
+  }
+  return query;
 }
