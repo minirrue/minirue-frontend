@@ -3,6 +3,7 @@
 import React from 'react';
 import type { ApiProduct } from '@/lib/api/catalog';
 import CatalogProductCard from './CatalogProductCard';
+import { useProductGridTracking } from './useProductGridTracking';
 
 interface CatalogProductGridProps {
   products: ApiProduct[];
@@ -20,6 +21,10 @@ interface CatalogProductGridProps {
   cardTraceIdPrefix?: string;
   /** §27 — full data-trace-id for the "Load more" button. */
   loadMoreTraceId?: string;
+  /** analytics — `product_impression`/`product_click`'s `listId`. Defaults to
+   * `listTraceId` (already a stable per-page id every caller supplies) so no
+   * caller needs to change to get impressions wired. */
+  listId?: string;
 }
 
 export default function CatalogProductGrid({
@@ -32,7 +37,10 @@ export default function CatalogProductGrid({
   listTraceId,
   cardTraceIdPrefix,
   loadMoreTraceId,
+  listId = listTraceId,
 }: CatalogProductGridProps) {
+  const { gridRef, impressionProps } = useProductGridTracking(products, listId);
+
   if (!products.length) {
     return (
       <div
@@ -60,6 +68,7 @@ export default function CatalogProductGrid({
   return (
     <div>
       <div
+        ref={gridRef}
         data-trace-id={listTraceId}
         style={{
           display: 'grid',
@@ -69,12 +78,9 @@ export default function CatalogProductGrid({
         }}
       >
         {products.map((p, i) => (
-          <CatalogProductCard
-            key={p.id}
-            product={p}
-            index={i}
-            traceIdPrefix={cardTraceIdPrefix}
-          />
+          <div key={p.id} {...impressionProps(p.id, i)}>
+            <CatalogProductCard product={p} index={i} traceIdPrefix={cardTraceIdPrefix} />
+          </div>
         ))}
       </div>
 

@@ -11,6 +11,7 @@ import {
   newIdempotencyKey,
   saveCheckoutSession,
 } from '@/lib/checkout/checkout-session';
+import { orderTotalMinor } from '@/lib/checkout/checkout-schemas';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import {
@@ -19,13 +20,14 @@ import {
   CheckoutFileDrop,
   CheckoutSection,
 } from '@/components/checkout/checkout-ui';
+import { track } from '@/lib/analytics';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
 export default function InstapayCheckoutPage() {
   const router = useRouter();
-  const { cartId, items, loading: cartLoading, clearCart } = useCart();
+  const { cartId, items, subtotalAmount, loading: cartLoading, clearCart } = useCart();
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Set the moment the order is accepted. The success path clears the cart, which
@@ -56,10 +58,20 @@ export default function InstapayCheckoutPage() {
     if (!file) return;
     if (!ACCEPTED_TYPES.includes(file.type as (typeof ACCEPTED_TYPES)[number])) {
       setError('Please upload a PNG, JPG, or WebP image.');
+      track('checkout_validation_error', {
+        step: 'payment',
+        field: 'receipt',
+        issue: 'unsupported-file-type',
+      });
       return;
     }
     if (file.size > MAX_BYTES) {
       setError('Receipt must be 10 MB or smaller.');
+      track('checkout_validation_error', {
+        step: 'payment',
+        field: 'receipt',
+        issue: 'file-too-large',
+      });
       return;
     }
     setError(null);
@@ -88,6 +100,14 @@ export default function InstapayCheckoutPage() {
 
     setSubmitting(true);
     setError(null);
+    // Fired immediately before the order POST, not after — this is a
+    // "the customer tried to pay" signal, distinct from `purchase` (emitted
+    // server-side only, inside the order transaction, never from the browser).
+    track('payment_initiated', {
+      method: 'INSTAPAY',
+      cartId,
+      totalMinor: orderTotalMinor(subtotalAmount),
+    });
     try {
       const order = await apiCheckout(
         {
@@ -105,7 +125,9 @@ export default function InstapayCheckoutPage() {
       await clearCart();
       router.replace(`/checkout/confirmation?order=${encodeURIComponent(order.orderNumber)}`);
     } catch (err: unknown) {
-      setError(formatApiError(err, 'Failed to submit receipt.'));
+      const message = formatApiError(err, 'Failed to submit receipt.');
+      setError(message);
+      track('payment_client_error', { method: 'INSTAPAY', message });
     } finally {
       setSubmitting(false);
     }

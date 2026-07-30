@@ -39,19 +39,25 @@ export default function ProductPageClient({ slug, apiProductJson, perks }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id, product.name, slug]);
 
-  const handleAddToBag = async (variant: ProductVariant) => {
+  const handleAddToBag = async (variant: ProductVariant, source: 'pdp' | 'sticky') => {
     const media = primaryMedia(product);
-    await addItem(variant.id, 1, {
-      name: product.name,
-      brand: productBrand(product) ?? undefined,
-      sizeMl: variant.sizeMl ?? undefined,
-      // Attribute-based variants have no bottleType column — carry the resolved
-      // attribute label so the cart row still shows what was picked.
-      bottleType: variant.bottleType ?? variantLabel(variant),
-      cloudinaryPublicId: media?.cloudinaryPublicId,
-      imageUrl: media ? mediaImageUrl(media, { w: 160, h: 200 }) ?? undefined : undefined,
-      altText: media?.altText,
-    });
+    await addItem(
+      variant.id,
+      1,
+      {
+        productId: product.id,
+        name: product.name,
+        brand: productBrand(product) ?? undefined,
+        sizeMl: variant.sizeMl ?? undefined,
+        // Attribute-based variants have no bottleType column — carry the resolved
+        // attribute label so the cart row still shows what was picked.
+        bottleType: variant.bottleType ?? variantLabel(variant),
+        cloudinaryPublicId: media?.cloudinaryPublicId,
+        imageUrl: media ? mediaImageUrl(media, { w: 160, h: 200 }) ?? undefined : undefined,
+        altText: media?.altText,
+      },
+      source,
+    );
     openDrawer();
   };
 

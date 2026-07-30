@@ -18,6 +18,16 @@ export interface VariantEnrichment {
   // building the cart line item's image (see CartItemRow.tsx).
   imageUrl?: string;
   altText?: string;
+  /**
+   * The parent product id. The cart API's CartItemDto carries variantId only
+   * (see lib/api/cart.ts), so this is the one place a productId for a cart
+   * line can come from — cached at add-time and merged back onto the item by
+   * applyEnrichmentToCart() below. Analytics (add_to_cart, remove_from_cart,
+   * cart_qty_change — see CartContext.tsx) all key off this; a line added
+   * without it simply cannot emit those events, which is preferable to
+   * emitting one with a fabricated productId.
+   */
+  productId?: string;
 }
 
 function readMap(): Record<string, VariantEnrichment> {

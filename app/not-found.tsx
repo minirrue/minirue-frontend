@@ -1,6 +1,24 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+// Imported directly from `lib/analytics/page-tracking` rather than the
+// `lib/analytics` barrel — the barrel (index.ts) only re-exports `track`,
+// `attributionHeaders`, and the event types, not this helper, and this lane
+// does not touch anything under lib/analytics/.
+import { trackNotFound } from "@/lib/analytics/page-tracking";
 
 export default function NotFound() {
+  const pathname = usePathname();
+  const fired = useRef(false);
+
+  useEffect(() => {
+    if (fired.current) return;
+    fired.current = true;
+    trackNotFound(pathname || (typeof window !== "undefined" ? window.location.pathname : ""));
+  }, [pathname]);
+
   return (
     <main
       style={{

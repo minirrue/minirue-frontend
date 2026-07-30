@@ -20,6 +20,8 @@ import type { ProductSectionConfig } from '@/lib/api/storefront';
 import ShareButton from './ShareButton';
 import WordReveal from '@/components/ui/WordReveal';
 import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
+import { track } from '@/lib/analytics';
+import { subtotalToMinor } from '@/lib/checkout/checkout-schemas';
 
 /**
  * Split out on purpose. The carousel is the only thing on the shop that pulls
@@ -45,7 +47,9 @@ interface ApiProductDetailProps {
   /** Service promises from Storefront -> Product section. */
   perks?: ProductSectionConfig['perks'];
   onBack: () => void;
-  onAddToBag: (variant: ProductVariant) => void;
+  /** `source` tells the caller which of the two buy buttons on this page was
+   * pressed — the main CTA in the copy column, or the phone-only sticky bar. */
+  onAddToBag: (variant: ProductVariant, source: 'pdp' | 'sticky') => void;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -514,16 +518,52 @@ export default function ApiProductDetail({
   // No useCallback here on purpose: the React Compiler is on for this app and
   // memoises these itself. Wrapping them by hand made it bail out of optimising
   // the whole component.
-  const handleAdd = () => {
+  const handleAdd = (source: 'pdp' | 'sticky') => {
     // Enforced here as well as by the disabled button: the click handler is what
     // actually adds to the bag, and a keyboard or programmatic activation must
     // not slip past a visual state.
     if (added || !selectedVariant || soldOut) return;
     setAdded(true);
     setAddedAnim(true);
-    onAddToBag(selectedVariant);
+    onAddToBag(selectedVariant, source);
     setTimeout(() => setAddedAnim(false), 600);
     setTimeout(() => setAdded(false), 2400);
+  };
+
+  // product_view fires exactly once per mount — the ref (not a dependency
+  // array) is what survives React StrictMode's dev-only double-invoke of this
+  // effect, and it deliberately never reruns on a variant change.
+  const firedProductView = React.useRef(false);
+  React.useEffect(() => {
+    if (firedProductView.current) return;
+    firedProductView.current = true;
+    track('product_view', {
+      productId: product.id,
+      variantId: defaultVariant?.id,
+      priceMinor: subtotalToMinor(defaultVariant?.priceAmount ?? '0'),
+      brand: productBrand(product) ?? undefined,
+      categoryId: product.categoryId,
+      inStock: defaultVariant ? variantInStock(defaultVariant) : !allSoldOut,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
+
+  // Fires once per page view, the first time the shopper actually looks past
+  // the cover photo — not on every dot/arrow/swipe after that.
+  const firedGalleryOpen = React.useRef(false);
+  const handleGalleryOpen = (index: number) => {
+    if (firedGalleryOpen.current) return;
+    firedGalleryOpen.current = true;
+    track('gallery_open', { productId: product.id, index });
+  };
+
+  const handleSelectVariant = (v: ProductVariant) => {
+    setSelectedVariant(v);
+    track('variant_select', {
+      productId: product.id,
+      variantId: v.id,
+      attribute: v.values?.[0]?.attributeName,
+    });
   };
 
 
@@ -557,12 +597,12 @@ export default function ApiProductDetail({
               perks={perks}
               activeVariants={activeVariants}
               selectedVariant={selectedVariant}
-              onSelectVariant={setSelectedVariant}
+              onSelectVariant={handleSelectVariant}
               added={added}
               addedAnim={addedAnim}
               soldOut={soldOut}
               allSoldOut={allSoldOut}
-              onAdd={handleAdd}
+              onAdd={() => handleAdd('pdp')}
               ctaStyle={ctaX.style}
               ctaDisplay={ctaX.display}
               addToBagRef={mainAddToBagRef}
@@ -593,7 +633,7 @@ export default function ApiProductDetail({
             photographs. */}
         <main className="order-2">
           {gallery.length > 0 ? (
-            <ProductGallery product={product} items={gallery} />
+            <ProductGallery product={product} items={gallery} onOpen={handleGalleryOpen} />
           ) : (
             <MediaFallback name={product.name} />
           )}
@@ -705,7 +745,7 @@ export default function ApiProductDetail({
 
         <button
           data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag-sticky"
-          onClick={handleAdd}
+          onClick={() => handleAdd('sticky')}
           disabled={!selectedVariant || soldOut}
           style={{
             flex: 1,

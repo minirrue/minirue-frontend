@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { loadCheckoutSession, saveCheckoutSession } from '@/lib/checkout/checkout-session';
 import {
@@ -10,6 +10,7 @@ import {
   orderTotalMinor,
   SHIPPING_AMOUNT_MINOR,
 } from '@/lib/checkout/checkout-schemas';
+import { track } from '@/lib/analytics';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import {
@@ -27,7 +28,7 @@ function minorToAmount(minor: number): string {
 
 export default function CheckoutPaymentPage() {
   const router = useRouter();
-  const { subtotalAmount, currency } = useCart();
+  const { cartId, subtotalAmount, currency } = useCart();
   const [method, setMethod] = useState<'COD' | 'INSTAPAY'>('COD');
 
   useEffect(() => {
@@ -35,6 +36,14 @@ export default function CheckoutPaymentPage() {
       router.replace('/checkout');
     }
   }, [router]);
+
+  const firedStepView = useRef(false);
+  useEffect(() => {
+    if (firedStepView.current) return;
+    firedStepView.current = true;
+    track('checkout_step_view', { step: 'payment', cartId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Preselect whatever the shopper already chose on a previous pass through
   // this step, same as the delivery step does for the address — otherwise
@@ -124,6 +133,7 @@ export default function CheckoutPaymentPage() {
           primaryLabel="Continue"
           onPrimary={() => {
             saveCheckoutSession({ paymentMethod: method });
+            track('checkout_payment_selected', { method });
             router.push(method === 'INSTAPAY' ? '/checkout/instapay' : '/checkout/confirmation');
           }}
           backHref="/checkout"

@@ -7,6 +7,7 @@ import type { ResolvedBrandCard, ResolvedProduct } from '@/lib/api/storefront';
 import ProductCard from './ProductCard';
 import { useScrollReveal } from '@/lib/motion/hooks';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import { useProductGridTracking } from './useProductGridTracking';
 
 interface ProductGridProps {
   eyebrow: string;
@@ -16,6 +17,10 @@ interface ProductGridProps {
   display: 'products' | 'brands';
   viewAllHref: string | null;
   onSelect: (product: ApiProduct) => void;
+  /** analytics — `product_impression`/`product_click`'s `listId`. Defaults to
+   * a slug of `title` (this grid has no other stable id to reuse) so no
+   * caller needs to change to get impressions wired. */
+  listId?: string;
 }
 
 export default function ProductGrid({
@@ -26,10 +31,19 @@ export default function ProductGrid({
   display,
   viewAllHref,
   onSelect,
+  listId,
 }: ProductGridProps) {
   const head = useScrollReveal({ from: { y: 20, opacity: 0, scale: 1 } });
   const { mobile, w } = useBreakpoint();
   const cols = mobile ? 2 : w < 900 ? 3 : 4;
+  const resolvedListId =
+    listId ?? title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  // Brand tiles have no productId, so they never enter the impression pool.
+  const trackableProducts = display === 'products' ? products : [];
+  const { gridRef, impressionProps } = useProductGridTracking(
+    trackableProducts as unknown as { id: string }[],
+    resolvedListId,
+  );
 
   return (
     <section style={{ maxWidth: 1280, margin: '0 auto', padding: 'clamp(48px,8vw,96px) var(--mr-gutter)' }}>
@@ -63,6 +77,7 @@ export default function ProductGrid({
         )}
       </div>
       <div
+        ref={gridRef}
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${cols},1fr)`,
@@ -92,12 +107,13 @@ export default function ProductGrid({
               </Link>
             ))
           : products.map((p, i) => (
-              <ProductCard
-                key={p.id as string}
-                product={p as unknown as ApiProduct}
-                index={i}
-                onClick={() => onSelect(p as unknown as ApiProduct)}
-              />
+              <div key={p.id as string} {...impressionProps(p.id as string, i)}>
+                <ProductCard
+                  product={p as unknown as ApiProduct}
+                  index={i}
+                  onClick={() => onSelect(p as unknown as ApiProduct)}
+                />
+              </div>
             ))}
       </div>
     </section>

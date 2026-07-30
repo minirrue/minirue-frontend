@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useCustomerAddresses } from '@/lib/hooks/use-customer';
 import { isAuthenticated } from '@/lib/auth/tokens';
@@ -18,8 +18,9 @@ import {
 } from '@/components/checkout/checkout-ui';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import Button from '@/components/ui/Button';
-import { SHIPPING_AMOUNT_MINOR, orderTotalMinor } from '@/lib/checkout/checkout-schemas';
+import { SHIPPING_AMOUNT_MINOR, orderTotalMinor, subtotalToMinor } from '@/lib/checkout/checkout-schemas';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import { track } from '@/lib/analytics';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -31,6 +32,22 @@ export default function CheckoutPage() {
   const { data: addresses, isLoading } = useCustomerAddresses();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { mobile } = useBreakpoint();
+
+  // `begin_checkout` fires once, the moment there is a real cart to check out
+  // with — not on the render that still shows the "your bag is empty" dead
+  // end below. `checkout_step_view` piggybacks on the same guard since this
+  // whole page is the "address" step.
+  const firedEntry = useRef(false);
+  useEffect(() => {
+    if (firedEntry.current || itemCount === 0 || !cartId) return;
+    firedEntry.current = true;
+    track('begin_checkout', {
+      cartId,
+      itemCount,
+      subtotalMinor: subtotalToMinor(subtotalAmount),
+    });
+    track('checkout_step_view', { step: 'address', cartId });
+  }, [cartId, itemCount, subtotalAmount]);
 
   /**
    * The ONE place a guest is asked to sign in.
@@ -209,6 +226,11 @@ export default function CheckoutPage() {
           onPrimary={() => {
             if (!selectedId) return;
             saveCheckoutSession({ shippingAddressId: selectedId });
+            track('checkout_address_entered', { cartId, hasAddress: true });
+            // This shop has one flat shipping rate — there is no separate
+            // picker screen, so "selected" is recorded here, the moment the
+            // shopper commits to the step that carries it.
+            track('checkout_shipping_selected', { method: 'STANDARD', cartId });
             router.push('/checkout/payment');
           }}
           backHref="/cart"

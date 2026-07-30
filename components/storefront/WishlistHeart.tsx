@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useWishlistToggle } from '@/lib/hooks/use-wishlist';
+import { track } from '@/lib/analytics';
 
 type Variant = 'pill' | 'round';
 
@@ -41,7 +42,16 @@ export default function WishlistHeart({
       router.push(`/login?next=${encodeURIComponent(next)}`);
       return;
     }
-    toggle();
+    // `saved` here is the state BEFORE the toggle, so it tells us which way
+    // this action is going. Fired from the mutation's own onSuccess — the
+    // heart itself is optimistic, but the analytics call waits for the
+    // server to actually agree, same discipline as cart events.
+    const wasSaved = saved;
+    toggle(undefined, {
+      onSuccess: () => {
+        track(wasSaved ? 'wishlist_remove' : 'wishlist_add', { productId });
+      },
+    });
   }
 
   const box = variant === 'pill' ? 52 : size;

@@ -16,6 +16,10 @@ interface ProductGalleryProps {
   product: ApiProduct;
   /** Cover first, then the product's other photographs. */
   items: MediaAsset[];
+  /** Called on every slide change (dot, arrow, or swipe). Optional — analytics
+   * is the only caller today, and it only needs to know the shopper engaged
+   * with the gallery, not track every index change itself. */
+  onOpen?: (index: number) => void;
 }
 
 /**
@@ -24,8 +28,12 @@ interface ProductGalleryProps {
  * existed) and a laptop got a stack of full-height slabs you had to scroll
  * past one by one.
  */
-export default function ProductGallery({ product, items }: ProductGalleryProps) {
+export default function ProductGallery({ product, items, onOpen }: ProductGalleryProps) {
   const [index, setIndex] = React.useState(0);
+  const handleIndexChange = (i: number) => {
+    setIndex(i);
+    onOpen?.(i);
+  };
   const reduceMotion = useReducedMotion();
 
   // The house slide feel; instant for anyone who asked for less movement.
@@ -44,7 +52,7 @@ export default function ProductGallery({ product, items }: ProductGalleryProps) 
     >
       <Carousel
         index={index}
-        onIndexChange={setIndex}
+        onIndexChange={handleIndexChange}
         // One photograph is not a carousel: no drag, no dots, no arrows.
         disableDrag={single}
       >
@@ -104,7 +112,7 @@ export default function ProductGallery({ product, items }: ProductGalleryProps) 
                 data-trace-id={`PG-STOREFRONT-CAT-005::EL-BTN-gallery-dot@${m.id}`}
                 aria-label={`Go to photo ${i + 1} of ${total}`}
                 aria-current={index === i}
-                onClick={() => setIndex(i)}
+                onClick={() => handleIndexChange(i)}
                 // 44px of tappable area around a 6px mark.
                 className="grid h-11 w-6 cursor-pointer place-items-center border-0 bg-transparent p-0"
               >

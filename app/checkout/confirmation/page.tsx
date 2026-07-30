@@ -11,18 +11,28 @@ import {
   loadCheckoutSession,
   newIdempotencyKey,
 } from '@/lib/checkout/checkout-session';
+import { orderTotalMinor } from '@/lib/checkout/checkout-schemas';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 import Button from '@/components/ui/Button';
+import { track } from '@/lib/analytics';
 
 export default function CheckoutConfirmationPage() {
   const router = useRouter();
-  const { cartId, clearCart } = useCart();
+  const { cartId, subtotalAmount, clearCart } = useCart();
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const submitted = useRef(false);
+  const firedStepView = useRef(false);
+
+  useEffect(() => {
+    if (firedStepView.current) return;
+    firedStepView.current = true;
+    track('checkout_step_view', { step: 'review', cartId: cartId || undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -50,6 +60,15 @@ export default function CheckoutConfirmationPage() {
     }
     submitted.current = true;
 
+    // Fired immediately before the order POST — never `purchase`, which is
+    // emitted server-side only, inside the order transaction, so tracked
+    // revenue reconciles exactly with the `orders` table.
+    track('payment_initiated', {
+      method: 'COD',
+      cartId,
+      totalMinor: orderTotalMinor(subtotalAmount),
+    });
+
     void apiCheckout(
       {
         cartId,
@@ -66,7 +85,9 @@ export default function CheckoutConfirmationPage() {
       .catch((err: unknown) => {
         // A 422 carries `message` as an array of {field, issue}; printing it
         // straight gave the customer "[object Object]".
-        setError(formatApiError(err, 'Checkout failed. Please try again.'));
+        const message = formatApiError(err, 'Checkout failed. Please try again.');
+        setError(message);
+        track('payment_client_error', { method: 'COD', message });
         submitted.current = false;
       });
   }, [cartId, clearCart, router]);

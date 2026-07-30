@@ -30,6 +30,7 @@ import { catalog, mediaImageUrl, primaryMedia, lowestPrice, productByline } from
 import type { ApiProduct } from '@/lib/api/catalog';
 import { searchCanonicalPath } from '@/lib/search/query';
 import { useSheetDrag } from '@/lib/hooks/useSheetDrag';
+import { track } from '@/lib/analytics';
 
 const DEBOUNCE_MS = 220;
 const PREVIEW_LIMIT = 6;
@@ -161,6 +162,13 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
         .then((res) => {
           if (id !== requestId.current) return;
           setPayload({ term: q, items: res.data.slice(0, PREVIEW_LIMIT), total: res.meta.total });
+          // One event per settled query, not per keystroke — the debounce
+          // above (and the stale-response guard) already collapse a typed
+          // query down to a single completed search.
+          track('search', { q, results: res.meta.total });
+          if (res.meta.total === 0) {
+            track('search_zero_results', { q });
+          }
         })
         .catch(() => {
           if (id !== requestId.current) return;
@@ -382,7 +390,7 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
                 </p>
 
                 {results.map((product, i) => (
-                  <SearchRow key={product.id} product={product} index={i} onNavigate={onClose} />
+                  <SearchRow key={product.id} product={product} index={i} term={q} onNavigate={onClose} />
                 ))}
 
                 {total > 0 && (
@@ -551,10 +559,13 @@ function TermChips({ terms, onPick }: { terms: string[]; onPick: (t: string) => 
 function SearchRow({
   product,
   index,
+  term,
   onNavigate,
 }: {
   product: ApiProduct;
   index: number;
+  /** The query that produced this result — carried on `search_result_click`. */
+  term: string;
   onNavigate: () => void;
 }) {
   const media = primaryMedia(product);
@@ -565,7 +576,10 @@ function SearchRow({
   return (
     <Link
       href={`/products/${product.slug}`}
-      onClick={onNavigate}
+      onClick={() => {
+        track('search_result_click', { q: term, productId: product.id, position: index });
+        onNavigate();
+      }}
       data-trace-id={`PG-STOREFRONT-CAT-004::EL-LINK-search-result@${product.slug}`}
       style={{
         display: 'flex',

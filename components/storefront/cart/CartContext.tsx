@@ -21,10 +21,27 @@ import {
 } from '@/lib/api/cart';
 import { isAuthenticated } from '@/lib/auth/tokens';
 import { applyEnrichmentToCart, cacheVariantEnrichment, type VariantEnrichment } from '@/lib/cart/enrichment';
+import { track } from '@/lib/analytics';
+import { subtotalToMinor } from '@/lib/checkout/checkout-schemas';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
 export type CartItem = CartItemDto;
+
+/** Where an add-to-cart action originated — carried on `add_to_cart` so the
+ * source funnel (PDP main button vs. sticky bar vs. a list quick-add vs. the
+ * drawer) can be told apart. */
+export type CartEventSource = 'pdp' | 'list' | 'drawer' | 'sticky';
+
+/**
+ * `CartItemDto` only ever carries `variantId` (see lib/api/cart.ts) — the
+ * productId analytics needs comes solely from cached enrichment
+ * (lib/cart/enrichment.ts), merged onto the item by `applyEnrichmentToCart`.
+ * A line with no cached productId (e.g. hydrated fresh with nothing ever
+ * cached for that variant) simply cannot fire a cart analytics event for
+ * itself — see the guards below.
+ */
+type EnrichedItem = CartItem & { productId?: string };
 
 export interface CartContextValue {
   cartId: string;
@@ -37,7 +54,12 @@ export interface CartContextValue {
   drawerOpen: boolean;
   openDrawer: () => void;
   closeDrawer: () => void;
-  addItem: (variantId: string, qty: number, enrichment?: VariantEnrichment) => Promise<void>;
+  addItem: (
+    variantId: string,
+    qty: number,
+    enrichment?: VariantEnrichment,
+    source?: CartEventSource,
+  ) => Promise<void>;
   updateQty: (itemId: string, qty: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -86,6 +108,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     variantId: string,
     qty: number,
     enrichment?: VariantEnrichment,
+    source: CartEventSource = 'pdp',
   ): Promise<void> {
     setLoading(true);
     setError(null);
@@ -93,7 +116,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (enrichment) {
         cacheVariantEnrichment(variantId, enrichment);
       }
-      setCartFromApi(await apiAddItem(variantId, qty));
+      const data = await apiAddItem(variantId, qty);
+      setCartFromApi(data);
+      // Fired only once the API call has actually succeeded — a failed add is
+      // not an add, and counting it would inflate the add-to-cart rate.
+      const productId = enrichment?.productId;
+      const added = data.items.find((i) => i.variantId === variantId);
+      if (productId && added) {
+        track('add_to_cart', {
+          productId,
+          variantId,
+          qty,
+          priceMinor: subtotalToMinor(added.unitPriceAmount),
+          source,
+        });
+      }
     } catch (e) {
       setError(extractErrorMessage(e, 'Failed to add item'));
     } finally {
@@ -102,10 +139,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function updateQty(itemId: string, qty: number): Promise<void> {
+    // Read before the mutation — this is the last point the previous
+    // quantity (for `delta`) and the cached productId are certainly still in
+    // state.
+    const previous = cart.items.find((i) => i.id === itemId) as EnrichedItem | undefined;
     setLoading(true);
     setError(null);
     try {
       setCartFromApi(await apiUpdateItem(itemId, qty));
+      if (previous?.productId) {
+        track('cart_qty_change', {
+          productId: previous.productId,
+          variantId: previous.variantId,
+          qty,
+          delta: qty - previous.qty,
+        });
+      }
     } catch (e) {
       setError(extractErrorMessage(e, 'Failed to update quantity'));
     } finally {
@@ -114,10 +163,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function removeItem(itemId: string): Promise<void> {
+    const previous = cart.items.find((i) => i.id === itemId) as EnrichedItem | undefined;
     setLoading(true);
     setError(null);
     try {
       setCartFromApi(await apiRemoveItem(itemId));
+      if (previous?.productId) {
+        track('remove_from_cart', {
+          productId: previous.productId,
+          variantId: previous.variantId,
+          qty: previous.qty,
+          priceMinor: subtotalToMinor(previous.unitPriceAmount),
+        });
+      }
     } catch (e) {
       setError(extractErrorMessage(e, 'Failed to remove item'));
       void hydrateCart();
@@ -148,7 +206,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     drawerOpen,
-    openDrawer: () => setDrawerOpen(true),
+    openDrawer: () => {
+      setDrawerOpen(true);
+      track('cart_drawer_open', {});
+    },
     closeDrawer: () => setDrawerOpen(false),
     addItem,
     updateQty,
