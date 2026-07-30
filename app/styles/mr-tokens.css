@@ -285,11 +285,27 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
 /* Header compact transition */
 .mr-header-inner { transition: padding 320ms var(--mr-ease-out); }
 
-/* Page sheet — sits above fixed footer, lifts off to reveal it */
+/* Page sheet — the scrolling content layer above the footer.
+ *
+ * Formerly: "sits above fixed footer, lifts off to reveal it" — three
+ * stacked box-shadow layers (two solid `--mr-cream-200` bands sandwiching a
+ * dark blur) simulated the sheet lifting off a `position: fixed` footer
+ * that sat permanently underneath it (see Footer.tsx's git history for the
+ * fixed-footer era). Because this sheet always establishes its own
+ * stacking context (`z-index: 1`), those two solid-color bands painted
+ * OVER whatever was directly beneath the sheet's bottom edge — harmless
+ * while the footer was `fixed` and always the thing beneath it, but once
+ * the footer changed to `position: sticky` (a real box in normal flow,
+ * immediately following the sheet — see Footer.tsx) the same bands paint
+ * a stray pale, blurred strip across the top of the sticky footer on every
+ * page, every time that seam scrolls into view. That read as an
+ * unexplained cream panel floating above the bottom nav. `sticky` already
+ * gives the footer a real, in-flow top edge — no illusion of depth is
+ * needed to "reveal" it, so the shadow is dropped rather than patched.
+ */
 .mr-page-sheet {
   position: relative; z-index: 1;
   background: var(--mr-cream-200);
-  box-shadow: 0 8px 0 0 var(--mr-cream-200), 0 24px 48px rgba(11,11,11,0.22), 0 48px 0 0 var(--mr-cream-200);
   min-height: 100vh;
 }
 
