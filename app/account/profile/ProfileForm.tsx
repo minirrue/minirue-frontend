@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { CustomerProfile } from '@/lib/api/customers';
-import { useUpdateCustomerProfile } from '@/lib/hooks/use-customer';
+import { useUpdateCustomerProfile, useUploadCustomerAvatar } from '@/lib/hooks/use-customer';
 import type { ApiError } from '@/lib/api/client';
+import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import AvatarCropSheet from '@/components/storefront/AvatarCropSheet';
 
 interface Props {
   profile: CustomerProfile;
@@ -15,6 +17,31 @@ export default function ProfileForm({ profile }: Props) {
   const [lastName, setLastName] = useState(profile.lastName);
   const [success, setSuccess] = useState(false);
   const updateProfile = useUpdateCustomerProfile();
+  const uploadAvatar = useUploadCustomerAvatar();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [pickedFile, setPickedFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  const handleAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAvatarError(null);
+    setPickedFile(file);
+    setCropOpen(true);
+  };
+
+  const handleCropped = async (blob: Blob) => {
+    setCropOpen(false);
+    try {
+      await uploadAvatar.mutateAsync(blob);
+    } catch (err) {
+      setAvatarError((err as ApiError).message ?? 'Failed to upload photo');
+    } finally {
+      setPickedFile(null);
+    }
+  };
 
   useEffect(() => {
     setDisplayName(profile.displayName ?? '');
@@ -46,6 +73,81 @@ export default function ProfileForm({ profile }: Props) {
   };
 
   return (
+    <>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+      <button
+        type="button"
+        onClick={() => avatarInputRef.current?.click()}
+        aria-label="Change your photo"
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: '50%',
+          overflow: 'hidden',
+          border: '1px solid var(--mr-border)',
+          background: 'var(--mr-bg-raised)',
+          padding: 0,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          color: 'var(--mr-fg-3)',
+        }}
+      >
+        {profile.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={profile.avatarUrl}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <GenericAvatarIcon size={32} />
+        )}
+      </button>
+      <div>
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+          style={{ display: 'none' }}
+          onChange={handleAvatarPick}
+        />
+        <button
+          type="button"
+          onClick={() => avatarInputRef.current?.click()}
+          disabled={uploadAvatar.isPending}
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--mr-border)',
+            borderRadius: 'var(--mr-radius-sm)',
+            padding: '8px 16px',
+            fontSize: 'var(--mr-text-sm)',
+            color: 'var(--mr-fg-2)',
+            cursor: uploadAvatar.isPending ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {uploadAvatar.isPending ? 'Uploading…' : profile.avatarUrl ? 'Change photo' : 'Add a photo'}
+        </button>
+        {avatarError && (
+          <p role="alert" style={{ color: 'var(--mr-danger)', fontSize: 'var(--mr-text-xs)', margin: '6px 0 0' }}>
+            {avatarError}
+          </p>
+        )}
+      </div>
+    </div>
+
+    <AvatarCropSheet
+      open={cropOpen}
+      file={pickedFile}
+      onCancel={() => {
+        setCropOpen(false);
+        setPickedFile(null);
+      }}
+      onCropped={handleCropped}
+    />
+
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Display name */}
       <label style={labelStyle}>
@@ -147,6 +249,7 @@ export default function ProfileForm({ profile }: Props) {
         </button>
       </div>
     </form>
+    </>
   );
 }
 

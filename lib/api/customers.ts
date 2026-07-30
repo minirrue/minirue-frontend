@@ -64,6 +64,24 @@ export async function apiUpdateMe(input: ProfileUpdateInput): Promise<CustomerPr
   });
 }
 
+/**
+ * Storefront account photo upload (multipart, field name `file`). Mirrors
+ * apiAttachReviewMedia (lib/api/reviews.ts) — no Content-Type header, the
+ * browser sets the multipart boundary itself. The caller is expected to have
+ * already cropped the file to 1:1 (see AvatarCropSheet) before calling this;
+ * the server independently re-encodes to WebP with EXIF rotation applied and
+ * enforces its own size/type limits regardless.
+ */
+export async function apiUploadMyAvatar(file: File | Blob): Promise<CustomerProfile> {
+  const form = new FormData();
+  form.append('file', file, 'avatar.jpg');
+  return apiFetch<CustomerProfile>('/customers/me/avatar', {
+    method: 'POST',
+    auth: true,
+    body: form,
+  });
+}
+
 export async function apiGetAddresses(): Promise<Address[]> {
   return apiFetch<Address[]>('/customers/me/addresses', { auth: true });
 }

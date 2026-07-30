@@ -3,6 +3,7 @@ import { useClientQuery } from '@/lib/hooks/use-client-query';
 import {
   apiGetMe,
   apiUpdateMe,
+  apiUploadMyAvatar,
   apiGetAddresses,
   apiCreateAddress,
   apiDeleteAddress,
@@ -27,6 +28,16 @@ export function useUpdateCustomerProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: ProfileUpdateInput) => apiUpdateMe(input),
+    onSuccess: (profile: CustomerProfile) => {
+      queryClient.setQueryData(CUSTOMER_PROFILE_KEY, profile);
+    },
+  });
+}
+
+export function useUploadCustomerAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File | Blob) => apiUploadMyAvatar(file),
     onSuccess: (profile: CustomerProfile) => {
       queryClient.setQueryData(CUSTOMER_PROFILE_KEY, profile);
     },
