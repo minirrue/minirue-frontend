@@ -19,20 +19,53 @@ const FALLBACK_MESSAGES = [
 const DEFAULT_BACKGROUND =
   'linear-gradient(90deg, var(--mr-gold-500) 0%, var(--mr-gold-400) 30%, var(--mr-crimson-700) 70%, var(--mr-gold-500) 100%)';
 
+/**
+ * Dismissed state, lifted above the router (W3.7).
+ *
+ * Every checkout step — and most storefront routes — is its own route with
+ * no shared layout, so a plain `useState` inside `AnnouncementBar` reset on
+ * every navigation and the bar reappeared each time it collapsed. Mounting
+ * this provider once in `app/layout.tsx` (the same place `CartProvider`
+ * already lives, for the same reason) keeps the value alive across
+ * client-side navigation.
+ *
+ * Deliberately plain in-memory React state, not sessionStorage or
+ * localStorage: the owner's requirement is that the bar comes back on a
+ * real page refresh and ONLY on a real page refresh. A previous version
+ * persisted the collapsed flag to sessionStorage on the theory that
+ * sessionStorage clears on refresh — it does not (only on tab close) — so
+ * once a visitor scrolled once, the bar stayed collapsed on every
+ * subsequent refresh instead of resetting. Provider state, being an
+ * in-memory React tree, is naturally torn down and rebuilt on every real
+ * refresh, which is exactly the behaviour asked for.
+ */
+const AnnouncementBarContext = React.createContext<{
+  hidden: boolean;
+  setHidden: (hidden: boolean) => void;
+} | null>(null);
+
+export function AnnouncementBarProvider({ children }: { children: React.ReactNode }) {
+  const [hidden, setHidden] = React.useState(false);
+  const value = React.useMemo(() => ({ hidden, setHidden }), [hidden]);
+  return (
+    <AnnouncementBarContext.Provider value={value}>{children}</AnnouncementBarContext.Provider>
+  );
+}
+
 export default function AnnouncementBar({
   messages = FALLBACK_MESSAGES,
   enabled = true,
   linkUrl = null,
   background = null,
 }: AnnouncementBarProps) {
-  // Plain in-memory state, deliberately not persisted anywhere — every full
-  // page load (refresh, new tab) starts clean/visible, and the first-scroll
-  // gesture within that page view collapses it as before. A prior version
-  // persisted this to sessionStorage on the theory that sessionStorage
-  // clears on refresh; it does not (only on tab close), so once a visitor
-  // scrolled once, the bar stayed collapsed on every subsequent refresh
-  // instead of resetting.
-  const [hidden, setHidden] = React.useState(false);
+  // Falls back to a local, per-instance state if rendered without the
+  // provider (defensive only — production always wraps the app in
+  // AnnouncementBarProvider from app/layout.tsx). The fallback does not
+  // survive navigation between routes; only the provider-backed state does.
+  const ctx = React.useContext(AnnouncementBarContext);
+  const [localHidden, setLocalHidden] = React.useState(false);
+  const hidden = ctx ? ctx.hidden : localHidden;
+  const setHidden = ctx ? ctx.setHidden : setLocalHidden;
 
   // Phase 5 — Responsive sizing: scale down on mobile and small screens
   const bp = useBreakpoint();
@@ -54,9 +87,6 @@ export default function AnnouncementBar({
   // `window` with { passive: false } so preventDefault/stopPropagation runs
   // before Lenis sees the event, and stopPropagation ensures Lenis never
   // receives it. The handler self-removes after the first match.
-  // The `setHidden(true)` call below now also persists to sessionStorage
-  // via the setter wrapper above, so the collapsed state survives
-  // forward/back navigation within the same tab.
   React.useEffect(() => {
     let touchStartY: number | null = null;
     const SWIPE_DEADBAND = 4; // px of finger travel before a touchmove counts as intent

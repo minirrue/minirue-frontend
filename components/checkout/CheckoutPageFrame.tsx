@@ -6,6 +6,9 @@ import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 
 interface Props {
   step: 1 | 2 | 3 | 4;
+  /** Forwarded to CheckoutSteps — see its doc comment. Only the confirmation
+   * page needs this today. */
+  complete?: boolean;
   eyebrow?: string;
   title: string;
   subtitle?: React.ReactNode;
@@ -15,6 +18,7 @@ interface Props {
 
 export default function CheckoutPageFrame({
   step,
+  complete,
   eyebrow,
   title,
   subtitle,
@@ -34,7 +38,7 @@ export default function CheckoutPageFrame({
           : 'var(--mr-sp-7) var(--mr-gutter) var(--mr-sp-9)',
       }}
     >
-      <CheckoutSteps current={step} />
+      <CheckoutSteps current={step} complete={complete} />
 
       {eyebrow && (
         <p

@@ -42,6 +42,22 @@ const labelStyle: React.CSSProperties = {
   color: 'var(--mr-fg-3)',
 };
 
+/**
+ * Shared base for the two pill buttons in this section ("Read all N reviews"
+ * and "Write a review"). Colour is the only per-button override, applied
+ * AFTER this spread — spreading labelStyle (which carries its own
+ * `color: var(--mr-fg-3)`) after an explicit colour silently overrides it,
+ * which is how "Write a review" ended up grey-brown on its near-black
+ * background instead of cream.
+ */
+const reviewButtonBaseStyle: React.CSSProperties = {
+  padding: '14px 22px',
+  minHeight: 44,
+  borderRadius: 'var(--mr-radius-pill)',
+  cursor: 'pointer',
+  ...labelStyle,
+};
+
 function ReviewRow({ review }: { review: PublicReview }) {
   return (
     <article
@@ -198,10 +214,9 @@ export default function ProductReviews({
       ) : (
         // Never an empty box: say what would be here and who can put it there.
         <p style={{ margin: '0 0 8px', color: 'var(--mr-fg-2)', lineHeight: 1.6 }}>
-          No reviews yet.{' '}
           {canWrite
-            ? 'You have had this one — yours would be the first.'
-            : 'Only customers who have received this can write one.'}
+            ? 'No reviews yet — yours would be the first.'
+            : 'No reviews yet. Only customers who have received this can write one.'}
         </p>
       )}
 
@@ -223,13 +238,9 @@ export default function ProductReviews({
             onClick={() => setAllOpen(true)}
             data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-read-all-reviews"
             style={{
-              padding: '14px 22px',
-              minHeight: 44,
-              borderRadius: 'var(--mr-radius-pill)',
+              ...reviewButtonBaseStyle,
               border: '1px solid var(--mr-border)',
               background: 'transparent',
-              cursor: 'pointer',
-              ...labelStyle,
               color: 'var(--mr-fg)',
             }}
           >
@@ -243,15 +254,11 @@ export default function ProductReviews({
             onClick={() => setWriteOpen(true)}
             data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-write-review"
             style={{
-              padding: '14px 22px',
-              minHeight: 44,
-              borderRadius: 'var(--mr-radius-pill)',
+              ...reviewButtonBaseStyle,
               border: 0,
               background: 'var(--mr-ink-900)',
-              color: 'var(--mr-cream-100)',
-              cursor: 'pointer',
-              ...labelStyle,
               boxShadow: 'var(--mr-shadow-md)',
+              color: 'var(--mr-cream-100)',
             }}
           >
             Write a review

@@ -74,7 +74,7 @@ export default function CheckoutConfirmationPage() {
   if (!sessionChecked && !error) {
     return (
       <CheckoutShell>
-        <CheckoutPageFrame step={4} title="Placing your order…" subtitle="One moment while we confirm your details.">
+        <CheckoutPageFrame step={4} complete title="Placing your order…" subtitle="One moment while we confirm your details.">
           <div
             style={{
               textAlign: 'center',
@@ -94,7 +94,7 @@ export default function CheckoutConfirmationPage() {
   if (error) {
     return (
       <CheckoutShell>
-        <CheckoutPageFrame step={4} title="Something went wrong" maxWidth={480}>
+        <CheckoutPageFrame step={4} complete title="Something went wrong" maxWidth={480}>
           <CheckoutAlert variant="error">{error}</CheckoutAlert>
           <Button variant="primary" sweep onClick={() => router.push('/checkout')} style={{ width: '100%' }}>
             Return to checkout
@@ -108,6 +108,7 @@ export default function CheckoutConfirmationPage() {
     <CheckoutShell>
       <CheckoutPageFrame
         step={4}
+        complete
         eyebrow="Merci"
         title={orderNumber ? 'Order confirmed' : 'Placing your order…'}
         subtitle={

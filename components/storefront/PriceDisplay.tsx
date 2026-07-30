@@ -11,8 +11,13 @@ interface PriceDisplayProps {
   style?: React.CSSProperties;
 }
 
-/** Maps ISO currency codes to display symbols / prefixes. */
-function formatPrice(amount: string, currency: string): string {
+/**
+ * Maps ISO currency codes to display symbols / prefixes.
+ * Exported so any other place that needs to print a price (e.g. a button
+ * label that isn't a <PriceDisplay>) uses the same `Intl.NumberFormat`
+ * options instead of a second, drifting copy.
+ */
+export function formatPrice(amount: string, currency: string): string {
   // Use Intl.NumberFormat for proper locale-aware formatting.
   // Parse amount as number for formatting only — never stored as float.
   const num = parseFloat(amount);

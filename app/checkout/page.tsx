@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useCustomerAddresses } from '@/lib/hooks/use-customer';
 import { isAuthenticated } from '@/lib/auth/tokens';
-import { saveCheckoutSession } from '@/lib/checkout/checkout-session';
+import { loadCheckoutSession, saveCheckoutSession } from '@/lib/checkout/checkout-session';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import {
@@ -52,7 +52,15 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!addresses?.length) return;
     const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
-    setSelectedId((prev) => prev ?? defaultAddr.id);
+    // Prefer whatever the shopper already picked on a previous pass through
+    // this step (saved to sessionStorage on "Continue to payment"), so
+    // going back and forward is lossless. A saved id that no longer exists
+    // in the customer's address list (deleted since, or from a stale
+    // session) falls back to the default rather than leaving nothing
+    // selected.
+    const savedId = loadCheckoutSession()?.shippingAddressId;
+    const savedAddr = savedId ? addresses.find((a) => a.id === savedId) : undefined;
+    setSelectedId((prev) => prev ?? savedAddr?.id ?? defaultAddr.id);
   }, [addresses]);
 
   if (itemCount === 0) {

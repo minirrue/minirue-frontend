@@ -15,6 +15,7 @@ import StorefrontLiveUpdates from "@/components/providers/StorefrontLiveUpdates"
 import { apiGetPublicSettings } from "@/lib/api/settings";
 import { SupportProvider } from "@/lib/support/support-context";
 import SupportWidget from "@/components/chat/SupportWidget";
+import { AnnouncementBarProvider } from "@/components/layout/AnnouncementBar";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -44,6 +45,10 @@ export const viewport: Viewport = {
   // Light-only storefront. A dark themeColor variant made the browser chrome (and, on a
   // dark-mode OS, the pre-paint canvas) go near-black between pages — see globals.css.
   themeColor: "#F6F2E9", // --mr-cream-200, matches body + .mr-page-sheet
+  // Without this, iOS Safari never extends the layout viewport under the home
+  // indicator, so every env(safe-area-inset-*) call in the app (the sticky
+  // buy bar's bottom padding among them) resolves to 0px and does nothing.
+  viewportFit: "cover",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -186,17 +191,27 @@ export default function RootLayout({
             <HydrationBoundary state={dehydrate(queryClient)}>
               <StorefrontLiveUpdates />
               <SessionExpiredHandler />
-              <CartProvider>
-                {/* SupportProvider must wrap {children} too — pages call
-                    useSupportContext() to set the widget's default subject
-                    (e.g. the product being viewed). Wrapping only the widget
-                    made every such page throw. */}
-                <SupportProvider>
-                  <LenisProvider>{children}</LenisProvider>
-                  <CartDrawer />
-                  <SupportWidget />
-                </SupportProvider>
-              </CartProvider>
+              {/* Mounted once, here, above every route — same reason
+                  CartProvider lives here. Each checkout (and most
+                  storefront) step is its own route with no shared layout,
+                  so a plain useState inside AnnouncementBar reset on every
+                  navigation and the bar reappeared each time it collapsed.
+                  Root layout state survives client-side navigation and
+                  resets on a real refresh, which is what dismissing the bar
+                  should do. */}
+              <AnnouncementBarProvider>
+                <CartProvider>
+                  {/* SupportProvider must wrap {children} too — pages call
+                      useSupportContext() to set the widget's default subject
+                      (e.g. the product being viewed). Wrapping only the widget
+                      made every such page throw. */}
+                  <SupportProvider>
+                    <LenisProvider>{children}</LenisProvider>
+                    <CartDrawer />
+                    <SupportWidget />
+                  </SupportProvider>
+                </CartProvider>
+              </AnnouncementBarProvider>
             </HydrationBoundary>
           </RootQueryProvider>
           <Analytics />

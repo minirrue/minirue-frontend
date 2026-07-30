@@ -36,6 +36,14 @@ export default function CheckoutPaymentPage() {
     }
   }, [router]);
 
+  // Preselect whatever the shopper already chose on a previous pass through
+  // this step, same as the delivery step does for the address — otherwise
+  // going back from payment and forward again silently resets to COD.
+  useEffect(() => {
+    const saved = loadCheckoutSession()?.paymentMethod;
+    if (saved) setMethod(saved);
+  }, []);
+
   const codBlocked = !isCodAvailable(subtotalAmount);
   const totalMinor = orderTotalMinor(subtotalAmount);
 

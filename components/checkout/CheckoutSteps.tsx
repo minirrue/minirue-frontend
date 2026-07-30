@@ -12,9 +12,14 @@ const STEPS = [
 
 interface Props {
   current: 1 | 2 | 3 | 4;
+  /** The current step should also render as done — e.g. the confirmation
+   * page, which IS step 4's completion, not step 4 still in progress. Do not
+   * change `done` to `step.n <= current`: that would tick step 2 while the
+   * shopper is still filling it in. */
+  complete?: boolean;
 }
 
-export default function CheckoutSteps({ current }: Props) {
+export default function CheckoutSteps({ current, complete = false }: Props) {
   const { mobile } = useBreakpoint();
 
   return (
@@ -31,7 +36,7 @@ export default function CheckoutSteps({ current }: Props) {
         }}
       >
         {STEPS.map((step, i) => {
-          const done = step.n < current;
+          const done = step.n < current || (complete && step.n === current);
           const active = step.n === current;
           const canLink = done && step.href;
 

@@ -13,7 +13,7 @@ import {
   variantLabel, variantInStock } from '@/lib/api/catalog';
 import WishlistHeart from './WishlistHeart';
 import VariantPicker from './VariantPicker';
-import PriceDisplay from './PriceDisplay';
+import PriceDisplay, { formatPrice } from './PriceDisplay';
 import Icon from '@/components/ui/Icon';
 import Sparkle from '@/components/ui/Sparkle';
 import type { ProductSectionConfig } from '@/lib/api/storefront';
@@ -101,6 +101,8 @@ interface ProductInfoPanelProps {
   onAdd: () => void;
   ctaStyle: React.CSSProperties;
   ctaDisplay: string;
+  /** Watched by the sticky buy bar's IntersectionObserver — see W3.4. */
+  addToBagRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 const ProductInfoPanel = React.memo(function ProductInfoPanel({
@@ -116,6 +118,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
   onAdd,
   ctaStyle,
   ctaDisplay,
+  addToBagRef,
 }: ProductInfoPanelProps) {
   return (
     <div
@@ -227,6 +230,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         }}
       >
         <button
+          ref={addToBagRef}
           data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag"
           onClick={onAdd}
           disabled={!selectedVariant || soldOut}
@@ -434,6 +438,50 @@ export default function ApiProductDetail({
   const [added, setAdded] = React.useState(false);
   const [addedAnim, setAddedAnim] = React.useState(false);
 
+  // Sticky buy bar visibility (W3.4). Two Add-to-bag buttons on screen at
+  // once crowd the layout, so the sticky bar fades out while the main
+  // button is visible and comes back the moment it scrolls away.
+  //
+  // Defaults to "main button not in view" (bar shown) — the safe direction.
+  // It only flips to hidden once the observer *confirms* the main button is
+  // on screen, and a safety timeout undoes that only if the observer never
+  // reports back at all (not on every timeout — unlike `useScrollReveal`'s
+  // one-shot safety, this state toggles back and forth for as long as the
+  // page is open, so an unconditional timer would fight a legitimately
+  // hidden bar after 1.5s). A shopper who cannot reach Add to bag cannot
+  // buy, so every failure mode here must leave the bar visible.
+  const mainAddToBagRef = React.useRef<HTMLButtonElement | null>(null);
+  const [mainButtonInView, setMainButtonInView] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = mainAddToBagRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      // No element yet, or no IO support (very old browser) — never claim
+      // the main button is visible, so the sticky bar just stays up.
+      return;
+    }
+    let observed = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        observed = true;
+        setMainButtonInView(entry.isIntersecting);
+      },
+      { threshold: 0.2 },
+    );
+    io.observe(el);
+
+    const safety = setTimeout(() => {
+      if (!observed) setMainButtonInView(false);
+    }, 1500);
+
+    return () => {
+      io.disconnect();
+      clearTimeout(safety);
+    };
+  }, []);
+
   // Saving is owned by WishlistHeart itself — see that component. Nothing here
   // needs to know about it, which is why there is no wishlist state on this
   // page any more.
@@ -442,9 +490,12 @@ export default function ApiProductDetail({
   // so the copy travelled twice the intended distance on phones.
   const copyEnt = useEnterSpring({ preset: 'default', from: { y: 14, opacity: 0, scale: 1 }, delay: 60 });
 
-  // For price crossfade when variant changes
+  // For price crossfade when variant changes. Routed through the same
+  // formatter every other price on the page uses (PriceDisplay's
+  // formatPrice) — priceAmount is a raw NUMERIC(*,4) string like "400.0000"
+  // and must never be glued to the currency code unformatted.
   const priceLabel = selectedVariant
-    ? `${selectedVariant.priceCurrency} ${selectedVariant.priceAmount}`
+    ? formatPrice(selectedVariant.priceAmount, selectedVariant.priceCurrency)
     : '';
   const ctaX = useCrossfade(priceLabel);
 
@@ -514,6 +565,7 @@ export default function ApiProductDetail({
               onAdd={handleAdd}
               ctaStyle={ctaX.style}
               ctaDisplay={ctaX.display}
+              addToBagRef={mainAddToBagRef}
             />
           </div>
         </div>
@@ -565,6 +617,7 @@ export default function ApiProductDetail({
       <div
         data-testid="buy-bar"
         data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-sticky-buy-bar"
+        aria-hidden={mainButtonInView}
         className="sticky bottom-0 z-30 order-4 flex items-center gap-3 border-t px-[clamp(16px,4vw,24px)] pt-3 lg:hidden"
         style={{
           borderColor: 'var(--mr-hairline)',
@@ -572,6 +625,10 @@ export default function ApiProductDetail({
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+          opacity: mainButtonInView ? 0 : 1,
+          transform: mainButtonInView ? 'translateY(8px)' : 'translateY(0)',
+          pointerEvents: mainButtonInView ? 'none' : 'auto',
+          transition: `opacity var(--mr-dur-normal) var(--mr-ease-out), transform var(--mr-dur-normal) var(--mr-ease-out)`,
         }}
       >
         <div style={{ minWidth: 0, flex: '0 1 auto' }}>
