@@ -4,8 +4,9 @@
  * CartItemRow — a single line item in the cart.
  *
  * Displays: product image (Cloudinary), name, brand, size_ml, bottle_type,
- * qty selector (−/+, capped at 10), unit price, line total, remove button.
- * Shows a loading overlay during qty update.
+ * qty selector (−/+, capped at min(10, availableQuantity) — W1.3), unit
+ * price, line total, remove button. Shows a loading overlay during qty
+ * update.
  */
 
 import React from 'react';
@@ -13,7 +14,8 @@ import Image from 'next/image';
 import type { CartItem } from './CartContext';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 
-const QTY_MAX = 10;
+// Flat policy cap. Never the whole ceiling by itself — see effectiveMax below.
+const POLICY_MAX = 10;
 
 interface CartItemRowProps {
   item: CartItem;
@@ -24,9 +26,21 @@ interface CartItemRowProps {
 export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRowProps) {
   const [busy, setBusy] = React.useState(false);
 
+  // W1.3: cap the stepper at real stock, not just the flat policy limit.
+  // `availableQuantity` undefined (a stale API response) falls back to the
+  // policy max rather than 0 — a stale deploy must not make every line look
+  // sold out (mirrors `variantInStock()` in lib/api/catalog.ts).
+  const availableQuantity =
+    typeof item.availableQuantity === 'number' ? item.availableQuantity : POLICY_MAX;
+  const effectiveMax = Math.min(POLICY_MAX, availableQuantity);
+  // Only a real scarcity signal — availableQuantity >= 10 means the flat cap
+  // is the reason for the ceiling, not stock, so saying "Only 10 left" when
+  // there are 400 would be a lie.
+  const scarceNote = effectiveMax < POLICY_MAX ? `Only ${effectiveMax} left` : null;
+
   async function handleQty(delta: number) {
     const next = item.qty + delta;
-    if (next < 1 || next > QTY_MAX) return;
+    if (next < 1 || next > effectiveMax) return;
     setBusy(true);
     try {
       await onUpdateQty(item.id, next);
@@ -182,13 +196,29 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
           </span>
           <button
             aria-label="Increase quantity"
-            disabled={busy || item.qty >= QTY_MAX}
+            disabled={busy || item.qty >= effectiveMax}
             onClick={() => void handleQty(1)}
-            style={qtyBtnStyle(busy || item.qty >= QTY_MAX)}
+            style={qtyBtnStyle(busy || item.qty >= effectiveMax)}
           >
             +
           </button>
         </div>
+
+        {/* Scarcity note — only a real signal (availableQuantity < 10), never
+            shown for a policy-only ceiling. Also covers the case where stock
+            dropped below the qty already in the bag: we show the note and let
+            the shopper reduce it rather than silently mutating their cart. */}
+        {scarceNote && (
+          <div
+            style={{
+              fontFamily: 'var(--mr-font-ui)',
+              fontSize: 'var(--mr-text-xs)',
+              color: 'var(--mr-fg-4)',
+            }}
+          >
+            {scarceNote}
+          </div>
+        )}
 
         {/* Prices */}
         <div

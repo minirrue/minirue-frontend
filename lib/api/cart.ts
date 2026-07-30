@@ -14,6 +14,14 @@ export interface CartItemDto {
   unitPriceAmount: string;
   unitPriceCurrency: string;
   lineTotalAmount: string;
+  /**
+   * Real sellable stock for this variant (backend W1.3). Optional because an
+   * older/stale API response may not send it — absent is treated as 10 (the
+   * flat policy cap), never as 0, so a stale deploy cannot make every cart
+   * line look sold out. Mirrors the same deliberate default as
+   * `lib/api/catalog.ts` `variantInStock()`.
+   */
+  availableQuantity?: number;
   // Optional enrichment fields (resolved by frontend from catalog)
   name?: string;
   brand?: string;
