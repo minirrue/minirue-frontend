@@ -119,4 +119,75 @@ describe('ApiProductDetail', () => {
     // phone-tree-then-desktop-tree double mount for desktop visitors.
     expect(container.querySelector('[data-testid="product-layout"]')).toHaveClass('lg:flex-row');
   });
+
+  /**
+   * Bug 2 (task-storefront-bugs): "What people say" used to render before the
+   * product details (brand/name/price/size picker/Add to bag) on a phone —
+   * both lived inside the SAME `order-2` flex item, ahead of <aside>'s
+   * `order-3`. The fix keeps <ProductReviews> mounted once (it fetches its
+   * own data) but moves it into its own `order-4` flex item via a `contents`
+   * wrapper, so on mobile it now falls after <aside> in flex order. `order`
+   * only reorders visually/for CSS layout, not DOM position — so the
+   * meaningful assertion is each element's actual mobile `order` class,
+   * which is what the CSS cascade in the deployed build acts on.
+   */
+  it('gives the product info panel a lower mobile order than the reviews section, so details render before reviews', () => {
+    const { container } = renderDetail();
+
+    const infoPanel = container.querySelector('[data-testid="product-info-panel"]');
+    // <aside> is the flex item that actually carries the mobile `order`
+    // class; the info panel is a plain div inside it.
+    const infoPanelFlexItem = infoPanel?.closest('aside');
+    const reviewsSection = container.querySelector(
+      '[data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-reviews"]',
+    );
+    // The reviews wrapper is the direct `order-4` div added around
+    // <ProductReviews> + the closing image.
+    const reviewsFlexItem = reviewsSection?.parentElement;
+
+    expect(infoPanelFlexItem).toBeTruthy();
+    expect(reviewsFlexItem).toBeTruthy();
+
+    const orderClass = (el: Element | null | undefined) =>
+      Array.from(el?.classList ?? []).find((c) => /^order-\d+$/.test(c));
+
+    const infoOrder = Number(orderClass(infoPanelFlexItem)?.replace('order-', ''));
+    const reviewsOrder = Number(orderClass(reviewsFlexItem)?.replace('order-', ''));
+
+    expect(Number.isNaN(infoOrder)).toBe(false);
+    expect(Number.isNaN(reviewsOrder)).toBe(false);
+    expect(infoOrder).toBeLessThan(reviewsOrder);
+  });
+
+  it('places reviews after the product info panel in mobile visual order', () => {
+    // Belt-and-suspenders on top of the specific-ancestor assertion above:
+    // walk UP from each element to the nearest ancestor actually carrying a
+    // mobile `order-N` class — the flex item CSS acts on — regardless of how
+    // many plain wrapper divs (like the reviews block's `contents` parent)
+    // sit in between, and confirm the info panel's item sorts before the
+    // reviews item.
+    const { container } = renderDetail();
+
+    const infoPanel = container.querySelector('[data-testid="product-info-panel"]');
+    const reviewsSection = container.querySelector(
+      '[data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-reviews"]',
+    );
+
+    const orderOf = (descendant: Element | null): number => {
+      let node: Element | null = descendant;
+      while (node) {
+        const cls = Array.from(node.classList).find((c) => /^order-\d+$/.test(c));
+        if (cls) return Number(cls.replace('order-', ''));
+        node = node.parentElement;
+      }
+      return NaN;
+    };
+
+    const infoOrder = orderOf(infoPanel);
+    const reviewsOrder = orderOf(reviewsSection);
+
+    expect(Number.isNaN(infoOrder)).toBe(false);
+    expect(Number.isNaN(reviewsOrder)).toBe(false);
+    expect(infoOrder).toBeLessThan(reviewsOrder);
+  });
 });

@@ -103,6 +103,13 @@
   /* ── Layout ── */
   --mr-content-max: 1280px;
   --mr-gutter: clamp(20px, 4vw, 48px);
+  /* Real, measured height of the mobile bottom nav when it's on screen; 0
+     when it's hidden (scrolled up, desktop, not a route that shows it).
+     Written by MobileBottomNav.tsx; consumed by the PDP sticky buy bar
+     (ApiProductDetail.tsx) so the buy bar stacks directly above the nav
+     instead of being covered by it. Default here covers the moment before
+     that effect has run (SSR, first paint). */
+  --mr-bottom-nav-offset: 0px;
 
   /* ── Motion personality defaults (luxury) ── */
   --mp-dur-hover: 300ms;

@@ -571,43 +571,69 @@ export default function ApiProductDetail({
         </div>
       </aside>
 
-      {/* RIGHT on a laptop / FIRST on a phone: the photographs. */}
-      <main className="order-2 lg:order-2 lg:min-h-screen lg:flex-1">
-        {gallery.length > 0 ? (
-          <ProductGallery product={product} items={gallery} />
-        ) : (
-          <MediaFallback name={product.name} />
-        )}
+      {/* RIGHT column on a laptop / interleaved with <aside> on a phone: the
+          photographs, then the reviews. Bug 2 (task-storefront-bugs): on a
+          phone "What people say" used to render before the product details
+          because it lived inside this single flex item (order-2), ahead of
+          <aside> (order-3) — the fix is not to pull <ProductReviews> out to
+          the top level, because that would make it a THIRD flex column
+          alongside <aside>/<main> on a laptop (`lg:flex-row`) and break the
+          two-column desktop layout. Instead this wrapper is `contents` by
+          default: it un-boxes itself so its two children below become
+          independent flex items of THIS component's own row, each free to
+          carry its own mobile `order` — media block at order-2 (before
+          <aside>), reviews block at order-4 (after it). At `lg:` the wrapper
+          becomes a real flex column again (`lg:flex lg:flex-col`) and
+          re-collapses into the single right-hand flex item <main> used to
+          be, so the desktop layout — <aside> order-1, this column order-2 —
+          is byte-for-byte the same as before; reviews were already below the
+          info panel there. */}
+      <div className="contents lg:order-2 lg:flex lg:min-h-screen lg:flex-1 lg:flex-col">
+        {/* FIRST on a phone / top of the right column on a laptop: the
+            photographs. */}
+        <main className="order-2">
+          {gallery.length > 0 ? (
+            <ProductGallery product={product} items={gallery} />
+          ) : (
+            <MediaFallback name={product.name} />
+          )}
 
-        <EditorialMoment product={product} />
+          <EditorialMoment product={product} />
+        </main>
 
-        <ProductReviews
-          productId={product.id}
-          productName={product.name}
-          initialAverage={product.reviewsAverage ?? null}
-          initialCount={product.reviewsCount ?? 0}
-        />
+        {/* AFTER <aside> (the product details) on a phone / below the
+            photographs on a laptop — never rendered a second time, since
+            ProductReviews fetches its own data and owns the one "write a
+            review" entry point. */}
+        <div className="order-4">
+          <ProductReviews
+            productId={product.id}
+            productName={product.name}
+            initialAverage={product.reviewsAverage ?? null}
+            initialCount={product.reviewsCount ?? 0}
+          />
 
-        {/* The page ends on a photograph. What used to be here was an
-            "Available sizes" panel repeating the size the shopper had already
-            picked at the top. When no closing image is marked, the page simply
-            ends — the panel is not coming back. */}
-        {closing && closingSrc ? (
-          <div
-            data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-closing-image"
-            className="relative aspect-[4/5] w-full overflow-hidden lg:aspect-auto lg:h-screen"
-            style={{ background: 'var(--mr-cream-300)' }}
-          >
-            <Image
-              src={closingSrc}
-              alt={closing.altText ?? product.name}
-              fill
-              sizes="(min-width: 1024px) 58vw, 100vw"
-              style={{ objectFit: 'cover' }}
-            />
-          </div>
-        ) : null}
-      </main>
+          {/* The page ends on a photograph. What used to be here was an
+              "Available sizes" panel repeating the size the shopper had already
+              picked at the top. When no closing image is marked, the page simply
+              ends — the panel is not coming back. */}
+          {closing && closingSrc ? (
+            <div
+              data-trace-id="PG-STOREFRONT-CAT-005::EL-IMG-product-closing-image"
+              className="relative aspect-[4/5] w-full overflow-hidden lg:aspect-auto lg:h-screen"
+              style={{ background: 'var(--mr-cream-300)' }}
+            >
+              <Image
+                src={closingSrc}
+                alt={closing.altText ?? product.name}
+                fill
+                sizes="(min-width: 1024px) 58vw, 100vw"
+                style={{ objectFit: 'cover' }}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
 
       {/* Sticky buy bar — phones only. The CTA in the copy column scrolls away
           the moment someone looks at the photographs, and on a phone the whole
@@ -618,17 +644,39 @@ export default function ApiProductDetail({
         data-testid="buy-bar"
         data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-sticky-buy-bar"
         aria-hidden={mainButtonInView}
-        className="sticky bottom-0 z-30 order-4 flex items-center gap-3 border-t px-[clamp(16px,4vw,24px)] pt-3 lg:hidden"
+        // order-5: after the reviews block (order-4) — the reviews fix bumped
+        // this bar down one slot so it stays last in mobile flow, matching
+        // its role as the final, always-on-top purchase action.
+        className="sticky z-30 order-5 flex items-center gap-3 border-t px-[clamp(16px,4vw,24px)] pt-3 lg:hidden"
         style={{
           borderColor: 'var(--mr-hairline)',
           background: 'color-mix(in oklab, var(--mr-cream-100) 88%, transparent)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+          // Stacks directly on top of the mobile bottom nav rather than
+          // being covered by it: MobileBottomNav.tsx measures its own
+          // rendered height (0 when hidden) and publishes it here, so this
+          // bar sits flush on the true bottom edge — with just its own
+          // safe-area padding — the moment the nav is out of the way, and
+          // rides up to sit right above it the moment the nav reappears.
+          bottom: 'var(--mr-bottom-nav-offset, 0px)',
+          // Only add the safe-area inset ourselves when the bottom nav is NOT
+          // sitting under us — the nav's own box already carries that inset
+          // (see MobileBottomNav.tsx's `paddingBottom: env(safe-area-inset-
+          // bottom)`), and `bottom` above already lifts this bar clear of the
+          // nav's full height. Stacking both paddings on top of that offset
+          // double-counts the inset and leaves a dead gap above the buttons
+          // on notched phones. `max(0px, inset - offset)` collapses to 0 once
+          // the offset (nav height, which itself contains the inset) is at
+          // least as tall as the inset alone — i.e. whenever the nav is
+          // visible — and falls back to the full inset when the offset is 0
+          // (nav hidden, so this bar owns the safe area itself).
+          paddingBottom:
+            'calc(12px + max(0px, env(safe-area-inset-bottom) - var(--mr-bottom-nav-offset, 0px)))',
           opacity: mainButtonInView ? 0 : 1,
           transform: mainButtonInView ? 'translateY(8px)' : 'translateY(0)',
           pointerEvents: mainButtonInView ? 'none' : 'auto',
-          transition: `opacity var(--mr-dur-normal) var(--mr-ease-out), transform var(--mr-dur-normal) var(--mr-ease-out)`,
+          transition: `opacity var(--mr-dur-normal) var(--mr-ease-out), transform var(--mr-dur-normal) var(--mr-ease-out), bottom var(--mr-dur-normal) var(--mr-ease-out)`,
         }}
       >
         <div style={{ minWidth: 0, flex: '0 1 auto' }}>

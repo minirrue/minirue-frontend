@@ -33,6 +33,19 @@ import { getSession, type Session } from '@/lib/session';
 
 const BAR_HEIGHT = 58;
 
+/**
+ * Bug 1 (task-storefront-bugs): the PDP sticky buy bar needs to sit directly
+ * on top of this nav rather than being covered by it. A hardcoded pixel
+ * guess in ApiProductDetail.tsx would drift the moment this bar's real
+ * on-screen height changes (safe-area inset, a border tweak, a future
+ * redesign) — so instead this component measures its OWN rendered box and
+ * publishes the result as a CSS custom property on `document.documentElement`.
+ * Global, not local: this nav is mounted once in `app/layout.tsx` and the buy
+ * bar lives in an unrelated subtree (ApiProductDetail.tsx), so there is no
+ * shared ancestor to scope the property to.
+ */
+const BOTTOM_NAV_OFFSET_VAR = '--mr-bottom-nav-offset';
+
 interface NavItem {
   key: string;
   label: string;
@@ -76,8 +89,42 @@ export default function MobileBottomNav() {
 
   const accountHref = session ? '/account/profile' : '/login';
 
+  const navRef = React.useRef<HTMLElement | null>(null);
+
+  // Publish this bar's real rendered height (0 while it's translated off
+  // screen) so the PDP buy bar can stack directly above it instead of being
+  // covered by it. Measured via ResizeObserver against the actual box —
+  // not `BAR_HEIGHT` alone — because the rendered height also folds in the
+  // safe-area-inset-bottom padding and the hairline border, which this
+  // component doesn't otherwise expose a single source of truth for.
+  React.useEffect(() => {
+    const el = navRef.current;
+    if (!el || typeof window === 'undefined') return;
+
+    const apply = () => {
+      const height = visible ? el.getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty(BOTTOM_NAV_OFFSET_VAR, `${height}px`);
+    };
+    apply();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [visible]);
+
+  // This component is mounted once, for the app's whole lifetime — but if
+  // that ever changes, never leave a stale offset stacked under whatever
+  // reads this property next.
+  React.useEffect(() => {
+    return () => {
+      document.documentElement.style.setProperty(BOTTOM_NAV_OFFSET_VAR, '0px');
+    };
+  }, []);
+
   return (
     <nav
+      ref={navRef}
       aria-label="Primary"
       data-testid="mobile-bottom-nav"
       style={{
@@ -85,11 +132,11 @@ export default function MobileBottomNav() {
         left: 0,
         right: 0,
         bottom: 0,
-        // Z-order rule (stated in the task report): the PDP sticky buy bar
-        // (ApiProductDetail.tsx, Tailwind `z-30`) must never be covered — it
-        // is the primary purchase action. This bar sits below it at 20, so
-        // on a product page the two can be visually adjacent without ever
-        // double-stacking the buy bar underneath this nav.
+        // Stacking, not z-fighting: the PDP sticky buy bar reads
+        // `--mr-bottom-nav-offset` (set above) and sits its own `bottom` at
+        // that value, so the two are vertically adjacent — buy bar directly
+        // above this nav — and never overlap in either direction. This bar's
+        // own z-index only has to clear ordinary page content.
         zIndex: 20,
         display: belowBreakpoint ? 'flex' : 'none',
         height: BAR_HEIGHT,
