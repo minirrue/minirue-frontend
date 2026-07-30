@@ -41,6 +41,14 @@ export interface OrderSummary {
   totalCurrency: string;
   items: OrderItemSummary[];
   createdAt: string;
+  /**
+   * Set together, both null unless the order has been refunded. The backend
+   * DTO has always carried these (orders.mapper.ts) — this interface was the
+   * thing dropping them, so the account pages had nothing to render even
+   * after a refund actually happened.
+   */
+  refundedAt: string | null;
+  refundedAmountCents: number | null;
 }
 
 export interface OrderListResponse {

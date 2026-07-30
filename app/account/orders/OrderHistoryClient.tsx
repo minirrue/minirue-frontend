@@ -147,6 +147,24 @@ function OrderCard({ order }: { order: OrderSummary }) {
               })}
             </span>
           </div>
+
+          {/* Only the amount goes here — the word "Refunded" is already the
+              status above; repeating it would just be noise. */}
+          {!!order.refundedAmountCents && (
+            <div
+              style={{
+                fontSize: 'var(--mr-text-xs)',
+                color: 'var(--mr-fg-4)',
+                marginTop: 4,
+              }}
+            >
+              {formatOrderTotal(
+                (order.refundedAmountCents / 100).toFixed(2),
+                order.totalCurrency,
+              )}{' '}
+              refunded
+            </div>
+          )}
         </div>
 
         <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>

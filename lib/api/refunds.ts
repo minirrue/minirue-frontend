@@ -58,3 +58,22 @@ export async function apiGetMyRefund(ticketId: string): Promise<RefundTicket> {
 export async function apiCancelRefund(ticketId: string): Promise<RefundTicket> {
   return apiFetch(`/refunds/${ticketId}/cancel`, { method: 'PATCH', auth: true });
 }
+
+/**
+ * Human label for a refund ticket status, matching the vocabulary the
+ * dashboard already uses (RefundStatus is a fixed vocabulary, not free text,
+ * so this is a lookup, not a transform) — the two sides must agree, since a
+ * customer and an admin can be looking at the same ticket.
+ */
+const REFUND_STATUS_LABEL: Record<RefundStatus, string> = {
+  REQUESTED: 'Requested',
+  UNDER_REVIEW: 'Under review',
+  APPROVED: 'Approved',
+  REFUNDED: 'Refunded',
+  REJECTED: 'Rejected',
+  CANCELLED: 'Cancelled',
+};
+
+export function formatRefundStatus(status: RefundStatus): string {
+  return REFUND_STATUS_LABEL[status] ?? status;
+}
