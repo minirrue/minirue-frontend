@@ -2,6 +2,7 @@
  * Checkout API client — POST /v1/checkout, GET /v1/orders
  */
 import { apiFetch } from '../api/client';
+import { attributionHeaders } from '../analytics/attribution';
 
 export type PaymentMethod = 'COD' | 'INSTAPAY';
 
@@ -65,7 +66,7 @@ export async function apiCheckout(
   return apiFetch<OrderSummary>('/checkout', {
     method: 'POST',
     auth: true,
-    headers: { 'Idempotency-Key': idempotencyKey },
+    headers: { 'Idempotency-Key': idempotencyKey, ...attributionHeaders() },
     body: JSON.stringify(body),
   });
 }
