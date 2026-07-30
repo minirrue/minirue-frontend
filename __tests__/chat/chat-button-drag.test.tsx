@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import ChatButton from '@/components/chat/ChatButton';
 import {
   CHAT_BUTTON_SIZE,
+  CHAT_BUTTON_TUCK_PX,
   __resetChatButtonPositionForTests,
 } from '@/lib/hooks/useChatButtonPosition';
 
@@ -186,5 +187,128 @@ describe('ChatButton snap-to-edge and persistence (W4a.3)', () => {
 
     const top = parseFloat(button().style.top);
     expect(top).toBeLessThanOrEqual(400 - CHAT_BUTTON_SIZE - 8);
+  });
+
+  it('a stored NON-tucked position outside a smaller current viewport clamps back onto screen', () => {
+    // Saved on a much bigger screen, and explicitly fully-visible (not
+    // tucked) — the new clamp branch (Bug 3) must still pull it fully
+    // inside the current 1000x800 viewport, not just re-home it as tucked.
+    window.localStorage.setItem(
+      'mr:chat-button-pos',
+      JSON.stringify({ x: 5000, y: 3000, edge: 'right', tucked: false }),
+    );
+
+    render(<ChatButton onClick={jest.fn()} />);
+
+    const el = button();
+    const left = parseFloat(el.style.left);
+    const top = parseFloat(el.style.top);
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(left).toBeLessThanOrEqual(1000 - CHAT_BUTTON_SIZE);
+    expect(top).toBeGreaterThanOrEqual(8);
+    expect(top).toBeLessThanOrEqual(800 - CHAT_BUTTON_SIZE - 8);
+  });
+});
+
+describe('ChatButton edge-proximity visibility (Bug 3)', () => {
+  it('released far from all four edges, the button stays 100% visible exactly where dropped', () => {
+    render(<ChatButton onClick={jest.fn()} />);
+
+    // jsdom reports the drag origin as (0,0) (see note above), so the drag
+    // distance alone determines the settled point: (500, 400) in a
+    // 1000x800 viewport puts every edge distance comfortably past
+    // EDGE_PROXIMITY_PX (80px).
+    pointerDown(0, 0);
+    pointerMove(500, 400);
+    pointerUp(500, 400);
+
+    const el = button();
+    const left = parseFloat(el.style.left);
+    const top = parseFloat(el.style.top);
+    expect(left).toBe(500);
+    expect(top).toBe(400);
+    // Fully visible: no part of the button crosses any of the four edges.
+    expect(left).toBeGreaterThan(80);
+    expect(1000 - (left + CHAT_BUTTON_SIZE)).toBeGreaterThan(80);
+    expect(top).toBeGreaterThan(80);
+    expect(800 - (top + CHAT_BUTTON_SIZE)).toBeGreaterThan(80);
+  });
+
+  it('released near the TOP edge (even horizontally centered), it still tucks 50% against the nearest side', () => {
+    render(<ChatButton onClick={jest.fn()} />);
+
+    // x lands left-of-center (so it docks left) while y lands just 20px
+    // from the top — proximity to ANY of the four edges triggers the tuck,
+    // not just the left/right ones.
+    pointerDown(0, 0);
+    pointerMove(400, 20);
+    pointerUp(400, 20);
+
+    const el = button();
+    expect(el.style.left).toBe(`${-(CHAT_BUTTON_SIZE / 2)}px`);
+  });
+});
+
+describe('ChatButton comes fully into view on open (Bug 2)', () => {
+  it('tapping a tucked bubble shifts it fully on screen via transform, and it returns to tucked on close', () => {
+    const { rerender } = render(<ChatButton onClick={jest.fn()} open={false} />);
+
+    // Drag past the midline and near the right edge so it settles tucked.
+    pointerDown(0, 400);
+    pointerMove(800, 400);
+    pointerUp(800, 400);
+
+    const el = button();
+    const tuckedLeft = parseFloat(el.style.left);
+    expect(tuckedLeft).toBe(1000 - CHAT_BUTTON_SIZE / 2);
+    // Still tucked while closed — no into-view shift applied.
+    expect(el.style.transform).not.toContain('translateX');
+
+    rerender(<ChatButton onClick={jest.fn()} open />);
+
+    // The stored/rendered left never moves — only a visual transform shifts it.
+    expect(parseFloat(el.style.left)).toBe(tuckedLeft);
+    expect(el.style.transform).toContain(`translateX(-${CHAT_BUTTON_TUCK_PX}px)`);
+    // With the transform applied, the button is entirely within the viewport.
+    expect(tuckedLeft - CHAT_BUTTON_TUCK_PX).toBeGreaterThanOrEqual(0);
+    expect(tuckedLeft - CHAT_BUTTON_TUCK_PX + CHAT_BUTTON_SIZE).toBeLessThanOrEqual(1000);
+
+    // Closing returns it to its tucked resting spot (position untouched throughout).
+    rerender(<ChatButton onClick={jest.fn()} open={false} />);
+    expect(el.style.transform).not.toContain('translateX');
+    expect(parseFloat(el.style.left)).toBe(tuckedLeft);
+  });
+
+  it('tapping a bubble tucked at the LEFT edge shifts it fully into view in the opposite direction', () => {
+    const { rerender } = render(<ChatButton onClick={jest.fn()} open={false} />);
+
+    pointerDown(0, 400);
+    pointerMove(30, 400); // stays left of midline — docks left, tucked
+    pointerUp(30, 400);
+
+    const el = button();
+    const tuckedLeft = parseFloat(el.style.left);
+    expect(tuckedLeft).toBe(-(CHAT_BUTTON_SIZE / 2));
+
+    rerender(<ChatButton onClick={jest.fn()} open />);
+
+    expect(el.style.transform).toContain(`translateX(${CHAT_BUTTON_TUCK_PX}px)`);
+    expect(tuckedLeft + CHAT_BUTTON_TUCK_PX).toBeGreaterThanOrEqual(0);
+  });
+
+  it('a fully-visible (non-tucked) bubble gets no into-view shift when opened', () => {
+    const { rerender } = render(<ChatButton onClick={jest.fn()} open={false} />);
+
+    pointerDown(0, 0);
+    pointerMove(500, 400); // far from every edge — settles non-tucked
+    pointerUp(500, 400);
+
+    const el = button();
+    const left = parseFloat(el.style.left);
+
+    rerender(<ChatButton onClick={jest.fn()} open />);
+
+    expect(el.style.transform).not.toContain('translateX');
+    expect(parseFloat(el.style.left)).toBe(left);
   });
 });

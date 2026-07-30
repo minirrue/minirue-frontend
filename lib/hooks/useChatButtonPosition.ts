@@ -29,13 +29,29 @@ export interface ChatButtonPosition {
   x: number;
   /** Top edge of the button, in viewport px. */
   y: number;
-  /** Which edge it's tucked against — drives which side ChatPanel opens from. */
+  /** Nearest left/right side — drives which side ChatPanel opens from, and
+   *  (when `tucked`) which edge the button docks against. */
   edge: ChatButtonEdge;
+  /**
+   * Whether the button is currently docked 50% off-screen against `edge`
+   * (true) vs. fully on screen wherever it was released (false). Decided
+   * once, when a drag settles, by proximity to the nearest viewport edge —
+   * see `EDGE_PROXIMITY_PX` in ChatButton.tsx — and then preserved verbatim
+   * by every re-clamp after that (resize, hydrate from storage) so a
+   * fully-visible button re-homes back to fully visible, not into a corner
+   * it was never dragged near.
+   */
+  tucked: boolean;
 }
 
 export const CHAT_BUTTON_SIZE = 52;
 /** How far past the edge the button tucks — half its own width. */
 const TUCK_FRACTION = 0.5;
+/** In px: exactly how far a tucked button sits off screen, and therefore how
+ *  far a tap must shift it to bring it fully into view (ChatButton.tsx,
+ *  Bug 2). Exported so that file doesn't hardcode a second copy of the same
+ *  number. */
+export const CHAT_BUTTON_TUCK_PX = CHAT_BUTTON_SIZE * TUCK_FRACTION;
 const STORAGE_KEY = 'mr:chat-button-pos';
 
 let current: ChatButtonPosition | null = null;
@@ -61,19 +77,32 @@ function getServerSnapshot(): ChatButtonPosition | null {
 
 /** Clamp a settled position to whatever the viewport is right now — used both
  *  right after a drag and to re-home a position read back from a previous,
- *  possibly narrower/shorter, viewport. */
+ *  possibly narrower/shorter, viewport.
+ *
+ *  Branches on `pos.tucked` (Bug 3): a tucked position is re-homed to the
+ *  half-off-screen spot against its edge, exactly as before this field
+ *  existed; a non-tucked position is simply clamped to stay fully inside the
+ *  current viewport, wherever it was released. */
 export function clampChatButtonPosition(
   pos: ChatButtonPosition,
   viewportW: number,
   viewportH: number,
   size = CHAT_BUTTON_SIZE,
 ): ChatButtonPosition {
-  const tuck = size * TUCK_FRACTION;
-  const x = pos.edge === 'left' ? -tuck : viewportW - size + tuck;
   const minY = 8;
   const maxY = Math.max(minY, viewportH - size - 8);
   const y = Math.min(Math.max(pos.y, minY), maxY);
-  return { x, y, edge: pos.edge };
+
+  if (pos.tucked) {
+    const tuck = size * TUCK_FRACTION;
+    const x = pos.edge === 'left' ? -tuck : viewportW - size + tuck;
+    return { x, y, edge: pos.edge, tucked: true };
+  }
+
+  const minX = 0;
+  const maxX = Math.max(minX, viewportW - size);
+  const x = Math.min(Math.max(pos.x, minX), maxX);
+  return { x, y, edge: pos.edge, tucked: false };
 }
 
 function readStored(): ChatButtonPosition | null {
@@ -89,7 +118,11 @@ function readStored(): ChatButtonPosition | null {
       return null;
     }
     return clampChatButtonPosition(
-      { x: parsed.x ?? 0, y: parsed.y, edge: parsed.edge },
+      // `tucked` defaults to `true` for a position stored before that field
+      // existed — preserves the old (always-tucked) behavior for anyone who
+      // already had a saved spot, rather than surprising them with a jump to
+      // fully-visible on their next visit.
+      { x: parsed.x ?? 0, y: parsed.y, edge: parsed.edge, tucked: parsed.tucked ?? true },
       window.innerWidth,
       window.innerHeight,
     );

@@ -3,6 +3,7 @@
 import React from 'react';
 import {
   CHAT_BUTTON_SIZE,
+  CHAT_BUTTON_TUCK_PX,
   clampChatButtonPosition,
   hydrateChatButtonPosition,
   reclampChatButtonPosition,
@@ -22,6 +23,15 @@ interface ChatButtonProps {
  *  enough that a real drag is always caught; big enough that a trembling
  *  finger or a slightly-off mouse click still opens the chat. */
 const DRAG_THRESHOLD_PX = 6;
+
+/** Bug 3: within this many px of ANY of the four viewport edges, a released
+ *  drag tucks 50% off-screen against the nearest left/right side — the same
+ *  behavior this button always had. Farther than this from every edge, it
+ *  stays fully visible exactly where it was released. Big enough that a
+ *  release "near" a rail still reads as an intentional dock (matches a
+ *  comfortable thumb drop-precision), small enough that most of a real phone
+ *  or laptop screen counts as "the middle". */
+const EDGE_PROXIMITY_PX = 80;
 
 function distance(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(bx - ax, by - ay);
@@ -118,12 +128,24 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
   };
 
   const settleDrag = (finalPos: { x: number; y: number }) => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
     const center = finalPos.x + CHAT_BUTTON_SIZE / 2;
-    const edge: ChatButtonEdge = center < window.innerWidth / 2 ? 'left' : 'right';
+    const edge: ChatButtonEdge = center < vw / 2 ? 'left' : 'right';
+
+    // Bug 3: tuck only when the release lands close to one of the four
+    // edges; otherwise leave it fully visible right where it was dropped.
+    const distLeft = finalPos.x;
+    const distRight = vw - (finalPos.x + CHAT_BUTTON_SIZE);
+    const distTop = finalPos.y;
+    const distBottom = vh - (finalPos.y + CHAT_BUTTON_SIZE);
+    const nearestEdgeDistance = Math.min(distLeft, distRight, distTop, distBottom);
+    const tucked = nearestEdgeDistance <= EDGE_PROXIMITY_PX;
+
     const snapped = clampChatButtonPosition(
-      { x: finalPos.x, y: finalPos.y, edge },
-      window.innerWidth,
-      window.innerHeight,
+      { x: finalPos.x, y: finalPos.y, edge, tucked },
+      vw,
+      vh,
     );
     setChatButtonPosition(snapped);
     setLivePos(null);
@@ -175,6 +197,21 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
       // on the other piece of fixed-positioned chrome this task audited.
       { right: 24, bottom: 'calc(84px + env(safe-area-inset-bottom))', left: 'auto', top: 'auto' };
 
+  // Bug 2: a tucked (50%-hidden) button must come FULLY on screen before its
+  // panel opens, and may return to its tucked resting spot on close. This is
+  // purely a visual shift on top of `positionStyle` — `left`/`top` (and the
+  // persisted store) are never touched, so closing the panel always restores
+  // exactly the spot the button was dragged to. Skipped mid-drag (`livePos`
+  // set): the button is already wherever the pointer put it, which is
+  // already fully under the finger/cursor, so there is nothing to correct.
+  const tuckedRestingEdge = !livePos && storedPos?.tucked ? storedPos.edge : null;
+  const intoViewOffsetPx =
+    open && tuckedRestingEdge
+      ? tuckedRestingEdge === 'left'
+        ? CHAT_BUTTON_TUCK_PX
+        : -CHAT_BUTTON_TUCK_PX
+      : 0;
+
   return (
     <button
       ref={buttonRef}
@@ -201,7 +238,7 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: dragStart.current ? 'grabbing' : 'grab',
         touchAction: 'none',
-        transform: `${isMobile && open && !hasCustomPosition ? 'translateY(-6.5vh) ' : ''}${pressed ? 'scale(0.92)' : hovered ? 'scale(1.06)' : 'scale(1)'}`,
+        transform: `${intoViewOffsetPx !== 0 ? `translateX(${intoViewOffsetPx}px) ` : ''}${isMobile && open && !hasCustomPosition ? 'translateY(-6.5vh) ' : ''}${pressed ? 'scale(0.92)' : hovered ? 'scale(1.06)' : 'scale(1)'}`,
         transition: livePos
           ? 'none'
           : pressed
