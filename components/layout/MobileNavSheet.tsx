@@ -224,14 +224,20 @@ export default function MobileNavSheet({
           position: 'absolute',
           inset: 0,
           background: 'rgba(11,11,11,0.5)',
-          backdropFilter: open ? 'blur(4px)' : 'blur(0)',
-          WebkitBackdropFilter: open ? 'blur(4px)' : 'blur(0)',
+          // `none`, not `blur(0)`, when closed. A backdrop-filter of any value
+          // — zero included — promotes this to its own compositing layer that
+          // keeps sampling everything behind it. This wrapper is z-index 60,
+          // above the site header at 50, so that layer sat over the top bar on
+          // every page whether or not the menu was open.
+          backdropFilter: open ? 'blur(4px)' : 'none',
+          WebkitBackdropFilter: open ? 'blur(4px)' : 'none',
+          visibility: open ? 'visible' : 'hidden',
           // Fades as the sheet is dragged away, so the page behind comes back
           // under the finger instead of after it.
           opacity: open ? 1 - drag.progress : 0,
           transition: drag.dragging
             ? 'none'
-            : 'opacity 400ms var(--mr-ease-snappy), backdrop-filter 400ms ease',
+            : `opacity 400ms var(--mr-ease-snappy), backdrop-filter 400ms ease, visibility 0s linear ${open ? 0 : 400}ms`,
         }}
       />
 
@@ -253,10 +259,25 @@ export default function MobileNavSheet({
           borderRadius: '20px 20px 0 0',
           boxShadow: '0 -18px 48px rgba(11,11,11,0.24)',
           transform: open ? `translateY(${Math.max(drag.offset, 0)}px)` : 'translateY(100%)',
+          // A closed sheet is HIDDEN, not merely translated below the fold.
+          //
+          // This is a full-height panel parked immediately under the bottom of
+          // the viewport. Nothing on the page scrolls it into view — but an
+          // overscroll does: drag past the end of the page on a touch device
+          // and the rubber-band shows you what sits below, which is this. It
+          // springs back the moment the finger lifts, which is exactly how the
+          // owner described it and what told us it was overscroll rather than
+          // a stuck element. `visibility: hidden` cannot be revealed that way.
+          //
+          // Delayed by the slide duration when closing so the sheet is still
+          // painted while it animates out; instant when opening.
+          visibility: open ? 'visible' : 'hidden',
           // No transition mid-drag: the sheet must track the finger exactly.
           // It comes back for the release, which is what makes both the snap
           // back and the slide out feel like the same object.
-          transition: drag.dragging ? 'none' : `transform 600ms ${SHEET_EASE}`,
+          transition: drag.dragging
+            ? 'none'
+            : `transform 600ms ${SHEET_EASE}, visibility 0s linear ${open ? 0 : 600}ms`,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

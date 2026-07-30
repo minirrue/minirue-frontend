@@ -126,6 +126,14 @@ describe('MobileBottomNav (W4a.2)', () => {
   it('reflects the cart item count as a badge on the Cart tab', async () => {
     setViewportWidth(600);
     renderNav();
+    // Scroll down so the bar is actually shown. A hidden bar is now
+    // `visibility: hidden`, which correctly takes it out of the accessibility
+    // tree as well as out of sight — so `getByRole` cannot see it, and should
+    // not: a bar the shopper cannot see is not one a screen reader should
+    // announce either. Translating it off-screen alone used to leave it
+    // exposed to assistive tech.
+    scrollTo(100);
+    scrollTo(160);
     // CartContext hydrates asynchronously; the mocked apiGetCart resolves
     // with itemCount 0, so no badge should render.
     await act(async () => {

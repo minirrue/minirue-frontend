@@ -155,11 +155,23 @@ export default function AnnouncementBar({
     <div
       aria-label="Announcements"
       style={{
-        position: 'sticky',
-        top: 0,
+        // NOT sticky, and deliberately below the header in the stack.
+        //
+        // It used to be `position: sticky; top: 0; zIndex: 60` while the header
+        // is `position: sticky; top: 0; zIndex: 50` — two elements pinned to
+        // the same edge, with this one winning. So the moment both were pinned
+        // the banner painted over the top navbar, taking its border and shimmer
+        // gradient with it. That is the "drop shadow at the top of the page
+        // overriding the navbar".
+        //
+        // Sticky bought nothing here anyway: the bar already collapses to
+        // height 0 on the first scroll, so it is gone by the time stickiness
+        // would matter. In normal flow it simply scrolls away above the header
+        // and the two can never occupy the same pixels.
+        position: 'relative',
         left: 0,
         right: 0,
-        zIndex: 60,
+        zIndex: 40,
         height: hidden ? 0 : barHeight,
         overflow: 'hidden',
         transition: 'height 320ms cubic-bezier(0.4,0,0.2,1)',

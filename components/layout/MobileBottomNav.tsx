@@ -142,11 +142,32 @@ export default function MobileBottomNav() {
         height: BAR_HEIGHT,
         paddingBottom: 'env(safe-area-inset-bottom)',
         background: 'rgba(246,242,233,0.96)',
-        backdropFilter: 'blur(18px)',
-        WebkitBackdropFilter: 'blur(18px)',
+        // Dropped entirely when hidden. A backdrop-filter of any value keeps
+        // its own compositing layer alive, sampling whatever is behind it.
+        backdropFilter: visible ? 'blur(18px)' : 'none',
+        WebkitBackdropFilter: visible ? 'blur(18px)' : 'none',
         borderTop: '1px solid var(--mr-hairline)',
         transform: visible ? 'translateY(0)' : 'translateY(100%)',
-        transition: reducedMotion ? 'none' : 'transform 280ms var(--mr-ease-out)',
+        // A hidden bar is HIDDEN, not merely parked below the fold.
+        //
+        // translateY(100%) leaves a full-width cream bar sitting immediately
+        // under the viewport. Nothing on the page scrolls it into view — but
+        // an overscroll does: drag past the end of the page on a touch device
+        // and the rubber-band reveals what is below, which is this. It springs
+        // back the instant the finger lifts, which is what identified it as
+        // overscroll rather than a stuck element.
+        //
+        // This is the "weird bottom sheet" reported through three rounds of
+        // QC. It read as a rounded panel because a phone's DISPLAY corners are
+        // rounded — the bar itself has no border-radius at all, which is
+        // exactly why searching the CSS for one kept finding the wrong things.
+        //
+        // Delayed by the slide duration when hiding so the bar is still
+        // painted while it animates out; instant when showing.
+        visibility: visible ? 'visible' : 'hidden',
+        transition: reducedMotion
+          ? 'none'
+          : `transform 280ms var(--mr-ease-out), visibility 0s linear ${visible ? 0 : 280}ms`,
         pointerEvents: visible ? 'auto' : 'none',
       }}
     >
