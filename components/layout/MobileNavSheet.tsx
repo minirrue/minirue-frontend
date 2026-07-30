@@ -96,6 +96,16 @@ interface MobileNavSheetProps {
   socials: ResolvedChrome['footer']['socials'];
   signedIn: boolean;
   onOpenSearch: () => void;
+  /**
+   * The shopper's first name, resolved by Header.tsx from the same
+   * profile-first-name → profile-display-name → account-name → email-local-part
+   * chain AccountIdentityStrip.tsx already uses for the account page — reused
+   * here rather than invented fresh. Shown in the footer account button in
+   * place of its admin-configured label ("Account") once signed in.
+   * `undefined` when signed out, still loading, or nothing resolved — the
+   * admin's own label (or the neutral fallback baked into it) covers that.
+   */
+  accountDisplayName?: string;
 }
 
 /** Whether a nav item opens a drill-down panel — real subcategories, pinned
@@ -131,6 +141,7 @@ export default function MobileNavSheet({
   socials,
   signedIn,
   onOpenSearch,
+  accountDisplayName,
 }: MobileNavSheetProps) {
   // The chain of drilled items, root-out: [] is the root panel, [A] is one
   // level deep into A, [A, B] is two levels deep into A's child B, and so on.
@@ -200,12 +211,28 @@ export default function MobileNavSheet({
     }
     if (item.kind === 'account') {
       return {
-        label: signedIn ? item.label : guestLabel,
+        // Signed in: the shopper's first name beats the admin's generic
+        // "Account" label — a black button that just says "Account" reads as
+        // a settings link, not "you're signed in as ___". Falls back to the
+        // admin's own label if nothing resolved (still loading, or the chain
+        // came up empty) rather than ever rendering blank.
+        label: signedIn ? accountDisplayName || item.label : guestLabel,
         href: signedIn ? '/account/profile' : '/login',
       };
     }
     return { label: item.label, href: item.href ?? '#' };
   };
+
+  // The shortcut row and the footer button used to BOTH default to an
+  // "Account" tile — one icon+text tile up top, one pill at the bottom,
+  // doing the exact same thing. The owner's call: keep the bottom one only
+  // (bigger target, already anchored at thumb height) and drop the top icon
+  // when it would just repeat it. A shortcut tile that resolves to something
+  // OTHER than the footer button's own action (e.g. a store with no footer
+  // button configured) is left alone — it may be the only way in.
+  const dedupedShortcuts = mobileMenu.shortcuts.filter(
+    (s) => !(s.kind === 'account' && mobileMenu.footerButton?.kind === 'account'),
+  );
 
   return (
     <div
@@ -364,12 +391,15 @@ export default function MobileNavSheet({
           >
             {/* Shortcut row — icon + text tiles, fully admin-configured. A
                 text-only list makes the most-used actions look like menu
-                items rather than the controls they are. */}
-            {mobileMenu.shortcuts.length > 0 && (
+                items rather than the controls they are. `dedupedShortcuts`,
+                not `mobileMenu.shortcuts` — an Account tile here that just
+                repeats the footer button below is dropped (see its
+                definition above). */}
+            {dedupedShortcuts.length > 0 && (
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: `repeat(${mobileMenu.shortcuts.length}, 1fr)`,
+                  gridTemplateColumns: `repeat(${dedupedShortcuts.length}, 1fr)`,
                   gap: 10,
                   marginBottom: 20,
                   opacity: open && !current ? 1 : 0,
@@ -378,7 +408,7 @@ export default function MobileNavSheet({
                   transitionDelay: open ? itemDelay(0) : '0ms',
                 }}
               >
-                {mobileMenu.shortcuts.map((s) => {
+                {dedupedShortcuts.map((s) => {
                   const action = resolveMobileMenuAction(s, 'Sign in');
                   const inner = (
                     <>
@@ -389,6 +419,16 @@ export default function MobileNavSheet({
                           fontSize: 11,
                           letterSpacing: '0.14em',
                           textTransform: 'uppercase',
+                          // A surviving Account tile (no footer button
+                          // configured to dedupe against) shows the same
+                          // resolved first name as the footer pill and needs
+                          // the same guard: this tile's column is a fixed
+                          // `1fr` share of the grid, so a long name has
+                          // nowhere to grow into.
+                          maxWidth: '100%',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         {action.label}
@@ -561,11 +601,30 @@ export default function MobileNavSheet({
                 textTransform: 'uppercase',
                 border: 0,
                 cursor: 'pointer',
+                // A signed-in shopper's first name replaces the short admin
+                // label here and has no length limit of its own — on a narrow
+                // phone a long one must not push the socials row off the bar
+                // or wrap onto a second line. `minWidth: 0` lets this flex
+                // item actually shrink below its text's natural width (the
+                // flex default is content-sized and won't); the fixed-width
+                // socials group below keeps `flexShrink: 0` so it never gives
+                // up its own space instead.
+                minWidth: 0,
+                flex: '0 1 auto',
               };
               const inner = (
                 <>
                   <Icon name={footerItem.icon} size={16} />
-                  {action.label}
+                  <span
+                    style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                    }}
+                  >
+                    {action.label}
+                  </span>
                 </>
               );
               return action.href ? (
@@ -594,7 +653,7 @@ export default function MobileNavSheet({
 
           <div
             data-trace-id="PG-STOREFRONT-NAV-001::EL-REGION-mobile-nav-socials"
-            style={{ display: 'flex', gap: 14 }}
+            style={{ display: 'flex', gap: 14, flexShrink: 0 }}
           >
             {socials.map((s) => (
               <AnimatedSocialLink key={s.id} network={s.network} url={s.url} />

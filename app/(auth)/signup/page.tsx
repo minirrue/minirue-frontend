@@ -14,6 +14,7 @@ import {
   PASSWORD_HELPER,
 } from '@/lib/auth/schemas';
 import { DIAL_CODES, DEFAULT_DIAL_CODE } from '@/lib/auth/dial-codes';
+import { blurActiveElement } from '@/lib/auth/blur-active-element';
 import { setSession } from '@/lib/session';
 import { apiRegister } from '@/lib/api/auth';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
@@ -90,6 +91,11 @@ export default function SignupPage() {
         createdAt: Date.now(),
       });
       await syncCartAfterAuth();
+      // The redirect target (home) has no input at all, so if the field the
+      // shopper last typed into (often confirm-password) is still focused
+      // when it unmounts, mobile keyboards can stay open there with nothing
+      // to explain it. Blur before navigating away.
+      blurActiveElement();
       router.push('/');
     } catch (err: unknown) {
       setLoading(false);
@@ -183,9 +189,21 @@ export default function SignupPage() {
         />
 
         {/* Dial code and local number are separate controls so the shopper never
-            types a + prefix; they are joined into E.164 on submit. */}
-        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '0 0 132px' }}>
+            types a + prefix; they are joined into E.164 on submit.
+            Country is a fixed narrow column (flex: 0 0 132px); phone flexes to
+            fill the rest (flex: 1) and MUST keep `minWidth: 0` — without it a
+            plain flex child defaults to a content-based min-width and refuses
+            to shrink, shoving the country select out of the row instead of
+            sharing it. flexWrap lets the pair wrap cleanly rather than overlap
+            if a screen is ever too narrow for both. */}
+        <div
+          data-testid="phone-country-row"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'flex-start' }}
+        >
+          <div
+            data-testid="phone-country-field"
+            style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '0 0 132px', minWidth: 0 }}
+          >
             <label htmlFor="dialCode" style={fieldLabelStyle(errors.dialCode)}>
               Country
             </label>
@@ -204,7 +222,7 @@ export default function SignupPage() {
             </select>
             {errors.dialCode && <span style={fieldErrorStyle}>{errors.dialCode}</span>}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div data-testid="phone-number-field" style={{ flex: '1 1 160px', minWidth: 0 }}>
             <FormField
               id="phoneNumber"
               type="tel"

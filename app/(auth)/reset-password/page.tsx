@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import ErrorBanner from '@/components/ui/ErrorBanner';
 import { apiResetPassword } from '@/lib/api/auth';
 import { PASSWORD_HELPER } from '@/lib/auth/schemas';
+import { blurActiveElement } from '@/lib/auth/blur-active-element';
 import type { ApiError } from '@/lib/api/client';
 
 interface ResetForm {
@@ -42,6 +43,9 @@ function ResetPasswordContent() {
     setLoading(true);
     try {
       await apiResetPassword(token, form.password);
+      // See signup/page.tsx: the redirect target may have no input at all,
+      // so a still-focused field can leave a mobile keyboard stuck open there.
+      blurActiveElement();
       router.push('/login?reset=success');
     } catch (err: unknown) {
       setLoading(false);

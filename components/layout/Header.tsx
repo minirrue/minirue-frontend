@@ -11,6 +11,7 @@ import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import { useMobileChrome, closeMobileMenu, closeMobileSearch, openMobileMenu, openMobileSearch } from '@/lib/hooks/useMobileChrome';
 import { getSession, type Session } from '@/lib/session';
 import { useUser, useLogout } from '@/lib/hooks/use-auth';
+import { useCustomerProfile } from '@/lib/hooks/use-customer';
 import MobileNavSheet from '@/components/layout/MobileNavSheet';
 import NavCategorySheet from '@/components/layout/NavCategorySheet';
 import SearchSheet from '@/components/layout/SearchSheet';
@@ -47,6 +48,25 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   const router = useRouter();
   const logoutMutation = useLogout();
   const { data: authUser } = useUser();
+  // Only fetched once signed in — a guest on the storefront would otherwise
+  // fire an authenticated request on every page that can only come back 401.
+  const { data: customerProfile } = useCustomerProfile({ enabled: Boolean(session) });
+  // The mobile sheet's footer account button shows the shopper's first name
+  // in place of its admin-configured label once signed in — reusing the same
+  // chain AccountIdentityStrip.tsx already settled on for the account page
+  // (profile display name, then profile first name, then the account name,
+  // then — nowhere else on this compact button is the email shown — its
+  // local-part), just trimmed to a single word since a full name is what
+  // AccountIdentityStrip shows, not what a thumb-width pill button has room
+  // for. `undefined` (not the literal word "Member") when nothing resolves
+  // yet, so the button falls back to the admin's own label instead of ever
+  // rendering a resolved-but-empty string.
+  const accountDisplayName =
+    customerProfile?.displayName?.trim() ||
+    customerProfile?.firstName?.trim() ||
+    authUser?.name?.trim().split(' ')[0] ||
+    authUser?.email?.split('@')[0] ||
+    undefined;
   const { mobile, tablet, w } = useBreakpoint();
   // Socials for the mobile sheet's footer bar. Read from the same cached chrome
   // query the page already resolved, so this costs no extra request; an empty
@@ -437,6 +457,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
           socials={socials}
           signedIn={Boolean(session)}
           onOpenSearch={openMobileSearch}
+          accountDisplayName={accountDisplayName}
         />
       )}
 

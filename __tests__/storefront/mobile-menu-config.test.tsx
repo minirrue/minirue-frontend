@@ -6,10 +6,15 @@ import type { ResolvedChrome } from '@/lib/api/storefront';
 /**
  * W4b.1 — the mobile menu's shortcut row and footer pill are fully
  * admin-configured (`mobileMenu`, resolved server-side) instead of the old
- * hardcoded Home/Search/Account tiles + hardcoded Account pill, which
- * rendered "Account" twice. The default config reproduces that old output
- * exactly (back-compat); an explicit `footerButton: null` is what actually
- * removes the duplicate.
+ * hardcoded Home/Search/Account tiles + hardcoded Account pill.
+ *
+ * 2026-07-30 owner ask: showing the account/sign-in action twice (once as an
+ * icon tile up top, once as a pill at the bottom) was never right, and the
+ * default config data still lists Account in both places. `MobileNavSheet`
+ * itself now dedupes at render time — an Account shortcut tile is dropped
+ * whenever the footer pill is ALSO Account, since the pill (bigger target,
+ * thumb-anchored) is the one being kept. `footerButton: null` still removes
+ * the pill outright, same as before.
  */
 
 const DEFAULT_MOBILE_MENU: ResolvedChrome['mobileMenu'] = {
@@ -43,12 +48,15 @@ function renderSheet(overrides?: {
 }
 
 describe('MobileNavSheet — shortcut tiles', () => {
-  it('renders Home / Search / Account from the default config', () => {
+  it('renders Home / Search from the default config, and Account only once (the footer pill)', () => {
     renderSheet();
     expect(screen.getByRole('link', { name: /^home$/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument();
-    // Signed out, so the account shortcut shows the guest label.
-    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/login');
+    // The shortcut row's own Account tile is deduped away — the footer pill
+    // below (labelled "Login" for a guest) is the surviving account entry
+    // point, not a "Sign in" tile up top as well.
+    expect(screen.getByRole('link', { name: /^login$/i })).toHaveAttribute('href', '/login');
+    expect(screen.queryByRole('link', { name: /^sign in$/i })).toBeNull();
   });
 
   it('renders a configured Brands tile linking to /brands', () => {
@@ -63,12 +71,12 @@ describe('MobileNavSheet — shortcut tiles', () => {
     expect(screen.getByRole('link', { name: 'Brands' })).toHaveAttribute('href', '/brands');
   });
 
-  it('the default config keeps Account showing twice (shortcut + footer pill) — unchanged behaviour', () => {
+  it('the default config no longer shows the account action twice — only the footer pill', () => {
     renderSheet();
-    // Guest: "Sign in" (shortcut) and "Login" (footer) — different guest
-    // wording per position, same as the old hardcoded pair.
-    expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /login/i })).toBeInTheDocument();
+    // Guest: "Login" is the one surviving account entry point (the footer
+    // pill); the shortcut row's own "Sign in" tile is gone.
+    expect(screen.getByRole('link', { name: /^login$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^sign in$/i })).toBeNull();
   });
 
   it('footerButton: null renders no bottom pill, and Account appears exactly once in the whole sheet', () => {

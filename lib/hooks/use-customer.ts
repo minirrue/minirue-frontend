@@ -17,10 +17,15 @@ import {
 export const CUSTOMER_PROFILE_KEY = ['customer', 'me'] as const;
 export const CUSTOMER_ADDRESSES_KEY = ['customer', 'addresses'] as const;
 
-export function useCustomerProfile() {
+export function useCustomerProfile(options?: { enabled?: boolean }) {
   return useClientQuery({
     queryKey: CUSTOMER_PROFILE_KEY,
     queryFn: apiGetMe,
+    // Defaults to always-on (every existing caller relies on that), but
+    // Header.tsx — rendered for signed-out shoppers too — passes
+    // `enabled: signedIn` so a guest browsing the storefront never fires an
+    // authenticated request that can only 401.
+    enabled: options?.enabled ?? true,
   });
 }
 

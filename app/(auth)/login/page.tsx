@@ -8,6 +8,7 @@ import FormField from '@/components/ui/FormField';
 import Button from '@/components/ui/Button';
 import ErrorBanner from '@/components/ui/ErrorBanner';
 import { loginSchema, type LoginFormData } from '@/lib/auth/schemas';
+import { blurActiveElement } from '@/lib/auth/blur-active-element';
 import { setSession } from '@/lib/session';
 import { apiLogin, apiLogout } from '@/lib/api/auth';
 import { clearAuthFlag } from '@/lib/auth/tokens';
@@ -101,6 +102,9 @@ export default function LoginPage() {
         createdAt: Date.now(),
       });
       await syncCartAfterAuth();
+      // See signup/page.tsx: the redirect target may have no input at all,
+      // so a still-focused field can leave a mobile keyboard stuck open there.
+      blurActiveElement();
       router.push(getNextPath());
     } catch (err: unknown) {
       setLoading(false);
