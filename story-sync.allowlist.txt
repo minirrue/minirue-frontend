@@ -59,3 +59,11 @@ minirue-frontend PAGE /account/refunds
 # /brands/<slug> now 301s there, which left no page listing them at all — so a
 # "Brands" destination in the new configurable phone menu had nowhere to land.
 minirue-frontend PAGE /brands
+
+# 2026-07-30 — the phone bottom bar traded Home for Collab, which opens a grid
+# of the partners MiniRue works with (logo, rating, product count) linking to
+# each partner's root space page; Shop now opens MiniRue's real categories as
+# image cards plus an All Products card. Stories owed under §18/§21 alongside
+# the rest of this QC batch; remove these lines once they land.
+minirue-frontend PAGE /collab
+minirue-frontend PAGE /categories
