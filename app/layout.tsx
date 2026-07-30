@@ -16,6 +16,7 @@ import { apiGetPublicSettings } from "@/lib/api/settings";
 import { SupportProvider } from "@/lib/support/support-context";
 import SupportWidget from "@/components/chat/SupportWidget";
 import { AnnouncementBarProvider } from "@/components/layout/AnnouncementBar";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
 const BASE_URL = "https://minirueshop.com";
 
@@ -209,6 +210,15 @@ export default function RootLayout({
                     <LenisProvider>{children}</LenisProvider>
                     <CartDrawer />
                     <SupportWidget />
+                    {/* W4a.2: mounted once, globally — same tier as CartDrawer
+                        and SupportWidget above — rather than per-page, so it
+                        exists even on routes (checkout, account, home) that
+                        each construct their own Header instance
+                        independently. It talks to that Header purely through
+                        shared client state (lib/hooks/useMobileChrome.ts,
+                        CartContext), never as a prop, since there is no
+                        single call site to thread one through. */}
+                    <MobileBottomNav />
                   </SupportProvider>
                 </CartProvider>
               </AnnouncementBarProvider>

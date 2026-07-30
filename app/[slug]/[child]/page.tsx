@@ -84,6 +84,7 @@ export default async function SpaceChildPage({ params }: PageProps) {
   }
 
   return (
+    <>
     <div className="mr-page-sheet">
       <AnnouncementBar
         messages={storefrontAnnouncement?.announcementMessages}
@@ -152,8 +153,11 @@ export default async function SpaceChildPage({ params }: PageProps) {
           initialCursor={initialCursor}
         />
       </main>
-
-      <FooterWithSettings />
     </div>
+
+    {/* W4a.1: moved outside `.mr-page-sheet` — see StorefrontPageView.tsx for
+        why a sticky footer needs this everywhere it renders. */}
+    <FooterWithSettings />
+    </>
   );
 }

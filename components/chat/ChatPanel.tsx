@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { CHAT_BUTTON_SIZE, useChatButtonPosition } from '@/lib/hooks/useChatButtonPosition';
 
 export interface ChatAttachment {
   url: string;
@@ -108,6 +109,55 @@ export default function ChatPanel({
   const isFormField = (el: EventTarget | null) =>
     el instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
 
+  // ── Anchor to the (possibly dragged) chat button (W4a.3) ─────────────────
+  // `ChatButton` and `ChatPanel` are siblings under `SupportWidget.tsx` — a
+  // file this task does not own — so they cannot be wired together with a
+  // prop. `useChatButtonPosition` is the shared store both read/write
+  // instead. `null` here means "the button is still at its untouched default
+  // corner" (true on the server, and on the client until the store is
+  // hydrated or a drag settles), so this recomputes the ORIGINAL fixed
+  // bottom/right anchor below rather than reaching for `window` at all —
+  // `window.innerWidth`/`innerHeight` are only read in the branch that can
+  // only run once a real drag has settled, which is client-only by
+  // construction.
+  const buttonPos = useChatButtonPosition();
+  const anchor = React.useMemo(() => {
+    if (!buttonPos) return null;
+    const viewportH = window.innerHeight;
+    const margin = 16;
+    const gap = 12;
+    const estimatedHeight = Math.min(560, viewportH - 2 * margin);
+
+    const spaceAbove = buttonPos.y;
+    const spaceBelow = viewportH - (buttonPos.y + CHAT_BUTTON_SIZE);
+    const openAbove = spaceAbove >= estimatedHeight + gap || spaceAbove >= spaceBelow;
+
+    const horizontal: React.CSSProperties =
+      buttonPos.edge === 'left' ? { left: margin, right: 'auto' } : { right: margin, left: 'auto' };
+
+    // The available run of vertical space on whichever side the panel opens
+    // toward, expressed as a `calc()` so it stays correct if the viewport
+    // resizes while the panel is open — `min(560px, …)` mirrors the fixed
+    // corner's own sizing below rather than always filling every last px.
+    const available = openAbove
+      ? `calc(100vh - ${Math.max(margin, viewportH - buttonPos.y + gap)}px - ${margin}px)`
+      : `calc(100vh - ${buttonPos.y + CHAT_BUTTON_SIZE + gap}px - ${margin}px)`;
+
+    return openAbove
+      ? {
+          ...horizontal,
+          bottom: Math.max(margin, viewportH - buttonPos.y + gap),
+          top: 'auto',
+          heightCalc: `min(560px, ${available})`,
+        }
+      : {
+          ...horizontal,
+          top: buttonPos.y + CHAT_BUTTON_SIZE + gap,
+          bottom: 'auto',
+          heightCalc: `min(560px, ${available})`,
+        };
+  }, [buttonPos]);
+
   React.useEffect(() => {
     if (open && !bottomSlot && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 380);
@@ -206,9 +256,29 @@ export default function ChatPanel({
       onFocusCapture={(e) => { if (isFormField(e.target)) setFieldFocused(true); }}
       onBlurCapture={(e) => { if (isFormField(e.target)) setFieldFocused(false); }}
       style={{
-        position: 'fixed', bottom: isMobile ? 'calc(78px + 6.5vh)' : 80, right: 24, zIndex: 199,
+        position: 'fixed',
+        zIndex: 199,
+        // `anchor` is set once the chat button has moved from its untouched
+        // corner (W4a.3) — it supplies its own bottom/top + left/right (and,
+        // via `heightCalc` below, its own height) so the panel opens from
+        // wherever the button now lives and can never spill off screen when
+        // the button is tucked at an edge. `null` (default corner, or
+        // pre-hydration) falls back to the original fixed anchor, raised to
+        // match ChatButton.tsx's new resting spot (`bottom: calc(84px +
+        // env(safe-area-inset-bottom))`, clear of the PDP sticky buy bar) by
+        // the same ~60px the button itself moved up by.
+        ...(anchor
+          ? { left: anchor.left, right: anchor.right, top: anchor.top, bottom: anchor.bottom }
+          : {
+              bottom: isMobile ? 'calc(138px + 6.5vh)' : 'calc(144px + env(safe-area-inset-bottom))',
+              right: 24,
+            }),
         width: 'min(360px, calc(100vw - 48px))',
-        height: isMobile ? 'min(560px, calc(100vh - 140px - 6.5vh))' : 'min(560px, calc(100vh - 140px))',
+        height: anchor
+          ? anchor.heightCalc
+          : isMobile
+            ? 'min(560px, calc(100vh - 140px - 6.5vh))'
+            : 'min(560px, calc(100vh - 140px))',
         background: 'rgba(253,251,245,0.97)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',

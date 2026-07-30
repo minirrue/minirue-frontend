@@ -58,7 +58,37 @@ const PATHS: Record<SocialNetwork, React.ReactNode> = {
   ),
 };
 
-export default function SocialIcon({ network }: { network: SocialNetwork }) {
+/**
+ * Flat, brand-appropriate colours for the `brand` variant. A true gradient
+ * (Instagram's real mark) fights the mobile sheet's flat ink-and-cream
+ * design more than it reads as Instagram at 20px, so one accurate colour per
+ * network is used instead — the owner asked for the icons to be "coloured
+ * and animated" in the menu, not specifically for a gradient.
+ */
+const BRAND_COLORS: Record<SocialNetwork, string> = {
+  instagram: '#E1306C',
+  tiktok: '#010101',
+  facebook: '#1877F2',
+  x: '#000000',
+  youtube: '#FF0000',
+  whatsapp: '#25D366',
+  pinterest: '#E60023',
+};
+
+export default function SocialIcon({
+  network,
+  variant = 'mono',
+}: {
+  network: SocialNetwork;
+  /**
+   * `'mono'` (the default, unchanged from before this prop existed) draws in
+   * `currentColor`, inheriting whatever colour the caller sets — this is
+   * what the site footer keeps, since colour there would clash with its
+   * palette. `'brand'` colours the glyph with its network's own colour; the
+   * mobile menu opts into this explicitly.
+   */
+  variant?: 'mono' | 'brand';
+}) {
   return (
     <svg
       role="img"
@@ -66,7 +96,13 @@ export default function SocialIcon({ network }: { network: SocialNetwork }) {
       width="20"
       height="20"
       viewBox="0 0 24 24"
-      style={{ display: 'block' }}
+      style={{
+        display: 'block',
+        // `color` is inherited by every `currentColor` fill/stroke inside —
+        // unset for 'mono' so it keeps inheriting from the caller exactly as
+        // before this prop existed.
+        color: variant === 'brand' ? BRAND_COLORS[network] : undefined,
+      }}
     >
       {PATHS[network]}
     </svg>

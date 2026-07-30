@@ -104,21 +104,26 @@ export default async function StorefrontSlugPage({ params }: PageProps) {
     }
 
     return (
-      <div className="mr-page-sheet">
-        <AnnouncementBar
-          messages={storefrontAnnouncement?.announcementMessages}
-          enabled={storefrontAnnouncement?.announcementEnabled ?? true}
-          linkUrl={storefrontAnnouncement?.announcementLinkUrl}
-          background={storefrontAnnouncement?.announcementBackground}
-        />
-        <HeaderWrapper />
-        <SpaceView
-          space={space.space}
-          categories={space.categories}
-          brands={space.brands}
-        />
+      <>
+        <div className="mr-page-sheet">
+          <AnnouncementBar
+            messages={storefrontAnnouncement?.announcementMessages}
+            enabled={storefrontAnnouncement?.announcementEnabled ?? true}
+            linkUrl={storefrontAnnouncement?.announcementLinkUrl}
+            background={storefrontAnnouncement?.announcementBackground}
+          />
+          <HeaderWrapper />
+          <SpaceView
+            space={space.space}
+            categories={space.categories}
+            brands={space.brands}
+          />
+        </div>
+
+        {/* W4a.1: moved outside `.mr-page-sheet` — see StorefrontPageView.tsx
+            for why a sticky footer needs this everywhere it renders. */}
         <FooterWithSettings />
-      </div>
+      </>
     );
   }
 

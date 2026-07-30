@@ -16,37 +16,43 @@ export default function StorefrontPageView({
   body: string;
 }) {
   return (
-    <div className="mr-page-sheet">
-      <AnnouncementBar />
-      <HeaderWrapper />
+    <>
+      <div className="mr-page-sheet">
+        <AnnouncementBar />
+        <HeaderWrapper />
 
-      <main
-        style={{
-          maxWidth: 'var(--mr-content-max)',
-          margin: '0 auto',
-          padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
-        }}
-      >
-        <article>
-          <h1
-            style={{
-              fontFamily: 'var(--mr-font-serif)',
-              fontWeight: 400,
-              fontSize: 'clamp(var(--mr-text-2xl), 4vw, var(--mr-text-3xl))',
-              lineHeight: 1.08,
-              letterSpacing: '-0.006em',
-              margin: '0 0 clamp(28px, 5vw, 44px)',
-              color: 'var(--mr-fg)',
-              textAlign: 'center',
-            }}
-          >
-            {title}
-          </h1>
-          <Markdown body={body} />
-        </article>
-      </main>
+        <main
+          style={{
+            maxWidth: 'var(--mr-content-max)',
+            margin: '0 auto',
+            padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+          }}
+        >
+          <article>
+            <h1
+              style={{
+                fontFamily: 'var(--mr-font-serif)',
+                fontWeight: 400,
+                fontSize: 'clamp(var(--mr-text-2xl), 4vw, var(--mr-text-3xl))',
+                lineHeight: 1.08,
+                letterSpacing: '-0.006em',
+                margin: '0 0 clamp(28px, 5vw, 44px)',
+                color: 'var(--mr-fg)',
+                textAlign: 'center',
+              }}
+            >
+              {title}
+            </h1>
+            <Markdown body={body} />
+          </article>
+        </main>
+      </div>
 
+      {/* W4a.1: outside `.mr-page-sheet` — under `position: sticky` (see
+          Footer.tsx) a footer rendered INSIDE the sheet would scroll as part
+          of it instead of being revealed from beneath it, which is exactly
+          the inconsistency `fixed` used to paper over. */}
       <FooterWithSettings />
-    </div>
+    </>
   );
 }

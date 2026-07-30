@@ -5,46 +5,97 @@ import Wordmark from '@/components/ui/Wordmark';
 import PaymentBadge from '@/components/ui/PaymentBadge';
 import SocialIcon from '@/components/ui/SocialIcon';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import { TextEffect } from '@/components/core/text-effect';
 import type { FooterConfig } from '@/lib/api/storefront';
+
+/**
+ * Ebneely maker's-mark — the owner's requirement, verbatim: "before the
+ * footer, not inside footer or after footer". Rendered here, as a sibling
+ * immediately before the `<footer>` element itself, so it is included by
+ * every call site that renders the Footer component (directly or via
+ * `FooterWithSettings`) with ONE edit rather than one per page — the same
+ * reasoning that put the sticky-vs-fixed fix in this file instead of at
+ * each call site.
+ *
+ * Placement layer: this sits AFTER `.mr-page-sheet` in the DOM (same as
+ * `<footer>`), so it belongs to the revealed layer, not the scrolling page
+ * layer — it is uncovered by the same curtain motion as the footer and
+ * always appears immediately above it, never scrolling independently of it.
+ * It shares the footer's ink background so the two read as one band; the
+ * line itself stays deliberately quiet (small, low-contrast, generous
+ * tracking, the same label typography the nav links use) so it never
+ * competes with the MiniRue wordmark centred below it.
+ */
+function EbneelySignature() {
+  const year = new Date().getFullYear();
+  return (
+    <div
+      style={{
+        background: 'var(--mr-ink-900)',
+        textAlign: 'center',
+        padding: '14px 20px 0',
+      }}
+    >
+      <TextEffect
+        as="span"
+        per="char"
+        preset="fade"
+        style={{
+          fontFamily: 'var(--mr-font-label, Jost, sans-serif)',
+          fontSize: 'var(--mr-text-xs, 10px)',
+          letterSpacing: '0.24em',
+          textTransform: 'uppercase',
+          color: 'var(--mr-ink-400)',
+          opacity: 0.65,
+        }}
+      >
+        {`Powered by Ebneely · © ${year} All rights reserved`}
+      </TextEffect>
+    </div>
+  );
+}
 
 export default function Footer({ config }: { config: FooterConfig }) {
   const { mobile } = useBreakpoint();
-  const ref = React.useRef<HTMLElement | null>(null);
-
-  React.useLayoutEffect(() => {
-    const measure = () => {
-      const el = ref.current;
-      if (!el) return;
-      document.body.style.paddingBottom = el.offsetHeight + 'px';
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (ref.current) ro.observe(ref.current);
-    window.addEventListener('resize', measure);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', measure);
-      document.body.style.paddingBottom = '';
-    };
-  }, []);
 
   return (
-    <footer
-      ref={ref}
-      data-mr-surface="ink"
-      style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 0,
-        background: 'var(--mr-ink-900)',
-        color: 'var(--mr-cream-100)',
-        // Fluid padding: generous on desktop, compact on phones so the whole
-        // footer stays short enough for the reveal to show its top (the logo).
-        padding: 'clamp(32px, 6vw, 72px) clamp(20px, 5vw, 48px) clamp(20px, 3vw, 44px)',
-      }}
-    >
+    <>
+      <EbneelySignature />
+      <footer
+        data-mr-surface="ink"
+        style={{
+          // `fixed` pinned the footer's top edge above the viewport the
+          // moment its own content grew taller than the screen — nothing
+          // could scroll to it, which is why the wordmark at its top was
+          // clipped off. `sticky` behaves identically while the footer
+          // fits (pinned to the bottom edge, revealed as the page sheet
+          // above it scrolls up over it), but the instant it is taller
+          // than the viewport, sticky simply cannot pin something bigger
+          // than the scrollport — the browser lets you scroll straight
+          // through it instead. The footer now also occupies its own
+          // height in normal flow, so the page is naturally that much
+          // taller; the old `ResizeObserver` + `document.body.style.
+          // paddingBottom` effect existed only to fake that, and it is
+          // deleted rather than patched.
+          position: 'sticky',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 0,
+          background: 'var(--mr-ink-900)',
+          color: 'var(--mr-cream-100)',
+          // Fluid padding: generous on desktop, compact on phones so the whole
+          // footer stays short enough for the reveal to show its top (the logo).
+          // Bottom padding carries the home-indicator safe area too — this was
+          // flagged (with ChatButton.tsx) as fixed-positioned chrome with no
+          // safe-area padding; `viewport-fit: cover` on the root viewport
+          // export (app/layout.tsx) is what makes the env() call resolve.
+          paddingTop: 'clamp(32px, 6vw, 72px)',
+          paddingLeft: 'clamp(20px, 5vw, 48px)',
+          paddingRight: 'clamp(20px, 5vw, 48px)',
+          paddingBottom: 'calc(clamp(20px, 3vw, 44px) + env(safe-area-inset-bottom))',
+        }}
+      >
       <div style={{ maxWidth: 1280, margin: '0 auto', textAlign: 'center' }}>
         <Wordmark
           size={mobile ? 26 : 38}
@@ -258,6 +309,7 @@ export default function Footer({ config }: { config: FooterConfig }) {
           <span>{config.secondaryLine}</span>
         </div>
       </div>
-    </footer>
+      </footer>
+    </>
   );
 }

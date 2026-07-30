@@ -6,13 +6,16 @@ import { useRouter } from 'next/navigation';
 import Wordmark from '@/components/ui/Wordmark';
 import IconButton from '@/components/ui/IconButton';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import { useScrollDirection } from '@/lib/hooks/useScrollDirection';
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import { useMobileChrome, closeMobileMenu, closeMobileSearch, openMobileMenu, openMobileSearch } from '@/lib/hooks/useMobileChrome';
 import { getSession, type Session } from '@/lib/session';
 import { useUser, useLogout } from '@/lib/hooks/use-auth';
 import MobileNavSheet from '@/components/layout/MobileNavSheet';
 import NavCategorySheet from '@/components/layout/NavCategorySheet';
 import SearchSheet from '@/components/layout/SearchSheet';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
-import type { ResolvedChrome, ResolvedNavItem } from '@/lib/api/storefront';
+import { FALLBACK_CHROME, type ResolvedChrome, type ResolvedNavItem } from '@/lib/api/storefront';
 
 interface HeaderProps {
   navbar: ResolvedChrome['navbar'];
@@ -28,9 +31,13 @@ const HOVER_OPEN_MS = 90;
 const HOVER_CLOSE_MS = 220;
 
 export default function Header({ navbar, onOpenCart, cartCount = 0, transparent = false }: HeaderProps) {
-  const [scrolled, setScrolled] = React.useState(false);
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [searchOpen, setSearchOpen] = React.useState(false);
+  // `mobileOpen`/`searchOpen` used to be local useState here — but W4a.2's
+  // bottom nav needs to open the SAME sheets from a completely separate
+  // React subtree (it's mounted once in app/layout.tsx, not inside this
+  // component), so both now read from the shared useMobileChrome store
+  // instead. Header keeps ownership of actually RENDERING the sheets below;
+  // only the open/closed booleans moved.
+  const { menuOpen: mobileOpen, searchOpen } = useMobileChrome();
   const [hoveredNavId, setHoveredNavId] = React.useState<string | null>(null);
   const [bump, setBump] = React.useState(false);
   const [session, setSession] = React.useState<Session | null>(null);
@@ -40,21 +47,28 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   const router = useRouter();
   const logoutMutation = useLogout();
   const { data: authUser } = useUser();
-  const { mobile } = useBreakpoint();
+  const { mobile, tablet, w } = useBreakpoint();
   // Socials for the mobile sheet's footer bar. Read from the same cached chrome
   // query the page already resolved, so this costs no extra request; an empty
   // list simply renders no icons.
   const { data: chrome } = useStorefrontChrome();
   const socials = chrome?.footer.socials ?? [];
+  const mobileMenu = chrome?.mobileMenu ?? FALLBACK_CHROME.mobileMenu;
+
+  // Single scroll subscription, rAF-throttled, shared with MobileBottomNav —
+  // replaces the old unthrottled `scroll` listener this file used to attach
+  // just to compute `scrolled`.
+  const { direction, atTop, y } = useScrollDirection();
+  const reducedMotion = usePrefersReducedMotion();
+  const scrolled = y > 60;
+  // Below 1024px only — desktop has no bottom bar to hand the edge to, so the
+  // top bar always stays put there. `w > 0` guards the one SSR/pre-hydration
+  // frame where `tablet` would otherwise read false-positive as "desktop".
+  const belowBreakpoint = w > 0 && tablet;
+  const hideForScroll = belowBreakpoint && !atTop && direction === 'down';
 
   React.useEffect(() => {
     setSession(getSession());
-  }, []);
-
-  React.useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 60);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   React.useEffect(() => {
@@ -96,6 +110,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   return (
     <>
       <header
+        data-testid="site-header"
         style={{
           position: 'sticky',
           top: 0,
@@ -105,8 +120,17 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
           WebkitBackdropFilter: isLight ? 'none' : 'blur(18px)',
           borderBottom: isLight ? '1px solid transparent' : '1px solid var(--mr-hairline)',
           color: isLight ? 'var(--mr-cream-100)' : 'var(--mr-ink-900)',
-          transition:
-            'background 360ms var(--mr-ease-out), border-color 360ms var(--mr-ease-out), color 360ms var(--mr-ease-out)',
+          // W4a.2: below 1024px, scrolling down slides the top bar out (and
+          // MobileBottomNav slides in to take its place); scrolling up — or
+          // being near the very top — reverses it. `transform`, never `top`,
+          // so this never fights the header's own `position: sticky`, and no
+          // `position:fixed` descendant of <header> exists for this to break
+          // (SearchSheet/MobileNavSheet render as siblings below, not inside
+          // it — see the render return further down).
+          transform: hideForScroll ? 'translateY(-100%)' : 'translateY(0)',
+          transition: reducedMotion
+            ? 'background 360ms var(--mr-ease-out), border-color 360ms var(--mr-ease-out), color 360ms var(--mr-ease-out)'
+            : 'background 360ms var(--mr-ease-out), border-color 360ms var(--mr-ease-out), color 360ms var(--mr-ease-out), transform 280ms var(--mr-ease-out)',
         }}
       >
         <div
@@ -129,7 +153,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
               size={40}
               tone={isLight ? 'glass' : 'cream'}
               label="Menu"
-              onClick={() => setMobileOpen(true)}
+              onClick={openMobileMenu}
             />
           ) : (
             <nav
@@ -202,7 +226,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
               icon="search"
               label="Search"
               tone={isLight ? 'glass' : 'cream'}
-              onClick={() => setSearchOpen(true)}
+              onClick={openMobileSearch}
             />
             {/* Account — desktop identity menu; on mobile it lives inside the
                 hamburger menu. */}
@@ -399,7 +423,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
 
       <SearchSheet
         open={searchOpen}
-        onClose={() => setSearchOpen(false)}
+        onClose={closeMobileSearch}
         suggestions={navbar.items.map((i) => i.label)}
       />
 
@@ -407,11 +431,12 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
       {mobile && (
         <MobileNavSheet
           open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
+          onClose={closeMobileMenu}
           navbar={navbar}
+          mobileMenu={mobileMenu}
           socials={socials}
           signedIn={Boolean(session)}
-          onOpenSearch={() => setSearchOpen(true)}
+          onOpenSearch={openMobileSearch}
         />
       )}
 

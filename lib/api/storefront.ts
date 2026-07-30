@@ -145,6 +145,57 @@ export interface ResolvedNavItem {
    * single test for "does this item open a panel".
    */
   featured?: ResolvedProduct[];
+  /**
+   * Category items only: the category's real subcategories from the catalog
+   * tree (not admin-configured — a nav item stores one `categoryId`, never a
+   * list of children). Recursive, capped at 2 levels deep server-side.
+   * Absent — not empty — when there are none, same presence convention as
+   * `featured`: a category with either drills in on the mobile sheet.
+   */
+  children?: ResolvedNavItem[];
+}
+
+/** Mirrors the storefront's own `components/ui/Icon.tsx` glyph names — not
+ * imported from there to avoid a dependency cycle in this file's exports;
+ * kept in sync by hand. */
+export type MobileMenuIcon =
+  | 'search' | 'user' | 'bag' | 'heart' | 'close' | 'arrowRight' | 'arrowLeft'
+  | 'minus' | 'plus' | 'check' | 'gift' | 'truck' | 'menu' | 'x' | 'grid' | 'external'
+  | 'share' | 'chevronRight' | 'chevronLeft' | 'chevronDown' | 'home';
+
+/** Same discriminated-union shape as `NavItem`/`CtaTarget`, plus five
+ * built-ins that are not links: `home`/`cart`/`brands` are fixed routes,
+ * `search` opens the search sheet, `account` depends on sign-in state. */
+export type MobileMenuTarget =
+  | { kind: 'home' }
+  | { kind: 'search' }
+  | { kind: 'account' }
+  | { kind: 'cart' }
+  | { kind: 'brands' }
+  | { kind: 'category'; categoryId: string }
+  | { kind: 'brand'; brandId: string }
+  | { kind: 'product'; productId: string }
+  | { kind: 'collaborator'; collaboratorId: string }
+  | { kind: 'link'; href: string };
+
+/** One resolved mobile-menu tile — a shortcut or the footer button. */
+export interface ResolvedMobileMenuItem {
+  id: string;
+  label: string;
+  icon: MobileMenuIcon;
+  kind: MobileMenuTarget['kind'];
+  /**
+   * Null for `search` (opens the sheet in place, not a route) and `account`
+   * (depends on sign-in state) — both resolved client-side. Every other kind
+   * is pre-resolved and never null; a vanished target is dropped by the
+   * backend before it reaches this type.
+   */
+  href: string | null;
+}
+
+export interface ResolvedMobileMenu {
+  shortcuts: ResolvedMobileMenuItem[];
+  footerButton: ResolvedMobileMenuItem | null;
 }
 
 export interface FooterColumn {
@@ -182,6 +233,7 @@ export interface ResolvedChrome {
     showSearch: boolean;
     showAccount: boolean;
   };
+  mobileMenu: ResolvedMobileMenu;
   footer: FooterConfig;
 }
 
@@ -197,6 +249,9 @@ export const FALLBACK_CHROME: ResolvedChrome = {
   productSection: { perks: [] },
   faviconUrl: null,
   navbar: { items: [], showSearch: true, showAccount: true },
+  // Empty, like the rest of the fallback: a dead backend shows no mobile-menu
+  // tiles rather than stale ones that may no longer resolve.
+  mobileMenu: { shortcuts: [], footerButton: null },
   footer: {
     tagline: null,
     newsletterEnabled: false,

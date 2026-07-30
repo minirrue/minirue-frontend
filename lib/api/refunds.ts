@@ -8,7 +8,15 @@ export type RefundStatus =
   | 'REJECTED'
   | 'CANCELLED';
 
-export type RefundMethod = 'ORIGINAL_PAYMENT' | 'STORE_CREDIT' | 'BANK_TRANSFER';
+// Mirrors refundMethodEnum in the backend schema. INSTAPAY is the one Egyptian
+// shoppers actually use, and it was missing here while the database, the
+// backend union and the dashboard all had it — so a real ticket arrived as a
+// value this type said could not exist.
+export type RefundMethod =
+  | 'ORIGINAL_PAYMENT'
+  | 'STORE_CREDIT'
+  | 'BANK_TRANSFER'
+  | 'INSTAPAY';
 
 export interface RefundTicket {
   id: string;
