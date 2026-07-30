@@ -84,6 +84,12 @@ export function buildBatchContext(): AnalyticsBatchContext {
     wd: nav.webdriver,
     cd: window.screen?.colorDepth,
     hc: nav.hardwareConcurrency,
+    // `matchMedia` is absent during SSR/build (the `typeof window ===
+    // 'undefined'` guard above already covers that) but is also missing or
+    // non-callable in some older/embedded WebViews, so it's guarded again
+    // here rather than assumed just because `window` exists.
+    it: typeof window.matchMedia === 'function' ? window.matchMedia('(pointer: coarse)').matches : undefined,
+    dp: typeof window.devicePixelRatio === 'number' ? Math.round(window.devicePixelRatio * 10) / 10 : undefined,
   };
 
   if (nav.userAgentData) {

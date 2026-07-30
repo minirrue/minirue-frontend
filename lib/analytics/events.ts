@@ -175,6 +175,10 @@ export interface AnalyticsBatchContext {
   cd?: number;
   /** hardwareConcurrency. */
   hc?: number;
+  /** matchMedia('(pointer: coarse)') — genuine touch input, not just a small screen. */
+  it?: boolean;
+  /** devicePixelRatio, rounded to one decimal. Tells you whether 2x/3x imagery is earning its bytes. */
+  dp?: number;
 }
 
 /**
