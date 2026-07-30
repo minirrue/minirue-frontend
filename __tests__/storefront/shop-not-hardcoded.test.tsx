@@ -28,7 +28,7 @@ jest.mock('next/server', () => ({
 }));
 
 import { metadata as productsMetadata } from '@/app/products/page';
-import { findCategoryPath, CategoryBreadcrumb } from '@/app/categories/[slug]/page';
+import { findCategoryPath, CategoryBreadcrumb } from '@/app/categories/[slug]/category-breadcrumb';
 import type { Category } from '@/lib/api/catalog';
 
 describe('the shop index (/products) says nothing about perfume', () => {
