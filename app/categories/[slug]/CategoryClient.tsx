@@ -52,7 +52,7 @@ export default function CategoryClient({
       emptyAction={
         <Link
           href="/products"
-          data-trace-id="PG-STOREFRONT-CAT-001::EL-LINK-browse-all-perfumes"
+          data-trace-id="PG-STOREFRONT-CAT-001::EL-LINK-browse-all-products"
           style={{
             fontFamily: 'var(--mr-font-label)',
             fontSize: 'var(--mr-text-xs)',
@@ -64,7 +64,7 @@ export default function CategoryClient({
             textDecoration: 'none',
           }}
         >
-          Browse all perfumes →
+          Browse all products →
         </Link>
       }
     />

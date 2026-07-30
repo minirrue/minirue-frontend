@@ -358,6 +358,12 @@ export interface StorefrontSpaceBrand {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  /**
+   * True for the space's own no-brand bucket (house: "MiniRue Selects";
+   * partner: "More from {space}"). Never rendered as a brand tile and never
+   * shown to a shopper by this internal name — see `SpaceView`.
+   */
+  isGeneric: boolean;
 }
 
 export interface StorefrontSpaceDetail {
@@ -386,11 +392,14 @@ export async function fetchSpaces(): Promise<StorefrontSpace[]> {
 
 export type SpaceChild =
   | { space: StorefrontSpace; kind: 'category'; category: StorefrontSpaceCategory }
+  | { space: StorefrontSpace; kind: 'brand'; brand: StorefrontSpaceBrand }
   | { space: StorefrontSpace; kind: 'product'; productId: string };
 
 /**
  * What /<space>/<child> is. The URL alone cannot say whether /helia/jewellery
- * is a category or a product, so the server decides — category wins a tie.
+ * is a category, a brand or a product, so the server decides — category wins
+ * a tie, then brand, then product (Task 7, 2026-07-30: `SpaceView`'s brand
+ * tiles now link here rather than out to `/products?brand=<name>`).
  */
 export async function fetchSpaceChild(
   slug: string,

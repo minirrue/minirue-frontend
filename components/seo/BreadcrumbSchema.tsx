@@ -2,22 +2,41 @@ import { JsonLd } from "./JsonLd";
 
 const BASE_URL = "https://minirueshop.com";
 
-/** The section every catalogue page sits under. */
-const SECTION = { name: "Perfumes", path: "products" };
+/** The section every catalogue page sits under — the shop, not a category.
+ * Was hardcoded to "Perfumes" until Task 19 (2026-07-30); MiniRue sells more
+ * than perfume and a category literally named that read as a duplicate. */
+const SECTION = { name: "Shop", path: "products" };
+
+interface Crumb {
+  name: string;
+  path: string;
+}
 
 interface BreadcrumbSchemaProps {
   productName: string;
   productSlug: string;
+  /**
+   * Ancestor crumbs between "Shop" and the final crumb, root-first — a
+   * category's own parent chain, e.g. `[{ name: 'Jewellery', path:
+   * 'categories/jewellery' }]` for a nested "Rings" category. Empty for a
+   * top-level page.
+   */
+  ancestors?: Crumb[];
 }
 
-export default function BreadcrumbSchema({ productName, productSlug }: BreadcrumbSchemaProps) {
+export default function BreadcrumbSchema({
+  productName,
+  productSlug,
+  ancestors = [],
+}: BreadcrumbSchemaProps) {
   const trail = [
     { name: "Home", path: "" },
     SECTION,
+    ...ancestors,
     { name: productName, path: productSlug },
   ]
-    // A category literally named "Perfumes" repeated the section crumb, so the
-    // page (and the JSON-LD Google reads) said Home / Perfumes / Perfumes. Drop a
+    // A category literally named "Shop" (or one whose own page IS the "Shop"
+    // section, like /products itself) repeated the section crumb. Drop a
     // crumb that just restates the one before it, by name or by URL.
     .filter((crumb, i, all) => {
       const prev = all[i - 1];

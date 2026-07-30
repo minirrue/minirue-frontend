@@ -11,12 +11,18 @@ import { catalog } from '@/lib/api/catalog';
 import SpaceCategoryClient from './SpaceCategoryClient';
 
 /**
- * One level inside a partner's shop: `/helia/jewellery` or `/helia/no-1`.
+ * One level inside a partner's shop: `/helia/jewellery`, `/helia/chanel` or
+ * `/helia/no-1` — a category, a brand or a product.
  *
- * The URL alone cannot say which it is, so the server decides. Category wins a
- * tie — categories are few, curated and admin-named, while product slugs are
- * numerous and generated, so a collision is far likelier to be an accidental
- * product than an accidental category.
+ * The URL alone cannot say which it is, so the server decides, in a fixed
+ * order: category first, then brand, then product. Categories are few,
+ * curated and admin-named; brands are also admin-named but there are more of
+ * them; product slugs are numerous and generated — so a collision is likelier
+ * to be an accidental product than an accidental brand, and likelier to be an
+ * accidental brand than an accidental category. (Task 7, 2026-07-30 —
+ * `SpaceView`'s brand tiles link here instead of out to
+ * `/products?brand=<name>`, so this route needed a brand branch to resolve
+ * to.)
  *
  * A product resolves to a redirect rather than a second copy of the product
  * page: one product, one canonical URL, no duplicate-content penalty and no
@@ -32,14 +38,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const child = decodeURIComponent(rawChild);
 
   const resolved = await fetchSpaceChild(slug, child).catch(() => null);
-  if (!resolved || resolved.kind !== 'category') {
+  if (!resolved || resolved.kind === 'product') {
     return { title: 'Page not found' };
   }
 
-  const title = `${resolved.category.name} — ${resolved.space.name}`;
+  const name = resolved.kind === 'category' ? resolved.category.name : resolved.brand.name;
   return {
-    title: `${title} | MiniRue`,
-    description: `Shop ${resolved.category.name} from ${resolved.space.name} at MiniRue.`,
+    title: `${name} — ${resolved.space.name} | MiniRue`,
+    description: `Shop ${name} from ${resolved.space.name} at MiniRue.`,
     alternates: { canonical: `/${slug}/${child}` },
   };
 }
@@ -59,7 +65,12 @@ export default async function SpaceChildPage({ params }: PageProps) {
     redirect(`/products/${child}`);
   }
 
-  const { space, category } = resolved;
+  const { space } = resolved;
+  // The one thing rendered differently below is which name/id this page is
+  // about — a category or a brand. Everything else (header, breadcrumb shell,
+  // product grid) is identical, mirroring how the category branch always
+  // worked.
+  const name = resolved.kind === 'category' ? resolved.category.name : resolved.brand.name;
 
   let storefrontAnnouncement = null as
     | Awaited<ReturnType<typeof apiGetPublicSettings>>['storefront']
@@ -75,12 +86,16 @@ export default async function SpaceChildPage({ params }: PageProps) {
   let initialHasMore = false;
   let initialCursor: string | null = null;
   try {
-    const res = await catalog.listProducts({ categoryId: category.id, limit: 24 });
+    const res = await catalog.listProducts(
+      resolved.kind === 'category'
+        ? { categoryId: resolved.category.id, limit: 24 }
+        : { brandId: resolved.brand.id, limit: 24 },
+    );
     initialProducts = res.data;
     initialHasMore = res.meta.hasMore;
     initialCursor = res.meta.cursor;
   } catch {
-    /* graceful empty state — an empty category still renders its header */
+    /* graceful empty state — an empty category/brand still renders its header */
   }
 
   return (
@@ -101,9 +116,9 @@ export default async function SpaceChildPage({ params }: PageProps) {
           padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
         }}
       >
-        {/* Home / Helia / Jewellery — every step real, and true for a
-            jewellery house as much as a perfume one. The page this replaces
-            printed a hardcoded "Perfumes" above every brand. */}
+        {/* Home / Helia / Jewellery (or / Chanel) — every step real, and true
+            for a jewellery house as much as a perfume one. The page this
+            replaces printed a hardcoded "Perfumes" above every brand. */}
         <nav
           aria-label="Breadcrumb"
           style={{
@@ -130,7 +145,7 @@ export default async function SpaceChildPage({ params }: PageProps) {
             {space.name}
           </Link>
           <span aria-hidden="true">/</span>
-          <span style={{ color: 'var(--mr-fg-2)' }}>{category.name}</span>
+          <span style={{ color: 'var(--mr-fg-2)' }}>{name}</span>
         </nav>
 
         <h1
@@ -143,11 +158,12 @@ export default async function SpaceChildPage({ params }: PageProps) {
             marginBottom: 'var(--mr-sp-6)',
           }}
         >
-          {category.name}
+          {name}
         </h1>
 
         <SpaceCategoryClient
-          categoryId={category.id}
+          categoryId={resolved.kind === 'category' ? resolved.category.id : undefined}
+          brandId={resolved.kind === 'brand' ? resolved.brand.id : undefined}
           initialProducts={initialProducts}
           initialHasMore={initialHasMore}
           initialCursor={initialCursor}

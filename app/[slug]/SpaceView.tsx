@@ -4,6 +4,9 @@ import type {
   StorefrontSpaceBrand,
   StorefrontSpaceCategory,
 } from '@/lib/api/storefront';
+import { catalog } from '@/lib/api/catalog';
+import type { ApiProduct } from '@/lib/api/catalog';
+import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
 
 /**
  * A seller's own corner of the shop.
@@ -15,6 +18,18 @@ import type {
  *
  * Categories and brands are shown as image tiles rather than text links: the
  * owner's requirement (2026-07-29) is that a customer browses by picture.
+ *
+ * A brand tile used to link to `/products?brand=<name>` regardless of which
+ * space it belonged to — name-based (fragile: two spaces can share a brand
+ * name) and space-leaking (it sent a partner's shopper out into the house
+ * listing). A partner brand now links inside its own space; the house still
+ * uses `/products`, scoped by the real `brandId`.
+ *
+ * The space's own no-brand bucket (`isGeneric`) never gets a brand tile — the
+ * word "Generic" is an internal name only and must never reach a shopper.
+ * Its products render instead as a category-style section, using the
+ * bucket's own admin-edited description/image as that section's blurb and
+ * picture, so this is admin-controlled content, not a hardcoded string.
  */
 
 function Breadcrumb({ space }: { space: StorefrontSpace }) {
@@ -112,7 +127,7 @@ function TileGrid({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function SpaceView({
+export default async function SpaceView({
   space,
   categories,
   brands,
@@ -122,6 +137,22 @@ export default function SpaceView({
   brands: StorefrontSpaceBrand[];
 }) {
   const base = space.kind === 'HOUSE' ? '' : `/${space.slug}`;
+
+  // Generic is a collection, never a brand tile — see the note above.
+  const brandTiles = brands.filter((b) => !b.isGeneric);
+  const genericBrand = brands.find((b) => b.isGeneric) ?? null;
+  const genericHeading =
+    space.kind === 'HOUSE' ? 'MiniRue Selects' : `More from ${space.name}`;
+
+  let genericProducts: ApiProduct[] = [];
+  if (genericBrand) {
+    try {
+      const res = await catalog.listProducts({ brandId: genericBrand.id, limit: 12 });
+      genericProducts = res.data;
+    } catch {
+      // API unavailable — the section still renders its blurb/picture below
+    }
+  }
 
   return (
     <main
@@ -205,7 +236,7 @@ export default function SpaceView({
         </section>
       )}
 
-      {brands.length > 0 && (
+      {brandTiles.length > 0 && (
         <section>
           <h2
             style={{
@@ -220,10 +251,14 @@ export default function SpaceView({
             Brands
           </h2>
           <TileGrid>
-            {brands.map((b) => (
+            {brandTiles.map((b) => (
               <Tile
                 key={b.id}
-                href={`/products?brand=${encodeURIComponent(b.name)}`}
+                href={
+                  space.kind === 'HOUSE'
+                    ? `/products?brandId=${b.id}`
+                    : `${base}/${b.slug}`
+                }
                 label={b.name}
                 imageUrl={b.imageUrl}
               />
@@ -232,7 +267,61 @@ export default function SpaceView({
         </section>
       )}
 
-      {categories.length === 0 && brands.length === 0 && (
+      {genericBrand && (
+        <section>
+          <h2
+            style={{
+              fontFamily: 'var(--mr-font-label)',
+              fontSize: 'var(--mr-text-xs)',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--mr-fg-4)',
+              marginBottom: 'var(--mr-sp-4)',
+            }}
+          >
+            {genericHeading}
+          </h2>
+          {(genericBrand.imageUrl || genericBrand.description) && (
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--mr-sp-4)',
+                alignItems: 'center',
+                marginBottom: 'var(--mr-sp-4)',
+                flexWrap: 'wrap',
+              }}
+            >
+              {genericBrand.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={genericBrand.imageUrl}
+                  alt=""
+                  style={{
+                    width: 96,
+                    height: 96,
+                    objectFit: 'cover',
+                    borderRadius: 6,
+                    flexShrink: 0,
+                  }}
+                />
+              ) : null}
+              {genericBrand.description ? (
+                <p style={{ color: 'var(--mr-fg-3)', maxWidth: '60ch', margin: 0 }}>
+                  {genericBrand.description}
+                </p>
+              ) : null}
+            </div>
+          )}
+          <CatalogProductGrid
+            products={genericProducts}
+            emptyMessage={`Nothing in ${genericHeading} yet.`}
+            listTraceId="PG-STOREFRONT-SPACE-001::EL-LIST-generic-product-grid"
+            cardTraceIdPrefix="PG-STOREFRONT-SPACE-001::EL-CARD-product-card"
+          />
+        </section>
+      )}
+
+      {categories.length === 0 && brandTiles.length === 0 && !genericBrand && (
         <p style={{ color: 'var(--mr-fg-3)', fontStyle: 'italic', margin: 0 }}>
           {space.kind === 'PARTNER'
             ? `${space.name} has not added any categories or brands yet.`

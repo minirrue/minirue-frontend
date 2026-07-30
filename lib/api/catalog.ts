@@ -120,6 +120,13 @@ export interface Category {
 export interface ProductListFilters {
   gender?: 'men' | 'women' | 'unisex';
   brand?: string;
+  /**
+   * Scoped brand filter — matches one exact brand row by id, unlike the
+   * legacy `brand` name filter (which the backend now restricts to
+   * house/unowned brands only). Use this whenever the id is known, e.g. a
+   * house brand tile's `/products?brandId=<id>` link.
+   */
+  brandId?: string;
   categoryId?: string;
   priceMin?: number;
   priceMax?: number;
@@ -285,6 +292,7 @@ export const catalog = {
     const params = new URLSearchParams();
     if (filters.gender) params.set('gender', filters.gender);
     if (filters.brand) params.set('brand', filters.brand);
+    if (filters.brandId) params.set('brandId', filters.brandId);
     if (filters.categoryId) params.set('categoryId', filters.categoryId);
     if (filters.priceMin != null) params.set('priceMin', String(filters.priceMin));
     if (filters.priceMax != null) params.set('priceMax', String(filters.priceMax));

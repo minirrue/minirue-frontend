@@ -6,14 +6,18 @@ import { catalog } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
 
 /**
- * The products inside one of a space's own categories, with load-more.
+ * The products inside one of a space's own categories, or (Task 7,
+ * 2026-07-30) one of its own brands, with load-more. Exactly one of
+ * `categoryId`/`brandId` is set by the caller — this component just forwards
+ * whichever one it got to `catalog.listProducts`.
  *
  * Lifted straight from BrandSectionClient, which did the same job for the old
  * /brands/<slug> page — same grid, same paging, same trace-id shape — so the
  * two pages behave identically and there is only ever one grid to maintain.
  */
 interface SpaceCategoryClientProps {
-  categoryId: string;
+  categoryId?: string;
+  brandId?: string;
   initialProducts: ApiProduct[];
   initialHasMore: boolean;
   initialCursor: string | null;
@@ -21,6 +25,7 @@ interface SpaceCategoryClientProps {
 
 export default function SpaceCategoryClient({
   categoryId,
+  brandId,
   initialProducts,
   initialHasMore,
   initialCursor,
@@ -36,6 +41,7 @@ export default function SpaceCategoryClient({
     try {
       const res = await catalog.listProducts({
         categoryId,
+        brandId,
         cursor,
         limit: 24,
       });
@@ -53,7 +59,7 @@ export default function SpaceCategoryClient({
       hasMore={hasMore}
       onLoadMore={loadMore}
       loadingMore={loadingMore}
-      emptyMessage="No products in this category yet."
+      emptyMessage={categoryId ? 'No products in this category yet.' : 'No products yet.'}
       listTraceId="PG-STOREFRONT-SPACE-002::EL-LIST-space-category-grid"
       cardTraceIdPrefix="PG-STOREFRONT-SPACE-002::EL-CARD-product-card"
       loadMoreTraceId="PG-STOREFRONT-SPACE-002::EL-BTN-load-more-products"

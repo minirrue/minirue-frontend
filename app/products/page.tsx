@@ -10,15 +10,19 @@ import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
 import ProductListingClient from './ProductListingClient';
 import HeaderWrapper from './HeaderWrapper';
 
+// This is MiniRue's main shop area — every product regardless of category or
+// brand. Nothing about what it sells is fixed to one kind of product, so the
+// copy stays neutral rather than naming a category MiniRue may not even carry
+// any more.
 export const metadata: Metadata = {
-  title: 'All Perfumes',
-  description: 'Browse the full MiniRue collection of original-quality fragrances.',
+  title: 'All Products',
+  description: 'Browse the full MiniRue collection.',
   alternates: {
     canonical: '/products',
   },
   openGraph: {
-    title: 'All Perfumes | MiniRue',
-    description: 'Browse the full MiniRue collection of original-quality fragrances.',
+    title: 'All Products | MiniRue',
+    description: 'Browse the full MiniRue collection.',
   },
 };
 
@@ -36,8 +40,13 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   // Gender filtering was removed (2026-07-24) — it was a hardcoded concept and
   // product attributes are admin-managed/free-entry now. `brand` stays because
   // it is a real, dynamic value; real attribute-driven filters come later.
+  // `brandId` is the scoped filter a house brand tile links with
+  // (`/products?brandId=<id>`, Task 7) — `brand` (by name) is legacy and now
+  // backend-restricted to house/unowned brands so it can't leak a partner's
+  // products into this listing.
   const filters: ProductListFilters = {
     brand: first(sp['brand']),
+    brandId: first(sp['brandId']),
     limit: 24,
   };
 
@@ -58,7 +67,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <BreadcrumbSchema productName="All Perfumes" productSlug="products" />
+      <BreadcrumbSchema productName="All Products" productSlug="products" />
       <div className="mr-page-sheet">
         <AnnouncementBar />
         <HeaderWrapper />
@@ -70,8 +79,10 @@ export default async function ProductsPage({ searchParams }: PageProps) {
             padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
           }}
         >
-          {/* Breadcrumb */}
+          {/* Breadcrumb — /products IS the shop's top level, so "Shop" is the
+              current (non-link) crumb rather than a category name. */}
           <nav
+            aria-label="Breadcrumb"
             data-trace-id="PG-STOREFRONT-CAT-003::EL-REGION-breadcrumb-navigation"
             style={{
               fontFamily: 'var(--mr-font-label)',
@@ -80,16 +91,28 @@ export default async function ProductsPage({ searchParams }: PageProps) {
               textTransform: 'uppercase',
               color: 'var(--mr-fg-4)',
               marginBottom: 'var(--mr-sp-6)',
-              display: 'flex',
-              gap: 'var(--mr-sp-2)',
-              alignItems: 'center',
             }}
           >
-            <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>
-              Home
-            </Link>
-            <span>/</span>
-            <span style={{ color: 'var(--mr-fg-2)' }}>Perfumes</span>
+            <ol
+              style={{
+                display: 'flex',
+                gap: 'var(--mr-sp-2)',
+                alignItems: 'center',
+                listStyle: 'none',
+                margin: 0,
+                padding: 0,
+              }}
+            >
+              <li>
+                <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  Home
+                </Link>
+              </li>
+              <span aria-hidden="true">/</span>
+              <li>
+                <span style={{ color: 'var(--mr-fg-2)' }}>Shop</span>
+              </li>
+            </ol>
           </nav>
 
           {/* Page heading */}
@@ -120,7 +143,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
                 color: 'var(--mr-fg)',
               }}
             >
-              All Perfumes
+              All Products
             </h1>
           </div>
 
