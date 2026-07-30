@@ -65,15 +65,30 @@ const nextConfig: NextConfig = {
     ];
   },
   reactCompiler: true,
-  // Cache Components (PPR) is OFF deliberately. The root layout already wraps
-  // the whole body in <Suspense fallback={null}> to defer every route to
-  // request time, so partial prerendering bought nothing here — but its
-  // build-time shell still had to be "resumed" per request, and when the
-  // replayed tree did not match React discarded the server HTML ("Couldn't
-  // find all resumable slots by key/index during replaying", 26+ hits in
-  // production on /products/[slug] and /brands/[brand]). Behind that null
-  // fallback the result was a blank page. The cacheLife profiles below are
-  // kept for when this is revisited.
+  // Cache Components (PPR) is OFF deliberately. It was enabled once, and the
+  // body-wide <Suspense fallback={null}> that used to wrap the root layout
+  // was never load-bearing for correctness — it was added (commit a2bbd63)
+  // purely to satisfy cacheComponents' "Uncached data was accessed outside
+  // of <Suspense>" build error. What it actually did in production was mask
+  // a PPR resume mismatch: the build-time shell had to be "resumed" per
+  // request, and when the replayed tree did not match, React discarded the
+  // server HTML ("Couldn't find all resumable slots by key/index during
+  // replaying", 26+ hits on /products/[slug] and /brands/[brand]) — and
+  // because it happened behind that null fallback, the result was a blank
+  // page instead of a visible error.
+  //
+  // That Suspense boundary has since been removed from app/layout.tsx (the
+  // whole body now renders synchronously; only third-party telemetry sits
+  // behind a narrow Suspense). The resume-mismatch bug itself is UNFIXED —
+  // removing the boundary only removed the thing that hid it. With
+  // cacheComponents: false there is no prerender shell to resume, so this
+  // failure mode cannot fire at all. If cacheComponents is re-enabled, the
+  // mismatch would surface as a visible rendering error rather than a blank
+  // page, which is strictly better but still a production bug.
+  //
+  // Do not re-enable cacheComponents without retesting /products/[slug] and
+  // /brands/[brand] under load. The cacheLife profiles below are kept for
+  // when this is revisited.
   cacheComponents: false,
   cacheLife: {
     products: {

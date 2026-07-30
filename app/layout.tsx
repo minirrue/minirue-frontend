@@ -179,51 +179,58 @@ export default function RootLayout({
         }
       >
         {/*
-          Cache Components–compatible opt-out of the static prerender shell.
-          Wrapping the body with <Suspense fallback={null}> defers the entire
-          subtree to request time, which is the canonical fix when most pages
-          rely on request-time data (auth, cart, dynamic catalog, etc.).
-          See apps/minirue-obsidian/plans/nextjs16-optimization/RESEARCH.md
-          § "Cache Components — Forcing Dynamic Routes".
+          <body> child order is a permanent invariant — do not reorder:
+          1. OrganizationSchema — never inside any Suspense. It is the
+             site-identity JSON-LD; it must be present in the initial server
+             HTML on every route, unconditionally.
+          2. RootQueryProvider (and everything it wraps) — the real page
+             content, server-rendered synchronously so crawlers get a full
+             body instead of an empty shell.
+          3. The telemetry Suspense boundary — the only thing allowed behind
+             `fallback={null}`. Everything inside it is third-party
+             telemetry that reads router state internally and renders null,
+             so nothing indexable ever sits behind it. Anything added here
+             must keep that property.
         */}
+        <OrganizationSchema />
+        <RootQueryProvider>
+          <HydrationBoundary state={dehydrate(queryClient)}>
+            <StorefrontLiveUpdates />
+            <SessionExpiredHandler />
+            {/* Mounted once, here, above every route — same reason
+                CartProvider lives here. Each checkout (and most
+                storefront) step is its own route with no shared layout,
+                so a plain useState inside AnnouncementBar reset on every
+                navigation and the bar reappeared each time it collapsed.
+                Root layout state survives client-side navigation and
+                resets on a real refresh, which is what dismissing the bar
+                should do. */}
+            <AnnouncementBarProvider>
+              <CartProvider>
+                {/* SupportProvider must wrap {children} too — pages call
+                    useSupportContext() to set the widget's default subject
+                    (e.g. the product being viewed). Wrapping only the widget
+                    made every such page throw. */}
+                <SupportProvider>
+                  <LenisProvider>{children}</LenisProvider>
+                  <CartDrawer />
+                  <SupportWidget />
+                  {/* W4a.2: mounted once, globally — same tier as CartDrawer
+                      and SupportWidget above — rather than per-page, so it
+                      exists even on routes (checkout, account, home) that
+                      each construct their own Header instance
+                      independently. It talks to that Header purely through
+                      shared client state (lib/hooks/useMobileChrome.ts,
+                      CartContext), never as a prop, since there is no
+                      single call site to thread one through. */}
+                  <MobileBottomNav />
+                </SupportProvider>
+              </CartProvider>
+            </AnnouncementBarProvider>
+          </HydrationBoundary>
+        </RootQueryProvider>
         <Suspense fallback={null}>
-          <OrganizationSchema />
-          <RootQueryProvider>
-            <HydrationBoundary state={dehydrate(queryClient)}>
-              <StorefrontLiveUpdates />
-              <SessionExpiredHandler />
-              {/* Mounted once, here, above every route — same reason
-                  CartProvider lives here. Each checkout (and most
-                  storefront) step is its own route with no shared layout,
-                  so a plain useState inside AnnouncementBar reset on every
-                  navigation and the bar reappeared each time it collapsed.
-                  Root layout state survives client-side navigation and
-                  resets on a real refresh, which is what dismissing the bar
-                  should do. */}
-              <AnnouncementBarProvider>
-                <CartProvider>
-                  {/* SupportProvider must wrap {children} too — pages call
-                      useSupportContext() to set the widget's default subject
-                      (e.g. the product being viewed). Wrapping only the widget
-                      made every such page throw. */}
-                  <SupportProvider>
-                    <LenisProvider>{children}</LenisProvider>
-                    <CartDrawer />
-                    <SupportWidget />
-                    {/* W4a.2: mounted once, globally — same tier as CartDrawer
-                        and SupportWidget above — rather than per-page, so it
-                        exists even on routes (checkout, account, home) that
-                        each construct their own Header instance
-                        independently. It talks to that Header purely through
-                        shared client state (lib/hooks/useMobileChrome.ts,
-                        CartContext), never as a prop, since there is no
-                        single call site to thread one through. */}
-                    <MobileBottomNav />
-                  </SupportProvider>
-                </CartProvider>
-              </AnnouncementBarProvider>
-            </HydrationBoundary>
-          </RootQueryProvider>
+          {/* telemetry only */}
           <Analytics />
           <SpeedInsights />
         </Suspense>
