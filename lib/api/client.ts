@@ -1,4 +1,4 @@
-import { markAuthenticated, clearAuthFlag } from '@/lib/auth/tokens';
+import { markAuthenticated, clearAuthFlag, isAuthenticated } from '@/lib/auth/tokens';
 import { clearSession } from '@/lib/session';
 
 export interface ApiError {
@@ -182,11 +182,22 @@ export async function apiFetch<T>(
       markSessionRecovered();
       return apiFetch<T>(path, { ...init, _isRetry: true });
     }
-    // Refresh failed — clear the UI hint + session, and announce expiry at most
-    // once so polling callers cannot each trigger their own redirect.
+    // Was there ever a session to expire? Read this BEFORE clearing the flag,
+    // or the answer is always "no".
+    //
+    // A shopper who is simply browsing has no session, and background calls
+    // that expect one (the support widget asking who you are, the account
+    // poll) 401 for them constantly and correctly. Announcing expiry for those
+    // threw a guest onto the login page from a public product or brand page —
+    // an interruption for someone who was never signed in and had not asked
+    // for anything, which is traffic walking out of the shop.
+    const hadSession = isAuthenticated();
     clearAuthFlag();
     clearSession();
-    announceSessionExpired();
+    if (hadSession) {
+      // Announce at most once so polling callers cannot each fire a redirect.
+      announceSessionExpired();
+    }
     throw { status: 401, message: 'Session expired' } as ApiError;
   }
 
