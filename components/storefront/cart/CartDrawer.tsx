@@ -63,11 +63,14 @@ export default function CartDrawer() {
           position: 'fixed',
           inset: 0,
           background: 'rgba(11,11,11,0.44)',
-          backdropFilter: drawerOpen ? 'blur(3px)' : 'blur(0)',
+          // `none`, not `blur(0)`: a backdrop-filter of any value keeps a live
+          // compositing layer sampling everything behind it, and this one is
+          // z-index 80 — above the site header at 50.
+          backdropFilter: drawerOpen ? 'blur(3px)' : 'none',
           opacity: drawerOpen ? 1 : 0,
+          visibility: drawerOpen ? 'visible' : 'hidden',
           pointerEvents: drawerOpen ? 'auto' : 'none',
-          transition:
-            'opacity 260ms var(--mr-ease-snappy), backdrop-filter 260ms var(--mr-ease-snappy)',
+          transition: `opacity 260ms var(--mr-ease-snappy), backdrop-filter 260ms var(--mr-ease-snappy), visibility 0s linear ${drawerOpen ? 0 : 260}ms`,
           zIndex: 80,
         }}
       />
@@ -88,7 +91,11 @@ export default function CartDrawer() {
           zIndex: 90,
           borderRadius: 'var(--mr-radius-lg)',
           transform: drawerOpen ? 'translateX(0)' : 'translateX(calc(100% + 32px))',
-          transition: 'transform 400ms var(--mr-ease-out)',
+          // Hidden, not just parked off the right edge — its xl shadow reaches
+          // back onto the page from out there, and a horizontal overscroll can
+          // reveal the panel itself.
+          visibility: drawerOpen ? 'visible' : 'hidden',
+          transition: `transform 400ms var(--mr-ease-out), visibility 0s linear ${drawerOpen ? 0 : 400}ms`,
           display: 'flex',
           flexDirection: 'column',
           boxShadow: 'var(--mr-shadow-xl)',

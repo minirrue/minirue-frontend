@@ -204,12 +204,17 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
           position: 'absolute',
           inset: 0,
           background: 'rgba(11,11,11,0.5)',
-          backdropFilter: open ? 'blur(4px)' : 'blur(0)',
-          WebkitBackdropFilter: open ? 'blur(4px)' : 'blur(0)',
+          // `none`, not `blur(0)`: a backdrop-filter of any value keeps a live
+          // compositing layer sampling everything behind it. This wrapper is
+          // z-index 120 — above the site header at 50 — so that layer covered
+          // the whole page, navbar included, on every route.
+          backdropFilter: open ? 'blur(4px)' : 'none',
+          WebkitBackdropFilter: open ? 'blur(4px)' : 'none',
+          visibility: open ? 'visible' : 'hidden',
           opacity: open ? 1 - drag.progress : 0,
           transition: drag.dragging
             ? 'none'
-            : 'opacity 400ms var(--mr-ease-snappy), backdrop-filter 400ms ease',
+            : `opacity 400ms var(--mr-ease-snappy), backdrop-filter 400ms ease, visibility 0s linear ${open ? 0 : 400}ms`,
         }}
       />
 
@@ -230,7 +235,23 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
           transform: open
             ? `translateY(${-Math.max(drag.offset, 0)}px)`
             : 'translateY(-100%)',
-          transition: drag.dragging ? 'none' : `transform 600ms ${SHEET_EASE}`,
+          // A closed sheet is HIDDEN, not merely parked above the fold.
+          //
+          // This is a full-height panel sitting immediately ABOVE the viewport,
+          // and its box-shadow is offset 18px DOWNWARD with a 48px blur — so
+          // the shadow of an invisible panel spilled onto the top of the screen.
+          // The wrapper is z-index 120, above the header at 50, so it landed
+          // over the navbar. It showed up only after scrolling because that is
+          // when the mobile URL bar collapses, changing the height of the
+          // `position: fixed` wrapper this is anchored to and nudging the
+          // parked panel down into view.
+          //
+          // Exactly the same mechanic as the bottom nav being revealed by
+          // overscroll, mirrored to the top of the screen.
+          visibility: open ? 'visible' : 'hidden',
+          transition: drag.dragging
+            ? 'none'
+            : `transform 600ms ${SHEET_EASE}, visibility 0s linear ${open ? 0 : 600}ms`,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
