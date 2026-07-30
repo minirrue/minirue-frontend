@@ -50,7 +50,12 @@ describe('ChatPanel — per-message sender avatar', () => {
 
     render(<ChatPanel open messages={messages} onClose={noop} onSend={noop} />);
 
-    expect(screen.getByTestId('msg-avatar-initial')).toHaveTextContent('Y');
+    // The generic person icon, NOT an initial letter. The owner asked for the
+    // initial-in-a-circle placeholder to be gone everywhere, so this pins it:
+    // the fallback slot must contain the silhouette and no text.
+    const fallback = screen.getByTestId('msg-avatar-initial');
+    expect(fallback).toHaveTextContent('');
+    expect(fallback.querySelector('svg')).not.toBeNull();
     expect(document.querySelectorAll('img').length).toBe(0);
   });
 });

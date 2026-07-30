@@ -2,6 +2,12 @@
 
 import React from 'react';
 import { CHAT_BUTTON_SIZE, useChatButtonPosition } from '@/lib/hooks/useChatButtonPosition';
+import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+
+/** Breathing room between the chat button and the panel it opens. Small on
+ *  purpose: the panel should read as belonging to the button, not floating
+ *  somewhere near it. */
+const PANEL_GAP = 8;
 
 export interface ChatAttachment {
   url: string;
@@ -13,8 +19,8 @@ export interface ChatDisplayMessage {
   from: 'agent' | 'cx';
   name: string;
   /** Resolved server-side: personal avatar -> (COLLAB) brand logo -> null.
-   * Null/undefined renders the sender's initial letter — never a broken
-   * image, never an empty gap. */
+   * Null/undefined renders the generic person icon — never an initial
+   * letter, never a broken image, never an empty gap. */
   senderAvatarUrl?: string | null;
   text: string;
   time: string;
@@ -25,26 +31,9 @@ export interface ChatDisplayMessage {
   tempId?: string;
 }
 
-/** First letter of up to two words, uppercased — the message-avatar fallback
- * when there is no photo/logo on file. Mirrors the dashboard's
- * `getInitials` (kept local here rather than shared, since the two apps
- * don't share a `lib/utils` module). */
-function initialsFor(name: string): string {
-  return name
-    .split(' ')
-    .map((s) => s[0])
-    .filter(Boolean)
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-/** Per-message sender avatar: the resolved photo/brand logo when the
- * backend found one, else the sender's initial letter — never a broken
- * image, never an empty gap. Plain `<img>` + `onError` (the storefront has
- * no retry-on-cold-cache wrapper like the dashboard's `RetryingImage`); a
- * load failure just falls back to the initial rather than showing a
- * broken-image icon. */
+/** Per-message sender avatar: the resolved photo/brand logo when the backend
+ * found one, else the generic person icon. Never an initial letter, and never
+ * a broken-image box — a load failure falls back to the same icon. */
 function MessageAvatar({ url, name }: { url?: string | null; name: string }) {
   const [errored, setErrored] = React.useState(false);
   React.useEffect(() => setErrored(false), [url]);
@@ -68,7 +57,11 @@ function MessageAvatar({ url, name }: { url?: string | null; name: string }) {
         fontFamily: 'Cormorant Garamond, serif', fontSize: 10, fontWeight: 600, color: 'var(--mr-ink-700)',
       }}
     >
-      {initialsFor(name) || '?'}
+      {/* The generic silhouette, not an initial. An initial in a circle is a
+          placeholder that looks like a decision; the owner asked for one
+          consistent person icon wherever a photo is missing, matching every
+          other avatar slot across the two apps. */}
+      <GenericAvatarIcon />
     </span>
   );
 }
@@ -322,7 +315,16 @@ export default function ChatPanel({
         ...(anchor
           ? { left: anchor.left, right: anchor.right, top: anchor.top, bottom: anchor.bottom }
           : {
-              bottom: isMobile ? 'calc(138px + 6.5vh)' : 'calc(144px + env(safe-area-inset-bottom))',
+              // Sit just above the button, on every viewport. This used to be
+              // `138px + 6.5vh` on phones, which is ~47px of empty air on a
+              // typical handset — the panel floated away from the button that
+              // opened it and read as a misplacement rather than a menu.
+              //
+              // Derived from the button's own geometry so the two cannot drift
+              // apart again: the button rests at bottom 84px and is
+              // CHAT_BUTTON_SIZE tall, so its top edge is 84 + 52 = 136px up,
+              // and PANEL_GAP is the breathing room above that.
+              bottom: `calc(${84 + CHAT_BUTTON_SIZE + PANEL_GAP}px + env(safe-area-inset-bottom))`,
               right: 24,
             }),
         width: 'min(360px, calc(100vw - 48px))',
