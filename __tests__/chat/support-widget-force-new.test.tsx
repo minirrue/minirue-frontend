@@ -121,4 +121,52 @@ describe('SupportWidget — forceNew (W1.6)', () => {
     expect(sent).toBeDefined();
     expect(sent).not.toHaveProperty('forceNew');
   });
+
+  it('shows an empty thread after starting a new conversation (W1.7)', async () => {
+    const user = userEvent.setup();
+    // One existing conversation: the bootstrap resumes it directly (view
+    // stays 'thread'), which is exactly the state "New conversation" has to
+    // clear rather than append to.
+    mockApiSupportMine.mockResolvedValue([
+      { id: 'old', type: 'GENERAL', status: 'OPEN', lastMessageAt: new Date().toISOString() },
+    ]);
+    mockApiSupportMessages.mockImplementation((id: string) => {
+      if (id === 'old') {
+        return Promise.resolve([
+          {
+            id: 'm-old',
+            conversationId: 'old',
+            senderType: 'AGENT',
+            body: 'Old message',
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    mockApiStartSupport.mockResolvedValue({
+      conversation: { id: 'conv-new', type: 'GENERAL' },
+      message: {
+        id: 'msg-new',
+        conversationId: 'conv-new',
+        senderType: 'CUSTOMER',
+        body: 'Brand new question',
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    render(<SupportWidget />);
+    await user.click(screen.getByRole('button', { name: /open live support chat/i }));
+    expect(await screen.findByText('Old message')).toBeInTheDocument();
+
+    // Reach the "New conversation" button via the conversations list.
+    await user.click(screen.getByRole('button', { name: /back to conversations/i }));
+    await user.click(await screen.findByRole('button', { name: /^new conversation$/i }));
+    await user.click(await screen.findByText(/just a general question/i));
+    await user.type(screen.getByPlaceholderText(/how can we help/i), 'Brand new question');
+    await user.click(screen.getByRole('button', { name: /start conversation/i }));
+
+    expect(await screen.findByText('Brand new question')).toBeInTheDocument();
+    expect(screen.queryByText('Old message')).not.toBeInTheDocument();
+  });
 });

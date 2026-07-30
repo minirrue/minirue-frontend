@@ -158,6 +158,34 @@ export default function SupportWidget() {
       });
   }, []);
 
+  // This widget is mounted once globally (app/layout.tsx) and a logout never
+  // unmounts it, so its identity-bound state — the conversation, its messages,
+  // the list, every once-only bootstrap ref — has to be reset by hand on any
+  // identity TRANSITION (including account A -> account B, not just logout).
+  // Without this, a signed-out visitor's message can land on the previous
+  // account's thread: a real cross-account leak, reproduced by the owner.
+  const prevIdentityRef = React.useRef<string | null | undefined>(undefined);
+  React.useEffect(() => {
+    if (authLoading) return;
+    const identity = authUser?.userId ?? null;
+    if (prevIdentityRef.current === undefined) { prevIdentityRef.current = identity; return; }
+    if (prevIdentityRef.current === identity) return;
+    prevIdentityRef.current = identity;
+
+    // Identity changed. Nothing from the previous person may survive.
+    setConversationId(null);
+    setMessages([]);
+    setConversations([]);
+    setView('thread');
+    setError(null);
+    seenIdsRef.current = new Set();
+    lastMessageIdRef.current = undefined;
+    retryPayloadsRef.current = new Map();
+    accountBootstrappedRef.current = false;
+    guestBootstrappedRef.current = false;
+    clearGuestSupport();
+  }, [authUser, authLoading]);
+
   // Bootstrap once: claim any guest thread into the logged-in account, then
   // resume the account's most recent conversation across devices/sessions.
   // Guests (not logged in) just resume via their stored guest token.
@@ -360,6 +388,16 @@ export default function SupportWidget() {
         forceNew?: boolean;
       },
     ) => {
+      if (override?.forceNew) {
+        // A brand-new room starts empty. Without this the optimistic bubble
+        // below is appended to whatever thread was previously loaded and the
+        // shopper sees the old conversation instead of a new one. Gated on
+        // forceNew because the implicit composer-send path deliberately
+        // appends into what the server dedups.
+        seenIdsRef.current = new Set();
+        lastMessageIdRef.current = undefined;
+        setMessages([]);
+      }
       const tempId = existingTempId ?? addOptimisticMessage(body, attachments);
       setSending(true);
       setError(null);

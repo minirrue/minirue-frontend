@@ -11,6 +11,7 @@ import {
 import { clearAuthFlag } from '@/lib/auth/tokens';
 import { markDeliberateSignOut } from '@/lib/api/client';
 import { setSession, clearSession } from '@/lib/session';
+import { clearGuestSupport } from '@/lib/support/session';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import { CUSTOMER_ADDRESSES_KEY, CUSTOMER_PROFILE_KEY } from '@/lib/hooks/use-customer';
 
@@ -100,6 +101,11 @@ export function useLogout() {
       markDeliberateSignOut();
       clearAuthFlag();
       clearSession();
+      // Belt and braces alongside SupportWidget's own identity-transition reset
+      // (which depends on useUser() actually invalidating): the owner asked
+      // that logging out clear the support widget's device-level guest token
+      // too, not just the tab's in-memory state.
+      clearGuestSupport();
       queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });
       queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
       queryClient.removeQueries({ queryKey: CUSTOMER_PROFILE_KEY });
