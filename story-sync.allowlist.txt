@@ -43,3 +43,19 @@ minirue-frontend PAGE /:param
 # not part of the QC remediation batch this line unblocks, and its story is
 # owed by whoever added it. Remove this line once that story lands.
 minirue-frontend PAGE /account/saved
+
+# 2026-07-30 — the QC batch of 2026-07-30. Two pages, both committed, tracked
+# and reachable. Stories are owed under §18/§21 and should be written before the
+# next batch; these lines exist so a documentation debt does not hold up a
+# deploy that fixes money-affecting bugs. Remove each as its story lands.
+#
+# The customer's own refund history. A refunded order read as "Delivered" on the
+# account because the page showed only the bare status word — no amount, no
+# date, no ticket. The request page it links to has existed at
+# /account/orders/<id>/refund with nothing in the entire shop pointing at it.
+minirue-frontend PAGE /account/refunds
+
+# An index of the partner spaces. Per-brand pages moved to the root (/helia) and
+# /brands/<slug> now 301s there, which left no page listing them at all — so a
+# "Brands" destination in the new configurable phone menu had nowhere to land.
+minirue-frontend PAGE /brands
