@@ -207,3 +207,52 @@ describe('Footer brand row — wordmark left, payment marks right (Task 15d)', (
     });
   });
 });
+
+/**
+ * Owner request (2026-07-31): "the bottom of it has extra space on Y ...
+ * optimize layout to decrease the Y-axis gaps between each section ... make
+ * it equally consistent". Before this task the rhythm was four separate
+ * hand-tuned clamp() values (newsletter margin, columns-grid marginTop,
+ * socials marginTop, bottom-bar marginTop) that merely happened to be close
+ * to each other — this test locks them to ONE shared value so the gaps
+ * cannot silently drift apart again in a future edit.
+ */
+describe('Footer section rhythm — single shared gap (Owner request 2026-07-31)', () => {
+  it('gives the newsletter, columns, socials, and bottom-bar sections the identical marginTop', () => {
+    const configWithEverything = {
+      ...FALLBACK_CHROME.footer,
+      newsletterEnabled: true,
+      newsletterEyebrow: 'Newsletter',
+      newsletterBlurb: 'Blurb.',
+      columns: [{ id: 'c1', title: 'Shop', links: [{ id: 'l1', label: 'All', href: '/shop' }] }],
+      socials: [{ id: 's1', network: 'instagram' as const, url: 'https://instagram.com' }],
+    };
+    render(<Footer config={configWithEverything} />);
+
+    const newsletter = screen.getByTestId('footer-newsletter');
+    const columns = screen.getByTestId('footer-columns');
+    const socials = screen.getByTestId('footer-socials');
+    const bottomBar = screen.getByTestId('footer-bottom-bar');
+
+    const gaps = [newsletter, columns, socials, bottomBar].map((el) => el.style.marginTop);
+
+    // All four must be the exact same CSS value...
+    expect(new Set(gaps).size).toBe(1);
+    // ...and it must actually be a real, non-empty value, not four empty strings.
+    expect(gaps[0]).toBeTruthy();
+  });
+
+  it('does not fork the gap by breakpoint — mobile and desktop share the same value', () => {
+    // useBreakpoint reads matchMedia; jsdom's default (no matches) resolves
+    // to desktop, so this asserts against the mobile-only ternary that used
+    // to exist on the socials row (`mobile ? clamp(...) : 44`) and is gone.
+    const configWithSocials = {
+      ...FALLBACK_CHROME.footer,
+      socials: [{ id: 's1', network: 'instagram' as const, url: 'https://instagram.com' }],
+    };
+    render(<Footer config={configWithSocials} />);
+    const socials = screen.getByTestId('footer-socials');
+    const columns = screen.getByTestId('footer-columns');
+    expect(socials.style.marginTop).toBe(columns.style.marginTop);
+  });
+});

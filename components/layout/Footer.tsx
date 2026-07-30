@@ -26,6 +26,18 @@ import type { FooterConfig } from '@/lib/api/storefront';
  * tracking, the same label typography the nav links use) so it never
  * competes with the MiniRue wordmark centred below it.
  */
+/**
+ * Owner request (2026-07-31): the footer's vertical rhythm used to be four
+ * different hand-tuned clamps (newsletter margin, columns-grid marginTop,
+ * socials marginTop, bottom-bar marginTop) that merely happened to be close
+ * to one another — which is exactly why the gaps read as uneven. Every
+ * inter-section gap now comes from this ONE constant, so the rhythm is
+ * identical by construction, not by four numbers that happen to agree.
+ * Covered by the "single shared gap" test in __tests__/layout/footer.test.tsx
+ * so a future edit can't quietly fork it back into four values.
+ */
+const FOOTER_SECTION_GAP = 'clamp(24px, 4vw, 40px)';
+
 function EbneelySignature() {
   const year = new Date().getFullYear();
   return (
@@ -86,14 +98,18 @@ export default function Footer({ config }: { config: FooterConfig }) {
           color: 'var(--mr-cream-100)',
           // Fluid padding: generous on desktop, compact on phones so the whole
           // footer stays short enough for the reveal to show its top (the logo).
-          // Bottom padding carries the home-indicator safe area too — this was
-          // flagged (with ChatButton.tsx) as fixed-positioned chrome with no
+          // Owner request (2026-07-31): the old constants here (72px top /
+          // 44px bottom) were the dead space under the link columns the
+          // owner was pointing at — tightened, top and bottom. Bottom padding
+          // still carries the home-indicator safe area — this was flagged
+          // (with ChatButton.tsx) as fixed-positioned chrome with no
           // safe-area padding; `viewport-fit: cover` on the root viewport
-          // export (app/layout.tsx) is what makes the env() call resolve.
-          paddingTop: 'clamp(32px, 6vw, 72px)',
+          // export (app/layout.tsx) is what makes the env() call resolve —
+          // only the constant part shrank, the env() term is untouched.
+          paddingTop: 'clamp(24px, 4vw, 48px)',
           paddingLeft: 'clamp(20px, 5vw, 48px)',
           paddingRight: 'clamp(20px, 5vw, 48px)',
-          paddingBottom: 'calc(clamp(20px, 3vw, 44px) + env(safe-area-inset-bottom))',
+          paddingBottom: 'calc(clamp(12px, 2vw, 24px) + env(safe-area-inset-bottom))',
         }}
       >
       <div style={{ maxWidth: 1280, margin: '0 auto', textAlign: 'center' }}>
@@ -134,7 +150,10 @@ export default function Footer({ config }: { config: FooterConfig }) {
           </div>
         </div>
         {config.newsletterEnabled && (
-          <div style={{ maxWidth: 460, margin: 'clamp(20px, 4vw, 44px) auto 0' }}>
+          <div
+            data-testid="footer-newsletter"
+            style={{ maxWidth: 460, margin: `${FOOTER_SECTION_GAP} auto 0` }}
+          >
             <div
               style={{
                 fontFamily: 'Jost, sans-serif',
@@ -206,11 +225,12 @@ export default function Footer({ config }: { config: FooterConfig }) {
         )}
 
         <div
+          data-testid="footer-columns"
           style={{
             display: 'grid',
             gridTemplateColumns: mobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)',
             gap: 'clamp(20px, 3vw, 44px)',
-            marginTop: 'clamp(28px, 5vw, 60px)',
+            marginTop: FOOTER_SECTION_GAP,
             textAlign: 'left',
           }}
         >
@@ -223,7 +243,7 @@ export default function Footer({ config }: { config: FooterConfig }) {
                   letterSpacing: '0.22em',
                   textTransform: 'uppercase',
                   color: 'var(--mr-gold-300)',
-                  marginBottom: 16,
+                  marginBottom: 12,
                 }}
               >
                 {c.title}
@@ -235,7 +255,7 @@ export default function Footer({ config }: { config: FooterConfig }) {
                   margin: 0,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: 8,
                 }}
               >
                 {c.links.map((link) => (
@@ -266,8 +286,9 @@ export default function Footer({ config }: { config: FooterConfig }) {
           split existed purely to fit the payment badges in alongside them.
         */}
         <div
+          data-testid="footer-socials"
           style={{
-            marginTop: mobile ? 'clamp(24px, 4vw, 44px)' : 44,
+            marginTop: FOOTER_SECTION_GAP,
             display: 'flex',
             flexWrap: 'wrap',
             alignItems: 'center',
@@ -284,9 +305,10 @@ export default function Footer({ config }: { config: FooterConfig }) {
         </div>
 
         <div
+          data-testid="footer-bottom-bar"
           style={{
-            marginTop: 'clamp(24px, 4vw, 56px)',
-            paddingTop: 'clamp(16px, 2vw, 28px)',
+            marginTop: FOOTER_SECTION_GAP,
+            paddingTop: 'clamp(12px, 1.5vw, 20px)',
             borderTop: '1px solid rgba(238,230,209,.1)',
             display: 'flex',
             justifyContent: 'space-between',
