@@ -71,6 +71,7 @@ function mapMessage(dto: SupportMessageDto): ChatDisplayMessage {
     id: dto.id,
     from: isAgent ? 'agent' : 'cx',
     name: dto.senderName ?? (isAgent ? 'MiniRue Support' : 'You'),
+    senderAvatarUrl: dto.senderAvatarUrl ?? null,
     text: dto.body,
     time: formatTime(dto.createdAt),
     attachments: dto.attachments,
@@ -122,6 +123,20 @@ export default function SupportWidget() {
   const seenIdsRef = React.useRef<Set<string>>(new Set());
   const lastMessageIdRef = React.useRef<string | undefined>(undefined);
   const tempCounterRef = React.useRef(0);
+  /**
+   * Monotonic staleness guard. Bumped exactly once per real identity
+   * TRANSITION (below), never on the initial mount. Every async chain that
+   * repaints state (resumeConversation's fetch, the bootstrap's claim+mine
+   * chain, the message-poll tick) captures this value at the moment it
+   * fires the request and refuses to touch state in its `.then` if the
+   * token has since moved on — otherwise a promise that resolves AFTER a
+   * logout/account-switch repaints the previous person's data over the
+   * state the identity-reset effect just cleared. That is a narrower-window
+   * recurrence of the exact cross-account leak the reset effect exists to
+   * kill: it stops leaked state that was already sitting in React state,
+   * but not a leaked repaint from a request that was already in flight.
+   */
+  const identityTokenRef = React.useRef(0);
   // Retry payloads for failed optimistic sends, keyed by tempId.
   const retryPayloadsRef = React.useRef<
     Map<string, { text: string; attachments?: ChatAttachment[] }>
@@ -139,6 +154,9 @@ export default function SupportWidget() {
   const accountBootstrappedRef = React.useRef(false);
 
   const resumeConversation = React.useCallback((id: string) => {
+    // Captured NOW, not read fresh inside the `.then` — the whole point is to
+    // notice if identity moved on WHILE this request was in flight.
+    const requestToken = identityTokenRef.current;
     setConversationId(id);
     setView('thread');
     // A resumed thread starts empty, so clear what the previous one left behind
@@ -148,6 +166,10 @@ export default function SupportWidget() {
     setMessages([]);
     apiSupportMessages(id)
       .then((dtos) => {
+        // The person who asked for this thread is gone (logout / switched
+        // accounts) — the reset effect already cleared their state; do not
+        // repaint it with a response addressed to them.
+        if (identityTokenRef.current !== requestToken) return;
         const mapped = dtos.map(mapMessage);
         mapped.forEach((m) => seenIdsRef.current.add(m.id));
         if (dtos.length > 0) lastMessageIdRef.current = dtos[dtos.length - 1].id;
@@ -171,6 +193,10 @@ export default function SupportWidget() {
     if (prevIdentityRef.current === undefined) { prevIdentityRef.current = identity; return; }
     if (prevIdentityRef.current === identity) return;
     prevIdentityRef.current = identity;
+    // Invalidates every in-flight request issued under the old identity —
+    // see identityTokenRef's own comment. Bumped BEFORE the resets below so
+    // nothing issued this tick can race ahead of it.
+    identityTokenRef.current += 1;
 
     // Identity changed. Nothing from the previous person may survive.
     setConversationId(null);
@@ -199,18 +225,28 @@ export default function SupportWidget() {
       // account's most recent thread (persists across devices/sessions).
       if (accountBootstrappedRef.current) return;
       accountBootstrappedRef.current = true;
+      // Same staleness guard as resumeConversation: this chain crosses two
+      // network round-trips, so identity can move on (another logout, or a
+      // fast switch to a THIRD account) before either resolves.
+      const requestToken = identityTokenRef.current;
+      const isStale = () => identityTokenRef.current !== requestToken;
       const guest = getGuestSupport();
       const claimIfNeeded = guest?.guestToken ? apiSupportClaim() : Promise.resolve(null);
       claimIfNeeded
         .catch(() => null)
         .then((claimed) => {
+          // Bail before even issuing the follow-up request — nothing this
+          // chain does from here on belongs to whoever is signed in now.
+          if (isStale()) return null;
           // Only drop the guest token once the claim actually succeeded — if it
           // failed (endpoint error / not yet deployed) keep the token so the
           // guest thread can still be claimed later instead of being orphaned.
           if (claimed) clearGuestSupport();
           return apiSupportMine().then((mine) => ({ claimed, mine }));
         })
-        .then(({ claimed, mine }) => {
+        .then((result) => {
+          if (!result || isStale()) return;
+          const { claimed, mine } = result;
           if (mine) setConversations(mine);
           if (claimed) {
             // The claim already tells us the single surviving thread — resume
@@ -241,7 +277,11 @@ export default function SupportWidget() {
     guestBootstrappedRef.current = true;
     const guest = getGuestSupport();
     if (guest) resumeConversation(guest.conversationId);
-  }, [isLoggedIn, authLoading, resumeConversation]);
+    // `authUser?.userId` (not just `isLoggedIn`) is deliberate: Account A ->
+    // Account B never flips the boolean, so keying only on it left B's
+    // thread never auto-resumed — `accountBootstrappedRef` was reset by the
+    // identity effect, but nothing re-ran this effect to see that reset.
+  }, [isLoggedIn, authLoading, resumeConversation, authUser?.userId]);
 
   const appendMessages = React.useCallback((dtos: SupportMessageDto[], markUnreadIfClosed: boolean) => {
     const fresh = dtos.filter((d) => !seenIdsRef.current.has(d.id));
@@ -299,8 +339,17 @@ export default function SupportWidget() {
   React.useEffect(() => {
     if (!conversationId) return;
     const interval = window.setInterval(() => {
+      // Captured per-TICK, not once for the whole effect: identity can
+      // change between one tick and the next without this effect re-running
+      // (conversationId is cleared by the same reset, but that clear and
+      // this in-flight request are a race — clearInterval on cleanup only
+      // stops FUTURE ticks, not a request already sent).
+      const requestToken = identityTokenRef.current;
       apiSupportMessages(conversationId, lastMessageIdRef.current)
-        .then((dtos) => appendMessages(dtos, !open))
+        .then((dtos) => {
+          if (identityTokenRef.current !== requestToken) return;
+          appendMessages(dtos, !open);
+        })
         .catch(() => {
           // Transient network errors are fine to skip; next tick retries.
         });

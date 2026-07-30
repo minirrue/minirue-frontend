@@ -12,6 +12,10 @@ export interface ChatDisplayMessage {
   id: string;
   from: 'agent' | 'cx';
   name: string;
+  /** Resolved server-side: personal avatar -> (COLLAB) brand logo -> null.
+   * Null/undefined renders the sender's initial letter — never a broken
+   * image, never an empty gap. */
+  senderAvatarUrl?: string | null;
   text: string;
   time: string;
   attachments?: ChatAttachment[];
@@ -19,6 +23,54 @@ export interface ChatDisplayMessage {
   status?: 'sending' | 'sent' | 'failed';
   /** Client-only key used to retry a failed optimistic send. */
   tempId?: string;
+}
+
+/** First letter of up to two words, uppercased — the message-avatar fallback
+ * when there is no photo/logo on file. Mirrors the dashboard's
+ * `getInitials` (kept local here rather than shared, since the two apps
+ * don't share a `lib/utils` module). */
+function initialsFor(name: string): string {
+  return name
+    .split(' ')
+    .map((s) => s[0])
+    .filter(Boolean)
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+/** Per-message sender avatar: the resolved photo/brand logo when the
+ * backend found one, else the sender's initial letter — never a broken
+ * image, never an empty gap. Plain `<img>` + `onError` (the storefront has
+ * no retry-on-cold-cache wrapper like the dashboard's `RetryingImage`); a
+ * load failure just falls back to the initial rather than showing a
+ * broken-image icon. */
+function MessageAvatar({ url, name }: { url?: string | null; name: string }) {
+  const [errored, setErrored] = React.useState(false);
+  React.useEffect(() => setErrored(false), [url]);
+  if (url && !errored) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt={name}
+        onError={() => setErrored(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
+      />
+    );
+  }
+  return (
+    <span
+      data-testid="msg-avatar-initial"
+      aria-label={`${name} — no photo`}
+      style={{
+        width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Cormorant Garamond, serif', fontSize: 10, fontWeight: 600, color: 'var(--mr-ink-700)',
+      }}
+    >
+      {initialsFor(name) || '?'}
+    </span>
+  );
 }
 
 interface ChatPanelProps {
@@ -363,22 +415,30 @@ export default function ChatPanel({
               key={msg.id}
               style={{ display: 'flex', flexDirection: 'column', alignItems: isAgent ? 'flex-start' : 'flex-end', animation: 'mr-fade-up 0.35s cubic-bezier(0.16,1,0.3,1) both', animationDelay: `${Math.min(i, 6) * 40}ms` }}
             >
-              <div style={{ maxWidth: '82%', padding: '10px 14px', borderRadius: isAgent ? '4px 14px 14px 14px' : '14px 4px 14px 14px', background: isAgent ? 'var(--mr-cream-200)' : 'var(--mr-ink-900)', color: isAgent ? 'var(--mr-ink-900)' : 'var(--mr-cream-100)', fontFamily: 'Inter Tight, sans-serif', fontSize: 13, lineHeight: 1.5 }}>
-                {msg.text && <div>{msg.text}</div>}
-                {msg.attachments && msg.attachments.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: msg.text ? 8 : 0 }}>
-                    {msg.attachments.map((att) => (
-                      <a key={att.url} href={att.url} target="_blank" rel="noreferrer noopener">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={att.url}
-                          alt="Attachment"
-                          style={{ maxWidth: 200, maxHeight: 200, borderRadius: 10, display: 'block', objectFit: 'cover' }}
-                        />
-                      </a>
-                    ))}
-                  </div>
-                )}
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, maxWidth: '84%', flexDirection: isAgent ? 'row' : 'row-reverse' }}>
+                {/* Sender avatar — the backend resolves personal avatar -> (COLLAB)
+                    brand logo -> null per message; null renders as the initial
+                    letter via MessageAvatar, never a broken image or empty gap. */}
+                <div style={{ width: 20, height: 20, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'var(--mr-cream-300)' }}>
+                  <MessageAvatar url={msg.senderAvatarUrl} name={msg.name} />
+                </div>
+                <div style={{ minWidth: 0, padding: '10px 14px', borderRadius: isAgent ? '4px 14px 14px 14px' : '14px 4px 14px 14px', background: isAgent ? 'var(--mr-cream-200)' : 'var(--mr-ink-900)', color: isAgent ? 'var(--mr-ink-900)' : 'var(--mr-cream-100)', fontFamily: 'Inter Tight, sans-serif', fontSize: 13, lineHeight: 1.5 }}>
+                  {msg.text && <div>{msg.text}</div>}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: msg.text ? 8 : 0 }}>
+                      {msg.attachments.map((att) => (
+                        <a key={att.url} href={att.url} target="_blank" rel="noreferrer noopener">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={att.url}
+                            alt="Attachment"
+                            style={{ maxWidth: 200, maxHeight: 200, borderRadius: 10, display: 'block', objectFit: 'cover' }}
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 10, color: 'var(--mr-ink-400)', marginTop: 3, padding: '0 2px', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span>{msg.name} · {msg.time}</span>

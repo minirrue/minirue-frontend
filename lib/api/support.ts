@@ -54,6 +54,10 @@ export interface SupportMessageDto {
   body: string;
   senderType: 'CUSTOMER' | 'GUEST' | 'AGENT' | 'SYSTEM' | string;
   senderName?: string | null;
+  /** Resolved server-side: personal avatar -> (COLLAB) brand logo -> null.
+   * Null means the client shows the sender's initial letter, never a broken
+   * image or an empty gap. */
+  senderAvatarUrl?: string | null;
   createdAt: string;
   attachments?: SupportAttachmentDto[];
 }
