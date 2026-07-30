@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useClientQuery } from '@/lib/hooks/use-client-query';
 import { useUser } from '@/lib/hooks/use-auth';
 import MobileSheet from '@/components/ui/MobileSheet';
+import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import StarRating from '@/components/storefront/StarRating';
 import ReviewMediaStrip from './ReviewMediaStrip';
 import WriteReviewSheet from './WriteReviewSheet';
@@ -58,6 +59,43 @@ const reviewButtonBaseStyle: React.CSSProperties = {
   ...labelStyle,
 };
 
+/**
+ * Fixed-size circle avatar for a reviewer's byline. A real photo fills it
+ * (`objectFit: cover`, matching the account page's own avatar tile); with
+ * none on file it centers the shared `GenericAvatarIcon` silhouette — never
+ * a blank circle, never an initial letter.
+ */
+function ReviewerAvatar({ review }: { review: PublicReview }) {
+  return (
+    <div
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: '50%',
+        overflow: 'hidden',
+        border: '1px solid var(--mr-border)',
+        background: 'var(--mr-bg-raised)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        color: 'var(--mr-fg-3)',
+      }}
+    >
+      {review.reviewerAvatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={review.reviewerAvatarUrl}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        <GenericAvatarIcon size={20} />
+      )}
+    </div>
+  );
+}
+
 function ReviewRow({ review }: { review: PublicReview }) {
   return (
     <article
@@ -67,6 +105,34 @@ function ReviewRow({ review }: { review: PublicReview }) {
         borderTop: '1px solid var(--mr-hairline)',
       }}
     >
+      <div
+        data-trace-id={`PG-STOREFRONT-CAT-005::EL-ROW-review-author@${review.id}`}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 12,
+          minWidth: 0,
+        }}
+      >
+        <ReviewerAvatar review={review} />
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontWeight: 500,
+              color: 'var(--mr-fg)',
+              fontSize: 'var(--mr-text-sm)',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {review.reviewerName}
+          </div>
+          <div style={{ ...labelStyle, fontSize: 11, marginTop: 2 }}>
+            {formatDate(review.createdAt)}
+          </div>
+        </div>
+      </div>
+
       <div
         style={{
           display: 'flex',
@@ -121,10 +187,6 @@ function ReviewRow({ review }: { review: PublicReview }) {
       ) : null}
 
       <ReviewMediaStrip media={review.media} />
-
-      <div style={{ ...labelStyle, marginTop: 12, fontSize: 11 }}>
-        {formatDate(review.createdAt)}
-      </div>
     </article>
   );
 }

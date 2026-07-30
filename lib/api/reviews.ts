@@ -9,8 +9,13 @@ export interface ReviewMedia {
   contentType: string;
 }
 
-/** What the shop is given. No name, no customer id — a review is an opinion
- * about a product, not a public record of who bought what. */
+/** What the shop is given. No raw customer id — a review is still not a
+ * public record of who bought what — but the reviewer's byline (name +
+ * avatar) is included (owner request 2026-07-30). `reviewerAvatarUrl` is
+ * null when there is no photo on file; render `GenericAvatarIcon` in that
+ * case, never a blank or an initial letter. `reviewerName` is always a
+ * non-empty string — the backend falls back to a neutral label rather than
+ * ever sending an email address. */
 export interface PublicReview {
   id: string;
   rating: number;
@@ -19,6 +24,8 @@ export interface PublicReview {
   verifiedPurchase: boolean;
   createdAt: string;
   media: ReviewMedia[];
+  reviewerName: string;
+  reviewerAvatarUrl: string | null;
 }
 
 export interface ReviewListing {
