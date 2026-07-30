@@ -29,13 +29,14 @@ function minorToDisplay(amount: string | number): string {
 export default async function OrderConfirmationPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   let order;
   let fetchError: string | null = null;
 
   try {
-    order = await apiGetOrder(params.id);
+    order = await apiGetOrder(id);
   } catch {
     fetchError = 'We could not load your order details. Your order was placed — check your email for confirmation.';
   }
@@ -338,7 +339,7 @@ export default async function OrderConfirmationPage({
               }}
             >
               <Link
-                href={`/orders/${params.id}/track`}
+                href={`/orders/${id}/track`}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
