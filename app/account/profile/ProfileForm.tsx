@@ -6,6 +6,7 @@ import { useUpdateCustomerProfile, useUploadCustomerAvatar } from '@/lib/hooks/u
 import type { ApiError } from '@/lib/api/client';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import AvatarCropSheet from '@/components/storefront/AvatarCropSheet';
+import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 
 interface Props {
   profile: CustomerProfile;
@@ -22,6 +23,25 @@ export default function ProfileForm({ profile }: Props) {
   const [pickedFile, setPickedFile] = useState<File | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  // Task FF (2026-07-30): the cropped bytes for an avatar just uploaded THIS
+  // session, so the tile renders locally instead of a guaranteed-cold-miss
+  // remote fetch of the exact bytes the browser is already holding.
+  // `pendingAvatarUrlRef` records which `avatarUrl` that local file belongs
+  // to — if `profile.avatarUrl` ever changes to something else WITHOUT going
+  // through handleCropped (a background refetch landing an older value,
+  // say), the stale local bytes must stop showing.
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<Blob | null>(null);
+  const pendingAvatarUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      pendingAvatarUrlRef.current !== null &&
+      profile.avatarUrl !== pendingAvatarUrlRef.current
+    ) {
+      setPendingAvatarFile(null);
+      pendingAvatarUrlRef.current = null;
+    }
+  }, [profile.avatarUrl]);
 
   const handleAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,7 +55,9 @@ export default function ProfileForm({ profile }: Props) {
   const handleCropped = async (blob: Blob) => {
     setCropOpen(false);
     try {
-      await uploadAvatar.mutateAsync(blob);
+      const updated = await uploadAvatar.mutateAsync(blob);
+      pendingAvatarUrlRef.current = updated.avatarUrl ?? null;
+      setPendingAvatarFile(blob);
     } catch (err) {
       setAvatarError((err as ApiError).message ?? 'Failed to upload photo');
     } finally {
@@ -96,9 +118,9 @@ export default function ProfileForm({ profile }: Props) {
         }}
       >
         {profile.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <UploadPreviewImage
             src={profile.avatarUrl}
+            localFile={pendingAvatarFile}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />

@@ -114,6 +114,13 @@ export interface Category {
   slug: string;
   name: string;
   parentId: string | null;
+  /**
+   * Already a servable URL, resolved server-side (imgproxy, 480px square) —
+   * never a raw gallery media id. Categories became mandatory-imaged
+   * 2026-07-30, so every category the shop returns has one; null only for a
+   * category created before that and never revisited.
+   */
+  imageUrl?: string | null;
   children?: Category[];
 }
 

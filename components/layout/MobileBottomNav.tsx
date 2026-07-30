@@ -18,6 +18,16 @@
  * since this component is never an ancestor or descendant of whichever
  * `Header` the current route mounted. "Cart" reuses the existing global
  * `CartContext`/`CartDrawer`, no new store needed.
+ *
+ * Task AA (2026-07-30, owner request): Home dropped from this bar — the top
+ * bar's own logo already goes there, and having two ways to get "home" left
+ * no room for the item the owner actually wanted front and center. Collab
+ * takes the freed middle slot instead and opens `/collab`, an index of every
+ * partner MiniRue works with (logo tile, rating, product count — one request
+ * for the whole grid via `apiListPublicBrands()`). Shop now opens `/categories`
+ * — MiniRue's real category tree with images, not the flat all-products list
+ * — since a picture-led category browse is what the owner asked for; the
+ * all-products page is still one tap away as the grid's own extra card.
  */
 
 import React from 'react';
@@ -53,9 +63,9 @@ interface NavItem {
 }
 
 const ITEMS: NavItem[] = [
-  { key: 'home', label: 'Home', icon: 'home' },
   { key: 'menu', label: 'Menu', icon: 'menu' },
   { key: 'search', label: 'Search', icon: 'search' },
+  { key: 'collab', label: 'Collab', icon: 'collab' },
   { key: 'shop', label: 'Shop', icon: 'grid' },
   { key: 'cart', label: 'Cart', icon: 'bag' },
   { key: 'account', label: 'Account', icon: 'user' },
@@ -278,7 +288,8 @@ export default function MobileBottomNav() {
           );
         }
 
-        const href = item.key === 'home' ? '/' : item.key === 'shop' ? '/products' : accountHref;
+        const href =
+          item.key === 'shop' ? '/categories' : item.key === 'collab' ? '/collab' : accountHref;
         return (
           <Link
             key={item.key}

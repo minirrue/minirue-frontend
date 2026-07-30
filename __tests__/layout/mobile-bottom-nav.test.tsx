@@ -158,6 +158,32 @@ describe('MobileBottomNav (W4a.2)', () => {
     expect(cartButton.textContent).not.toMatch(/\d/);
   });
 
+  it('has no Home item, and shows a Collab item linking to /collab', () => {
+    setViewportWidth(600);
+    renderNav();
+    scrollTo(100);
+    scrollTo(160); // scroll down so the bar is visible/in the a11y tree
+    expect(screen.queryByRole('link', { name: /^Home$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Collab$/ })).toHaveAttribute('href', '/collab');
+  });
+
+  it('places Collab in the middle of the bar, between Search and Shop', () => {
+    setViewportWidth(600);
+    renderNav();
+    const labels = screen
+      .getAllByText(/^(Menu|Search|Collab|Shop|Cart|Account)$/)
+      .map((el) => el.textContent);
+    expect(labels).toEqual(['Menu', 'Search', 'Collab', 'Shop', 'Cart', 'Account']);
+  });
+
+  it('sends Shop to the categories index, not the flat product list', () => {
+    setViewportWidth(600);
+    renderNav();
+    scrollTo(100);
+    scrollTo(160);
+    expect(screen.getByRole('link', { name: /^Shop$/ })).toHaveAttribute('href', '/categories');
+  });
+
   it('applies no transition when prefers-reduced-motion is set', () => {
     const original = window.matchMedia;
     window.matchMedia = ((query: string) => ({

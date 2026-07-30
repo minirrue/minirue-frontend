@@ -10,6 +10,19 @@ export interface PublicCollaboratorBrand {
   storefrontHomeFeature?: boolean;
   storefrontNavLink?: boolean;
   storefrontVisible?: boolean;
+  /**
+   * Live PUBLISHED product count, rating average (rounded to one decimal) and
+   * rating count — added for the Collab grid (`/collab`, Task AA) so it can
+   * render a whole page of cards from this one request instead of one round
+   * trip per partner. Optional because older cached payloads (Data Cache
+   * revalidates every 15s) may not have them yet; absent reads the same as 0
+   * everywhere this is rendered.
+   */
+  productCount?: number;
+  /** null — not 0 — when nobody has reviewed anything of this partner's yet;
+   * zero stars is not a rating anyone can give. */
+  ratingAverage?: number | null;
+  ratingCount?: number;
 }
 
 export interface CollaboratorBrandSection extends PublicCollaboratorBrand {

@@ -5,7 +5,8 @@ import React from 'react';
 type IconName =
   | 'search' | 'user' | 'bag' | 'heart' | 'close' | 'arrowRight' | 'arrowLeft'
   | 'minus' | 'plus' | 'check' | 'gift' | 'truck' | 'menu' | 'x' | 'grid' | 'external'
-  | 'share' | 'chevronRight' | 'chevronLeft' | 'chevronDown' | 'home';
+  | 'share' | 'chevronRight' | 'chevronLeft' | 'chevronDown' | 'home'
+  | 'collab' | 'star';
 
 interface IconProps {
   name: IconName;
@@ -36,6 +37,11 @@ const PATHS: Record<IconName, React.ReactNode> = {
   chevronLeft:  <><path d="M15 5l-7 7 7 7"/></>,
   chevronDown:  <><path d="M5 9l7 7 7-7"/></>,
   home:         <><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5z"/></>,
+  // Two overlapping circles — the bottom nav's Collab tab (W-collab): every
+  // partner MiniRue works with, in one place a shopper can tap directly.
+  collab:       <><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></>,
+  // Filled five-point star — the Collab grid card's rating row.
+  star:         <path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" fill="currentColor" stroke="none"/>,
 };
 
 export default function Icon({ name, size = 18, stroke = 1.5, color = 'currentColor' }: IconProps) {
@@ -49,6 +55,12 @@ export default function Icon({ name, size = 18, stroke = 1.5, color = 'currentCo
       strokeWidth={stroke}
       strokeLinecap="round"
       strokeLinejoin="round"
+      // Sets the real CSS `color` too, not just the SVG `stroke` attribute —
+      // a no-op for every stroke-only glyph above, but what makes the
+      // `star` glyph's `fill="currentColor"` resolve to this component's
+      // `color` prop instead of whatever text color it happens to inherit
+      // from its DOM parent.
+      style={{ color }}
     >
       {PATHS[name] ?? null}
     </svg>
