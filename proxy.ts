@@ -13,6 +13,20 @@ import { NextRequest, NextResponse } from 'next/server'
  * /account and /orders stay: there is nothing to show a guest on either.
  */
 const PROTECTED = ['/account', '/orders']
+
+/**
+ * The mirror of PROTECTED: routes that only make sense to a GUEST.
+ *
+ * Signing in again while already signed in mints a second session over a live
+ * one — a fresh token pair, a fresh refresh row — and the previous access
+ * token's `sid` is left pointing at a row that rotation then revokes. That is
+ * the double-sign-in the owner asked to prevent, and it is also how a browser
+ * ends up holding two credentials under one cookie name.
+ *
+ * `/forgot` and `/reset-password` are deliberately NOT here: someone signed in
+ * on one device may legitimately be resetting a password they no longer trust.
+ */
+const AUTH_ONLY_FOR_GUESTS = ['/login', '/signup']
 // Auth pages — redirect away if already logged in
 const AUTH_PAGES = ['/login', '/signup', '/forgot', '/reset-password']
 // Cookie name — must match tokens.ts (mr-auth)
@@ -193,6 +207,18 @@ export default function proxy(request: NextRequest) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname)
     res = NextResponse.redirect(loginUrl)
+  } else if (isAuthed && AUTH_ONLY_FOR_GUESTS.some(p => pathname === p || pathname.startsWith(`${p}/`))) {
+    // Already signed in — the sign-in and sign-up screens have nothing to
+    // offer, and reaching them is how a second, parallel session gets minted
+    // over the top of a live one (owner: "prohibit visiting /login ... to
+    // prevent double sign in"). Bounced at the edge rather than by a
+    // client-side effect, so it cannot flash the form first.
+    //
+    // `next` is honoured when present so the round trip a guest was sent on
+    // still lands where it meant to; otherwise the account area.
+    const next = request.nextUrl.searchParams.get('next')
+    const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/account'
+    res = NextResponse.redirect(new URL(safeNext, request.url))
   } else {
     res = NextResponse.next()
   }
