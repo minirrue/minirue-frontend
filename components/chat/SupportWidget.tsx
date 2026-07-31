@@ -148,6 +148,35 @@ export default function SupportWidget() {
     if (authUser) setSessionProven(true);
     else if (authDenied) setSessionProven(false);
   }, [authUser, authDenied]);
+
+  /**
+   * "This browser's session has definitively ENDED." Distinct from
+   * `!sessionProven`, which merely means we have not proven one yet.
+   *
+   * Without it the panel got stuck on "Checking your account…": `chatAccess`
+   * falls to 'pending' whenever `authLoading` is true, and signing out REMOVES
+   * the /auth/me query, so its observer immediately refetches and `isLoading`
+   * goes true again. If that refetch is slow — or never settles, which is
+   * ordinary on a page that is navigating to /login — the shopper sits on
+   * "Checking your account…" indefinitely instead of being told plainly that
+   * they are signed out. Owner: "its stale on chekcing your account it must
+   * say you are not logged in".
+   *
+   * A sign-out is a fact we already know locally; it does not need
+   * confirmation from a round trip. Set by the same identity-cleared signal
+   * that wipes the panel, and by a settled 401. Cleared only when a real user
+   * comes back, so signing in again works normally.
+   */
+  const [sessionEnded, setSessionEnded] = React.useState(false);
+  React.useEffect(() => {
+    if (authUser) setSessionEnded(false);
+    else if (authDenied) setSessionEnded(true);
+  }, [authUser, authDenied]);
+  React.useEffect(() => {
+    const onEnded = () => setSessionEnded(true);
+    window.addEventListener(IDENTITY_CLEARED_EVENT, onEnded);
+    return () => window.removeEventListener(IDENTITY_CLEARED_EVENT, onEnded);
+  }, []);
   React.useEffect(() => {
     const onIdentityCleared = () => setSessionProven(false);
     window.addEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
@@ -784,13 +813,24 @@ export default function SupportWidget() {
    *
    *  'blocked' — settled, and no session. SignInToChat, nothing else.
    */
-  const hintMayVouch = hasStoredSession && authFailed && !authDenied;
-  const looksSignedIn = isLoggedIn || sessionProven || hintMayVouch;
+  // A session we KNOW has ended outranks every optimistic signal, including the
+  // forgeable hint cookie and a stale `sessionProven` from earlier in this
+  // tab's life. Without this the shopper could still be shown as signed in
+  // after signing out, and tapping through would bounce them to /login.
+  const hintMayVouch =
+    !sessionEnded && hasStoredSession && authFailed && !authDenied;
+  const looksSignedIn =
+    !sessionEnded && (isLoggedIn || sessionProven || hintMayVouch);
   const chatAccess: 'allowed' | 'pending' | 'blocked' = looksSignedIn
     ? 'allowed'
-    : authLoading
-      ? 'pending'
-      : 'blocked';
+    : // 'pending' is only honest while we have NOT yet learned the answer.
+      // Once the session is known to have ended, waiting on a refetch that may
+      // never settle just leaves "Checking your account…" on screen forever.
+      sessionEnded
+      ? 'blocked'
+      : authLoading
+        ? 'pending'
+        : 'blocked';
   const guestBlocked = chatAccess === 'blocked';
   /** The single gate for every writable surface: composer, subject picker, send. */
   const canMessage = chatAccess === 'allowed';
