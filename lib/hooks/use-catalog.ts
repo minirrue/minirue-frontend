@@ -122,6 +122,9 @@ export function useCategories() {
       const response = await apiFetch<{ data: Category[] }>('/catalog/categories');
       return response.data;
     },
-    staleTime: 1000 * 60 * 30, // 30m (categories change infrequently)
+    // 60s, not 30m — same reason as lib/hooks/queries.ts's
+    // categoriesQueryOptions: a category's PICTURE changes whenever an admin
+    // replaces it, and the shop renders categories as image tiles.
+    staleTime: 1000 * 60,
   });
 }

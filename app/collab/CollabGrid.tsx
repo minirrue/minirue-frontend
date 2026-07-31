@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import Icon from '@/components/ui/Icon';
 import type { PublicCollaboratorBrand } from '@/lib/api/collaborators';
 
@@ -31,8 +32,11 @@ function CollabCard({ brand }: { brand: PublicCollaboratorBrand }) {
         }}
       >
         {brand.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // Never a bare image tag — a partner replaces this logo from their
+          // own portal, under a new uuid-suffixed key each time, so this url
+          // is cold the first time any shopper asks for it. See
+          // BrandsGrid.tsx's Tile for the full note.
+          <UploadPreviewImage
             src={brand.logoUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}

@@ -63,8 +63,13 @@ export interface ChatDisplayMessage {
 
 /** Per-message sender avatar: the resolved photo/brand logo when the backend
  * found one, else the generic person icon. Never an initial letter, and never
- * a broken-image box — a load failure falls back to the same icon. */
-function MessageAvatar({
+ * a broken-image box — a load failure falls back to the same icon. Exported
+ * so `ChatButton` (the floating launcher) can render the exact same shop
+ * logo/generic-icon slot the panel header uses, rather than inventing a
+ * second image-resolution mechanism (2026-07-31 owner ask: "the minirue
+ * support avatar in floating chat menu... have generic avatar although we
+ * have uploaded our brand logo"). */
+export function MessageAvatar({
   url,
   name,
   // The header reuses this component for the shop logo (Task #33), so the

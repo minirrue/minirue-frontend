@@ -3,6 +3,7 @@
 import React from 'react';
 import Button from '@/components/ui/Button';
 import BottleSVG from '@/components/ui/BottleSVG';
+import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import { useScrollReveal } from '@/lib/motion/hooks';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import type { ResolvedSection } from '@/lib/api/storefront';
@@ -48,7 +49,12 @@ export default function EditorialBlock({ section }: { section: JournalSection })
           }}
         >
           {section.imageUrl ? (
-            <img
+            // Never a bare image tag — an editorial photograph is swapped from
+            // the dashboard's storefront editor, landing on a brand-new
+            // uuid-suffixed key whose first request is a guaranteed cold miss.
+            // This is a full-bleed hero: a failed load here is not a small
+            // broken square, it is the whole block (owner, 2026-07-31).
+            <UploadPreviewImage
               src={section.imageUrl}
               alt=""
               className="mr-hero-drift"

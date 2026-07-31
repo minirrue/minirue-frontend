@@ -1,5 +1,10 @@
+'use client';
+
+import React from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/Icon';
+import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import type { Category } from '@/lib/api/catalog';
 
 /**
@@ -10,6 +15,57 @@ import type { Category } from '@/lib/api/catalog';
  * `app/collab/CollabGrid.tsx`: a square image tile over a label, no new
  * tokens invented for this page.
  */
+
+/**
+ * MiniRue's own uploaded logo, mirroring `SpaceView`'s header image (same
+ * 64px square, same `objectFit: contain`) — this page is the "shop panel"
+ * the bottom nav's Shop tab opens (2026-07-31 owner ask), and a partner's
+ * space page already shows its logo this way. Unlike `SpaceView` (which
+ * simply omits the image when there is none), this slot falls back to the
+ * shared `GenericAvatarIcon` rather than rendering nothing — the same
+ * never-a-broken-frame, never-an-initial-letter rule the chat avatar follows
+ * — and also covers a logo URL that 404s/fails to load after the page has
+ * already painted (`onError`), which a fetch-time `logoUrl === null` check
+ * alone cannot catch.
+ */
+function ShopLogo({ logoUrl, shopName }: { logoUrl: string | null; shopName: string }) {
+  const [errored, setErrored] = React.useState(false);
+  React.useEffect(() => setErrored(false), [logoUrl]);
+
+  if (logoUrl && !errored) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={shopName}
+        width={64}
+        height={64}
+        onError={() => setErrored(true)}
+        style={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }}
+      />
+    );
+  }
+
+  return (
+    <span
+      data-testid="shop-panel-logo-generic"
+      aria-label={`${shopName} — no logo`}
+      style={{
+        width: 64,
+        height: 64,
+        borderRadius: 4,
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--mr-bg-2, #f4f1ec)',
+        color: 'var(--mr-fg-4)',
+      }}
+    >
+      <GenericAvatarIcon size={28} />
+    </span>
+  );
+}
 function Tile({
   href,
   label,
@@ -40,8 +96,12 @@ function Tile({
         }}
       >
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // Never a bare image tag — a category picture is replaceable from
+          // the dashboard, and the replacement lands on a brand-new
+          // uuid-suffixed key whose first request is a guaranteed cold miss.
+          // With no onError handler, one transient failure left this tile
+          // broken for every shopper (owner, 2026-07-31).
+          <UploadPreviewImage
             src={imageUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -68,7 +128,20 @@ function Tile({
   );
 }
 
-export default function CategoriesGrid({ categories }: { categories: Category[] }) {
+export default function CategoriesGrid({
+  categories,
+  shopName,
+  shopLogoUrl,
+}: {
+  categories: Category[];
+  /** MiniRue's own admin-configured name — falls back to "MiniRue" only for
+   *  the logo's alt text/aria-label, never rendered as page copy (the "Shop"
+   *  heading below is unchanged). `null`/omitted when the house-space fetch
+   *  failed (see app/categories/page.tsx) — the logo slot then falls back to
+   *  the generic icon exactly as it does for an admin who never uploaded one. */
+  shopName?: string | null;
+  shopLogoUrl?: string | null;
+}) {
   return (
     <main
       style={{
@@ -101,18 +174,33 @@ export default function CategoriesGrid({ categories }: { categories: Category[] 
       </nav>
 
       <header style={{ marginBottom: 'var(--mr-sp-7)' }}>
-        <h1
+        {/* Logo beside the title, mirroring SpaceView's header exactly —
+            this page is the "shop panel" the bottom nav's Shop tab opens
+            (2026-07-31 owner ask: "brand logo... like collab page"). */}
+        <div
+          data-trace-id="PG-STOREFRONT-CATIDX-001::EL-REGION-shop-logo"
           style={{
-            fontFamily: 'var(--mr-font-serif)',
-            fontWeight: 400,
-            fontSize: 'clamp(var(--mr-text-2xl), 4vw, var(--mr-text-3xl))',
-            lineHeight: 1.08,
-            letterSpacing: '-0.006em',
-            margin: '0 0 var(--mr-sp-2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--mr-sp-4)',
+            marginBottom: 'var(--mr-sp-4)',
+            flexWrap: 'wrap',
           }}
         >
-          Shop
-        </h1>
+          <ShopLogo logoUrl={shopLogoUrl ?? null} shopName={shopName ?? 'MiniRue'} />
+          <h1
+            style={{
+              fontFamily: 'var(--mr-font-serif)',
+              fontWeight: 400,
+              fontSize: 'clamp(var(--mr-text-2xl), 4vw, var(--mr-text-3xl))',
+              lineHeight: 1.08,
+              letterSpacing: '-0.006em',
+              margin: 0,
+            }}
+          >
+            Shop
+          </h1>
+        </div>
         <p style={{ color: 'var(--mr-fg-3)', maxWidth: '60ch', margin: 0 }}>
           Browse by category, or shop everything at once.
         </p>

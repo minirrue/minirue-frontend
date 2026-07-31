@@ -401,6 +401,27 @@ export async function fetchSpace(slug: string): Promise<StorefrontSpaceDetail | 
   return res.json() as Promise<StorefrontSpaceDetail>;
 }
 
+/**
+ * MiniRue's own space — its logo, name, categories and brands, same shape
+ * `fetchSpace` returns for a partner.
+ *
+ * Not `fetchSpace('')`: an HTTP path segment cannot be zero-length, so that
+ * call would collapse to `GET /storefront/spaces` (the LIST endpoint,
+ * `{ data: [...] }`) rather than the detail shape this type declares — a
+ * silent shape mismatch, not a 404. The backend's `resolveHouseSpace()` has
+ * always resolved the house's live logo/name correctly in isolation
+ * (`space-resolver-house.spec.ts`), but had no real route to answer this
+ * call — see `GET /storefront/spaces/house` (`space.controller.ts`), added
+ * specifically so this fetcher has somewhere real to land.
+ */
+export async function fetchHouseSpace(): Promise<StorefrontSpaceDetail> {
+  const res = await fetch(`${BASE}/storefront/spaces/house`, {
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) throw new Error(`Failed to load the house space: ${res.status}`);
+  return res.json() as Promise<StorefrontSpaceDetail>;
+}
+
 /** Every space a shopper can reach. Feeds the sitemap. */
 export async function fetchSpaces(): Promise<StorefrontSpace[]> {
   const res = await fetch(`${BASE}/storefront/spaces`, { next: { revalidate: 300 } });

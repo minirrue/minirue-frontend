@@ -6,6 +6,7 @@ import type { ApiProduct } from '@/lib/api/catalog';
 import type { ResolvedSection } from '@/lib/api/storefront';
 import ProductCard from './ProductCard';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 
 type Section = Extract<ResolvedSection, { type: 'collabShowcase' }>;
@@ -171,7 +172,14 @@ export default function CollabShowcase({
         style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24, flexWrap: 'wrap' }}
       >
         {tab.logoUrl ? (
-          <img src={tab.logoUrl} alt="" style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 4 }} />
+          // Never a bare image tag — the partner replaces this logo from their
+          // own portal, under a new uuid-suffixed key, so this url is cold the
+          // first time any shopper asks for it.
+          <UploadPreviewImage
+            src={tab.logoUrl}
+            alt=""
+            style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 4 }}
+          />
         ) : (
           <div
             style={{

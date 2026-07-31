@@ -88,12 +88,14 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   const { data: chrome } = useStorefrontChrome();
   const socials = chrome?.footer.socials ?? [];
   const mobileMenu = chrome?.mobileMenu ?? FALLBACK_CHROME.mobileMenu;
-  // The ONE shop name/logo (2026-07-31 owner ask) — never the hardcoded
-  // "MiniRue" literal the wordmark used to render. `shopLogoUrl` mirrors how
-  // a partner's own space page (app/[slug]/SpaceView.tsx) shows its logo:
-  // present when an admin has uploaded one, null otherwise.
+  // The ONE shop name (2026-07-31 owner ask) — never the hardcoded "MiniRue"
+  // literal the wordmark used to render. Deliberately name ONLY: `chrome`
+  // also carries `shopLogoUrl`, and this file used to read it and render it
+  // beside the wordmark, which put two marks in the header saying the same
+  // thing (owner: "we have now 2 logo ... remove the upaloded one", ce69056).
+  // The uploaded logo's home is the shop panel (app/categories) and the chat
+  // avatar — not here. Do not reintroduce a `shopLogoUrl` binding.
   const shopName = chrome?.shopName ?? FALLBACK_CHROME.shopName;
-  const shopLogoUrl = chrome?.shopLogoUrl ?? FALLBACK_CHROME.shopLogoUrl;
 
   // Single scroll subscription, rAF-throttled, shared with MobileBottomNav —
   // replaces the old unthrottled `scroll` listener this file used to attach

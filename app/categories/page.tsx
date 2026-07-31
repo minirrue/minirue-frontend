@@ -4,6 +4,7 @@ import { catalog } from '@/lib/api/catalog';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
+import { fetchHouseSpace } from '@/lib/api/storefront';
 import CategoriesGrid from './CategoriesGrid';
 
 /**
@@ -19,6 +20,15 @@ import CategoriesGrid from './CategoriesGrid';
  * image (categories became mandatory-imaged earlier today, so every one has
  * a real photograph, not a placeholder). One extra tile — "All Products" —
  * sits alongside them and leads to `/products`, the flat catalogue.
+ *
+ * 2026-07-31 owner ask ("brand logo in shop panel... like collab page"):
+ * this IS the "shop panel" the bottom nav's Shop tab opens, so MiniRue's own
+ * uploaded logo belongs in its header the same way a partner's belongs on
+ * their own space page (`app/[slug]/SpaceView.tsx`) — same fetch
+ * (`fetchHouseSpace`, the house branch of the identical space-resolution
+ * mechanism SpaceView already uses for a partner), same layout (logo beside
+ * the title). Not the header: the owner explicitly removed the uploaded logo
+ * there minutes earlier because it duplicated the wordmark.
  */
 export const dynamic = 'force-dynamic';
 
@@ -44,12 +54,25 @@ export default async function CategoriesIndexPage() {
   // page (app/categories/[slug]), not flattened into this index.
   const topLevel = categories.filter((c) => c.parentId === null);
 
+  // Best-effort: a house-space fetch failure must not take the whole "Shop"
+  // page down — it just renders without a logo, same as SpaceView degrades
+  // when a partner's own fetch fails upstream in app/[slug]/page.tsx.
+  let shopName: string | null = null;
+  let shopLogoUrl: string | null = null;
+  try {
+    const house = await fetchHouseSpace();
+    shopName = house.space.name;
+    shopLogoUrl = house.space.logoUrl;
+  } catch {
+    // No logo this request — CategoriesGrid falls back to the generic icon.
+  }
+
   return (
     <>
       <div className="mr-page-sheet">
         <AnnouncementBar />
         <HeaderWrapper />
-        <CategoriesGrid categories={topLevel} />
+        <CategoriesGrid categories={topLevel} shopName={shopName} shopLogoUrl={shopLogoUrl} />
       </div>
       <FooterWithSettings />
     </>

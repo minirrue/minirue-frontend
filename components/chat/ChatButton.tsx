@@ -12,12 +12,29 @@ import {
   useChatButtonPosition,
   type ChatButtonEdge,
 } from '@/lib/hooks/useChatButtonPosition';
+import { MessageAvatar } from '@/components/chat/ChatPanel';
+
+/** The avatar circle inside the launcher, same size the panel header uses
+ *  for the identical shop-logo slot (see ChatPanel.tsx). Smaller than the
+ *  52px button itself so the launcher keeps a visible ring around it. */
+const LAUNCHER_AVATAR_SIZE = 36;
 
 interface ChatButtonProps {
   onClick: () => void;
   hasUnread?: boolean;
   /** Whether the chat panel is open — on mobile the button lifts with the panel. */
   open?: boolean;
+  /**
+   * The shop's own uploaded logo — the SAME resolved URL the chat panel
+   * header already renders (`SupportWidget`'s `shopAvatarUrl`), threaded
+   * through rather than fetched again here. `null`/undefined renders the
+   * shared `GenericAvatarIcon` (via `MessageAvatar`) — never an initial
+   * letter, and never the plain chat-bubble glyph this replaced, which read
+   * to the owner as "generic avatar" even with a real logo uploaded.
+   */
+  shopAvatarUrl?: string | null;
+  /** Alt text/aria-label for the logo image; falls back to "MiniRue Support". */
+  shopName?: string;
 }
 
 /** Past this many px of pointer travel, a gesture is a drag, not a tap. Small
@@ -39,7 +56,13 @@ function distance(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(bx - ax, by - ay);
 }
 
-export default function ChatButton({ onClick, hasUnread = false, open = false }: ChatButtonProps) {
+export default function ChatButton({
+  onClick,
+  hasUnread = false,
+  open = false,
+  shopAvatarUrl = null,
+  shopName = 'MiniRue Support',
+}: ChatButtonProps) {
   const [hovered, setHovered] = React.useState(false);
   const [pressed, setPressed] = React.useState(false);
 
@@ -282,12 +305,30 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
         willChange: 'transform',
       }}
     >
-      <svg
-        width={22} height={22} viewBox="0 0 24 24" fill="none"
-        stroke="var(--mr-cream-100)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
+      {/* The shop's own uploaded logo — the same slot the panel header uses
+          (`MessageAvatar`), never the plain chat-bubble glyph this replaced.
+          A gold circle behind it (matching the panel header's avatar chip)
+          keeps a visible ring against the button's dark background whichever
+          state renders: a photo, or the generic-icon fallback. */}
+      <div
+        style={{
+          width: LAUNCHER_AVATAR_SIZE,
+          height: LAUNCHER_AVATAR_SIZE,
+          borderRadius: '50%',
+          overflow: 'hidden',
+          background: 'var(--mr-gold-500)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
       >
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
+        <MessageAvatar
+          url={shopAvatarUrl}
+          name={shopName}
+          fallbackTestId="chat-launcher-avatar-generic"
+        />
+      </div>
 
       {hasUnread && (
         <span

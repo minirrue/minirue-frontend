@@ -7,6 +7,7 @@ import type {
 import { catalog } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
 import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
+import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 
 /**
  * A seller's own corner of the shop.
@@ -89,8 +90,11 @@ function Tile({
         }}
       >
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // Never a bare image tag — these tiles are categories and brands,
+          // both replaceable from the dashboard, and a replacement lands on a
+          // brand-new uuid-suffixed key whose first request is a guaranteed
+          // cold miss. See app/brands/BrandsGrid.tsx's Tile for the full note.
+          <UploadPreviewImage
             src={imageUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -180,8 +184,7 @@ export default async function SpaceView({
           }}
         >
           {space.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <UploadPreviewImage
               src={space.logoUrl}
               alt=""
               width={64}
@@ -292,8 +295,7 @@ export default async function SpaceView({
               }}
             >
               {genericBrand.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <UploadPreviewImage
                   src={genericBrand.imageUrl}
                   alt=""
                   style={{

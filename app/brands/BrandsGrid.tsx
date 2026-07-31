@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import type { PublicCollaboratorBrand } from '@/lib/api/collaborators';
 
 /**
@@ -19,8 +20,13 @@ function Tile({ href, label, imageUrl }: { href: string; label: string; imageUrl
         }}
       >
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // Never a bare image tag. A brand picture is replaceable from the
+          // dashboard, and a replacement lands on a brand-new uuid-suffixed
+          // key — so the first request for it is a guaranteed cold miss
+          // through Cloudflare -> nginx -> imgproxy -> Garage. With no onError
+          // handler, one transient failure left this tile broken for every
+          // shopper until they happened to hard-reload (owner, 2026-07-31).
+          <UploadPreviewImage
             src={imageUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}

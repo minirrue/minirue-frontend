@@ -51,4 +51,35 @@ describe('CategoriesGrid', () => {
     render(<CategoriesGrid categories={[]} />);
     expect(screen.getByRole('link', { name: /all products/i })).toBeInTheDocument();
   });
+
+  // 2026-07-31 owner ask ("brand logo... like collab page"): this page IS the
+  // "shop panel" the bottom nav's Shop tab opens, so MiniRue's own uploaded
+  // logo belongs in its header the way a partner's belongs on their own
+  // space page.
+  describe('the shop logo', () => {
+    it('renders the uploaded logo when the house space has one', () => {
+      render(
+        <CategoriesGrid
+          categories={CATEGORIES}
+          shopName="MiniRue"
+          shopLogoUrl="https://cdn.example.com/house-logo.png"
+        />,
+      );
+      const logo = screen.getByAltText('MiniRue');
+      expect(logo.tagName).toBe('IMG');
+      expect(logo).toHaveAttribute('src', 'https://cdn.example.com/house-logo.png');
+      expect(screen.queryByTestId('shop-panel-logo-generic')).not.toBeInTheDocument();
+    });
+
+    it('falls back to the generic icon (no img, no initial letter) when no logo is uploaded', () => {
+      render(<CategoriesGrid categories={CATEGORIES} shopName="MiniRue" shopLogoUrl={null} />);
+      const fallback = screen.getByTestId('shop-panel-logo-generic');
+      expect(fallback.querySelector('svg')).not.toBeNull();
+      expect(fallback).toHaveTextContent('');
+      // Only the "All Products"/category tiles may have <img>s (none do here,
+      // since CATEGORIES includes one null-image category) — the logo slot
+      // itself must never render a broken <img>.
+      expect(screen.queryByAltText('MiniRue')).not.toBeInTheDocument();
+    });
+  });
 });

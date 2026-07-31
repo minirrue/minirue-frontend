@@ -367,8 +367,17 @@ export const catalog = {
 
   /** GET /v1/catalog/categories */
   async listCategories(): Promise<Category[]> {
+    // 60s, matching products — NOT the 300s this used to be. The category list
+    // carries each category's PICTURE, and the shop renders categories as
+    // image tiles. Five minutes of Data Cache (on top of React Query's own
+    // staleTime, see lib/hooks/queries.ts) meant an admin who replaced a
+    // category photo watched the shop keep serving the url of the previous
+    // one long after the swap — and, until the backend started retaining
+    // replaced objects, serving a BROKEN tile for that window, because the
+    // object behind the old url was already gone (owner, 2026-07-31).
+    // Pinned by __tests__/storefront/replaced-image-freshness.test.ts.
     const res = await catalogFetch<{ data: Category[] }>('/categories', {
-      next: { revalidate: 300 },
+      next: { revalidate: 60 },
     });
     return res.data;
   },
