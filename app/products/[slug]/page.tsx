@@ -5,7 +5,7 @@ import { catalog, primaryMedia, mediaImageUrl, productBrand } from '@/lib/api/ca
 import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
 import ProductPageClient from './ProductPageClient';
 import ProductSchema from '@/components/seo/ProductSchema';
-import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import { SITE_URL } from '@/lib/seo/config';
 import { getProductReviewsForSchema } from './product-data';
@@ -103,7 +103,7 @@ export default async function ProductPage({ params }: PageProps) {
         apiProductJson={apiProductJson}
         reviews={reviews}
       />
-      <BreadcrumbSchema productName={p!.name} productSlug={slug} />
+      <BreadcrumbSchema trail={[SHOP_CRUMB, { name: p!.name, path: slug }]} />
       <ProductPageClient slug={slug} apiProductJson={apiProductJson} perks={perks} />
       <FooterWithSettings />
     </>

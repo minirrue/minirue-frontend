@@ -5,7 +5,7 @@ import { catalog } from '@/lib/api/catalog';
 import type { Category } from '@/lib/api/catalog';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import CollectionSchema from '@/components/seo/CollectionSchema';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import CategoryClient from './CategoryClient';
@@ -106,9 +106,11 @@ export default async function CategoryPage({ params }: PageProps) {
   return (
     <>
       <BreadcrumbSchema
-        productName={displayName}
-        productSlug={`categories/${slug}`}
-        ancestors={schemaAncestors}
+        trail={[
+          SHOP_CRUMB,
+          ...schemaAncestors,
+          { name: displayName, path: `categories/${slug}` },
+        ]}
       />
       <CollectionSchema
         name={displayName}

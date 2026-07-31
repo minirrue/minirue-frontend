@@ -8,6 +8,7 @@ import HeaderWrapper from '@/app/products/HeaderWrapper';
 import { fetchSpaceChild } from '@/lib/api/storefront';
 import { apiGetPublicSettings } from '@/lib/api/settings';
 import { catalog } from '@/lib/api/catalog';
+import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
 import SpaceCategoryClient from './SpaceCategoryClient';
 
 /**
@@ -100,6 +101,15 @@ export default async function SpaceChildPage({ params }: PageProps) {
 
   return (
     <>
+    {/* Mirrors the visible breadcrumb below exactly: Home / {space} / {name} —
+        never "Home / Shop / {space} / {name}"; a space is a peer to the main
+        shop, not nested under it. */}
+    <BreadcrumbSchema
+      trail={[
+        { name: space.name, path: space.slug },
+        { name, path: `${space.slug}/${child}` },
+      ]}
+    />
     <div className="mr-page-sheet">
       <AnnouncementBar
         messages={storefrontAnnouncement?.announcementMessages}

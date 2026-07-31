@@ -6,7 +6,7 @@ import type { ProductListFilters } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import CollectionSchema from '@/components/seo/CollectionSchema';
 import ProductListingClient from './ProductListingClient';
 import HeaderWrapper from './HeaderWrapper';
@@ -68,7 +68,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <BreadcrumbSchema productName="All Products" productSlug="products" />
+      <BreadcrumbSchema trail={[SHOP_CRUMB, { name: 'All Products', path: 'products' }]} />
       <CollectionSchema
         name="All Products"
         path="/products"

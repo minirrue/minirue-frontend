@@ -5,6 +5,8 @@ import StorefrontPageView from '@/components/storefront/StorefrontPageView';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import CollectionSchema from '@/components/seo/CollectionSchema';
+import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import SpaceOrganizationSchema from '@/components/seo/SpaceOrganizationSchema';
 import { SITE_URL } from '@/lib/seo/config';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import SpaceView from './SpaceView';
@@ -116,6 +118,17 @@ export default async function StorefrontSlugPage({ params }: PageProps) {
 
     return (
       <>
+        {/* Mirrors SpaceView's own Breadcrumb exactly: Home / {space}, never
+            "Home / Shop / {space}" — a partner space is a peer to the main
+            shop, not nested under it, and the visible crumb agrees. */}
+        <BreadcrumbSchema trail={[{ name: space.space.name, path: slug }]} />
+        {/* A partner's own Organization node — never for a HOUSE space, which
+            already has one at ${SITE_URL}/#organization (OrganizationSchema).
+            See SpaceOrganizationSchema.tsx for why a second one here would
+            compete with it rather than reinforce it. */}
+        {space.space.kind === 'PARTNER' && (
+          <SpaceOrganizationSchema space={space.space} />
+        )}
         <CollectionSchema
           name={space.space.name}
           path={`/${slug}`}
