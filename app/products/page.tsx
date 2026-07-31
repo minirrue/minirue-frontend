@@ -155,6 +155,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   // products into this listing.
   const brand = (first(sp['brand']) ?? '').trim();
   const brandId = (first(sp['brandId']) ?? '').trim();
+  const hasFilter = Boolean(brand || brandId);
   const filters: ProductListFilters = {
     brand: brand || undefined,
     brandId: brandId || undefined,
@@ -176,7 +177,17 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   // — the JSON-LD claimed the whole catalogue while the canonical said
   // otherwise — and the <h1> below said "All Products" too, so a brand-filtered
   // page carried no brand term anywhere in its visible text.
-  const brandName = brandListingName(outcome);
+  //
+  // Gated on hasFilter, matching generateMetadata's own `if (!hasFilter)
+  // return DEFAULT_METADATA` guard above — brandListingName() just reads
+  // outcome.products[0]'s brand and has no idea whether a filter was actually
+  // requested, so on the plain unfiltered /products route (where the fetch
+  // returns the whole catalogue) an ungated call resolves to whichever
+  // product happens to sort first, and the shop's main page renders that
+  // brand's name as its own <h1> and CollectionPage name — the same
+  // page-vs-markup contradiction this fix exists to remove, pointed the
+  // other way.
+  const brandName = hasFilter ? brandListingName(outcome) : null;
   const canonicalPath = brandFilterPath(brand, brandId);
 
   return (
