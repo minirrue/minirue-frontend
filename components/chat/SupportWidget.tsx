@@ -11,8 +11,8 @@ import { useSupportContext } from '@/lib/support/support-context';
 // replying to a thread already started, so nobody is cut off mid-conversation.
 import { getGuestSupport, clearGuestSupport } from '@/lib/support/session';
 import { useUser } from '@/lib/hooks/use-auth';
+import { useSessionState } from '@/lib/hooks/use-session-state';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
-import { isAuthenticated } from '@/lib/auth/tokens';
 import { IDENTITY_CLEARED_EVENT } from '@/lib/api/client';
 import {
   apiStartSupport,
@@ -86,24 +86,22 @@ export default function SupportWidget() {
   // Reactive auth: `useUser().data` is the source of truth for "is this a logged-in
   // customer" — it updates when login completes (unlike the localStorage snapshot,
   // which is stale at widget-mount and never reacts to a login that happens later).
-  const {
-    data: authUser,
-    isLoading: authLoading,
-    isError: authFailed,
-    error: authError,
-  } = useUser();
+  const { data: authUser, isLoading: authLoading } = useUser();
   const isLoggedIn = !!authUser;
   /**
-   * Did the SERVER actually say no, or did we just fail to ask?
+   * "Is this browser signed in", answered ONCE for the whole storefront.
    *
-   * `apiFetch` only throws a 401 for `/auth/me` once a cookie refresh has
-   * already been tried and failed, so a 401 here is a settled "this browser has
-   * no session". Anything else — the API unreachable, a 5xx, a request killed
-   * by a navigation — is "we could not check", which must not be treated as a
-   * sign-out.
+   * This used to be three `useState` flags declared right here — `sessionProven`,
+   * `sessionEnded`, `hasStoredSession` — each encoding a rule paid for by a
+   * production report. They were correct, and that was the problem: every OTHER
+   * consumer (Header, MobileBottomNav, checkout) reimplemented the same question
+   * more simply and got it wrong in a different direction, and the incidents on
+   * 2026-07-31 were those implementations disagreeing. The rules are unchanged;
+   * they now live in `lib/hooks/use-session-state.ts` where everyone reads them.
+   *
+   * Full trace: `docs/superpowers/runbooks/auth-state-map.md`.
    */
-  const authDenied =
-    authFailed && (authError as { status?: number } | null | undefined)?.status === 401;
+  const { status: sessionStatus } = useSessionState();
   // The shopper's OWN uploaded photo, used only for the optimistic bubble
   // between "Send" and the server's echo. The server resolves
   // `senderAvatarUrl` on the real message, but for that ~1s the bubble the
@@ -114,75 +112,6 @@ export default function SupportWidget() {
   // of the account area, so this is a cache read, not an extra request.
   const { data: customerProfile } = useCustomerProfile({ enabled: isLoggedIn });
   const myAvatarUrl = customerProfile?.avatarUrl ?? null;
-  /**
-   * The browser's own hint that a session exists (`mr-auth`). Not a security
-   * check — it is forgeable and documented as one that must never be trusted
-   * for access — so it is deliberately NOT allowed to decide anything on its
-   * own any more. It is consulted in exactly one place below: as a tie-breaker
-   * when we genuinely could not reach `/auth/me` at all.
-   */
-  const [hasStoredSession, setHasStoredSession] = React.useState(false);
-  React.useEffect(() => {
-    setHasStoredSession(isAuthenticated());
-  }, [authUser, authLoading, authFailed]);
-
-  /**
-   * "A real session has been PROVEN in this tab, and nothing has revoked it
-   * since." The only signal here that a visitor cannot manufacture: it is set
-   * exclusively by a `/auth/me` that actually returned a user.
-   *
-   * It is cleared by the two things that mean the session is really gone:
-   *   - `IDENTITY_CLEARED_EVENT`, which `apiFetch` dispatches the moment it
-   *     clears auth state on a 401 (after a refresh has already failed) — the
-   *     same signal `useUser()` uses to drop every identity cache;
-   *   - `/auth/me` itself answering 401.
-   *
-   * Crucially it is NOT cleared by `authUser` merely going undefined. That
-   * happens on any transient failure too (`useUser` is `retry: false` with a
-   * 15-minute staleTime), and treating that as a sign-out is exactly the false
-   * negative that used to tell signed-in customers to sign in while the header
-   * greeted them by name two lines above.
-   */
-  const [sessionProven, setSessionProven] = React.useState(false);
-  React.useEffect(() => {
-    if (authUser) setSessionProven(true);
-    else if (authDenied) setSessionProven(false);
-  }, [authUser, authDenied]);
-
-  /**
-   * "This browser's session has definitively ENDED." Distinct from
-   * `!sessionProven`, which merely means we have not proven one yet.
-   *
-   * Without it the panel got stuck on "Checking your account…": `chatAccess`
-   * falls to 'pending' whenever `authLoading` is true, and signing out REMOVES
-   * the /auth/me query, so its observer immediately refetches and `isLoading`
-   * goes true again. If that refetch is slow — or never settles, which is
-   * ordinary on a page that is navigating to /login — the shopper sits on
-   * "Checking your account…" indefinitely instead of being told plainly that
-   * they are signed out. Owner: "its stale on chekcing your account it must
-   * say you are not logged in".
-   *
-   * A sign-out is a fact we already know locally; it does not need
-   * confirmation from a round trip. Set by the same identity-cleared signal
-   * that wipes the panel, and by a settled 401. Cleared only when a real user
-   * comes back, so signing in again works normally.
-   */
-  const [sessionEnded, setSessionEnded] = React.useState(false);
-  React.useEffect(() => {
-    if (authUser) setSessionEnded(false);
-    else if (authDenied) setSessionEnded(true);
-  }, [authUser, authDenied]);
-  React.useEffect(() => {
-    const onEnded = () => setSessionEnded(true);
-    window.addEventListener(IDENTITY_CLEARED_EVENT, onEnded);
-    return () => window.removeEventListener(IDENTITY_CLEARED_EVENT, onEnded);
-  }, []);
-  React.useEffect(() => {
-    const onIdentityCleared = () => setSessionProven(false);
-    window.addEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
-    return () => window.removeEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
-  }, []);
-
   // Three views in one panel. 'thread' is the old behaviour; 'list' and 'new' are
   // what a shopper with more than one conversation actually needs.
   const [view, setView] = React.useState<'list' | 'thread' | 'new'>('thread');
@@ -787,22 +716,11 @@ export default function SupportWidget() {
    * refuses a guest start outright, so a composer offered to anyone we have not
    * verified can only ever produce a 401 after they have typed.
    *
-   *  'allowed' — a real session: `/auth/me` answered with a user right now, or
-   *              answered with one earlier in this tab and nothing has revoked
-   *              it since (`sessionProven`). The second half is what keeps a
-   *              genuine customer from being told to sign in when one
-   *              background `/auth/me` fails — `useUser` is `retry: false` with
-   *              a 15-minute staleTime, so a single unreachable call used to
-   *              blank `authUser` for a quarter of an hour.
-   *
-   *              The `mr-auth` hint cookie appears here in one narrow role: on
-   *              a COLD load, where nothing has been proven yet, it may vouch
-   *              for a shopper only when `/auth/me` failed for a reason that is
-   *              not a refusal (`authFailed && !authDenied` — the API was
-   *              unreachable). It can never outvote a 401, and it can never
-   *              speak on its own, which is precisely the veto that used to
-   *              keep the panel open for a signed-out visitor with a stale or
-   *              forged cookie.
+   *  'allowed' — a real session, per `useSessionState()`: `/auth/me` answered
+   *              with a user right now, or answered with one earlier in this
+   *              tab and nothing has revoked it since. The second half is what
+   *              keeps a genuine customer from being told to sign in when one
+   *              background `/auth/me` fails.
    *
    *  'pending' — we have not heard back yet. Neither a composer NOR a sign-in
    *              prompt: telling a signed-in shopper to sign in reads as being
@@ -812,23 +730,15 @@ export default function SupportWidget() {
    *              That is the state the session-expired screenshot caught.
    *
    *  'blocked' — settled, and no session. SignInToChat, nothing else.
+   *
+   * The three-way shape is deliberate and matches `SessionStatus` one for one.
+   * Collapsing 'pending' into either neighbour re-creates a shipped bug in one
+   * direction or the other — see the runbook's §2 decision table.
    */
-  // A session we KNOW has ended outranks every optimistic signal, including the
-  // forgeable hint cookie and a stale `sessionProven` from earlier in this
-  // tab's life. Without this the shopper could still be shown as signed in
-  // after signing out, and tapping through would bounce them to /login.
-  const hintMayVouch =
-    !sessionEnded && hasStoredSession && authFailed && !authDenied;
-  const looksSignedIn =
-    !sessionEnded && (isLoggedIn || sessionProven || hintMayVouch);
-  const chatAccess: 'allowed' | 'pending' | 'blocked' = looksSignedIn
-    ? 'allowed'
-    : // 'pending' is only honest while we have NOT yet learned the answer.
-      // Once the session is known to have ended, waiting on a refetch that may
-      // never settle just leaves "Checking your account…" on screen forever.
-      sessionEnded
-      ? 'blocked'
-      : authLoading
+  const chatAccess: 'allowed' | 'pending' | 'blocked' =
+    sessionStatus === 'signed-in'
+      ? 'allowed'
+      : sessionStatus === 'unknown'
         ? 'pending'
         : 'blocked';
   const guestBlocked = chatAccess === 'blocked';

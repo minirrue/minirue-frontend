@@ -11,6 +11,7 @@ import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import { useMobileChrome, closeMobileMenu, closeMobileSearch, openMobileMenu, openMobileSearch } from '@/lib/hooks/useMobileChrome';
 import { getSession, type Session } from '@/lib/session';
 import { useUser, useLogout } from '@/lib/hooks/use-auth';
+import { useSessionState } from '@/lib/hooks/use-session-state';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
 import MobileNavSheet from '@/components/layout/MobileNavSheet';
 import NavCategorySheet from '@/components/layout/NavCategorySheet';
@@ -47,21 +48,30 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const logoutMutation = useLogout();
-  const { data: authUser, isError: authRefused } = useUser();
+  const { data: authUser } = useUser();
   /**
-   * Who the header renders for. `session` is the `mr-session` localStorage
-   * note — a snapshot taken at sign-in that nothing revokes — so on its own it
-   * outlives the session it describes. Once /auth/me has actually ANSWERED
-   * 401 (`authRefused`), that note is stale by definition and the header must
-   * fail closed: no greeting, no account menu, no "signed in" mobile sheet.
+   * Who the header renders for.
    *
-   * Without this the header kept saying "Hi, Sarah" and offering the account
-   * menu after a sign-out that happened anywhere other than its own button —
-   * the account page's Sign out, another tab, or a session simply being
-   * revoked server-side — because the snapshot was read once at mount and
-   * nothing ever re-read it.
+   * This used to be `authRefused ? null : session` — `isError` from useUser(),
+   * gating the `mr-session` localStorage snapshot. Two things were wrong with
+   * it, in opposite directions:
+   *
+   *   - `isError` is true on ANY failed attempt, not only a refusal. useUser()
+   *     is `retry: false` with a 15-minute staleTime, so one unreachable
+   *     `/auth/me` — a blip, a request killed by a navigation — dropped the
+   *     greeting and the account menu for a shopper whose session was perfectly
+   *     alive. Telling a signed-in customer they are signed out is its own bug.
+   *   - `session` is a snapshot taken at sign-in that nothing revokes, so
+   *     whenever the query had not yet errored it outlived the session it
+   *     describes.
+   *
+   * `useSessionState()` answers both: it fails closed only on a SETTLED 401 (or
+   * a local sign-out), and it never fails closed on a transient failure. It is
+   * the same rule the support widget already used, and now the only one.
+   * Trace: `docs/superpowers/runbooks/auth-state-map.md`.
    */
-  const identity = authRefused ? null : session;
+  const { isSignedIn } = useSessionState();
+  const identity = isSignedIn ? session : null;
   // Only fetched once signed in — a guest on the storefront would otherwise
   // fire an authenticated request on every page that can only come back 401.
   const { data: customerProfile } = useCustomerProfile({ enabled: Boolean(identity) });
@@ -115,7 +125,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   // server-side revocation left the stale snapshot on screen indefinitely.
   React.useEffect(() => {
     setSession(getSession());
-  }, [authUser, authRefused]);
+  }, [authUser, isSignedIn]);
 
   // Cross-tab. Removing a localStorage key fires `storage` in every OTHER
   // tab — for free, no BroadcastChannel — so a sign-out in one tab drops this

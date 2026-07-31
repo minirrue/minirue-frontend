@@ -32,7 +32,6 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
@@ -40,8 +39,7 @@ import { useScrollDirection } from '@/lib/hooks/useScrollDirection';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import { openMobileMenu, openMobileSearch } from '@/lib/hooks/useMobileChrome';
 import { useCart } from '@/components/storefront/cart/CartContext';
-import { getSession, type Session } from '@/lib/session';
-import { useUser } from '@/lib/hooks/use-auth';
+import { useSessionState } from '@/lib/hooks/use-session-state';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
 
 const BAR_HEIGHT = 58;
@@ -79,28 +77,21 @@ export default function MobileBottomNav() {
   const { direction, atTop, atBottom } = useScrollDirection();
   const reducedMotion = usePrefersReducedMotion();
   const { itemCount, openDrawer } = useCart();
-  const pathname = usePathname();
-
-  const [session, setSession] = React.useState<Session | null>(null);
-  React.useEffect(() => {
-    setSession(getSession());
-  }, [pathname]);
 
   /**
    * The account tab's avatar (owner report: "you didnt put the avatar logo
    * of the customer on far bottom right mobile bottom navbar"). Deliberately
-   * NOT keyed off `session`/`getSession()` above — that is a localStorage
-   * snapshot written at login and never cleared until a full sign-out
-   * round-trip, and sign-out has leaked a previous account's data through
-   * exactly that kind of stale read before (see SupportWidget.tsx,
-   * use-auth.ts). `useUser()` is the live answer: it masks `data` back to
-   * `undefined` the moment `/auth/me` comes back 401, so a signed-out
-   * visitor — or someone whose session just expired — falls back to the
-   * generic icon on the very next render, not whenever `pathname` next
-   * changes.
+   * This bar used to answer "am I signed in" TWICE, two lines apart, and get
+   * two different answers. The avatar read `!!useUser().data` (live, correct);
+   * the account tab's href read a `getSession()` localStorage snapshot written
+   * at login, revoked by nothing, and re-read only when `pathname` happened to
+   * change. So a signed-out shopper saw the generic icon — and tapping it still
+   * linked to `/account/profile`, where the gate bounced them to `/login`.
+   *
+   * Both now read the one shared hook, so the icon and the link cannot
+   * disagree. Trace: `docs/superpowers/runbooks/auth-state-map.md`.
    */
-  const { data: authUser } = useUser();
-  const isSignedIn = !!authUser;
+  const { isSignedIn } = useSessionState();
   // Same cache SupportWidget.tsx already reads for this shopper's photo —
   // `enabled: isSignedIn` keeps a guest from firing an authenticated request
   // that can only 401, and the query itself costs nothing extra here.
@@ -132,7 +123,11 @@ export default function MobileBottomNav() {
   // bottom, only at it.
   const visible = belowBreakpoint && !atTop && !atBottom && direction === 'down';
 
-  const accountHref = session ? '/account/profile' : '/login';
+  // 'unknown' sends a shopper to /login rather than into the account area: the
+  // gate would bounce them anyway, and a redirect they did not ask for is worse
+  // than a sign-in screen they can dismiss. It resolves to /account/profile the
+  // moment /auth/me answers.
+  const accountHref = isSignedIn ? '/account/profile' : '/login';
 
   const navRef = React.useRef<HTMLElement | null>(null);
 

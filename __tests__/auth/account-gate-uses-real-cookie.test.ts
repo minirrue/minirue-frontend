@@ -67,11 +67,22 @@ describe('the layout gate reads the REAL cookie, not the hint', () => {
     expect(layout).toContain('mr_refresh');
   });
 
-  it('never gates on the forgeable mr-auth hint', () => {
-    // `mr-auth` is client-set and therefore both forgeable and losable. If it
-    // ever appears in this gate again, the lockout is back.
-    expect(layout).not.toContain("'mr-auth'");
-    expect(layout).not.toContain('"mr-auth"');
+  it('treats the hint as a fallback, never as the primary signal', () => {
+    // `mr-auth` is client-set, so it must never be what the gate reads FIRST.
+    // It is accepted only when the real pair is invisible — which happens when
+    // COOKIE_DOMAIN leaves the httpOnly cookies host-only on the API's origin.
+    // Without that fallback the gate is all-or-nothing per environment: one
+    // misconfiguration and every shopper loses /account at once.
+    const refreshAt = layout.indexOf('REFRESH_COOKIE)');
+    const hintAt = layout.indexOf('AUTH_HINT_COOKIE)');
+    expect(refreshAt).toBeGreaterThan(-1);
+    expect(hintAt).toBeGreaterThan(refreshAt);
+  });
+
+  it('prefers the refresh cookie, whose life IS the session', () => {
+    // Gating on the access cookie alone would evict a signed-in shopper the
+    // moment their access token aged out — the very bug this gate ends.
+    expect(layout).toContain('REFRESH_COOKIE');
   });
 
   it('redirects a signed-out visitor rather than rendering an empty shell', () => {

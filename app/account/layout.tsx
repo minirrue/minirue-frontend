@@ -25,6 +25,12 @@ import AccountLayoutClient from './AccountLayoutClient';
  */
 const ACCESS_COOKIE = 'mr_access';
 const REFRESH_COOKIE = 'mr_refresh';
+/**
+ * The non-httpOnly hint. Forgeable, and accepted here ONLY as a fallback for
+ * environments where COOKIE_DOMAIN leaves the real pair host-only on the API's
+ * origin — see the reasoning in DynamicShell. Never the primary signal.
+ */
+const AUTH_HINT_COOKIE = 'mr-auth';
 
 export const metadata: Metadata = {
   title: 'My Account — MiniRue',
@@ -86,8 +92,32 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
  */
 async function DynamicShell({ children }: { children: React.ReactNode }) {
   const jar = await cookies();
-  const hasSession =
-    jar.has(ACCESS_COOKIE) || jar.has(REFRESH_COOKIE);
+
+  // REFRESH first, and it is the one that matters: the access cookie's life is
+  // JWT_ACCESS_EXPIRY, but the refresh cookie's life IS the session's. Gating
+  // on access alone would evict a perfectly signed-in shopper the moment their
+  // access token aged out, which is the bug this gate exists to end.
+  const hasRealSession = jar.has(REFRESH_COOKIE) || jar.has(ACCESS_COOKIE);
+
+  // The hint is accepted as a FALLBACK only, and deliberately so.
+  //
+  // Reading the httpOnly cookie here depends on it being scoped to the apex
+  // domain — COOKIE_DOMAIN, "so they're shared across the api/dashboard/
+  // storefront subdomains" (backend app.module.ts:83). That is how production
+  // is configured, but it is optional and unset in local dev, where the pair
+  // is host-only on the API's origin and never reaches this layout.
+  //
+  // Without this fallback the gate would be all-or-nothing per environment: get
+  // COOKIE_DOMAIN wrong anywhere and EVERY shopper loses /account at once, with
+  // no partial failure to notice first. That trade is not worth taking for a
+  // check that is not the security boundary — every page under here fetches
+  // through an authenticated API call that enforces the real session
+  // independently, and a forged hint buys access to an empty shell and a row of
+  // 401s, nothing more.
+  //
+  // So: trust the real credential when it is visible, fall back to the hint
+  // when it is not, and redirect only when NEITHER says there is a session.
+  const hasSession = hasRealSession || jar.has(AUTH_HINT_COOKIE);
 
   if (!hasSession) {
     redirect(`/login?next=%2Faccount&reason=sign-in-required`);
