@@ -304,6 +304,39 @@ export default function Footer({ config }: { config: FooterConfig }) {
           ))}
         </div>
 
+        {/*
+          Task 6: a genuinely readable brand sentence — normal contrast (full
+          --mr-cream-200, the same colour the newsletter blurb reads at), normal
+          body size, in normal document flow. Not the low-contrast maker's-mark
+          treatment above (EbneelySignature) and not config.legalLine below,
+          which is admin-authored and empty by default (see FALLBACK_CHROME in
+          lib/api/storefront.ts) — this line ships in the bundle, so it renders
+          on every page regardless of what the backend returns. One sentence,
+          the register every maison site prints near its footer, carrying the
+          spaced "Mini Rue" alongside "MiniRue" the way people actually search.
+        */}
+        <div
+          data-testid="footer-maison-line"
+          style={{
+            marginTop: FOOTER_SECTION_GAP,
+            maxWidth: 560,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontFamily: 'Cormorant Garamond, serif',
+              fontStyle: 'italic',
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: 'var(--mr-cream-200)',
+              textAlign: 'left',
+            }}
+          >
+            MiniRue (Mini Rue) is an independent maison for original quality perfumes and cosmetics, shipped worldwide with care.
+          </p>
+        </div>
+
         <div
           data-testid="footer-bottom-bar"
           style={{

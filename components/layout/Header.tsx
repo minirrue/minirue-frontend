@@ -217,7 +217,12 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <Link
               href="/"
-              aria-label="MiniRue — home"
+              // Task 6: brand-rich accessible name for the logo link (Wordmark
+              // renders as text, not an <img>, so there is no `alt` attribute
+              // to set — this is the equivalent accessible-name interface).
+              // Truthful, not a keyword list: matches the slogan already
+              // asserted in OrganizationSchema ("Original quality perfumes").
+              aria-label="MiniRue (Mini Rue) — original quality perfumes — home"
               data-trace-id="PG-STOREFRONT-HOME-001::EL-LINK-wordmark-home"
               style={{ display: 'inline-flex', textDecoration: 'none', color: 'inherit' }}
             >
