@@ -41,7 +41,30 @@ function first(v: string | string[] | undefined): string | undefined {
  * the same canonical when somehow both are present. `encodeURIComponent`
  * matches `searchCanonicalPath` (`lib/search/query.ts`) rather than
  * `URLSearchParams`, whose `+`-for-space encoding would be a different byte
- * sequence for the same canonical. */
+ * sequence for the same canonical.
+ *
+ * No case normalisation is applied to `brand`, and none should be added.
+ * Confirmed by reading the backend: the brand-name filter is CASE-SENSITIVE —
+ * it matches with a plain Drizzle `eq(brands.name, brand)`, compiling to
+ * Postgres `=` on a `varchar(100)` column, with no `citext` type and no
+ * case-insensitive collation anywhere in that repo
+ * (`apps/minirue-backend/src/catalog/catalog.repository.ts:288`, column at
+ * `src/database/schema/catalog.ts:37`). The `gender` filter two lines above
+ * it (`catalog.repository.ts:266`) DOES lower-case both sides for its own
+ * comparison, so the lack of that on `brand` is a deliberate choice, not an
+ * oversight. That filter is also scoped to house brands only
+ * (`isNull(brands.collaboratorId)` in the same query), which is why a
+ * partner brand sharing a house brand's name is excluded rather than leaking
+ * into this listing.
+ *
+ * Consequence for this file: `?brand=dior` against a brand actually named
+ * "Dior" matches zero rows — `200` with `data: []`, `meta.total: 0` — which
+ * `generateMetadata` below already sends `noindex`. So `?brand=Dior` and
+ * `?brand=dior` cannot both become independently indexable under different
+ * canonicals; the duplicate-content scenario that lower-casing here would
+ * exist to prevent cannot occur. Do NOT lower-case `brand` "to be safe" —
+ * doing so would canonicalise a working `?brand=Dior` URL onto a
+ * `?brand=dior` one that returns nothing. */
 function brandFilterPath(brand: string, brandId: string): string {
   const parts: string[] = [];
   if (brandId) parts.push(`brandId=${encodeURIComponent(brandId)}`);
@@ -76,14 +99,25 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   // API outage all land here with no name to safely show, so all three fall
   // back to the same neutral shop-wide copy rather than a fabricated one.
   const brandName = brandListingName(outcome);
-  if (!brandName) {
+
+  // ONE indexability decision, reused below for both which copy to render
+  // and robots.index — never computed two different ways. `brandName` is
+  // read from `outcome.products` (page-limited) while `isIndexableBrandListing`
+  // reads `outcome.total` (a separate, unlimited COUNT over the same filter —
+  // `catalog.repository.ts`); those two fields are not guaranteed to agree,
+  // so requiring both here removes any risk of the two checks disagreeing
+  // rather than relying on them happening to agree in practice.
+  const indexable = Boolean(brandName) && isIndexableBrandListing(hasFilter, outcome);
+
+  if (!brandName || !indexable) {
+    // Filter resolved to nothing we can safely name — an unknown id, zero
+    // matches, or an outage. Mirrors `isIndexableSearchPage`
+    // (`app/search/search-data.ts`), including its outage rule: a transient
+    // backend blip must never publish an empty listing to Google as
+    // "MiniRue doesn't carry this brand".
     return {
       ...DEFAULT_METADATA,
       alternates: { canonical },
-      // Only a page that answers something may be indexed — mirrors
-      // `isIndexableSearchPage` (`app/search/search-data.ts`), including its
-      // outage rule: a transient backend blip must never publish an empty
-      // listing to Google as "MiniRue doesn't carry this brand".
       robots: { index: false, follow: true },
     };
   }
@@ -95,7 +129,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     title,
     description,
     alternates: { canonical },
-    robots: { index: isIndexableBrandListing(hasFilter, outcome), follow: true },
+    robots: { index: indexable, follow: true },
     openGraph: {
       title,
       description,
