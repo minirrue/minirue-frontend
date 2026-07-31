@@ -9,16 +9,24 @@ import { findCategoryPath } from './category-breadcrumb';
  * memoization already collapses repeat calls with identical args, so this
  * isn't wrapped in React's `cache()` the way the products fetch below is
  * (that one needs it explicitly: see the comment on `getCategoryListing`).
- * Returns null on both "no such slug" and "API unavailable" — the caller
- * cannot and should not tell those apart.
+ *
+ * Returns null ONLY for "no such slug" — a genuine miss against a
+ * successfully fetched tree. A fetch failure (backend outage) is deliberately
+ * NOT caught here and propagates to the caller, which lets it fall through to
+ * Next's default error handling (a 500) instead of collapsing into the same
+ * `null` a real "this category doesn't exist" produces. Before this, both
+ * cases returned `null` and `app/categories/[slug]/page.tsx` turned that into
+ * `notFound()` — so a transient backend blip served a 404 for an indexed
+ * category URL, which is how Google drops it from the index. A 500 during an
+ * outage is recoverable; a 404 published to Google is not. Every other data
+ * module on this branch (`products-data.ts`, `search-data.ts`) already keeps
+ * this distinction via an `ok: false` outcome; this function keeps it via
+ * "rethrow vs. return null" instead, since its return type has no room for a
+ * third state.
  */
 export async function resolveCategoryPath(slug: string): Promise<Category[] | null> {
-  try {
-    const categories = await catalog.listCategories();
-    return findCategoryPath(categories, slug);
-  } catch {
-    return null;
-  }
+  const categories = await catalog.listCategories();
+  return findCategoryPath(categories, slug);
 }
 
 export interface CategoryListingOutcome {

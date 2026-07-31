@@ -48,9 +48,15 @@ describe('resolveCategoryPath', () => {
     expect(await resolveCategoryPath('does-not-exist')).toBeNull();
   });
 
-  it('is null on a fetch failure — same shape as an unknown slug', async () => {
+  // The bug this branch fixes: an outage must NOT collapse into the same
+  // `null` a genuinely unknown slug returns — that shape is what let
+  // app/categories/[slug]/page.tsx turn a transient backend blip into
+  // notFound(), 404ing an indexed category URL during an outage. Rethrowing
+  // instead lets Next serve a 500, which is recoverable and never de-indexes
+  // the URL the way a published 404 does.
+  it('rethrows on a fetch failure, rather than returning null like an unknown slug', async () => {
     listCategories.mockRejectedValue(new Error('ECONNREFUSED'));
-    expect(await resolveCategoryPath('rings')).toBeNull();
+    await expect(resolveCategoryPath('rings')).rejects.toThrow('ECONNREFUSED');
   });
 });
 
