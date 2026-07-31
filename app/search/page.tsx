@@ -44,8 +44,16 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   // Term-first title: the phrase a shopper typed into Google is what has to
   // match the SERP line, so it leads and the brand closes.
   const title = `${term} — MiniRue`;
+  // No category/product-line clause here — same reasoning as
+  // app/categories/[slug]/category-data.ts's buildCategoryDescription() and
+  // app/products/page.tsx: MiniRue sells more than perfume, so a fixed
+  // "perfumes and cosmetics" clause is a page-vs-description mismatch on any
+  // search whose results aren't perfume (e.g. a "jewellery" query). This is
+  // the highest-traffic indexed surface on the site, so the mismatch here
+  // matters more than anywhere else it was found. "Free worldwide shipping"
+  // stays — true of the whole catalogue, not a guess about the query.
   const description = indexable
-    ? `${outcome.total} product${outcome.total === 1 ? '' : 's'} matching “${term}” at MiniRue. Original quality perfumes and cosmetics, with free worldwide shipping.`
+    ? `${outcome.total} product${outcome.total === 1 ? '' : 's'} matching “${term}” at MiniRue, with free worldwide shipping.`
     : `Search results for “${term}” at MiniRue.`;
   // Canonical is built from the NORMALISED term, not the one in the address
   // bar. ?q=Dior and ?q=dior therefore both point at ?q=dior — one page
