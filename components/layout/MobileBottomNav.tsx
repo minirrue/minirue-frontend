@@ -34,12 +34,15 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
+import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { useScrollDirection } from '@/lib/hooks/useScrollDirection';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import { openMobileMenu, openMobileSearch } from '@/lib/hooks/useMobileChrome';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { getSession, type Session } from '@/lib/session';
+import { useUser } from '@/lib/hooks/use-auth';
+import { useCustomerProfile } from '@/lib/hooks/use-customer';
 
 const BAR_HEIGHT = 58;
 
@@ -82,6 +85,32 @@ export default function MobileBottomNav() {
   React.useEffect(() => {
     setSession(getSession());
   }, [pathname]);
+
+  /**
+   * The account tab's avatar (owner report: "you didnt put the avatar logo
+   * of the customer on far bottom right mobile bottom navbar"). Deliberately
+   * NOT keyed off `session`/`getSession()` above — that is a localStorage
+   * snapshot written at login and never cleared until a full sign-out
+   * round-trip, and sign-out has leaked a previous account's data through
+   * exactly that kind of stale read before (see SupportWidget.tsx,
+   * use-auth.ts). `useUser()` is the live answer: it masks `data` back to
+   * `undefined` the moment `/auth/me` comes back 401, so a signed-out
+   * visitor — or someone whose session just expired — falls back to the
+   * generic icon on the very next render, not whenever `pathname` next
+   * changes.
+   */
+  const { data: authUser } = useUser();
+  const isSignedIn = !!authUser;
+  // Same cache SupportWidget.tsx already reads for this shopper's photo —
+  // `enabled: isSignedIn` keeps a guest from firing an authenticated request
+  // that can only 401, and the query itself costs nothing extra here.
+  const { data: customerProfile } = useCustomerProfile({ enabled: isSignedIn });
+  // customer_profiles.avatar_url (never users.avatar_url — that's staff),
+  // already resolved server-side from a bare storage key to a real URL.
+  const avatarUrl = isSignedIn ? (customerProfile?.avatarUrl ?? null) : null;
+  const [avatarErrored, setAvatarErrored] = React.useState(false);
+  React.useEffect(() => setAvatarErrored(false), [avatarUrl]);
+  const showAvatarPhoto = !!avatarUrl && !avatarErrored;
 
   // `w` starts at 0 server-side (useBreakpoint measures after mount), so
   // `tablet` (w < 1024) is false on the very first client render too —
@@ -189,10 +218,31 @@ export default function MobileBottomNav() {
     >
       {ITEMS.map((item) => {
         const badge = item.key === 'cart' ? itemCount : undefined;
+        const isAccount = item.key === 'account';
+        // Account tab only: the customer's own uploaded photo when they have
+        // one and we are sure they're signed in, the shared generic
+        // silhouette otherwise — never `item.icon`'s plain user glyph and
+        // never an initial letter (owner rule, enforced storefront-wide).
+        const iconNode = isAccount ? (
+          showAvatarPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl ?? undefined}
+              alt=""
+              data-testid="mobile-nav-avatar-photo"
+              onError={() => setAvatarErrored(true)}
+              style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <GenericAvatarIcon size={20} />
+          )
+        ) : (
+          <Icon name={item.icon} size={20} />
+        );
         const content = (
           <>
             <span style={{ position: 'relative', display: 'inline-flex' }}>
-              <Icon name={item.icon} size={20} />
+              {iconNode}
               {(badge ?? 0) > 0 && (
                 <span
                   style={{

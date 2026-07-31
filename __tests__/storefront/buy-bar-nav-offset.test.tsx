@@ -22,6 +22,16 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/products/some-product',
 }));
 
+// Not under test here — see mobile-bottom-nav-avatar.test.tsx for the
+// account-tab avatar itself. Mocked signed-out so MobileBottomNav never
+// fires a real /auth/me or /customers/me request in this suite.
+jest.mock('@/lib/hooks/use-auth', () => ({
+  useUser: () => ({ data: undefined, isLoading: false }),
+}));
+jest.mock('@/lib/hooks/use-customer', () => ({
+  useCustomerProfile: () => ({ data: undefined }),
+}));
+
 jest.mock('@/lib/api/cart', () => ({
   EMPTY_CART: { id: '', items: [], totals: { subtotalAmount: '0', itemCount: 0 }, currency: 'USD' },
   apiGetCart: jest.fn().mockResolvedValue({

@@ -8,6 +8,17 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
+// This suite is about scroll/visibility behaviour, not auth — mock the
+// avatar-related hooks to a signed-out shape so it never fires a real
+// /auth/me or /customers/me request. See mobile-bottom-nav-avatar.test.tsx
+// for the account-tab avatar behaviour itself.
+jest.mock('@/lib/hooks/use-auth', () => ({
+  useUser: () => ({ data: undefined, isLoading: false }),
+}));
+jest.mock('@/lib/hooks/use-customer', () => ({
+  useCustomerProfile: () => ({ data: undefined }),
+}));
+
 // CartProvider hydrates via a real fetch on mount (see CartContext.tsx). Not
 // under test here — stub it so it resolves to an empty, predictable cart
 // instead of failing/rejecting per test.
