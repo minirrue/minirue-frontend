@@ -314,11 +314,30 @@ export default function SupportWidget() {
       return;
     }
 
-    // Guest: resume the per-browser thread from the stored token.
+    // NOT signed in. Nothing is resumed, deliberately.
+    //
+    // This branch used to read `mr-support-guest` from localStorage and resume
+    // that conversation. It is how a signed-out visitor still saw their old
+    // chats — the owner's repeated report — and it survived all eight of the
+    // sign-out fixes because it never touches the auth session at all: no
+    // cookie, no token, no /auth/me. A cold page load on /login was enough.
+    //
+    // It also cannot be caught by the identity-reset effect below, which only
+    // fires on a TRANSITION. On a fresh load there is no transition — the
+    // effect records the starting identity and returns — so clearGuestSupport()
+    // never runs and the stored thread is resumed for whoever opens the panel.
+    //
+    // Guest messaging was retired (owner decision, 2026-07-29) and the server
+    // refuses a guest start, so there is nothing here worth resuming: a
+    // signed-out visitor gets the sign-in prompt, which is what SignInToChat
+    // is for.
+    //
+    // The stored token is deliberately NOT cleared. It is still the input to
+    // the CLAIM flow above — if this person signs up or signs in, their old
+    // thread attaches to the account rather than being orphaned. Clearing it
+    // here would trade one bug for a quieter one.
     if (guestBootstrappedRef.current) return;
     guestBootstrappedRef.current = true;
-    const guest = getGuestSupport();
-    if (guest) resumeConversation(guest.conversationId);
     // `authUser?.userId` (not just `isLoggedIn`) is deliberate: Account A ->
     // Account B never flips the boolean, so keying only on it left B's
     // thread never auto-resumed — `accountBootstrappedRef` was reset by the

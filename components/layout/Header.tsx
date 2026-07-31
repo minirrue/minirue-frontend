@@ -248,11 +248,14 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             </nav>
           )}
 
-          {/* Center: brand logo (when the shop has uploaded one) + Wordmark —
-              links home like any storefront logo. The logo renders the same
-              way a partner's own space page shows theirs
-              (app/[slug]/SpaceView.tsx) — present when uploaded, absent
-              otherwise, never a broken image. */}
+          {/* Center: the Wordmark alone, linking home.
+              The uploaded brand logo is deliberately NOT rendered here. It was,
+              briefly, and the result was two marks side by side in the header —
+              the wordmark and the uploaded image saying the same thing twice
+              (owner, 2026-07-31: "we have now 2 logo ... remove the upaloded
+              one"). The uploaded logo belongs on the shop panel, the way a
+              partner's logo appears on their own space page — not in the
+              header, where the wordmark is already the shop's identity. */}
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <Link
               href="/"
@@ -260,16 +263,6 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
               data-trace-id="PG-STOREFRONT-HOME-001::EL-LINK-wordmark-home"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}
             >
-              {shopLogoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={shopLogoUrl}
-                  alt=""
-                  width={mobile ? 24 : 28}
-                  height={mobile ? 24 : 28}
-                  style={{ objectFit: 'contain', borderRadius: 4 }}
-                />
-              ) : null}
               <Wordmark
                 size={mobile ? 18 : 22}
                 color={isLight ? 'var(--mr-cream-100)' : 'var(--mr-gold-500)'}

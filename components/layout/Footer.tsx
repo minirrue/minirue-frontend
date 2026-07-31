@@ -328,28 +328,17 @@ export default function Footer({
           the register every maison site prints near its footer, carrying the
           spaced "Mini Rue" alongside "MiniRue" the way people actually search.
         */}
-        <div
-          data-testid="footer-maison-line"
-          style={{
-            marginTop: FOOTER_SECTION_GAP,
-            maxWidth: 560,
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontFamily: 'Cormorant Garamond, serif',
-              fontStyle: 'italic',
-              fontSize: 15,
-              lineHeight: 1.5,
-              color: 'var(--mr-cream-200)',
-              textAlign: 'left',
-            }}
-          >
-            MiniRue (Mini Rue) — an independent maison, shipping original quality perfumes and cosmetics worldwide.
-          </p>
-        </div>
+{/*
+          The hardcoded "MiniRue (Mini Rue) — an independent maison…" line was
+          removed on the owner's instruction (2026-07-31). It existed to put the
+          spaced "Mini Rue" into visible copy for search, but it also hardcoded
+          the shop name in a footer that must now read from the single Settings
+          field, and the owner does not want the sentence on the page.
 
+          If the spaced-name mention is wanted again, it belongs in the
+          admin-authored `config.legalLine` below — DB-driven, editable, and
+          already rendered — not baked into the bundle.
+        */}
         <div
           data-testid="footer-bottom-bar"
           style={{
