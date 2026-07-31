@@ -13,6 +13,7 @@ import { getGuestSupport, clearGuestSupport } from '@/lib/support/session';
 import { useUser } from '@/lib/hooks/use-auth';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
 import { isAuthenticated } from '@/lib/auth/tokens';
+import { IDENTITY_CLEARED_EVENT } from '@/lib/api/client';
 import {
   apiStartSupport,
   apiSupportMessages,
@@ -85,8 +86,24 @@ export default function SupportWidget() {
   // Reactive auth: `useUser().data` is the source of truth for "is this a logged-in
   // customer" — it updates when login completes (unlike the localStorage snapshot,
   // which is stale at widget-mount and never reacts to a login that happens later).
-  const { data: authUser, isLoading: authLoading, isError: authRefused } = useUser();
+  const {
+    data: authUser,
+    isLoading: authLoading,
+    isError: authFailed,
+    error: authError,
+  } = useUser();
   const isLoggedIn = !!authUser;
+  /**
+   * Did the SERVER actually say no, or did we just fail to ask?
+   *
+   * `apiFetch` only throws a 401 for `/auth/me` once a cookie refresh has
+   * already been tried and failed, so a 401 here is a settled "this browser has
+   * no session". Anything else — the API unreachable, a 5xx, a request killed
+   * by a navigation — is "we could not check", which must not be treated as a
+   * sign-out.
+   */
+  const authDenied =
+    authFailed && (authError as { status?: number } | null | undefined)?.status === 401;
   // The shopper's OWN uploaded photo, used only for the optimistic bubble
   // between "Send" and the server's echo. The server resolves
   // `senderAvatarUrl` on the real message, but for that ~1s the bubble the
@@ -98,15 +115,44 @@ export default function SupportWidget() {
   const { data: customerProfile } = useCustomerProfile({ enabled: isLoggedIn });
   const myAvatarUrl = customerProfile?.avatarUrl ?? null;
   /**
-   * The browser's own hint that a session exists. Not a security check — it is
-   * documented as one that must never be trusted for access — but it is a
-   * perfectly good signal that we should not show a stranger's screen to
-   * someone who has an account.
+   * The browser's own hint that a session exists (`mr-auth`). Not a security
+   * check — it is forgeable and documented as one that must never be trusted
+   * for access — so it is deliberately NOT allowed to decide anything on its
+   * own any more. It is consulted in exactly one place below: as a tie-breaker
+   * when we genuinely could not reach `/auth/me` at all.
    */
   const [hasStoredSession, setHasStoredSession] = React.useState(false);
   React.useEffect(() => {
     setHasStoredSession(isAuthenticated());
-  }, [authUser, authLoading]);
+  }, [authUser, authLoading, authFailed]);
+
+  /**
+   * "A real session has been PROVEN in this tab, and nothing has revoked it
+   * since." The only signal here that a visitor cannot manufacture: it is set
+   * exclusively by a `/auth/me` that actually returned a user.
+   *
+   * It is cleared by the two things that mean the session is really gone:
+   *   - `IDENTITY_CLEARED_EVENT`, which `apiFetch` dispatches the moment it
+   *     clears auth state on a 401 (after a refresh has already failed) — the
+   *     same signal `useUser()` uses to drop every identity cache;
+   *   - `/auth/me` itself answering 401.
+   *
+   * Crucially it is NOT cleared by `authUser` merely going undefined. That
+   * happens on any transient failure too (`useUser` is `retry: false` with a
+   * 15-minute staleTime), and treating that as a sign-out is exactly the false
+   * negative that used to tell signed-in customers to sign in while the header
+   * greeted them by name two lines above.
+   */
+  const [sessionProven, setSessionProven] = React.useState(false);
+  React.useEffect(() => {
+    if (authUser) setSessionProven(true);
+    else if (authDenied) setSessionProven(false);
+  }, [authUser, authDenied]);
+  React.useEffect(() => {
+    const onIdentityCleared = () => setSessionProven(false);
+    window.addEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
+    return () => window.removeEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
+  }, []);
 
   // Three views in one panel. 'thread' is the old behaviour; 'list' and 'new' are
   // what a shopper with more than one conversation actually needs.
@@ -175,6 +221,15 @@ export default function SupportWidget() {
    * but not a leaked repaint from a request that was already in flight.
    */
   const identityTokenRef = React.useRef(0);
+  /**
+   * `canMessage` (computed near the bottom, after the views it feeds) mirrored
+   * into a ref so the send handlers declared above can refuse outright. The
+   * composer is already replaced rather than hidden, so this should be
+   * unreachable — which is the point: "not rendered" is a layout fact and this
+   * is the behavioural one, and the guest branch has been reopened by a layout
+   * regression more than once.
+   */
+  const canMessageRef = React.useRef(false);
   // Retry payloads for failed optimistic sends, keyed by tempId.
   const retryPayloadsRef = React.useRef<
     Map<string, { text: string; attachments?: ChatAttachment[] }>
@@ -515,6 +570,8 @@ export default function SupportWidget() {
         forceNew?: boolean;
       },
     ) => {
+      // Nobody unverified starts a thread, whatever managed to call this.
+      if (!canMessageRef.current) return;
       if (override?.forceNew) {
         // A brand-new room starts empty. Without this the optimistic bubble
         // below is appended to whatever thread was previously loaded and the
@@ -565,6 +622,8 @@ export default function SupportWidget() {
 
   const handleSend = React.useCallback(
     (text: string, attachments?: ChatAttachment[]) => {
+      // Same gate as the composer that produced this call — see canMessageRef.
+      if (!canMessageRef.current) return;
       if (conversationId) {
         const tempId = addOptimisticMessage(text, attachments);
         setSending(true);
@@ -649,45 +708,66 @@ export default function SupportWidget() {
   const canBrowseList = isLoggedIn;
 
   /**
-   * A guest gets the sign-in panel and nothing else — no subject picker, no
-   * composer, no thread. Messaging needs an account (owner decision,
-   * 2026-07-29), and the server refuses a guest start regardless, so offering
-   * the form would only produce a 401 after they had typed.
+   * Who gets a composer. Three states, not two — and the third is the one the
+   * owner kept screenshotting.
    *
-   * `authLoading` is deliberately excluded: showing "sign in" for a moment to
-   * someone who IS signed in reads as being logged out, so the panel stays
-   * empty until we know.
+   * Messaging needs an account (owner decision, 2026-07-29) and the server
+   * refuses a guest start outright, so a composer offered to anyone we have not
+   * verified can only ever produce a 401 after they have typed.
+   *
+   *  'allowed' — a real session: `/auth/me` answered with a user right now, or
+   *              answered with one earlier in this tab and nothing has revoked
+   *              it since (`sessionProven`). The second half is what keeps a
+   *              genuine customer from being told to sign in when one
+   *              background `/auth/me` fails — `useUser` is `retry: false` with
+   *              a 15-minute staleTime, so a single unreachable call used to
+   *              blank `authUser` for a quarter of an hour.
+   *
+   *              The `mr-auth` hint cookie appears here in one narrow role: on
+   *              a COLD load, where nothing has been proven yet, it may vouch
+   *              for a shopper only when `/auth/me` failed for a reason that is
+   *              not a refusal (`authFailed && !authDenied` — the API was
+   *              unreachable). It can never outvote a 401, and it can never
+   *              speak on its own, which is precisely the veto that used to
+   *              keep the panel open for a signed-out visitor with a stale or
+   *              forged cookie.
+   *
+   *  'pending' — we have not heard back yet. Neither a composer NOR a sign-in
+   *              prompt: telling a signed-in shopper to sign in reads as being
+   *              logged out, and this state used to fall through to the full
+   *              thread view, so the composer was live for as long as
+   *              `/auth/me` took to fail — and forever if it never settled.
+   *              That is the state the session-expired screenshot caught.
+   *
+   *  'blocked' — settled, and no session. SignInToChat, nothing else.
    */
-  /**
-   * Only block someone we are CONFIDENT is a guest.
-   *
-   * useUser() is `retry: false` with a 15-minute staleTime, so one transient
-   * /auth/me failure — a refresh landing mid-flight, a cold API — leaves
-   * `authUser` undefined for the next quarter of an hour. That was telling
-   * signed-in customers to sign in while the header, which reads the stored
-   * session, greeted them by name two lines above.
-   *
-   * So the stored session flag gets a veto. If anything says this person has
-   * an account, show them the chat: the server refuses a guest start anyway
-   * (backend 0.53.1) with a message that names the reason. Being wrong that
-   * way costs a clear error; being wrong the other way locks a paying customer
-   * out of support and contradicts the header while doing it.
-   *
-   * The real fix is one source of truth for "am I signed in" — three still
-   * disagree (the httpOnly cookie, the mr-auth flag, the localStorage note).
-   * That is deliberately not attempted here.
-   */
-  // The stored-session veto covers the "we do not know yet" case — a transient
-  // /auth/me failure leaving `authUser` undefined for the rest of the
-  // 15-minute staleTime. It must NOT cover the "we asked and the server said
-  // no" case: once /auth/me has actually refused, the mr-auth hint is stale by
-  // definition and letting it win is how a signed-out person kept being shown
-  // a signed-in panel. `authRefused` is that answer.
-  const looksSignedIn = isLoggedIn || (hasStoredSession && !authRefused);
-  const guestBlocked = !looksSignedIn && !authLoading;
+  const hintMayVouch = hasStoredSession && authFailed && !authDenied;
+  const looksSignedIn = isLoggedIn || sessionProven || hintMayVouch;
+  const chatAccess: 'allowed' | 'pending' | 'blocked' = looksSignedIn
+    ? 'allowed'
+    : authLoading
+      ? 'pending'
+      : 'blocked';
+  const guestBlocked = chatAccess === 'blocked';
+  /** The single gate for every writable surface: composer, subject picker, send. */
+  const canMessage = chatAccess === 'allowed';
+  // Assigned during render, so it is already correct by the time any handler
+  // declared above can possibly fire.
+  canMessageRef.current = canMessage;
 
   const panelBody = guestBlocked ? (
     <SignInToChat />
+  ) : !canMessage ? (
+    <div
+      style={{
+        padding: '28px 24px',
+        fontFamily: 'Inter Tight, sans-serif',
+        fontSize: 13,
+        color: 'var(--mr-ink-400)',
+      }}
+    >
+      Checking your account…
+    </div>
   ) : view === 'new' ? (
       <NewChatComposer
         pageSubject={pageSubject}
@@ -707,7 +787,13 @@ export default function SupportWidget() {
 
   return (
     <>
-      <ChatButton onClick={toggleOpen} hasUnread={hasUnread} open={open} />
+      <ChatButton
+        onClick={toggleOpen}
+        hasUnread={hasUnread}
+        open={open}
+        shopAvatarUrl={shopAvatarUrl}
+        shopName={shopName ?? undefined}
+      />
       <ChatPanel
         open={open}
         onClose={() => setOpen(false)}
@@ -734,10 +820,13 @@ export default function SupportWidget() {
         }
         // bottomSlot renders INSTEAD of the composer, so an empty one closes
         // it: a guest has nothing to send to, and an inviting text box that
-        // 401s on submit is worse than no box.
-        bottomSlot={guestBlocked ? <span /> : undefined}
+        // 401s on submit is worse than no box. Belt and braces — `panelBody`
+        // above already replaces the whole thread view (ChatPanel's `body`
+        // wins over both slots) — but the two must never be able to disagree,
+        // so both read `canMessage`, not two separate booleans.
+        bottomSlot={!canMessage ? <span /> : undefined}
         topSlot={
-          !guestBlocked && !conversationId ? (
+          canMessage && !conversationId ? (
             <SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />
           ) : undefined
         }
