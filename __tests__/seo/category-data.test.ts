@@ -105,7 +105,7 @@ describe('buildCategoryDescription', () => {
       cursor: 'c1',
     };
     expect(buildCategoryDescription('Rings', outcome)).toBe(
-      `12 products in Rings from ${PRODUCT_FIXTURE.brandName} at MiniRue. Original quality perfumes and cosmetics, with free worldwide shipping.`,
+      `12 products in Rings from ${PRODUCT_FIXTURE.brandName} at MiniRue, with free worldwide shipping.`,
     );
   });
 

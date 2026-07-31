@@ -90,6 +90,13 @@ export function representativeBrandNames(products: ApiProduct[], max = 3): strin
  * outage or a genuinely empty category both fall back to the old plain
  * sentence rather than claiming "0 products", which would misdescribe an
  * outage as "this category is empty".
+ *
+ * No "perfumes and cosmetics" clause — MiniRue sells more than that (a
+ * jewellery category like /helia/jewellery is a live example), and
+ * hardcoding a product line into every category's description is the same
+ * mistake BreadcrumbSchema.tsx's removed "Perfumes" crumb was, one layer
+ * down. "Free worldwide shipping" stays: it's true of the whole catalogue,
+ * not a guess about what a given category contains.
  */
 export function buildCategoryDescription(name: string, outcome: CategoryListingOutcome): string {
   if (!outcome.ok || outcome.total === 0) {
@@ -97,5 +104,5 @@ export function buildCategoryDescription(name: string, outcome: CategoryListingO
   }
   const brands = representativeBrandNames(outcome.products);
   const brandPhrase = brands.length ? ` from ${brands.join(', ')}` : '';
-  return `${outcome.total} product${outcome.total === 1 ? '' : 's'} in ${name}${brandPhrase} at MiniRue. Original quality perfumes and cosmetics, with free worldwide shipping.`;
+  return `${outcome.total} product${outcome.total === 1 ? '' : 's'} in ${name}${brandPhrase} at MiniRue, with free worldwide shipping.`;
 }
