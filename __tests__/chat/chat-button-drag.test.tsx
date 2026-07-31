@@ -134,20 +134,41 @@ describe('ChatButton snap-to-edge and persistence (W4a.3)', () => {
     expect(el.style.left).toBe(`${expectedLeft}px`);
   });
 
-  it('released just OUTSIDE the band, it stays whole and keeps the band as a gutter', () => {
+  it('released just OUTSIDE the band, it still snaps fully to the nearer (left) edge, not wherever it was dropped', () => {
     render(<ChatButton onClick={jest.fn()} />);
 
-    // x=20 is inside the 40px band, so nudge to 60: outside it, and the button
-    // must stay fully visible rather than docking.
+    // x=60 is outside the 40px band, so this does NOT dock (20%-hidden) —
+    // but it must not stay at 60 either. The owner's ask (2026-07-31): drag
+    // it anywhere, and on release it always settles against the nearer
+    // side, never floating fixed in the middle. The center (60 + 26 = 86)
+    // is left of the midline (500), so it rests at the band's inner edge.
     pointerDown(0, 400);
     pointerMove(60, 400);
     pointerUp(60, 400);
 
     const el = button();
-    expect(parseFloat(el.style.left)).toBe(60);
+    expect(parseFloat(el.style.left)).toBe(40);
     // Whole button on screen, never flush against the glass.
     expect(parseFloat(el.style.left)).toBeGreaterThanOrEqual(40);
     expect(parseFloat(el.style.left) + CHAT_BUTTON_SIZE).toBeLessThanOrEqual(1000 - 40);
+  });
+
+  it('released left-of-centre settles on the left edge; right-of-centre settles on the right edge', () => {
+    // Left-of-centre.
+    const left = render(<ChatButton onClick={jest.fn()} />);
+    pointerDown(0, 300);
+    pointerMove(120, 300); // center 146, well left of the 500 midline
+    pointerUp(120, 300);
+    expect(parseFloat(button().style.left)).toBe(40);
+    left.unmount();
+    __resetChatButtonPositionForTests();
+
+    // Right-of-centre.
+    render(<ChatButton onClick={jest.fn()} />);
+    pointerDown(0, 300);
+    pointerMove(700, 300); // center 726, well right of the 500 midline
+    pointerUp(700, 300);
+    expect(parseFloat(button().style.left)).toBe(1000 - CHAT_BUTTON_SIZE - 40);
   });
 
   it('released before the midline, it docks against the left edge, 20% off-screen', () => {
@@ -229,13 +250,15 @@ describe('ChatButton snap-to-edge and persistence (W4a.3)', () => {
 });
 
 describe('ChatButton edge-proximity visibility (Bug 3)', () => {
-  it('released far from all four edges, the button stays 100% visible exactly where dropped', () => {
+  it('released far from all four edges, the button still snaps horizontally (to its nearer side) but keeps its vertical position exactly', () => {
     render(<ChatButton onClick={jest.fn()} />);
 
     // jsdom reports the drag origin as (0,0) (see note above), so the drag
-    // distance alone determines the settled point: (500, 400) in a
-    // 1000x800 viewport puts every edge distance comfortably past
-    // EDGE_PROXIMITY_PX (80px).
+    // distance alone determines the settled point. (500, 400) in a 1000x800
+    // viewport is far from every edge — the owner's ask (2026-07-31) is
+    // that this NEVER stays floating in the middle: it always settles
+    // against the nearer side (center 526 clears the 500 midline, so
+    // right), while `top` (vertical) is preserved untouched.
     pointerDown(0, 0);
     pointerMove(500, 400);
     pointerUp(500, 400);
@@ -243,32 +266,24 @@ describe('ChatButton edge-proximity visibility (Bug 3)', () => {
     const el = button();
     const left = parseFloat(el.style.left);
     const top = parseFloat(el.style.top);
-    expect(left).toBe(500);
+    expect(left).toBe(1000 - CHAT_BUTTON_SIZE - 40);
     expect(top).toBe(400);
-    // Fully visible: no part of the button crosses any of the four edges.
-    expect(left).toBeGreaterThan(80);
-    expect(1000 - (left + CHAT_BUTTON_SIZE)).toBeGreaterThan(80);
-    expect(top).toBeGreaterThan(80);
-    expect(800 - (top + CHAT_BUTTON_SIZE)).toBeGreaterThan(80);
   });
 
-  it('released near the TOP edge but horizontally centered, it stays FULLY visible', () => {
+  it('released near the TOP edge but horizontally centered, it docks to the nearer SIDE, never the top', () => {
     render(<ChatButton onClick={jest.fn()} />);
 
-    // Only the left and right bands can dock. Height is irrelevant: a bubble
-    // dropped 20px from the top but 400px from either side is not "at an
-    // edge". This asserted the opposite until 2026-07-30 — the rule measured
-    // all four edges, and since jsdom reports y=0 for an unlaid-out element,
-    // EVERY drop in this file counted as near-the-top and tucked. The tests
-    // were green and the behaviour was wrong: on a real phone almost nowhere
-    // is far enough from the top and bottom, so the button half-hid itself
-    // wherever you put it.
+    // Only the left and right bands can ever dock. Height is irrelevant: a
+    // bubble dropped 20px from the top but 400px from either side is not
+    // "at an edge" vertically — but horizontally it still always resolves
+    // to whichever side is nearer (here, left: center 426 < midline 500).
     pointerDown(0, 0);
     pointerMove(400, 20);
     pointerUp(400, 20);
 
     const el = button();
-    expect(parseFloat(el.style.left)).toBe(400);
+    expect(parseFloat(el.style.left)).toBe(40);
+    expect(parseFloat(el.style.top)).toBe(20);
   });
 });
 

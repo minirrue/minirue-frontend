@@ -17,6 +17,7 @@ import { SupportProvider } from "@/lib/support/support-context";
 import SupportWidget from "@/components/chat/SupportWidget";
 import { AnnouncementBarProvider } from "@/components/layout/AnnouncementBar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import PageLoader from "@/components/layout/PageLoader";
 import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
@@ -225,6 +226,12 @@ export default function RootLayout({
             </AnnouncementBarProvider>
           </HydrationBoundary>
         </RootQueryProvider>
+        {/* Task 43 (2026-07-31): mounted once, globally, same tier as
+            CartDrawer/SupportWidget/MobileBottomNav above — it has to
+            persist across every client-side navigation (never remounted
+            per-route) so its own fade-out can actually play; see
+            PageLoader.tsx. */}
+        <PageLoader />
         <Suspense fallback={null}>
           {/* telemetry only */}
           <Analytics />

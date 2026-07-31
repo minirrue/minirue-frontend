@@ -15,10 +15,20 @@ jest.mock('@/lib/api/catalog', () => {
   };
 });
 
+jest.mock('@/lib/api/storefront', () => {
+  const actual = jest.requireActual('@/lib/api/storefront');
+  return {
+    ...actual,
+    fetchStorefrontChrome: jest.fn().mockResolvedValue(actual.FALLBACK_CHROME),
+  };
+});
+
 import {
   getProductListing,
   isIndexableBrandListing,
   brandListingName,
+  categoryListingName,
+  getShopName,
 } from '@/app/products/products-data';
 import type { BrandListingOutcome } from '@/app/products/products-data';
 import { PRODUCT_FIXTURE } from '../storefront/fixtures/product';
@@ -47,6 +57,12 @@ describe('getProductListing', () => {
     listProducts.mockResolvedValue({ data: [], meta: { total: 0, hasMore: false, cursor: null } });
     await getProductListing('Chanel', 'brand-billie');
     expect(listProducts).toHaveBeenCalledWith({ brand: 'Chanel', brandId: 'brand-billie', limit: 24 });
+  });
+
+  it('passes categoryId through to catalog.listProducts when present', async () => {
+    listProducts.mockResolvedValue({ data: [], meta: { total: 0, hasMore: false, cursor: null } });
+    await getProductListing('', '', 'cat-perfume');
+    expect(listProducts).toHaveBeenCalledWith({ categoryId: 'cat-perfume', limit: 24 });
   });
 
   it('omits empty filter strings from the catalog call rather than sending brand: ""', async () => {
@@ -114,5 +130,34 @@ describe('brandListingName', () => {
   it('is null on a failed fetch, same as any other empty result', () => {
     const failed: BrandListingOutcome = { ok: false, products: [], total: 0, hasMore: false, cursor: null };
     expect(brandListingName(failed)).toBeNull();
+  });
+});
+
+describe('categoryListingName', () => {
+  it('reads the category name from the first resolved product', () => {
+    const outcome: BrandListingOutcome = {
+      ok: true,
+      products: [PRODUCT_FIXTURE],
+      total: 1,
+      hasMore: false,
+      cursor: null,
+    };
+    expect(categoryListingName(outcome)).toBe(PRODUCT_FIXTURE.categoryName);
+  });
+
+  it('is null when there are no products — never falls back to a fabricated name', () => {
+    const empty: BrandListingOutcome = { ok: true, products: [], total: 0, hasMore: false, cursor: null };
+    expect(categoryListingName(empty)).toBeNull();
+  });
+
+  it('is null on a failed fetch, same as any other empty result', () => {
+    const failed: BrandListingOutcome = { ok: false, products: [], total: 0, hasMore: false, cursor: null };
+    expect(categoryListingName(failed)).toBeNull();
+  });
+});
+
+describe('getShopName', () => {
+  it('reads shopName from the resolved chrome', async () => {
+    expect(await getShopName()).toBe('MiniRue');
   });
 });

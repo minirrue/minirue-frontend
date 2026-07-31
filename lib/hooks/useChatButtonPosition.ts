@@ -106,8 +106,14 @@ function getServerSnapshot(): ChatButtonPosition | null {
  *
  *  Branches on `pos.tucked` (Bug 3): a tucked position is re-homed to the
  *  half-off-screen spot against its edge, exactly as before this field
- *  existed; a non-tucked position is simply clamped to stay fully inside the
- *  current viewport, wherever it was released. */
+ *  existed.
+ *
+ *  A non-tucked position now ALWAYS rests flush (with the same band as a
+ *  gutter) against `pos.edge` — never "wherever it was released". Dropped in
+ *  the middle of the screen used to leave the button exactly there, floating
+ *  and fixed; the owner asked for the opposite: drag it anywhere, and on
+ *  release it always settles against the nearer side. Vertical position is
+ *  untouched either way — only left/right ever decide an edge. */
 export function clampChatButtonPosition(
   pos: ChatButtonPosition,
   viewportW: number,
@@ -126,12 +132,14 @@ export function clampChatButtonPosition(
 
   // Fully visible means fully visible WITH air beside it: the same band that
   // decides whether to tuck is also the closest a whole button may rest to a
-  // side. Without this a button released just outside the band still sat
-  // flush against the glass, which reads as clipped even though it is not.
+  // side. `pos.edge` (decided by the caller from the button's CENTRE against
+  // the viewport midpoint — see ChatButton.tsx's `settleDrag`) wins outright
+  // rather than merely bounding `pos.x`, so every release ends up AT one of
+  // these two values, never in between.
   const band = chatButtonEdgeBandPx(viewportW);
   const minX = band;
   const maxX = Math.max(minX, viewportW - size - band);
-  const x = Math.min(Math.max(pos.x, minX), maxX);
+  const x = pos.edge === 'left' ? minX : maxX;
   return { x, y, edge: pos.edge, tucked: false };
 }
 

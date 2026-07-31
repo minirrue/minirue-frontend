@@ -38,6 +38,14 @@ jest.mock('@/lib/hooks/use-auth', () => ({
   useUser: () => ({ data: mockAuthUser, isLoading: mockAuthLoading }),
 }));
 
+// The widget reads the shopper's own uploaded photo to stamp on its
+// optimistic bubble (so their avatar never blinks to the generic icon
+// mid-send). Mocked here for the same reason `use-auth` is: this suite
+// renders the widget without a QueryClientProvider.
+jest.mock('@/lib/hooks/use-customer', () => ({
+  useCustomerProfile: () => ({ data: null }),
+}));
+
 jest.mock('@/lib/auth/tokens', () => ({
   isAuthenticated: () => true,
 }));

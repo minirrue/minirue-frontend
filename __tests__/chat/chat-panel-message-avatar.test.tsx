@@ -2,11 +2,15 @@
  * Unit tests — components/chat/ChatPanel.tsx (Task M, 2026-07-30).
  *
  * The backend resolves `senderAvatarUrl` per message (personal avatar ->
- * (COLLAB) brand logo -> null) but nothing rendered it — the owner's "their
- * avatar overrides any photo, like in support" was invisible. A URL must
- * render the photo; null must render the sender's initial letter and NEVER
- * an `<img>` element — a broken image or an empty gap is exactly what this
- * batch exists to prevent.
+ * (COLLAB) brand logo / shop logo -> null) but nothing rendered it — the
+ * owner's "their avatar overrides any photo, like in support" was invisible.
+ * A URL must render the photo; null must render the GENERIC PERSON ICON and
+ * NEVER an `<img>` element and never an initial letter — a broken image, an
+ * empty gap, or a letter-in-a-circle are all exactly what this batch exists
+ * to prevent.
+ *
+ * Extended 2026-07-31 (Task #33): the panel HEADER's avatar is the shop's own
+ * uploaded logo, with the same generic-icon fallback.
  */
 
 import React from 'react';
@@ -36,7 +40,7 @@ describe('ChatPanel — per-message sender avatar', () => {
     expect(screen.queryByTestId('msg-avatar-initial')).not.toBeInTheDocument();
   });
 
-  it('falls back to the initial letter (no img element) when senderAvatarUrl is null', () => {
+  it('falls back to the generic person icon (no img element, no letter) when senderAvatarUrl is null', () => {
     const messages: ChatDisplayMessage[] = [
       {
         id: 'm2',
@@ -54,6 +58,39 @@ describe('ChatPanel — per-message sender avatar', () => {
     // initial-in-a-circle placeholder to be gone everywhere, so this pins it:
     // the fallback slot must contain the silhouette and no text.
     const fallback = screen.getByTestId('msg-avatar-initial');
+    expect(fallback).toHaveTextContent('');
+    expect(fallback.querySelector('svg')).not.toBeNull();
+    expect(document.querySelectorAll('img').length).toBe(0);
+  });
+
+  // Task #33 — "when our admin uploaded his avatar which is the shop logo,
+  // update it to be the avatar of our storefront chat support". The header
+  // used to be a hard-coded "MR" monogram, so the uploaded logo had nowhere
+  // to land.
+  it('renders the shop logo in the header when shopAvatarUrl is provided', () => {
+    render(
+      <ChatPanel
+        open
+        messages={[]}
+        onClose={noop}
+        onSend={noop}
+        headerTitle="MiniRue Support"
+        shopAvatarUrl="https://example.com/shop-logo.png"
+      />,
+    );
+
+    const logo = screen.getByAltText('MiniRue Support');
+    expect(logo.tagName).toBe('IMG');
+    expect(logo).toHaveAttribute('src', 'https://example.com/shop-logo.png');
+    expect(screen.queryByTestId('header-avatar-generic')).not.toBeInTheDocument();
+    // Never the monogram it replaced.
+    expect(screen.queryByText('MR')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the generic person icon in the header when no shop logo is set', () => {
+    render(<ChatPanel open messages={[]} onClose={noop} onSend={noop} />);
+
+    const fallback = screen.getByTestId('header-avatar-generic');
     expect(fallback).toHaveTextContent('');
     expect(fallback.querySelector('svg')).not.toBeNull();
     expect(document.querySelectorAll('img').length).toBe(0);

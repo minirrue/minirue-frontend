@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useClientQuery } from '@/lib/hooks/use-client-query';
 import {
   apiLogin,
@@ -18,8 +18,54 @@ import { clearGuestSupport } from '@/lib/support/session';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import { CUSTOMER_ADDRESSES_KEY, CUSTOMER_PROFILE_KEY } from '@/lib/hooks/use-customer';
 
-const AUTH_QUERY_KEY = ['auth'];
 const ME_QUERY_KEY = ['auth', 'me'];
+
+/**
+ * Every React Query key prefix that belongs to a PERSON rather than to the shop.
+ *
+ * Sign-out used to remove four exact keys — `['auth']`, `['auth','me']`,
+ * `['customer','me']`, `['customer','addresses']` — and nothing else. React
+ * Query serves a cached result synchronously on mount and only then refetches,
+ * so everything NOT in that list stayed on screen as the previous account's
+ * data: the order history and any open order detail, the saved-products list,
+ * the cart, and "have you bought this, may you review it". Sign out and click
+ * Orders and you are reading the account you just left; sign in as somebody
+ * else and you are reading it as them, until each query happens to refetch.
+ *
+ * Prefixes, not exact keys, because React Query matches by prefix: `['order']`
+ * covers `['order', id]` for every order that was ever opened, and
+ * `['customer']` covers the wishlist's two keys as well as profile/addresses.
+ *
+ * `['catalog']` and `['storefront']` are deliberately NOT here. They are the
+ * public shop — products, categories, chrome, the home page — identical for
+ * everyone signed in or out. queryClient.clear() would take them too and put
+ * a skeleton flash on the page the shopper lands on after signing out, for no
+ * privacy gain at all.
+ */
+const IDENTITY_QUERY_PREFIXES: readonly (readonly unknown[])[] = [
+  ['auth'],
+  ['customer'],
+  ['orders'],
+  ['order'],
+  ['cart'],
+  ['reviews'],
+];
+
+/**
+ * Drops every cache that belongs to whoever was signed in a moment ago.
+ *
+ * Called on sign-out AND on sign-in. Sign-in matters just as much: a shopper
+ * whose session died without them pressing Sign out never runs the sign-out
+ * path at all, so signing in as somebody else on that same tab inherited the
+ * previous person's orders, saved products and cart straight out of the cache.
+ * `invalidateQueries` is not enough — it marks data stale but keeps serving it
+ * until the refetch lands, which is exactly the window the owner keeps seeing.
+ */
+function clearIdentityCaches(queryClient: QueryClient): void {
+  for (const queryKey of IDENTITY_QUERY_PREFIXES) {
+    queryClient.removeQueries({ queryKey: queryKey as unknown[] });
+  }
+}
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -36,6 +82,9 @@ export function useLogin() {
       return apiLogin(email, password, rememberMe === true);
     },
     onSuccess: async (data: AuthResponse) => {
+      // Before anything is written back: whatever is in the cache belongs to
+      // the previous occupant of this tab, not to the person who just signed in.
+      clearIdentityCaches(queryClient);
       setSession({
         userId: data.user.userId,
         email: data.user.email,
@@ -56,6 +105,7 @@ export function useRegister() {
   return useMutation({
     mutationFn: async (input: RegisterInput) => apiRegister(input),
     onSuccess: async (data: AuthResponse) => {
+      clearIdentityCaches(queryClient);
       setSession({
         userId: data.user.userId,
         email: data.user.email,
@@ -109,10 +159,9 @@ export function useLogout() {
       // that logging out clear the support widget's device-level guest token
       // too, not just the tab's in-memory state.
       clearGuestSupport();
-      queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });
-      queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
-      queryClient.removeQueries({ queryKey: CUSTOMER_PROFILE_KEY });
-      queryClient.removeQueries({ queryKey: CUSTOMER_ADDRESSES_KEY });
+      // Every identity-bound cache, not the four keys this used to name —
+      // see IDENTITY_QUERY_PREFIXES.
+      clearIdentityCaches(queryClient);
     },
   });
 }

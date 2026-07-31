@@ -26,6 +26,14 @@ jest.mock('@/lib/hooks/use-auth', () => ({
   useUser: () => ({ data: mockAuthUser, isLoading: mockAuthLoading }),
 }));
 
+// The widget reads the shopper's own uploaded photo to stamp on its
+// optimistic bubble (so their avatar never blinks to the generic icon
+// mid-send). Mocked here for the same reason `use-auth` is: this suite
+// renders the widget without a QueryClientProvider.
+jest.mock('@/lib/hooks/use-customer', () => ({
+  useCustomerProfile: () => ({ data: null }),
+}));
+
 // `isAuthenticated()` reads a browser-local hint that is documented (in
 // SupportWidget itself) as able to lag the real `useUser()` signal — that lag
 // is exactly the race that let a stale composer post into the old account's

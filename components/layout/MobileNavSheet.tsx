@@ -106,6 +106,13 @@ interface MobileNavSheetProps {
    * admin's own label (or the neutral fallback baked into it) covers that.
    */
   accountDisplayName?: string;
+  /**
+   * The ONE admin-editable shop name (2026-07-31 owner ask) — Header.tsx
+   * passes its already-fetched `chrome.shopName`. `undefined` falls back to
+   * Wordmark's own "MiniRue" default, same as before this existed, so
+   * existing callers/tests with no chrome data are unaffected.
+   */
+  shopName?: string;
 }
 
 /** Whether a nav item opens a drill-down panel — real subcategories, pinned
@@ -142,6 +149,11 @@ export default function MobileNavSheet({
   signedIn,
   onOpenSearch,
   accountDisplayName,
+  // The ONE shop name (2026-07-31 owner ask) — passed down from Header.tsx's
+  // already-fetched chrome query rather than fetched again here, so a caller
+  // with no chrome data (existing tests included) still gets the same
+  // "MiniRue" default Wordmark itself falls back to.
+  shopName,
 }: MobileNavSheetProps) {
   // The chain of drilled items, root-out: [] is the root panel, [A] is one
   // level deep into A, [A, B] is two levels deep into A's child B, and so on.
@@ -368,11 +380,11 @@ export default function MobileNavSheet({
             ) : (
               <Link
                 href="/"
-                aria-label="MiniRue — home"
+                aria-label={`${shopName ?? 'MiniRue'} — home`}
                 onClick={onClose}
                 style={{ display: 'inline-flex', textDecoration: 'none', color: 'inherit' }}
               >
-                <Wordmark size={18} />
+                <Wordmark size={18} text={shopName} />
               </Link>
             )}
             <IconButton icon="close" size={36} tone="cream" label="Close menu" onClick={onClose} />

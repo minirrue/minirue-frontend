@@ -23,25 +23,44 @@ export default function ProfileForm({ profile }: Props) {
   const [pickedFile, setPickedFile] = useState<File | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  // Task FF (2026-07-30): the cropped bytes for an avatar just uploaded THIS
-  // session, so the tile renders locally instead of a guaranteed-cold-miss
-  // remote fetch of the exact bytes the browser is already holding.
-  // `pendingAvatarUrlRef` records which `avatarUrl` that local file belongs
-  // to — if `profile.avatarUrl` ever changes to something else WITHOUT going
-  // through handleCropped (a background refetch landing an older value,
-  // say), the stale local bytes must stop showing.
+  // Task FF (2026-07-30), hardened 2026-07-31 after an owner report of the
+  // upload succeeding but the account still showing the generic icon:
+  // the cropped bytes for an avatar just uploaded THIS session, so the tile
+  // renders locally instead of a guaranteed-cold-miss remote fetch of the
+  // exact bytes the browser is already holding.
+  //
+  // `uploadedAvatarUrl` is the avatarUrl OUR OWN upload just produced —
+  // tracked in state (not only a ref) because the render below must not
+  // gate on `profile.avatarUrl` alone. `profile` is a prop from a query this
+  // component does not own (ProfilePageClient's useCustomerProfile()); a
+  // component test caught that if that prop lags even one render behind the
+  // upload — for any reason — `profile.avatarUrl` is still falsy and the
+  // ternary below fell through to the generic icon, discarding local bytes
+  // that were sitting right there. That is precisely the failure shape the
+  // owner reported: an upload that succeeded but a read that didn't (visibly)
+  // reflect it. `avatarSrc` below reads OUR known-good URL as a fallback so
+  // the icon can never mask a photo that this session knows exists.
   const [pendingAvatarFile, setPendingAvatarFile] = useState<Blob | null>(null);
-  const pendingAvatarUrlRef = useRef<string | null>(null);
+  const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState<string | null>(null);
 
+  // Only clear on a CONFLICTING truthy value — some other actor's change
+  // (a different device, an admin action) — never merely because
+  // `profile.avatarUrl` hasn't caught up to ours yet (still null, or still
+  // the old value): that "still lagging" state is exactly the case this fix
+  // exists to tolerate, and clearing on it would silently reproduce the bug.
   useEffect(() => {
-    if (
-      pendingAvatarUrlRef.current !== null &&
-      profile.avatarUrl !== pendingAvatarUrlRef.current
-    ) {
+    if (uploadedAvatarUrl !== null && profile.avatarUrl && profile.avatarUrl !== uploadedAvatarUrl) {
       setPendingAvatarFile(null);
-      pendingAvatarUrlRef.current = null;
+      setUploadedAvatarUrl(null);
     }
-  }, [profile.avatarUrl]);
+  }, [profile.avatarUrl, uploadedAvatarUrl]);
+
+  // The prop, or — until it catches up — the URL this session's own upload
+  // just produced. Never the other way around: once `profile.avatarUrl`
+  // reports something ELSE, the effect above already cleared
+  // `uploadedAvatarUrl`, so a genuinely different value (a real removal, a
+  // different account) is never overridden by a stale one.
+  const avatarSrc = profile.avatarUrl ?? uploadedAvatarUrl;
 
   const handleAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,7 +75,7 @@ export default function ProfileForm({ profile }: Props) {
     setCropOpen(false);
     try {
       const updated = await uploadAvatar.mutateAsync(blob);
-      pendingAvatarUrlRef.current = updated.avatarUrl ?? null;
+      setUploadedAvatarUrl(updated.avatarUrl ?? null);
       setPendingAvatarFile(blob);
     } catch (err) {
       setAvatarError((err as ApiError).message ?? 'Failed to upload photo');
@@ -117,9 +136,9 @@ export default function ProfileForm({ profile }: Props) {
           color: 'var(--mr-fg-3)',
         }}
       >
-        {profile.avatarUrl ? (
+        {avatarSrc ? (
           <UploadPreviewImage
-            src={profile.avatarUrl}
+            src={avatarSrc}
             localFile={pendingAvatarFile}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -150,7 +169,7 @@ export default function ProfileForm({ profile }: Props) {
             cursor: uploadAvatar.isPending ? 'not-allowed' : 'pointer',
           }}
         >
-          {uploadAvatar.isPending ? 'Uploading…' : profile.avatarUrl ? 'Change photo' : 'Add a photo'}
+          {uploadAvatar.isPending ? 'Uploading…' : avatarSrc ? 'Change photo' : 'Add a photo'}
         </button>
         {avatarError && (
           <p role="alert" style={{ color: 'var(--mr-danger)', fontSize: 'var(--mr-text-xs)', margin: '6px 0 0' }}>

@@ -67,7 +67,19 @@ function EbneelySignature() {
   );
 }
 
-export default function Footer({ config }: { config: FooterConfig }) {
+export default function Footer({
+  config,
+  shopName,
+}: {
+  config: FooterConfig;
+  /**
+   * The ONE admin-editable shop name (2026-07-31 owner ask) — every caller
+   * passes its already-fetched `chrome.shopName`. `undefined` falls back to
+   * Wordmark's own "MiniRue" default, so existing callers/tests are
+   * unaffected.
+   */
+  shopName?: string;
+}) {
   const { mobile } = useBreakpoint();
 
   return (
@@ -138,6 +150,7 @@ export default function Footer({ config }: { config: FooterConfig }) {
               size={mobile ? 26 : 38}
               color="var(--mr-cream-100)"
               captionColor="var(--mr-ink-400)"
+              text={shopName}
             />
           </div>
           <div

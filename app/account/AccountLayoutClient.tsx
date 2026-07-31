@@ -190,7 +190,7 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
           </main>
         </div>
       </div>
-      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} />
+      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} shopName={chrome?.shopName} />
     </>
   );
 }

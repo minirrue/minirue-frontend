@@ -24,8 +24,15 @@ export interface StorefrontPublicSettings {
 }
 
 export interface PublicSettings {
-  /** Constant, not an editable setting — the shop name is fixed. */
+  /** Constant, not an editable setting — the shop's fixed legal name. */
   storeName: string;
+  /**
+   * The ONE admin-editable shop display name (2026-07-31 owner ask) — the
+   * chat widget's header/sender name reads this rather than a hardcoded
+   * "MiniRue Support" literal. Never empty: falls back server-side to
+   * `DEFAULT_SHOP_DISPLAY_NAME` ("MiniRue") when unset.
+   */
+  displayName: string;
   currency: string;
   logoUrl: string | null;
   storefront: StorefrontPublicSettings;

@@ -237,6 +237,20 @@ export interface ResolvedChrome {
   announcement: AnnouncementConfig;
   productSection: ProductSectionConfig;
   faviconUrl: string | null;
+  /**
+   * The ONE admin-editable shop name (2026-07-31 owner ask: "so customer
+   * can't see mini rue and MiniRue and MINIRUE in different places"). The
+   * header wordmark, the mobile nav, and the chat widget's default title all
+   * read this rather than a hardcoded literal.
+   */
+  shopName: string;
+  /**
+   * The shop's own uploaded brand logo, resolved to a fetchable URL — null
+   * when no admin has uploaded one, in which case the header falls back to
+   * the text wordmark alone. Mirrors how a partner's own space page
+   * (`app/[slug]/SpaceView.tsx`) renders `space.logoUrl`.
+   */
+  shopLogoUrl: string | null;
   navbar: {
     items: ResolvedNavItem[];
     showSearch: boolean;
@@ -257,6 +271,11 @@ export const FALLBACK_CHROME: ResolvedChrome = {
   // rather than stale ones the shop may no longer honour.
   productSection: { perks: [] },
   faviconUrl: null,
+  // Same default the backend falls back to (DEFAULT_SHOP_DISPLAY_NAME,
+  // settings.service.ts) — a dead-backend fallback must still show a name,
+  // not a blank header.
+  shopName: 'MiniRue',
+  shopLogoUrl: null,
   navbar: { items: [], showSearch: true, showAccount: true },
   // Empty, like the rest of the fallback: a dead backend shows no mobile-menu
   // tiles rather than stale ones that may no longer resolve.

@@ -52,7 +52,7 @@ export default function HomePageClient() {
         <HomeView home={home} />
       </div>
 
-      <Footer config={chrome.footer} />
+      <Footer config={chrome.footer} shopName={chrome.shopName} />
     </>
   );
 }

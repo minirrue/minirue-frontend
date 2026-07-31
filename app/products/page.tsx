@@ -9,24 +9,32 @@ import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema'
 import CollectionSchema from '@/components/seo/CollectionSchema';
 import ProductListingClient from './ProductListingClient';
 import HeaderWrapper from './HeaderWrapper';
-import { getProductListing, isIndexableBrandListing, brandListingName } from './products-data';
+import {
+  getProductListing,
+  isIndexableBrandListing,
+  brandListingName,
+  categoryListingName,
+  getShopName,
+} from './products-data';
 import { SITE_URL as BASE_URL } from '@/lib/seo/config';
 
-// This is MiniRue's main shop area — every product regardless of category or
+// This is the shop's main area — every product regardless of category or
 // brand. Nothing about what it sells is fixed to one kind of product, so the
-// copy stays neutral rather than naming a category MiniRue may not even carry
-// any more.
-const DEFAULT_METADATA: Metadata = {
-  title: 'All Products',
-  description: 'Browse the full MiniRue collection.',
-  alternates: {
-    canonical: '/products',
-  },
-  openGraph: {
-    title: 'All Products | MiniRue',
-    description: 'Browse the full MiniRue collection.',
-  },
-};
+// copy stays neutral rather than naming a category the shop may not even
+// carry any more.
+function defaultMetadata(shopName: string): Metadata {
+  return {
+    title: 'All Products',
+    description: `Browse the full ${shopName} collection.`,
+    alternates: {
+      canonical: '/products',
+    },
+    openGraph: {
+      title: `All Products | ${shopName}`,
+      description: `Browse the full ${shopName} collection.`,
+    },
+  };
+}
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -64,11 +72,16 @@ function first(v: string | string[] | undefined): string | undefined {
  * canonicals; the duplicate-content scenario that lower-casing here would
  * exist to prevent cannot occur. Do NOT lower-case `brand` "to be safe" —
  * doing so would canonicalise a working `?brand=Dior` URL onto a
- * `?brand=dior` one that returns nothing. */
-function brandFilterPath(brand: string, brandId: string): string {
+ * `?brand=dior` one that returns nothing.
+ *
+ * `categoryId` (Task 19 follow-up) is independent of both — a category filter
+ * scopes by the catalogue's own category tree, never a free-text name, so it
+ * carries no equivalent case-sensitivity note. */
+function filterPath(brand: string, brandId: string, categoryId: string): string {
   const parts: string[] = [];
   if (brandId) parts.push(`brandId=${encodeURIComponent(brandId)}`);
   if (brand) parts.push(`brand=${encodeURIComponent(brand)}`);
+  if (categoryId) parts.push(`categoryId=${encodeURIComponent(categoryId)}`);
   return parts.length ? `/products?${parts.join('&')}` : '/products';
 }
 
@@ -84,51 +97,68 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   // the same way `/search?q=` does.
   const brand = (first(sp['brand']) ?? '').trim();
   const brandId = (first(sp['brandId']) ?? '').trim();
-  const hasFilter = Boolean(brand || brandId);
+  // `categoryId` scopes the listing to one node of the catalogue's own
+  // category tree — the same filter `/categories/[slug]` resolves to a
+  // catalogue call with, wired here so a category-filtered `/products` URL
+  // (e.g. a category tile linking `/products?categoryId=<id>`) is just as
+  // controllable/indexable as a brand-filtered one, not a second-class case.
+  const categoryId = (first(sp['categoryId']) ?? '').trim();
+  const hasFilter = Boolean(brand || brandId || categoryId);
+
+  const shopName = await getShopName();
 
   if (!hasFilter) {
-    return DEFAULT_METADATA;
+    return defaultMetadata(shopName);
   }
 
   // Deduped with the page body below — one API call serves both.
-  const outcome = await getProductListing(brand, brandId);
-  const canonical = brandFilterPath(brand, brandId);
+  const outcome = await getProductListing(brand, brandId, categoryId);
+  const canonical = filterPath(brand, brandId, categoryId);
 
-  // The brand name is read only from a resolved product, never from the raw
-  // query string — an unknown brandId, a `brand` name with no matches, and an
-  // API outage all land here with no name to safely show, so all three fall
-  // back to the same neutral shop-wide copy rather than a fabricated one.
-  const brandName = brandListingName(outcome);
+  // The brand/category name is read only from a resolved product, never from
+  // the raw query string — an unknown id, a `brand` name with no matches, and
+  // an API outage all land here with no name to safely show, so all three
+  // fall back to the same neutral shop-wide copy rather than a fabricated
+  // one. Which one to read is decided by which filter was actually
+  // REQUESTED (brand/brandId vs categoryId), never by which name happens to
+  // be non-null on the resolved product — every product has both a brand and
+  // a category, so falling back to "whichever resolves first" would make a
+  // `?categoryId=` page show the product's brand instead of the requested
+  // category. Brand/brandId takes priority when (unusually) both are given —
+  // matches the `brandId`-before-`brand` priority `filterPath` already uses
+  // for the canonical's own query order.
+  const contextName = brand || brandId
+    ? brandListingName(outcome)
+    : categoryListingName(outcome);
 
   // ONE indexability decision, reused below for both which copy to render
-  // and robots.index — never computed two different ways. `brandName` is
+  // and robots.index — never computed two different ways. `contextName` is
   // read from `outcome.products` (page-limited) while `isIndexableBrandListing`
   // reads `outcome.total` (a separate, unlimited COUNT over the same filter —
   // `catalog.repository.ts`); those two fields are not guaranteed to agree,
   // so requiring both here removes any risk of the two checks disagreeing
   // rather than relying on them happening to agree in practice.
-  const indexable = Boolean(brandName) && isIndexableBrandListing(hasFilter, outcome);
+  const indexable = Boolean(contextName) && isIndexableBrandListing(hasFilter, outcome);
 
-  if (!brandName || !indexable) {
+  if (!contextName || !indexable) {
     // Filter resolved to nothing we can safely name — an unknown id, zero
     // matches, or an outage. Mirrors `isIndexableSearchPage`
     // (`app/search/search-data.ts`), including its outage rule: a transient
     // backend blip must never publish an empty listing to Google as
-    // "MiniRue doesn't carry this brand".
+    // "the shop doesn't carry this".
     return {
-      ...DEFAULT_METADATA,
+      ...defaultMetadata(shopName),
       alternates: { canonical },
       robots: { index: false, follow: true },
     };
   }
 
-  const title = `${brandName} — MiniRue`;
-  // No category/product-line clause here — MiniRue carries more than
-  // perfumes and cosmetics (see BreadcrumbSchema.tsx's note on the hardcoded
+  const title = `${contextName} — ${shopName}`;
+  // No fixed product-line clause here — the shop carries more than any one
+  // kind of product (see BreadcrumbSchema.tsx's note on the hardcoded
   // "Perfumes" crumb removed for the same reason), so this stays true of any
-  // brand's listing rather than naming a product line a given brand may not
-  // even sell.
-  const description = `${outcome.total} product${outcome.total === 1 ? '' : 's'} from ${brandName} at MiniRue, with free worldwide shipping.`;
+  // brand's or category's listing rather than naming a line it may not sell.
+  const description = `${outcome.total} product${outcome.total === 1 ? '' : 's'} from ${contextName} at ${shopName}, with free worldwide shipping.`;
 
   return {
     title,
@@ -155,10 +185,12 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   // products into this listing.
   const brand = (first(sp['brand']) ?? '').trim();
   const brandId = (first(sp['brandId']) ?? '').trim();
-  const hasFilter = Boolean(brand || brandId);
+  const categoryId = (first(sp['categoryId']) ?? '').trim();
+  const hasFilter = Boolean(brand || brandId || categoryId);
   const filters: ProductListFilters = {
     brand: brand || undefined,
     brandId: brandId || undefined,
+    categoryId: categoryId || undefined,
     limit: 24,
   };
 
@@ -166,35 +198,54 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   // Already resolved during generateMetadata — React's cache() makes this the
   // same request, not a second one.
-  const outcome = await getProductListing(brand, brandId);
+  const outcome = await getProductListing(brand, brandId, categoryId);
   const { products: initialProducts, hasMore: initialHasMore, cursor: initialCursor } = outcome;
 
   // Same resolution generateMetadata uses for its title/canonical — read here
-  // too so the CollectionPage JSON-LD and the visible <h1> can never disagree
-  // with what the canonical actually claims to be. Without this, a brand
-  // filter that generateMetadata makes indexable under a brand-scoped
-  // canonical still emitted CollectionSchema as "All Products" at "/products"
-  // — the JSON-LD claimed the whole catalogue while the canonical said
-  // otherwise — and the <h1> below said "All Products" too, so a brand-filtered
-  // page carried no brand term anywhere in its visible text.
+  // too so the CollectionPage JSON-LD, the visible breadcrumb trail, AND the
+  // <h1> can never disagree with what the canonical actually claims to be.
+  // Without this, a brand filter that generateMetadata makes indexable under
+  // a brand-scoped canonical still emitted CollectionSchema as "All Products"
+  // at "/products", the breadcrumb as plain "Home / Shop", and the <h1> as
+  // "All Products" too — the JSON-LD, the visible trail and the canonical all
+  // disagreed with each other, on both the brand and the (until now
+  // unsupported) category case.
   //
   // Gated on hasFilter, matching generateMetadata's own `if (!hasFilter)
-  // return DEFAULT_METADATA` guard above — brandListingName() just reads
-  // outcome.products[0]'s brand and has no idea whether a filter was actually
-  // requested, so on the plain unfiltered /products route (where the fetch
-  // returns the whole catalogue) an ungated call resolves to whichever
-  // product happens to sort first, and the shop's main page renders that
-  // brand's name as its own <h1> and CollectionPage name — the same
-  // page-vs-markup contradiction this fix exists to remove, pointed the
-  // other way.
-  const brandName = hasFilter ? brandListingName(outcome) : null;
-  const canonicalPath = brandFilterPath(brand, brandId);
+  // return defaultMetadata(...)` guard above — brandListingName()/
+  // categoryListingName() just read outcome.products[0]'s brand/category and
+  // have no idea whether a filter was actually requested, so on the plain
+  // unfiltered /products route (where the fetch returns the whole catalogue)
+  // an ungated call resolves to whichever product happens to sort first, and
+  // the shop's main page renders that product's brand/category as its own
+  // <h1>, breadcrumb and CollectionPage name — the same page-vs-markup
+  // contradiction this fix exists to remove, pointed the other way.
+  // Decided by which filter was actually requested, same as generateMetadata
+  // above — never by which name happens to be non-null on the resolved
+  // product (every product has both a brand and a category).
+  const contextName = hasFilter
+    ? (brand || brandId ? brandListingName(outcome) : categoryListingName(outcome))
+    : null;
+  const canonicalPath = filterPath(brand, brandId, categoryId);
+
+  // The ONE trail this page ever shows — reused, unchanged, for the visible
+  // breadcrumb below and the JSON-LD BreadcrumbList, so the two structurally
+  // cannot disagree. `contextName` is null on the unfiltered page (and on any
+  // filter that resolved to nothing safe to name), in which case the trail
+  // stays exactly "Home / Shop" — /products IS the shop's top level, so
+  // "Shop" is the terminal, non-link crumb, same as before this fix. Once a
+  // brand or category actually resolves, "Shop" stops being the last crumb
+  // and becomes a link, with the real context name as the new terminal crumb
+  // — never a hardcoded "All Products" that ignores which filter is live.
+  const jsonLdTrail = contextName
+    ? [SHOP_CRUMB, { name: contextName, path: canonicalPath.replace(/^\//, '') }]
+    : [SHOP_CRUMB];
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <BreadcrumbSchema trail={[SHOP_CRUMB, { name: 'All Products', path: 'products' }]} />
+      <BreadcrumbSchema trail={jsonLdTrail} />
       <CollectionSchema
-        name={brandName ?? 'All Products'}
+        name={contextName ?? 'All Products'}
         path={canonicalPath}
         items={{ kind: 'products', products: initialProducts }}
       />
@@ -209,8 +260,10 @@ export default async function ProductsPage({ searchParams }: PageProps) {
             padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
           }}
         >
-          {/* Breadcrumb — /products IS the shop's top level, so "Shop" is the
-              current (non-link) crumb rather than a category name. */}
+          {/* Breadcrumb — mirrors jsonLdTrail above exactly: "Shop" stays the
+              terminal (non-link) crumb only while there is no real brand/
+              category context to show; once one resolves, "Shop" becomes a
+              link and the resolved name is the new terminal crumb. */}
           <nav
             aria-label="Breadcrumb"
             data-trace-id="PG-STOREFRONT-CAT-003::EL-REGION-breadcrumb-navigation"
@@ -228,6 +281,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
                 display: 'flex',
                 gap: 'var(--mr-sp-2)',
                 alignItems: 'center',
+                flexWrap: 'wrap',
                 listStyle: 'none',
                 margin: 0,
                 padding: 0,
@@ -239,9 +293,25 @@ export default async function ProductsPage({ searchParams }: PageProps) {
                 </Link>
               </li>
               <span aria-hidden="true">/</span>
-              <li>
-                <span style={{ color: 'var(--mr-fg-2)' }}>Shop</span>
-              </li>
+              {contextName ? (
+                <li>
+                  <Link href="/products" style={{ color: 'inherit', textDecoration: 'none' }}>
+                    Shop
+                  </Link>
+                </li>
+              ) : (
+                <li>
+                  <span style={{ color: 'var(--mr-fg-2)' }}>Shop</span>
+                </li>
+              )}
+              {contextName && (
+                <>
+                  <span aria-hidden="true">/</span>
+                  <li>
+                    <span style={{ color: 'var(--mr-fg-2)' }}>{contextName}</span>
+                  </li>
+                </>
+              )}
             </ol>
           </nav>
 
@@ -273,7 +343,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
                 color: 'var(--mr-fg)',
               }}
             >
-              {brandName ?? 'All Products'}
+              {contextName ?? 'All Products'}
             </h1>
           </div>
 

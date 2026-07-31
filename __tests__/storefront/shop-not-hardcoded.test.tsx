@@ -27,6 +27,17 @@ jest.mock('next/server', () => ({
   connection: jest.fn().mockResolvedValue(undefined),
 }));
 
+// generateMetadata now reads the admin-editable shop name (getShopName(),
+// products-data.ts) rather than a hardcoded literal — mocked so this test
+// never attempts a real fetch to the backend.
+jest.mock('@/lib/api/storefront', () => {
+  const actual = jest.requireActual('@/lib/api/storefront');
+  return {
+    ...actual,
+    fetchStorefrontChrome: jest.fn().mockResolvedValue(actual.FALLBACK_CHROME),
+  };
+});
+
 import { generateMetadata } from '@/app/products/page';
 import { findCategoryPath, CategoryBreadcrumb } from '@/app/categories/[slug]/category-breadcrumb';
 import type { Category } from '@/lib/api/catalog';

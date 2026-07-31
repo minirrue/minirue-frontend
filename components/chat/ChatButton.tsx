@@ -86,6 +86,11 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
   // trigger a localStorage write) 60 times a second for no benefit, since the
   // panel can't meaningfully track a bubble that's mid-drag anyway.
   const [livePos, setLivePos] = React.useState<{ x: number; y: number } | null>(null);
+  // A one-shot FLIP offset: the delta between where a drag was released and
+  // where it snapped, applied as a `translate()` the instant `left`/`top`
+  // jump to their new value, then cleared (with a transition) a frame later
+  // so the button visibly slides the rest of the way — see `settleDrag`.
+  const [snapOffset, setSnapOffset] = React.useState<{ x: number; y: number } | null>(null);
   const dragStart = React.useRef<{ x: number; y: number } | null>(null);
   const dragOrigin = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const didDrag = React.useRef(false);
@@ -132,6 +137,10 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
   const settleDrag = (finalPos: { x: number; y: number }) => {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    // The side is judged from the button's CENTRE against the viewport
+    // midpoint, not its left corner — a wide button hanging just past the
+    // midline by its corner alone would otherwise be judged by an edge that
+    // is mostly off to the other side.
     const center = finalPos.x + CHAT_BUTTON_SIZE / 2;
     const edge: ChatButtonEdge = center < vw / 2 ? 'left' : 'right';
 
@@ -146,8 +155,32 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
       vw,
       vh,
     );
+    // Vertical position is preserved verbatim (`finalPos.y`, only re-clamped
+    // to stay on screen) — only ever the horizontal side snaps.
     setChatButtonPosition(snapped);
     setLivePos(null);
+
+    // The visual jump from the drop point to the snapped rest animates via
+    // `transform` only (this project's motion rule: never `left`/`top`).
+    // `left`/`top` commit to their new resting value INSTANTLY (no
+    // transition — see the style below), and a `translate()` offset exactly
+    // cancels that jump the instant it happens; clearing the offset one
+    // frame later, WITH a transform transition enabled, is what animates the
+    // button sliding from where it was dropped to where it snapped, entirely
+    // on a GPU-accelerated property. `prefers-reduced-motion` needs no
+    // special-casing here — the global rule in mr-tokens.css already forces
+    // every transition duration to ~0, so this settles instantly for anyone
+    // who has asked for less motion.
+    const dx = finalPos.x - snapped.x;
+    const dy = finalPos.y - snapped.y;
+    if (dx !== 0 || dy !== 0) {
+      setSnapOffset({ x: dx, y: dy });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setSnapOffset(null));
+      });
+    } else {
+      setSnapOffset(null);
+    }
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -237,12 +270,15 @@ export default function ChatButton({ onClick, hasUnread = false, open = false }:
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: dragStart.current ? 'grabbing' : 'grab',
         touchAction: 'none',
-        transform: `${intoViewOffsetPx !== 0 ? `translateX(${intoViewOffsetPx}px) ` : ''}${isMobile && open && !hasCustomPosition ? 'translateY(-6.5vh) ' : ''}${pressed ? 'scale(0.92)' : hovered ? 'scale(1.06)' : 'scale(1)'}`,
-        transition: livePos
+        transform: `${snapOffset ? `translate(${snapOffset.x}px, ${snapOffset.y}px) ` : ''}${intoViewOffsetPx !== 0 ? `translateX(${intoViewOffsetPx}px) ` : ''}${isMobile && open && !hasCustomPosition ? 'translateY(-6.5vh) ' : ''}${pressed ? 'scale(0.92)' : hovered ? 'scale(1.06)' : 'scale(1)'}`,
+        // Motion rule: transform + opacity only, never `left`/`top` (those
+        // now always jump instantly to their new value — see `settleDrag`'s
+        // FLIP offset, which is what actually animates the snap-to-edge).
+        transition: livePos || snapOffset
           ? 'none'
           : pressed
-            ? 'transform 80ms cubic-bezier(0.4,0,0.2,1)'
-            : 'transform 260ms cubic-bezier(0.16,1,0.3,1), background 200ms, box-shadow 260ms, left 260ms cubic-bezier(0.16,1,0.3,1), top 260ms cubic-bezier(0.16,1,0.3,1)',
+            ? 'transform var(--mr-dur-instant) var(--mr-ease-snappy)'
+            : 'transform var(--mr-dur-normal) var(--mr-ease-out), background var(--mr-dur-fast), box-shadow var(--mr-dur-medium)',
         willChange: 'transform',
       }}
     >

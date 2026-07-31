@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import { catalog, productBrand } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
+import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
 
 export interface BrandListingOutcome {
   /** false when the API failed. Distinct from "succeeded and found nothing" —
@@ -22,11 +23,16 @@ const EMPTY: BrandListingOutcome = { ok: true, products: [], total: 0, hasMore: 
  * their own cache slot within a request instead of colliding.
  */
 export const getProductListing = cache(
-  async (brand: string, brandId: string): Promise<BrandListingOutcome> => {
+  async (
+    brand: string,
+    brandId: string,
+    categoryId: string = '',
+  ): Promise<BrandListingOutcome> => {
     try {
       const res = await catalog.listProducts({
         ...(brand ? { brand } : {}),
         ...(brandId ? { brandId } : {}),
+        ...(categoryId ? { categoryId } : {}),
         limit: 24,
       });
       return {
@@ -65,3 +71,31 @@ export function isIndexableBrandListing(hasFilter: boolean, outcome: BrandListin
 export function brandListingName(outcome: BrandListingOutcome): string | null {
   return outcome.products.length ? productBrand(outcome.products[0]) : null;
 }
+
+/**
+ * The display category name for a `?categoryId=` filtered listing — same
+ * rule as `brandListingName`: read only from a real resolved product, never
+ * from the raw id, so an unknown categoryId, zero matches, or an outage all
+ * fall back to null (handled the same way `brandName` is upstream) rather
+ * than showing something unverified.
+ */
+export function categoryListingName(outcome: BrandListingOutcome): string | null {
+  return outcome.products.length ? (outcome.products[0].categoryName ?? null) : null;
+}
+
+/**
+ * The one admin-editable shop name (see `ResolvedChrome.shopName`), cached
+ * per-request the same way `getProductListing` is — `generateMetadata` and
+ * the page body both need it, and without `cache()` that would be two
+ * fetches to `/storefront/chrome` for one request. Never throws: a chrome
+ * fetch failure must not take metadata generation or the page down with it,
+ * so this falls back to the same default the backend itself falls back to.
+ */
+export const getShopName = cache(async (): Promise<string> => {
+  try {
+    const chrome = await fetchStorefrontChrome();
+    return chrome.shopName || FALLBACK_CHROME.shopName;
+  } catch {
+    return FALLBACK_CHROME.shopName;
+  }
+});

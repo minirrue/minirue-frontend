@@ -4,8 +4,12 @@ import React from 'react';
 import MobileSheet from '@/components/ui/MobileSheet';
 import StarRating from '@/components/storefront/StarRating';
 import Icon from '@/components/ui/Icon';
-import { apiCreateReview, apiAttachReviewMedia } from '@/lib/api/reviews';
+import { apiCreateReview, apiAttachReviewMedia, type ReviewMedia } from '@/lib/api/reviews';
 import type { ApiError } from '@/lib/api/client';
+import { capturePosterFrame } from '@/lib/media/capture-poster-frame';
+import ReviewMediaStrip, {
+  type LocalReviewMedia,
+} from '@/components/storefront/reviews/ReviewMediaStrip';
 
 const MAX_IMAGES = 4;
 const MAX_VIDEOS = 1;
@@ -23,6 +27,14 @@ interface Attachment {
   file: File;
   kind: 'IMAGE' | 'VIDEO';
   previewUrl: string;
+  /** A VIDEO's poster frame, captured locally off this same file (see
+   * capturePosterFrame) — undefined while capture is still running, null if
+   * it failed or this attachment is a photo. */
+  posterBlob?: Blob | null;
+  /** Local object URL for `posterBlob`, so the thumbnail the customer sees
+   * while composing is the same real thumbnail that ships with the review —
+   * never a network round trip, so it can never show broken pre-submit. */
+  posterPreviewUrl?: string | null;
 }
 
 function kindOf(file: File): 'IMAGE' | 'VIDEO' | null {
@@ -45,7 +57,21 @@ export default function WriteReviewSheet({
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [done, setDone] = React.useState(false);
+  // What the server actually stored, so the "done" screen renders through
+  // the exact same component (ReviewMediaStrip) the eventual approved
+  // review uses — with `localMediaById` filling in this session's own
+  // bytes so nothing is ever shown broken while the just-uploaded URLs are
+  // still cold.
+  const [submittedMedia, setSubmittedMedia] = React.useState<ReviewMedia[]>([]);
+  const [localMediaById, setLocalMediaById] = React.useState<Record<string, LocalReviewMedia>>({});
   const fileRef = React.useRef<HTMLInputElement>(null);
+  // Poster capture runs in the background off the local file (see
+  // capturePosterFrame) and usually finishes well before the customer
+  // presses Send. On the rare chance it hasn't, `submit` awaits the
+  // in-flight promise here rather than uploading the video with whatever
+  // poster state happened to have landed first — keyed by `previewUrl`,
+  // stable for an attachment's whole lifetime.
+  const posterCapturesRef = React.useRef(new Map<string, Promise<Blob | null>>());
 
   // Object URLs are a memory leak if they are never handed back. This used to
   // register with a `[]` dep array, so its closure only ever saw the initial
@@ -66,7 +92,10 @@ export default function WriteReviewSheet({
 
   React.useEffect(() => {
     return () => {
-      attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+      attachmentsRef.current.forEach((a) => {
+        URL.revokeObjectURL(a.previewUrl);
+        if (a.posterPreviewUrl) URL.revokeObjectURL(a.posterPreviewUrl);
+      });
     };
   }, []);
 
@@ -102,12 +131,36 @@ export default function WriteReviewSheet({
     if (next.length) setAttachments((prev) => [...prev, ...next]);
     // Reset so choosing the same file twice still fires a change event.
     if (fileRef.current) fileRef.current.value = '';
+
+    // Grab a poster frame for every video just added, off the browser's own
+    // local decode of the file — never the server. Runs after the state
+    // update above so a slow capture never delays showing the attachment
+    // itself; the thumbnail simply upgrades from "playing video preview" to
+    // "poster frame" once ready, matched back to its attachment by
+    // `previewUrl` (stable for this attachment's whole lifetime).
+    for (const attachment of next) {
+      if (attachment.kind !== 'VIDEO') continue;
+      const capture = capturePosterFrame(attachment.file).then((blob) => {
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.previewUrl === attachment.previewUrl
+              ? { ...a, posterBlob: blob, posterPreviewUrl: blob ? URL.createObjectURL(blob) : null }
+              : a,
+          ),
+        );
+        return blob;
+      });
+      posterCapturesRef.current.set(attachment.previewUrl, capture);
+    }
   }
 
   function removeAttachment(index: number) {
     setAttachments((prev) => {
       const target = prev[index];
-      if (target) URL.revokeObjectURL(target.previewUrl);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+        if (target.posterPreviewUrl) URL.revokeObjectURL(target.posterPreviewUrl);
+      }
       return prev.filter((_, i) => i !== index);
     });
   }
@@ -129,9 +182,41 @@ export default function WriteReviewSheet({
 
       // Uploaded one at a time and in order, so a failure half way leaves the
       // review and the photos that did land, rather than losing everything.
+      // Each call returns the review's FULL media list so far, in the same
+      // (sortOrder, createdAt) order attachments were added in — the last
+      // response is therefore exactly `attachments`, zipped 1:1, once every
+      // upload has landed.
+      let lastResponseMedia: ReviewMedia[] = [];
       for (const attachment of attachments) {
-        await apiAttachReviewMedia(review.id, attachment.file);
+        // If this video's poster capture is still running, wait for it — a
+        // customer who fills in the form quickly can otherwise reach Send
+        // before the browser has finished decoding the local file, and
+        // uploading with `posterBlob` still `undefined` would ship a video
+        // with no thumbnail for no reason other than timing.
+        const pendingPoster = posterCapturesRef.current.get(attachment.previewUrl);
+        const poster = attachment.posterBlob !== undefined
+          ? attachment.posterBlob
+          : pendingPoster
+            ? await pendingPoster
+            : null;
+        const result = await apiAttachReviewMedia(review.id, attachment.file, poster);
+        lastResponseMedia = result.media;
       }
+
+      // Local-first (task 41, 2026-07-31): match each server-created media
+      // row back to the local bytes it came from, purely by upload order —
+      // there is no other shared key, since the media id is only assigned
+      // server-side. Threaded into ReviewMediaStrip below so the customer's
+      // own just-submitted photo/video/poster never has to wait on the
+      // guaranteed-cold first request for its resolved URL.
+      const localById: Record<string, LocalReviewMedia> = {};
+      lastResponseMedia.forEach((m, i) => {
+        const attachment = attachments[i];
+        if (!attachment) return;
+        localById[m.id] = { file: attachment.file, posterFile: attachment.posterBlob };
+      });
+      setSubmittedMedia(lastResponseMedia);
+      setLocalMediaById(localById);
 
       setDone(true);
       onWritten();
@@ -157,8 +242,14 @@ export default function WriteReviewSheet({
         setRating(0);
         setTitle('');
         setBody('');
-        attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+        attachments.forEach((a) => {
+          URL.revokeObjectURL(a.previewUrl);
+          if (a.posterPreviewUrl) URL.revokeObjectURL(a.posterPreviewUrl);
+        });
+        posterCapturesRef.current.clear();
         setAttachments([]);
+        setSubmittedMedia([]);
+        setLocalMediaById({});
       }
     }, 600);
   }
@@ -208,6 +299,14 @@ export default function WriteReviewSheet({
           Every review is read before it goes on the shop, so it will appear here
           shortly rather than straight away.
         </p>
+
+        {/* What was just sent — the SAME component (ReviewMediaStrip) an
+            approved review uses, so this is exactly what the review will
+            look like once it's live, not a stand-in. `localMediaById`
+            supplies this session's own bytes so nothing here ever shows
+            broken while the resolved URL the server just returned is still
+            a guaranteed-cold cache miss. */}
+        <ReviewMediaStrip media={submittedMedia} localMediaById={localMediaById} />
       </MobileSheet>
     );
   }

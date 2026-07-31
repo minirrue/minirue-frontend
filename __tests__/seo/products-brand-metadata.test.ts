@@ -15,6 +15,19 @@ jest.mock('@/lib/api/catalog', () => {
   };
 });
 
+// generateMetadata now reads the admin-editable shop name (getShopName(),
+// products-data.ts) instead of a hardcoded "MiniRue" literal — mocked here so
+// every test below stays deterministic and never attempts a real fetch to
+// the backend. Resolves to the same 'MiniRue' FALLBACK_CHROME already uses,
+// so none of the existing title/description assertions below had to change.
+jest.mock('@/lib/api/storefront', () => {
+  const actual = jest.requireActual('@/lib/api/storefront');
+  return {
+    ...actual,
+    fetchStorefrontChrome: jest.fn().mockResolvedValue(actual.FALLBACK_CHROME),
+  };
+});
+
 import { generateMetadata } from '@/app/products/page';
 import { PRODUCT_FIXTURE } from '../storefront/fixtures/product';
 
@@ -78,5 +91,27 @@ describe('ProductsPage generateMetadata — brand filter', () => {
     });
     await generateMetadata(searchParams({ brandId: 'brand-billie' }));
     expect(listProducts).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ProductsPage generateMetadata — category filter (Task 19 follow-up)', () => {
+  it('valid categoryId with results: indexable, category-named title/description, categoryId canonical', async () => {
+    listProducts.mockResolvedValue({
+      data: [PRODUCT_FIXTURE],
+      meta: { total: 4, hasMore: false, cursor: null },
+    });
+    const meta = await generateMetadata(searchParams({ categoryId: 'cat-perfume' }));
+    expect(meta.title).toBe(`${PRODUCT_FIXTURE.categoryName} — MiniRue`);
+    expect(meta.description).toContain('4 products');
+    expect(meta.description).toContain(PRODUCT_FIXTURE.categoryName as string);
+    expect(meta.alternates).toEqual({ canonical: '/products?categoryId=cat-perfume' });
+    expect(meta.robots).toEqual({ index: true, follow: true });
+  });
+
+  it('unknown categoryId: noindex, generic fallback copy — never fabricates a name from the id', async () => {
+    listProducts.mockResolvedValue({ data: [], meta: { total: 0, hasMore: false, cursor: null } });
+    const meta = await generateMetadata(searchParams({ categoryId: 'cat-does-not-exist' }));
+    expect(meta.title).toBe('All Products');
+    expect(meta.robots).toEqual({ index: false, follow: true });
   });
 });

@@ -47,10 +47,24 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const logoutMutation = useLogout();
-  const { data: authUser } = useUser();
+  const { data: authUser, isError: authRefused } = useUser();
+  /**
+   * Who the header renders for. `session` is the `mr-session` localStorage
+   * note — a snapshot taken at sign-in that nothing revokes — so on its own it
+   * outlives the session it describes. Once /auth/me has actually ANSWERED
+   * 401 (`authRefused`), that note is stale by definition and the header must
+   * fail closed: no greeting, no account menu, no "signed in" mobile sheet.
+   *
+   * Without this the header kept saying "Hi, Sarah" and offering the account
+   * menu after a sign-out that happened anywhere other than its own button —
+   * the account page's Sign out, another tab, or a session simply being
+   * revoked server-side — because the snapshot was read once at mount and
+   * nothing ever re-read it.
+   */
+  const identity = authRefused ? null : session;
   // Only fetched once signed in — a guest on the storefront would otherwise
   // fire an authenticated request on every page that can only come back 401.
-  const { data: customerProfile } = useCustomerProfile({ enabled: Boolean(session) });
+  const { data: customerProfile } = useCustomerProfile({ enabled: Boolean(identity) });
   // The mobile sheet's footer account button shows the shopper's first name
   // in place of its admin-configured label once signed in — reusing the same
   // chain AccountIdentityStrip.tsx already settled on for the account page
@@ -74,6 +88,12 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   const { data: chrome } = useStorefrontChrome();
   const socials = chrome?.footer.socials ?? [];
   const mobileMenu = chrome?.mobileMenu ?? FALLBACK_CHROME.mobileMenu;
+  // The ONE shop name/logo (2026-07-31 owner ask) — never the hardcoded
+  // "MiniRue" literal the wordmark used to render. `shopLogoUrl` mirrors how
+  // a partner's own space page (app/[slug]/SpaceView.tsx) shows its logo:
+  // present when an admin has uploaded one, null otherwise.
+  const shopName = chrome?.shopName ?? FALLBACK_CHROME.shopName;
+  const shopLogoUrl = chrome?.shopLogoUrl ?? FALLBACK_CHROME.shopLogoUrl;
 
   // Single scroll subscription, rAF-throttled, shared with MobileBottomNav —
   // replaces the old unthrottled `scroll` listener this file used to attach
@@ -87,8 +107,23 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   const belowBreakpoint = w > 0 && tablet;
   const hideForScroll = belowBreakpoint && !atTop && direction === 'down';
 
+  // Re-read whenever the auth answer moves, not once at mount. Every
+  // sign-out path clears `mr-session`, but this component is not remounted by
+  // a client-side navigation, so a sign-out from the account page or a
+  // server-side revocation left the stale snapshot on screen indefinitely.
   React.useEffect(() => {
     setSession(getSession());
+  }, [authUser, authRefused]);
+
+  // Cross-tab. Removing a localStorage key fires `storage` in every OTHER
+  // tab — for free, no BroadcastChannel — so a sign-out in one tab drops this
+  // tab's greeting immediately instead of at its next navigation.
+  React.useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === 'mr-session') setSession(getSession());
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   React.useEffect(() => {
@@ -213,18 +248,33 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             </nav>
           )}
 
-          {/* Center: Wordmark — links home like any storefront logo */}
+          {/* Center: brand logo (when the shop has uploaded one) + Wordmark —
+              links home like any storefront logo. The logo renders the same
+              way a partner's own space page shows theirs
+              (app/[slug]/SpaceView.tsx) — present when uploaded, absent
+              otherwise, never a broken image. */}
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <Link
               href="/"
-              aria-label="MiniRue — home"
+              aria-label={`${shopName} — home`}
               data-trace-id="PG-STOREFRONT-HOME-001::EL-LINK-wordmark-home"
-              style={{ display: 'inline-flex', textDecoration: 'none', color: 'inherit' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}
             >
+              {shopLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={shopLogoUrl}
+                  alt=""
+                  width={mobile ? 24 : 28}
+                  height={mobile ? 24 : 28}
+                  style={{ objectFit: 'contain', borderRadius: 4 }}
+                />
+              ) : null}
               <Wordmark
                 size={mobile ? 18 : 22}
                 color={isLight ? 'var(--mr-cream-100)' : 'var(--mr-gold-500)'}
                 captionColor={isLight ? 'rgba(253,251,245,0.65)' : 'var(--mr-ink-500)'}
+                text={shopName}
               />
             </Link>
           </div>
@@ -251,7 +301,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             {/* Account — desktop identity menu; on mobile it lives inside the
                 hamburger menu. */}
             {!mobile && (
-              session ? (
+              identity ? (
                 <div style={{ position: 'relative' }}>
                   <button
                     onClick={() => setAccountOpen((o) => !o)}
@@ -268,7 +318,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                       padding: '6px 0',
                     }}
                   >
-                    Hi, {(authUser?.name ?? session.name)?.split(' ')[0] || 'there'}
+                    Hi, {(authUser?.name ?? identity.name)?.split(' ')[0] || 'there'}
                   </button>
                   {accountOpen && (
                     <div
@@ -301,7 +351,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                             color: 'var(--mr-ink-900)',
                           }}
                         >
-                          {authUser?.name ?? session.name}
+                          {authUser?.name ?? identity.name}
                         </p>
                         <p
                           style={{
@@ -310,7 +360,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                             color: 'var(--mr-ink-500)',
                           }}
                         >
-                          {authUser?.email ?? session.email}
+                          {authUser?.email ?? identity.email}
                         </p>
                         {/* No role badge. Everyone who can see this menu is a
                             customer, so labelling them one is telling a shopper
@@ -455,9 +505,10 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
           navbar={navbar}
           mobileMenu={mobileMenu}
           socials={socials}
-          signedIn={Boolean(session)}
+          signedIn={Boolean(identity)}
           onOpenSearch={openMobileSearch}
           accountDisplayName={accountDisplayName}
+          shopName={chrome?.shopName}
         />
       )}
 

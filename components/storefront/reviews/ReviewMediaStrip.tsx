@@ -3,6 +3,19 @@
 import React from 'react';
 import Image from 'next/image';
 import type { ReviewMedia } from '@/lib/api/reviews';
+import { useObjectUrl } from '@/lib/hooks/useObjectUrl';
+import { useUploadPreviewSrc } from '@/lib/hooks/useUploadPreviewSrc';
+
+/** Local bytes for one media row, still in THIS browser because it was just
+ *  uploaded this session (see WriteReviewSheet.tsx's "done" screen) — keyed
+ *  by media id so the right attachment gets the right local fallback. Omit
+ *  entirely for the normal case (a review loaded from someone else's earlier
+ *  upload, or on a later visit), where no local bytes exist at all. */
+export interface LocalReviewMedia {
+  file?: File | Blob | null;
+  /** A VIDEO's poster frame, captured client-side (capturePosterFrame). */
+  posterFile?: File | Blob | null;
+}
 
 /**
  * The photos and clip a customer attached, shown small and opening full size.
@@ -18,7 +31,15 @@ import type { ReviewMedia } from '@/lib/api/reviews';
  * reload. Every media item below now either loads, or visibly says it
  * couldn't and offers a retry — never silently disappears.
  */
-export default function ReviewMediaStrip({ media }: { media: ReviewMedia[] }) {
+export default function ReviewMediaStrip({
+  media,
+  localMediaById,
+}: {
+  media: ReviewMedia[];
+  /** Local bytes for whichever of these rows were just uploaded THIS
+   *  session — see LocalReviewMedia. Omit entirely for the normal case. */
+  localMediaById?: Record<string, LocalReviewMedia>;
+}) {
   const [lightbox, setLightbox] = React.useState<ReviewMedia | null>(null);
 
   if (!media.length) return null;
@@ -31,16 +52,30 @@ export default function ReviewMediaStrip({ media }: { media: ReviewMedia[] }) {
         data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-review-media"
       >
         {media.map((m) => {
+          const local = localMediaById?.[m.id];
           // A media row whose upload never resolved a URL is still a media row
           // the customer attached — dropping it silently reads as "nothing was
-          // attached" when something was. Show that it's broken instead.
-          if (!m.url) {
+          // attached" when something was. Show that it's broken instead —
+          // UNLESS local bytes are standing in for it (just uploaded, remote
+          // not resolved/warm yet), in which case there is nothing broken
+          // about it at all.
+          if (!m.url && !local?.file) {
             return <BrokenMediaTile key={m.id} kind={m.kind} />;
           }
           return m.kind === 'IMAGE' ? (
-            <ReviewImageThumb key={m.id} media={m} onOpen={() => setLightbox(m)} />
+            <ReviewImageThumb
+              key={m.id}
+              media={m}
+              localFile={local?.file}
+              onOpen={() => setLightbox(m)}
+            />
           ) : (
-            <ReviewVideoThumb key={m.id} media={m} />
+            <ReviewVideoThumb
+              key={m.id}
+              media={m}
+              localFile={local?.file}
+              localPosterFile={local?.posterFile}
+            />
           );
         })}
       </div>
@@ -112,12 +147,20 @@ function BrokenMediaTile({
  */
 function ReviewImageThumb({
   media,
+  localFile,
   onOpen,
 }: {
   media: ReviewMedia;
+  /** Present only for a photo just uploaded THIS session — see
+   *  LocalReviewMedia. Renders local-first (never a broken frame while the
+   *  cold remote URL warms) instead of the plain next/image+retry path
+   *  below, which is for the normal "loaded from someone else's earlier
+   *  upload" case with no local bytes to fall back to. */
+  localFile?: File | Blob | null;
   onOpen: () => void;
 }) {
   const src = media.url!;
+  const localFirst = useUploadPreviewSrc(media.url, localFile);
   const [useFallback, setUseFallback] = React.useState(false);
   const [renderedSrc, setRenderedSrc] = React.useState(src);
   const [failed, setFailed] = React.useState(false);
@@ -155,6 +198,43 @@ function ReviewImageThumb({
     setFailed(false);
     setRenderedSrc(src);
     setUseFallback(true);
+  }
+
+  // Local-first (task 41, 2026-07-31): this photo was just uploaded THIS
+  // session, so its bytes are already in the browser — show them
+  // immediately rather than making the customer wait on the guaranteed-cold
+  // first request for the remote URL. `useUploadPreviewSrc` swaps to the
+  // remote copy on its own once a background probe confirms it loads; a
+  // broken frame is never possible in the meantime.
+  if (localFile) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="Open this customer photo full size"
+        className="relative overflow-hidden"
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 'var(--mr-radius-md)',
+          border: '1px solid var(--mr-hairline)',
+          padding: 0,
+          background: 'var(--mr-cream-300)',
+          cursor: 'zoom-in',
+        }}
+      >
+        {localFirst.displaySrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={localFirst.displaySrc}
+            alt="Photo from a customer"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <BrokenMediaTile kind="IMAGE" onRetry={localFirst.retryRemote} />
+        )}
+      </button>
+    );
   }
 
   if (failed) {
@@ -199,13 +279,37 @@ function ReviewImageThumb({
   );
 }
 
-/** A video clip thumbnail. On `error` it shows the same "couldn't load, tap
- *  to retry" affordance as a photo — tapping remounts the element (via a
- *  fresh `key`), which re-asks the browser for the same URL rather than
- *  leaving a permanently broken player in the review. */
-function ReviewVideoThumb({ media }: { media: ReviewMedia }) {
+/**
+ * A video clip thumbnail. On `error` it shows the same "couldn't load, tap
+ * to retry" affordance as a photo — tapping remounts the element (via a
+ * fresh `key`), which re-asks the browser for the same URL rather than
+ * leaving a permanently broken player in the review.
+ *
+ * Local-first (task 41, 2026-07-31), same rule as a photo: `localFile` /
+ * `localPosterFile` are only ever set for a video just uploaded THIS
+ * session (see WriteReviewSheet's "done" screen). When present, the video
+ * plays straight off its own local object URL (bytes already confirmed
+ * good — no cold remote request needed for it at all) and the poster is
+ * shown local-first via `useUploadPreviewSrc`, swapping to the resolved
+ * remote poster only once a background probe confirms it loads. Without
+ * them (the normal case — an approved review loaded on any later visit),
+ * this still runs the same poster probe against `media.posterUrl` alone:
+ * strictly better than a bare `poster` attribute, which would otherwise
+ * ask the browser to paint a cold imgproxy URL with no fallback at all.
+ */
+function ReviewVideoThumb({
+  media,
+  localFile,
+  localPosterFile,
+}: {
+  media: ReviewMedia;
+  localFile?: File | Blob | null;
+  localPosterFile?: File | Blob | null;
+}) {
   const [failed, setFailed] = React.useState(false);
   const [reloadKey, setReloadKey] = React.useState(0);
+  const localVideoUrl = useObjectUrl(localFile);
+  const poster = useUploadPreviewSrc(media.posterUrl, localPosterFile);
 
   if (failed) {
     return (
@@ -222,7 +326,11 @@ function ReviewVideoThumb({ media }: { media: ReviewMedia }) {
   return (
     <video
       key={reloadKey}
-      src={media.url!}
+      // Known-good local bytes beat a remote request every time — there is
+      // nothing to probe or fall back from when the browser already has the
+      // exact file it just uploaded.
+      src={localVideoUrl ?? media.url!}
+      poster={poster.displaySrc ?? undefined}
       controls
       playsInline
       preload="metadata"

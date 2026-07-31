@@ -42,24 +42,68 @@ const AUTH_CHANNEL = 'mr-auth';
 let lastRefreshAt = 0;
 const REFRESH_ECHO_MS = 3_000;
 
-function announceRefresh() {
-  lastRefreshAt = Date.now();
+function postAuthMessage(message: { kind: string; at: number }): void {
   try {
     if (typeof BroadcastChannel === 'undefined') return;
     const ch = new BroadcastChannel(AUTH_CHANNEL);
-    ch.postMessage({ kind: 'refreshed', at: lastRefreshAt });
+    ch.postMessage(message);
     ch.close();
   } catch {
     // A browser that refuses the channel simply falls back to the server's
-    // grace window.
+    // own checks (the rotation grace window, the sid revocation check).
   }
+}
+
+function announceRefresh() {
+  lastRefreshAt = Date.now();
+  postAuthMessage({ kind: 'refreshed', at: lastRefreshAt });
+}
+
+/**
+ * Tells the shopper's OTHER tabs that they deliberately signed out.
+ *
+ * The channel used to carry `refreshed` and nothing else, and every piece of
+ * sign-out state below (`deliberateSignOutAt`, `lastRefreshAt`) is a MODULE
+ * variable — one copy per tab. So a sign-out in tab A left tab B believing it
+ * had refreshed a moment ago, and tab B's very next 401 took the echo
+ * shortcut in refreshSession(): it answered "yes, you are signed in" from
+ * that timestamp without asking the server, and called markAuthenticated(),
+ * which re-created the `mr-auth` hint cookie. Cookies are shared across tabs,
+ * so tab B resurrected the hint that tab A had just deliberately cleared —
+ * and `mr-auth` is what the Edge proxy (proxy.ts:185) reads to let someone
+ * into /account and /orders, and what SupportWidget's stored-session veto
+ * reads to decide the chat panel belongs to someone with an account.
+ *
+ * That is the reported "we are logged out and yet we can see our past history
+ * in the chat panel", reproduced with two tabs open and nothing else.
+ */
+function announceSignedOut() {
+  postAuthMessage({ kind: 'signed-out', at: deliberateSignOutAt });
 }
 
 if (typeof BroadcastChannel !== 'undefined') {
   try {
     const ch = new BroadcastChannel(AUTH_CHANNEL);
     ch.onmessage = (e: MessageEvent<{ kind?: string; at?: number }>) => {
+      if (e.data?.kind === 'signed-out') {
+        // Adopt the other tab's sign-out as our own: the quiet window stops
+        // this tab announcing "your session expired" for what was a
+        // deliberate departure, AND stops refreshSession() from doing
+        // anything at all (its first line is this same check).
+        deliberateSignOutAt = Math.max(deliberateSignOutAt, e.data.at ?? Date.now());
+        sessionExpiryAnnounced = true;
+        // The echo shortcut must not be able to speak for a session that has
+        // just ended. Zeroed, not decremented — there is nothing to echo.
+        lastRefreshAt = 0;
+        clearAuthFlag();
+        clearSession();
+        return;
+      }
       if (e.data?.kind === 'refreshed') {
+        // A `refreshed` that crosses a sign-out on the wire must lose. Without
+        // this, the losing order of two in-flight messages decides whether the
+        // browser ends up signed in.
+        if (Date.now() - deliberateSignOutAt < SIGN_OUT_QUIET_MS) return;
         lastRefreshAt = Math.max(lastRefreshAt, e.data.at ?? Date.now());
         markAuthenticated();
       }
@@ -70,6 +114,20 @@ if (typeof BroadcastChannel !== 'undefined') {
 }
 
 async function refreshSession(): Promise<boolean> {
+  // Signing out is the one thing a refresh must never undo. Two separate ways
+  // it used to:
+  //   1. The echo shortcut below answers "yes, you are signed in" from a
+  //      timestamp alone, without asking the server — and re-sets the mr-auth
+  //      hint cookie while doing it. Sign out, and the account poll's 401
+  //      lands here milliseconds later and resurrects the flag.
+  //   2. Even the real round-trip is wrong here: the backend's rotation grace
+  //      window (fixed in backend migration 0110) would mint a fresh pair from
+  //      the just-revoked token.
+  // Either way the shopper is signed back in while the UI shows them signed
+  // out, which is exactly the reported "logged out but my chat history is
+  // still there". After a deliberate sign-out there is nothing to refresh.
+  if (Date.now() - deliberateSignOutAt < SIGN_OUT_QUIET_MS) return false;
+
   // Another tab refreshed a moment ago, so the cookies in this tab are already
   // fresh. Posting the spent token would only rotate it again for nothing.
   if (Date.now() - lastRefreshAt < REFRESH_ECHO_MS) {
@@ -142,6 +200,10 @@ const SIGN_OUT_QUIET_MS = 5_000;
 export function markDeliberateSignOut(): void {
   deliberateSignOutAt = Date.now();
   sessionExpiryAnnounced = true;
+  // Nothing in this tab may claim a recent refresh any more, and neither may
+  // anything arriving from another tab — see announceSignedOut().
+  lastRefreshAt = 0;
+  announceSignedOut();
 }
 
 function announceSessionExpired(): void {
@@ -177,8 +239,16 @@ export async function apiFetch<T>(
   });
 
   // Only attempt a cookie-based refresh for calls that expect a session.
-  if (res.status === 401 && !_isRetry && auth) {
-    if (await refreshSession()) {
+  //
+  // `!_isRetry` gates the REFRESH attempt only — deliberately not the clearing
+  // below. A retried request that 401s again used to fall straight through to
+  // the generic !res.ok branch, so the local auth state was never cleared and
+  // the mr-auth hint cookie survived a session the server had already refused.
+  // Anything reading that flag (the support widget's "does this person have an
+  // account" veto, the Edge proxy) then kept treating a signed-out visitor as
+  // signed in.
+  if (res.status === 401 && auth) {
+    if (!_isRetry && (await refreshSession())) {
       markSessionRecovered();
       return apiFetch<T>(path, { ...init, _isRetry: true });
     }

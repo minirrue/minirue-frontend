@@ -6,6 +6,10 @@ export interface ReviewMedia {
   /** Resolved server-side at read time — images through imgproxy, videos as a
    * freshly signed link. Null when storage could not resolve it. */
   url: string | null;
+  /** A VIDEO's poster frame — same resolution path as `url`, always through
+   * imgproxy (it is a photo). Null for an IMAGE row, and for a VIDEO
+   * uploaded before posters existed. */
+  posterUrl: string | null;
   contentType: string;
 }
 
@@ -75,9 +79,13 @@ export async function apiCreateReview(
 }
 
 /**
- * One file per call. A phone on a slow connection is far likelier to finish
- * four 8MB uploads than one 32MB one, and a failure then costs one photo
- * rather than all of them.
+ * One attachment per call. A phone on a slow connection is far likelier to
+ * finish four 8MB uploads than one 32MB one, and a failure then costs one
+ * photo rather than all of them.
+ *
+ * `poster` is a frame the browser already captured locally off a video (see
+ * `capturePosterFrame`) — sent as a second multipart field alongside it. Only
+ * ever meaningful for a video; the backend ignores it for a photo.
  *
  * No Content-Type header — the browser has to set the multipart boundary
  * itself, and setting it by hand is what silently breaks the upload.
@@ -85,9 +93,11 @@ export async function apiCreateReview(
 export async function apiAttachReviewMedia(
   reviewId: string,
   file: File,
+  poster?: Blob | null,
 ): Promise<{ media: ReviewMedia[] }> {
   const form = new FormData();
   form.append('file', file);
+  if (poster) form.append('poster', poster, 'poster.jpg');
   return apiFetch(`/reviews/${reviewId}/media`, {
     method: 'POST',
     body: form,

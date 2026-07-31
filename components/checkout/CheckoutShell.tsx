@@ -29,7 +29,7 @@ export default function CheckoutShell({ children }: Props) {
         <Header navbar={chrome?.navbar ?? FALLBACK_CHROME.navbar} onOpenCart={openDrawer} cartCount={itemCount} />
         {children}
       </div>
-      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} />
+      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} shopName={chrome?.shopName} />
     </>
   );
 }

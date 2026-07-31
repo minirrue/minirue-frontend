@@ -11,6 +11,7 @@ import { useSupportContext } from '@/lib/support/support-context';
 // replying to a thread already started, so nobody is cut off mid-conversation.
 import { getGuestSupport, clearGuestSupport } from '@/lib/support/session';
 import { useUser } from '@/lib/hooks/use-auth';
+import { useCustomerProfile } from '@/lib/hooks/use-customer';
 import { isAuthenticated } from '@/lib/auth/tokens';
 import {
   apiStartSupport,
@@ -27,6 +28,7 @@ import {
 } from '@/lib/api/support';
 import ConversationList from '@/components/chat/ConversationList';
 import NewChatComposer, { type NewChatDraft } from '@/components/chat/NewChatComposer';
+import { apiGetPublicSettings } from '@/lib/api/settings';
 
 const POLL_INTERVAL_MS = 4000;
 const META_POLL_INTERVAL_MS = 8000;
@@ -83,8 +85,18 @@ export default function SupportWidget() {
   // Reactive auth: `useUser().data` is the source of truth for "is this a logged-in
   // customer" — it updates when login completes (unlike the localStorage snapshot,
   // which is stale at widget-mount and never reacts to a login that happens later).
-  const { data: authUser, isLoading: authLoading } = useUser();
+  const { data: authUser, isLoading: authLoading, isError: authRefused } = useUser();
   const isLoggedIn = !!authUser;
+  // The shopper's OWN uploaded photo, used only for the optimistic bubble
+  // between "Send" and the server's echo. The server resolves
+  // `senderAvatarUrl` on the real message, but for that ~1s the bubble the
+  // shopper is staring at is the one this file builds — and it used to carry
+  // no avatar at all, so their own photo blinked to the generic icon on every
+  // single send ("still my avatar shows generic avatar although i have
+  // uploaded my avatar on customer account"). Query is shared with the rest
+  // of the account area, so this is a cache read, not an extra request.
+  const { data: customerProfile } = useCustomerProfile({ enabled: isLoggedIn });
+  const myAvatarUrl = customerProfile?.avatarUrl ?? null;
   /**
    * The browser's own hint that a session exists. Not a security check — it is
    * documented as one that must never be trusted for access — but it is a
@@ -119,6 +131,32 @@ export default function SupportWidget() {
   const awaitingGuestInfo = false;
   const [error, setError] = React.useState<string | null>(null);
   const [meta, setMeta] = React.useState<SupportMetaDto | null>(null);
+  // The shop's own uploaded logo — the panel header's avatar (never the "MR"
+  // monogram it replaced, never an initial letter). Fetched once; the same
+  // public settings the storefront chrome already reads elsewhere.
+  const [shopAvatarUrl, setShopAvatarUrl] = React.useState<string | null>(null);
+  // The ONE shop name (2026-07-31 owner ask) — the panel header and the
+  // "MiniRue Support" fallback sender name below both read this rather than
+  // a hardcoded literal. Same fetch as the logo above; `null` until it
+  // resolves falls back to ChatPanel's own "MiniRue Support" default.
+  const [shopName, setShopName] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    apiGetPublicSettings()
+      .then((s) => {
+        if (!cancelled) {
+          setShopAvatarUrl(s.logoUrl ?? null);
+          setShopName(s.displayName || null);
+        }
+      })
+      .catch(() => {
+        // No logo fetched this session — the header falls back to the
+        // generic person icon, never a broken image or a letter.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const seenIdsRef = React.useRef<Set<string>>(new Set());
   const lastMessageIdRef = React.useRef<string | undefined>(undefined);
@@ -204,6 +242,10 @@ export default function SupportWidget() {
     setConversations([]);
     setView('thread');
     setError(null);
+    // The unread dot lives on the floating button, outside the panel, so it
+    // survived every other reset here — a signed-out visitor kept seeing a
+    // badge for a reply addressed to the previous account.
+    setHasUnread(false);
     seenIdsRef.current = new Set();
     lastMessageIdRef.current = undefined;
     retryPayloadsRef.current = new Map();
@@ -391,6 +433,7 @@ export default function SupportWidget() {
         id: tempId,
         from: 'cx',
         name: 'You',
+        senderAvatarUrl: myAvatarUrl,
         text,
         time: formatTime(new Date().toISOString()),
         attachments,
@@ -400,7 +443,7 @@ export default function SupportWidget() {
       setMessages((prev) => [...prev, optimistic]);
       return tempId;
     },
-    [],
+    [myAvatarUrl],
   );
 
   const markSent = React.useCallback((tempId: string, real: SupportMessageDto) => {
@@ -408,7 +451,23 @@ export default function SupportWidget() {
     seenIdsRef.current.add(real.id);
     lastMessageIdRef.current = real.id;
     retryPayloadsRef.current.delete(tempId);
-    setMessages((prev) => prev.map((m) => (m.tempId === tempId ? { ...mapMessage(real), status: 'sent' } : m)));
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.tempId !== tempId) return m;
+        const mapped = mapMessage(real);
+        // The server's own attachment DTOs never carry `localFile` — it is a
+        // client-only field for bytes this session just uploaded. Carry it
+        // over from the optimistic bubble (matched by URL, which the server
+        // echoes back unchanged) so the message keeps showing those bytes
+        // instead of momentarily reverting to a cold, unproven remote URL
+        // right at the exact moment this reconciliation swaps the bubble.
+        const attachments = mapped.attachments?.map((a) => {
+          const optimistic = m.attachments?.find((oa) => oa.url === a.url);
+          return optimistic?.localFile ? { ...a, localFile: optimistic.localFile } : a;
+        });
+        return { ...mapped, attachments, status: 'sent' };
+      }),
+    );
   }, []);
 
   const markFailed = React.useCallback((tempId: string) => {
@@ -599,7 +658,13 @@ export default function SupportWidget() {
    * disagree (the httpOnly cookie, the mr-auth flag, the localStorage note).
    * That is deliberately not attempted here.
    */
-  const looksSignedIn = isLoggedIn || hasStoredSession;
+  // The stored-session veto covers the "we do not know yet" case — a transient
+  // /auth/me failure leaving `authUser` undefined for the rest of the
+  // 15-minute staleTime. It must NOT cover the "we asked and the server said
+  // no" case: once /auth/me has actually refused, the mr-auth hint is stale by
+  // definition and letting it win is how a signed-out person kept being shown
+  // a signed-in panel. `authRefused` is that answer.
+  const looksSignedIn = isLoggedIn || (hasStoredSession && !authRefused);
   const guestBlocked = !looksSignedIn && !authLoading;
 
   const panelBody = guestBlocked ? (
@@ -617,6 +682,7 @@ export default function SupportWidget() {
         loading={listLoading}
         onOpen={(id) => resumeConversation(id)}
         onNew={() => setView('new')}
+        shopName={shopName ?? undefined}
       />
     ) : undefined;
 
@@ -636,6 +702,8 @@ export default function SupportWidget() {
         referenceId={conversationId ?? undefined}
         onRetry={handleRetry}
         body={panelBody}
+        shopAvatarUrl={shopAvatarUrl}
+        headerTitle={shopName ?? undefined}
         onBack={
           // Only offer a way back when there is a list to go back TO.
           canBrowseList && view === 'thread'

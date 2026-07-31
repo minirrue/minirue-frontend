@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
 import type { ResolvedSection } from '@/lib/api/storefront';
 import ProductCard from './ProductCard';
+import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 
 type Section = Extract<ResolvedSection, { type: 'collabShowcase' }>;
@@ -181,12 +182,13 @@ export default function CollabShowcase({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontFamily: 'var(--mr-font-serif)',
-              fontSize: 22,
               color: 'var(--mr-gold-500)',
             }}
           >
-            {tab.label.charAt(0)}
+            {/* Never the first letter of the collaborator's name. A missing
+                logo shows the same generic silhouette every other avatar slot
+                in the storefront uses (owner request, raised repeatedly). */}
+            <GenericAvatarIcon size={28} />
           </div>
         )}
         <div style={{ flex: 1, minWidth: 200 }}>

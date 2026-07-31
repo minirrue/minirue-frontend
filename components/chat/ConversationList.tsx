@@ -16,6 +16,13 @@ interface Props {
   onOpen: (id: string) => void;
   onNew: () => void;
   loading?: boolean;
+  /**
+   * The ONE admin-editable shop name (2026-07-31 owner ask) — shown for a
+   * house-desk (no `brandName`) thread instead of a hardcoded "MiniRue"
+   * literal. `undefined` falls back to the same literal, so a caller with no
+   * shop-name data yet is unaffected.
+   */
+  shopName?: string;
 }
 
 function timeLabel(iso?: string): string {
@@ -49,6 +56,7 @@ export default function ConversationList({
   onOpen,
   onNew,
   loading,
+  shopName,
 }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -100,7 +108,7 @@ export default function ConversationList({
                   >
                     {/* Who they are talking to is the identity of the thread — the
                         customer already knows who they themselves are. */}
-                    {c.brandName || 'MiniRue'}
+                    {c.brandName || shopName || 'MiniRue'}
                   </span>
                   <span style={{ fontSize: 10, color: 'var(--mr-ink-400)' }}>
                     {timeLabel(c.lastMessageAt)}
