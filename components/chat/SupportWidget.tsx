@@ -309,6 +309,49 @@ export default function SupportWidget() {
     clearGuestSupport();
   }, [authUser, authLoading]);
 
+  /**
+   * Wipe the panel the instant the session ends — sign-out OR expiry, both.
+   *
+   * The identity effect above only fires on a TRANSITION of `authUser?.userId`.
+   * That is not enough on its own: `useUser` is `retry: false` with a
+   * 15-minute staleTime, so when a session dies without this tab making the
+   * change — a sign-out in another tab, a server-side revocation, an expiry
+   * discovered by some other request — `authUser` can stay populated and the
+   * transition never happens. The panel then keeps the previous account's
+   * conversation list on screen, which is exactly what the owner screenshotted
+   * on a signed-out home page: "signed out and chat window still stale, it
+   * must be autocleared on sign out or session expire both."
+   *
+   * `IDENTITY_CLEARED_EVENT` is dispatched by `apiFetch` the moment it clears
+   * auth state on a 401, and by the cross-tab sign-out broadcast, so it covers
+   * both cases and does not wait for a refetch. Bumping `identityTokenRef`
+   * matters as much as the setters: any in-flight `apiSupportMine()` or
+   * `apiSupportMessages()` issued under the old identity would otherwise
+   * resolve straight back into the state we just cleared.
+   */
+  React.useEffect(() => {
+    function onIdentityCleared() {
+      identityTokenRef.current += 1;
+      setConversationId(null);
+      setMessages([]);
+      setConversations([]);
+      setView('thread');
+      setError(null);
+      setHasUnread(false);
+      seenIdsRef.current = new Set();
+      lastMessageIdRef.current = undefined;
+      retryPayloadsRef.current = new Map();
+      accountBootstrappedRef.current = false;
+      guestBootstrappedRef.current = false;
+      // `prevIdentityRef` is reset too, so the identity effect treats the next
+      // sign-in as a fresh start rather than comparing against a person who is
+      // no longer here.
+      prevIdentityRef.current = null;
+    }
+    window.addEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
+    return () => window.removeEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
+  }, []);
+
   // Bootstrap once: claim any guest thread into the logged-in account, then
   // resume the account's most recent conversation across devices/sessions.
   // Guests (not logged in) just resume via their stored guest token.
