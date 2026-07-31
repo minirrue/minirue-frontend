@@ -6,6 +6,7 @@ import type { Category } from '@/lib/api/catalog';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import CollectionSchema from '@/components/seo/CollectionSchema';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import CategoryClient from './CategoryClient';
 import { findCategoryPath, CategoryBreadcrumb } from './category-breadcrumb';
@@ -108,6 +109,11 @@ export default async function CategoryPage({ params }: PageProps) {
         productName={displayName}
         productSlug={`categories/${slug}`}
         ancestors={schemaAncestors}
+      />
+      <CollectionSchema
+        name={displayName}
+        path={`/categories/${slug}`}
+        items={{ kind: 'products', products: initialProducts }}
       />
       <div className="mr-page-sheet">
         <AnnouncementBar />

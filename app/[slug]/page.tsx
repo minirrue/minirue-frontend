@@ -4,6 +4,8 @@ import { connection } from 'next/server';
 import StorefrontPageView from '@/components/storefront/StorefrontPageView';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
+import CollectionSchema from '@/components/seo/CollectionSchema';
+import { SITE_URL } from '@/lib/seo/config';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import SpaceView from './SpaceView';
 import { fetchSpace, fetchStorefrontPage } from '@/lib/api/storefront';
@@ -103,8 +105,33 @@ export default async function StorefrontSlugPage({ params }: PageProps) {
       /* AnnouncementBar has its own defaults */
     }
 
+    // Mirrors SpaceView's own base/brandTiles logic exactly, so the ItemList
+    // never claims a URL the visible page itself doesn't link to: a partner
+    // brand tile links inside its own space (`/{space}/{brand}`); a HOUSE
+    // space's brand tile links to the scoped `/products?brandId=` listing
+    // instead, since a house brand has no page of its own. The space's own
+    // no-brand bucket (`isGeneric`) is never a brand tile — see SpaceView.
+    const spaceBase = space.space.kind === 'HOUSE' ? '' : `/${space.space.slug}`;
+    const spaceBrandTiles = space.brands.filter((b) => !b.isGeneric);
+
     return (
       <>
+        <CollectionSchema
+          name={space.space.name}
+          path={`/${slug}`}
+          items={{
+            kind: 'brands',
+            brands: spaceBrandTiles.map((b) => ({
+              name: b.name,
+              url:
+                space.space.kind === 'HOUSE'
+                  ? `${SITE_URL}/products?brandId=${b.id}`
+                  : `${SITE_URL}${spaceBase}/${b.slug}`,
+              imageUrl: b.imageUrl,
+              description: b.description,
+            })),
+          }}
+        />
         <div className="mr-page-sheet">
           <AnnouncementBar
             messages={storefrontAnnouncement?.announcementMessages}
