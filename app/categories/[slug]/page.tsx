@@ -1,15 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
-import { catalog } from '@/lib/api/catalog';
-import type { Category } from '@/lib/api/catalog';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import CollectionSchema from '@/components/seo/CollectionSchema';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import CategoryClient from './CategoryClient';
-import { findCategoryPath, CategoryBreadcrumb } from './category-breadcrumb';
+import { CategoryBreadcrumb } from './category-breadcrumb';
+import { resolveCategoryPath, getCategoryListing, buildCategoryDescription } from './category-data';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -17,31 +16,34 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    const categories = await catalog.listCategories();
-    const path = findCategoryPath(categories, slug);
-    const cat = path?.at(-1);
-    if (cat) {
-      return {
-        title: cat.name,
-        description: `Shop ${cat.name} at MiniRue.`,
-        alternates: {
-          canonical: `/categories/${slug}`,
-        },
-        openGraph: {
-          title: `${cat.name} | MiniRue`,
-          description: `Shop ${cat.name} at MiniRue.`,
-        },
-      };
-    }
-  } catch {
-    // API unavailable
+  const path = await resolveCategoryPath(slug);
+  const cat = path?.at(-1);
+  if (!cat) {
+    return {
+      title: 'Browse by Category',
+      description: 'Browse products by category at MiniRue.',
+      alternates: {
+        canonical: `/categories/${slug}`,
+      },
+    };
   }
+
+  // Deduped with the page body below — one API call serves both. The count
+  // and representative brand names come from this fetched result set — there
+  // is no productCount field on Category/StorefrontSpace/StorefrontSpaceCategory,
+  // so it cannot come from anywhere else.
+  const outcome = await getCategoryListing(cat.id);
+  const description = buildCategoryDescription(cat.name, outcome);
+
   return {
-    title: 'Browse by Category',
-    description: 'Browse products by category at MiniRue.',
+    title: cat.name,
+    description,
     alternates: {
       canonical: `/categories/${slug}`,
+    },
+    openGraph: {
+      title: `${cat.name} | MiniRue`,
+      description,
     },
   };
 }
@@ -62,14 +64,7 @@ export default async function CategoryPage({ params }: PageProps) {
   // slots by key/index during replaying"), so React discarded the server HTML
   // and the page rendered blank behind the root layout's Suspense fallback.
 
-  let categories: Category[] = [];
-  try {
-    categories = await catalog.listCategories();
-  } catch {
-    // API unavailable — graceful degradation
-  }
-
-  const path = findCategoryPath(categories, slug);
+  const path = await resolveCategoryPath(slug);
   if (!path) {
     notFound();
   }
@@ -78,22 +73,11 @@ export default async function CategoryPage({ params }: PageProps) {
   // the breadcrumb renders between "Shop" and the category itself.
   const ancestors = path.slice(0, -1);
 
-  let initialProducts: import('@/lib/api/catalog').ApiProduct[] = [];
-  let initialHasMore = false;
-  let initialCursor: string | null = null;
-
-  try {
-    const productsRes = await catalog
-      .listProducts({ categoryId: category.id, limit: 24 })
-      .catch(() => null);
-    if (productsRes) {
-      initialProducts = productsRes.data;
-      initialHasMore = productsRes.meta.hasMore;
-      initialCursor = productsRes.meta.cursor;
-    }
-  } catch {
-    // API unavailable — graceful degradation
-  }
+  // Already resolved during generateMetadata — React's cache() makes this the
+  // same request, not a second one. Schema and grid below both read from this
+  // same array, so they can never disagree.
+  const outcome = await getCategoryListing(category.id);
+  const { products: initialProducts, hasMore: initialHasMore, cursor: initialCursor } = outcome;
 
   const displayName = category.name;
   // Ancestor crumbs for the JSON-LD schema — the same chain rendered visibly
