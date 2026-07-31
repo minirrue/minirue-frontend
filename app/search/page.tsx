@@ -10,8 +10,7 @@ import { JsonLd } from '@/components/seo/JsonLd';
 import { normalizeSearchTerm, searchCanonicalPath } from '@/lib/search/query';
 import { getSearchResults, isIndexableSearchPage } from './search-data';
 import SearchResultsClient from './SearchResultsClient';
-
-const BASE_URL = 'https://minirueshop.com';
+import { SITE_URL as BASE_URL } from '@/lib/seo/config';
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

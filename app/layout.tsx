@@ -17,8 +17,7 @@ import { SupportProvider } from "@/lib/support/support-context";
 import SupportWidget from "@/components/chat/SupportWidget";
 import { AnnouncementBarProvider } from "@/components/layout/AnnouncementBar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
-
-const BASE_URL = "https://minirueshop.com";
+import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],

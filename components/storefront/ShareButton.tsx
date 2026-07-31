@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Icon from '@/components/ui/Icon';
+import { SITE_URL } from '@/lib/seo/config';
 
 interface ShareButtonProps {
   /** Absolute or root-relative URL to share. Resolved against the live origin. */
@@ -33,7 +34,7 @@ export default function ShareButton({ url, title, text, traceId }: ShareButtonPr
     if (/^https?:\/\//i.test(url)) return url;
     if (typeof window !== 'undefined') return new URL(url, window.location.origin).toString();
     // SSR: fall back to the canonical origin so the first paint is shareable too.
-    return `https://minirueshop.com${url.startsWith('/') ? '' : '/'}${url}`;
+    return `${SITE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
   }, [url]);
 
   const copyLink = React.useCallback(async () => {

@@ -1,6 +1,5 @@
 import { JsonLd } from "./JsonLd";
-
-const BASE_URL = "https://minirueshop.com";
+import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
 /**
  * Brand-name variants. This is the actual mechanism that teaches Google that "Mini Rue",

@@ -7,8 +7,7 @@ import {
   productBrand,
   variantInStock,
 } from "@/lib/api/catalog";
-
-const BASE_URL = "https://minirueshop.com";
+import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
 interface SearchResultsSchemaProps {
   query: string;

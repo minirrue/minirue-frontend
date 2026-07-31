@@ -1,8 +1,7 @@
 import { JsonLd } from "./JsonLd";
 import type { ApiProduct } from "@/lib/api/catalog";
 import { primaryMedia, mediaImageUrl, lowestPrice, productBrand } from "@/lib/api/catalog";
-
-const BASE_URL = "https://minirueshop.com";
+import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
 interface ProductSchemaProps {
   slug: string;

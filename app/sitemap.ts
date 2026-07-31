@@ -6,8 +6,7 @@ import {
   normalizeSearchTerm,
   searchCanonicalPath,
 } from "@/lib/search/query";
-
-const BASE_URL = "https://minirueshop.com";
+import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [

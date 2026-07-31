@@ -7,6 +7,7 @@ import ProductPageClient from './ProductPageClient';
 import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
+import { SITE_URL } from '@/lib/seo/config';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         description: p.tagline ?? p.description,
         type: 'website',
         siteName: 'MiniRue',
-        url: `https://minirueshop.com/products/${slug}`,
+        url: `${SITE_URL}/products/${slug}`,
         ...(imgUrl ? { images: [{ url: imgUrl, width: 1200, height: 1200, alt: p.name }] } : {}),
       },
       twitter: {

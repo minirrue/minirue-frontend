@@ -1,6 +1,5 @@
 import { JsonLd } from "./JsonLd";
-
-const BASE_URL = "https://minirueshop.com";
+import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
 /** The section every catalogue page sits under — the shop, not a category.
  * Was hardcoded to "Perfumes" until Task 19 (2026-07-30); MiniRue sells more
