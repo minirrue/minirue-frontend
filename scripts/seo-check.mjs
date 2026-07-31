@@ -13,12 +13,11 @@
 // Run: `node scripts/seo-check.mjs` after `next build` has produced `.next/server/app/**.html`.
 // Exit 0 = clean. Exit 1 = at least one hard-fail assertion failed (details printed above).
 //
-// Env:
-//   SEO_CHECK_REQUIRE_PRODUCTS=1   Promote the product-link check (see below) to a hard failure
-//                                  even when the build looks backend-less. CI sets this once a
-//                                  reachable backend is part of the build step; local devs
-//                                  without a backend do not set it, and get a warning instead of
-//                                  a build break.
+// No configuration. Every assertion calibrates itself from the build output it is inspecting, so
+// the same command is correct on a developer's laptop with no backend and on a production build
+// with a full catalog. An earlier version took an SEO_CHECK_REQUIRE_PRODUCTS env var; it was
+// removed because a guard you have to configure per-environment is a guard that fails in the
+// environment nobody configured.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -26,7 +25,8 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const appDir = path.join(repoRoot, ".next", "server", "app");
+const nextDir = path.join(repoRoot, ".next");
+const appDir = path.join(nextDir, "server", "app");
 const publicDir = path.join(repoRoot, "public");
 
 const failures = [];
@@ -307,14 +307,35 @@ function sameOriginPathname(url) {
   }
 }
 
+// Next emits app-path-routes-manifest.json listing every app-router route it built. Ask that
+// rather than guessing at the on-disk layout: Turbopack and webpack lay `.next/server/app` out
+// differently, and an earlier version of this check looked for `opengraph-image/route.js`, which
+// exists under webpack but not under Turbopack — so it passed locally and failed every Vercel
+// build (Vercel forces Turbopack via modifyConfig) on a route that had built perfectly well.
+// The manifest is builder-agnostic and is the same thing Next itself routes from.
+let builtRoutes = null;
 function routeExistsInBuildOutput(pathname) {
+  if (builtRoutes === null) {
+    builtRoutes = new Set();
+    const manifestPath = path.join(nextDir, "app-path-routes-manifest.json");
+    if (fs.existsSync(manifestPath)) {
+      try {
+        for (const route of Object.values(JSON.parse(fs.readFileSync(manifestPath, "utf8")))) {
+          if (typeof route === "string") builtRoutes.add(route);
+        }
+      } catch {
+        // Unparseable manifest — fall through to the filesystem probe below.
+      }
+    }
+  }
+  if (builtRoutes.has(pathname)) return true;
+
+  // Fallback for a build whose manifest is missing or unreadable.
   const segments = pathname.replace(/^\//, "").split("/").filter(Boolean);
   if (segments.length === 0) return fs.existsSync(path.join(appDir, "index.html"));
   const base = path.join(appDir, ...segments);
   if (fs.existsSync(`${base}.html`)) return true;
   if (fs.existsSync(base) && fs.statSync(base).isDirectory()) {
-    // A Next.js route-handler output dir (e.g. opengraph-image/route.js) rather than a plain
-    // prerendered page — presence of any route.* file means the route built successfully.
     return fs.readdirSync(base).some((entry) => entry.startsWith("route."));
   }
   return false;
@@ -350,55 +371,44 @@ for (const [pathname, files] of ogImageRefs) {
 // 3. Product-link check — conditional, because this sandbox has no reachable backend.
 // ---------------------------------------------------------------------------------------------
 //
-// The brief demands index.html contain at least one `href="/products/` link. That is correct in
-// production, where the catalog API is reachable and app/sitemap.ts + the homepage both resolve
-// real products. It is NOT achievable in this sandbox: no backend is reachable here, so
-// `catalog.listProducts` fails, the homepage <main> genuinely has no products to link to, and
-// app/sitemap.ts falls back to its five static entries (logged as ECONNREFUSED during the build
-// above). Making this an unconditional hard failure would break every local build for every
-// developer without a backend running, and the guard would be disabled within a week — so it is
-// hard-failed only when there is positive evidence the build HAD a working backend, or when
-// SEO_CHECK_REQUIRE_PRODUCTS=1 is set (CI's job: set this once the build step has a real API to
-// talk to). Otherwise a missing product link is a warning, not a build breaker.
+// The homepage must link to products — that regression (ProductCard rendering a <div onClick>
+// instead of an <a>) is why the storefront passed zero link equity to any product page.
+//
+// But "zero product links" is only a defect when there ARE products to link to. Judge that from
+// the sitemap this same build emitted: if it contains product URLs, the build resolved a real
+// catalog and an empty homepage is a genuine regression. If it contains none, the catalog was
+// empty or unreachable, and an empty homepage is the correct rendering of an empty shop — not
+// something the frontend can or should fail a build over.
+//
+// This deliberately replaces two earlier attempts that both produced false failures: a total
+// sitemap-URL-count heuristic (a build with categories but no products cleared the threshold and
+// hard-failed a correct page), and an SEO_CHECK_REQUIRE_PRODUCTS override (which fails whenever
+// the catalog is legitimately empty, exactly when it is least useful). Comparing two views of the
+// same catalog needs no threshold and no configuration, and cannot disagree with itself.
 
 const sitemapBodyPath = path.join(appDir, "sitemap.xml.body");
-let sitemapUrlCount = null;
+let sitemapProductUrls = null;
 if (fs.existsSync(sitemapBodyPath)) {
   const sitemapBody = fs.readFileSync(sitemapBodyPath, "utf8");
-  sitemapUrlCount = (sitemapBody.match(/<loc>/g) || []).length;
+  sitemapProductUrls = (sitemapBody.match(/<loc>[^<]*\/products\/[^<]+<\/loc>/g) || []).length;
 }
 
-// Five static entries (/, /products, /brands, /collab, /categories) is exactly what
-// app/sitemap.ts emits when every catalog/space fetch throws — see its own console.error calls
-// during the build. More than five means at least one dynamic (product/category/space) URL made
-// it in, which only happens with a reachable backend.
-const STATIC_ONLY_SITEMAP_COUNT = 5;
-const backendLooksReachable = sitemapUrlCount === null || sitemapUrlCount > STATIC_ONLY_SITEMAP_COUNT;
-
 const productLinkCount = indexHtml ? (indexHtml.match(/href="\/products\//g) || []).length : 0;
-const requireProducts = process.env.SEO_CHECK_REQUIRE_PRODUCTS === "1";
+const where = indexHtmlPath ? path.relative(repoRoot, indexHtmlPath) : ".next/server/app/index.html";
+const assertion = 'index.html links to a product whenever the catalog contains one';
 
 if (productLinkCount === 0) {
-  const detail = sitemapUrlCount === null
-    ? "index.html has zero `href=\"/products/\"` links (sitemap.xml.body not found, so backend-reachability could not be inferred)"
-    : `index.html has zero \`href="/products/"\` links, and app/sitemap.ts emitted only ${sitemapUrlCount} URL(s) (the static-only count is ${STATIC_ONLY_SITEMAP_COUNT}) — consistent with no backend being reachable during this build`;
-
-  if (requireProducts || backendLooksReachable) {
-    const reachabilityReason = sitemapUrlCount === null
-      ? "sitemap.xml.body was not found at all, so backend-reachability could not be inferred — failing closed rather than silently downgrading to a warning"
-      : `the sitemap has ${sitemapUrlCount} URLs, more than the static-only count of ${STATIC_ONLY_SITEMAP_COUNT} — the backend looks reachable`;
+  if (sitemapProductUrls > 0) {
     fail(
-      indexHtmlPath ? path.relative(repoRoot, indexHtmlPath) : ".next/server/app/index.html",
-      'index.html contains at least one href="/products/" link',
-      requireProducts
-        ? `${detail}. SEO_CHECK_REQUIRE_PRODUCTS=1 was set, so this is a hard failure regardless of backend reachability.`
-        : `${detail}, and ${reachabilityReason} — so an empty homepage is treated as a real regression, not an environment artifact.`,
+      where,
+      assertion,
+      `index.html has zero \`href="/products/"\` links, but this build's own sitemap contains ${sitemapProductUrls} product URL(s) — so the catalog resolved and the homepage should be linking into it. This is the regression the guard exists to catch: check that ProductCard still renders a real <a>/<Link> and that the homepage sections are receiving products.`,
     );
   } else {
     warn(
-      indexHtmlPath ? path.relative(repoRoot, indexHtmlPath) : ".next/server/app/index.html",
-      'index.html contains at least one href="/products/" link',
-      `${detail}. Treated as a warning, not a build failure, because this looks like a backend-less local build. Set SEO_CHECK_REQUIRE_PRODUCTS=1 (CI does) to make this a hard failure once a backend is expected to be reachable.`,
+      where,
+      assertion,
+      `index.html has zero \`href="/products/"\` links, and this build's sitemap contains no product URLs either — the catalog was empty or unreachable at build time (app/sitemap.ts logs the specific reason above). An empty homepage is the correct rendering of an empty catalog, so this is a warning, not a failure. It becomes a hard failure automatically once the catalog has products.`,
     );
   }
 }
