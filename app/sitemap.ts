@@ -22,15 +22,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     },
+    {
+      url: `${BASE_URL}/brands`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/collab`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/categories`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
   ];
   // NOTE: bare `/search` is no longer listed. It is now `robots: { index: false }`
   // (it is a form, not an answer), and listing a URL you also tell Google not to
   // index is the same self-contradiction as listing a robots-blocked one. The
   // query URLs below are the pages worth submitting.
-  // NOTE: /cart, /login, /signup and /forgot are deliberately NOT listed. robots.txt Disallows
-  // them, and submitting a URL you also block is a self-contradiction Search Console reports as
-  // "Submitted URL blocked by robots.txt" — it degrades trust in the whole sitemap. A sitemap is a
-  // list of pages you want INDEXED, not a list of pages that exist.
+  // NOTE: /cart, /login, /signup, /forgot and /reset-password are deliberately NOT listed.
+  // robots.txt Disallows them, and submitting a URL you also block is a self-contradiction
+  // Search Console reports as "Submitted URL blocked by robots.txt" — it degrades trust in the
+  // whole sitemap. A sitemap is a list of pages you want INDEXED, not a list of pages that exist.
 
   // Dynamic products / categories / brands.
   //
