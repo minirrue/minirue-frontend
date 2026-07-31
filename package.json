@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build && npm run seo-check",
+    "build:only": "next build",
+    "seo-check": "node scripts/seo-check.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
