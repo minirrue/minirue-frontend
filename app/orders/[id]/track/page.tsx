@@ -50,18 +50,19 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 export default async function TrackOrderPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   let shipment: Shipment | null = null;
   let order = null;
 
   try {
-    order = await apiGetOrder(params.id);
+    order = await apiGetOrder(id);
   } catch { /* non-critical */ }
 
   try {
     shipment = await apiFetch<Shipment>(
-      `/fulfillment/shipments/order/${params.id}`,
+      `/fulfillment/shipments/order/${id}`,
       { auth: true },
     );
   } catch {
@@ -82,7 +83,7 @@ export default async function TrackOrderPage({
     >
       <div style={{ width: '100%', maxWidth: 600 }}>
         <Link
-          href={`/account/orders/${params.id}`}
+          href={`/account/orders/${id}`}
           style={{
             fontSize: 'var(--mr-text-xs)',
             fontFamily: 'var(--mr-font-label)',

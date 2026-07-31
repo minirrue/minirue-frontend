@@ -4,6 +4,10 @@ import { connection } from 'next/server';
 import StorefrontPageView from '@/components/storefront/StorefrontPageView';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
+import CollectionSchema from '@/components/seo/CollectionSchema';
+import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import SpaceOrganizationSchema from '@/components/seo/SpaceOrganizationSchema';
+import { SITE_URL } from '@/lib/seo/config';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import SpaceView from './SpaceView';
 import { fetchSpace, fetchStorefrontPage } from '@/lib/api/storefront';
@@ -103,8 +107,52 @@ export default async function StorefrontSlugPage({ params }: PageProps) {
       /* AnnouncementBar has its own defaults */
     }
 
+    // Mirrors SpaceView's own base/brandTiles logic exactly, so the ItemList
+    // never claims a URL the visible page itself doesn't link to: a partner
+    // brand tile links inside its own space (`/{space}/{brand}`); a HOUSE
+    // space's brand tile links to the scoped `/products?brandId=` listing
+    // instead, since a house brand has no page of its own. The space's own
+    // no-brand bucket (`isGeneric`) is never a brand tile — see SpaceView.
+    const spaceBase = space.space.kind === 'HOUSE' ? '' : `/${space.space.slug}`;
+    const spaceBrandTiles = space.brands.filter((b) => !b.isGeneric);
+
     return (
       <>
+        {/* Mirrors SpaceView's own Breadcrumb exactly: Home / {space}, never
+            "Home / Shop / {space}" — a partner space is a peer to the main
+            shop, not nested under it, and the visible crumb agrees. */}
+        <BreadcrumbSchema trail={[{ name: space.space.name, path: slug }]} />
+        {/* A partner's own Organization node — never for a HOUSE space, which
+            already has one at ${SITE_URL}/#organization (OrganizationSchema).
+            See SpaceOrganizationSchema.tsx for why a second one here would
+            compete with it rather than reinforce it. */}
+        {space.space.kind === 'PARTNER' && (
+          <SpaceOrganizationSchema space={space.space} />
+        )}
+        <CollectionSchema
+          name={space.space.name}
+          path={`/${slug}`}
+          items={{
+            kind: 'brands',
+            brands: spaceBrandTiles.map((b) => ({
+              name: b.name,
+              url:
+                space.space.kind === 'HOUSE'
+                  ? `${SITE_URL}/products?brandId=${b.id}`
+                  : `${SITE_URL}${spaceBase}/${b.slug}`,
+              imageUrl: b.imageUrl,
+              description: b.description,
+            })),
+          }}
+          // Only a PARTNER space has its own addressable Organization node
+          // (SpaceOrganizationSchema, gated the same way just above) — a
+          // HOUSE space has none of its own to reference here.
+          about={
+            space.space.kind === 'PARTNER'
+              ? { '@id': `${SITE_URL}/${slug}#organization` }
+              : undefined
+          }
+        />
         <div className="mr-page-sheet">
           <AnnouncementBar
             messages={storefrontAnnouncement?.announcementMessages}

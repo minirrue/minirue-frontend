@@ -1,16 +1,13 @@
 'use client';
 
 import React from 'react';
-import type { ApiProduct } from '@/lib/api/catalog';
 import type { ResolvedHome } from '@/lib/api/storefront';
 import SectionRenderer from './SectionRenderer';
 
 export default function HomeView({
   home,
-  onSelect,
 }: {
   home: ResolvedHome;
-  onSelect: (product: ApiProduct) => void;
 }) {
   const firstGridRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -31,7 +28,6 @@ export default function HomeView({
         <div key={section.id} ref={index === firstGridIndex ? firstGridRef : undefined}>
           <SectionRenderer
             section={section}
-            onSelect={onSelect}
             onScrollToProducts={scrollToProducts}
           />
         </div>

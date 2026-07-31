@@ -8,6 +8,8 @@ import HeaderWrapper from '@/app/products/HeaderWrapper';
 import { fetchSpaceChild } from '@/lib/api/storefront';
 import { apiGetPublicSettings } from '@/lib/api/settings';
 import { catalog } from '@/lib/api/catalog';
+import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import CollectionSchema from '@/components/seo/CollectionSchema';
 import SpaceCategoryClient from './SpaceCategoryClient';
 
 /**
@@ -100,6 +102,25 @@ export default async function SpaceChildPage({ params }: PageProps) {
 
   return (
     <>
+    {/* Mirrors the visible breadcrumb below exactly: Home / {space} / {name} —
+        never "Home / Shop / {space} / {name}"; a space is a peer to the main
+        shop, not nested under it. */}
+    <BreadcrumbSchema
+      trail={[
+        { name: space.name, path: space.slug },
+        { name, path: `${space.slug}/${child}` },
+      ]}
+    />
+    {/* The sixth product-listing surface on the site — a real 24-product grid
+        (below, via SpaceCategoryClient) that app/sitemap.ts also submits —
+        but until now it was the only one with no ItemList. Passes the exact
+        same `initialProducts` array the grid renders, same as every other
+        CollectionSchema call site, so schema and page can never disagree. */}
+    <CollectionSchema
+      name={name}
+      path={`/${slug}/${child}`}
+      items={{ kind: 'products', products: initialProducts }}
+    />
     <div className="mr-page-sheet">
       <AnnouncementBar
         messages={storefrontAnnouncement?.announcementMessages}

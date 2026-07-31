@@ -27,12 +27,16 @@ jest.mock('next/server', () => ({
   connection: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { metadata as productsMetadata } from '@/app/products/page';
-import { findCategoryPath, CategoryBreadcrumb } from '@/app/categories/[slug]/page';
+import { generateMetadata } from '@/app/products/page';
+import { findCategoryPath, CategoryBreadcrumb } from '@/app/categories/[slug]/category-breadcrumb';
 import type { Category } from '@/lib/api/catalog';
 
 describe('the shop index (/products) says nothing about perfume', () => {
-  it('has no literal category name in its metadata', () => {
+  it('has no literal category name in its metadata', async () => {
+    // Task 10 turned the static `metadata` export into `generateMetadata`
+    // (needed for the brand-filtered variants) — the unfiltered call is the
+    // equivalent of the old static object this test used to read.
+    const productsMetadata = await generateMetadata({ searchParams: Promise.resolve({}) });
     const text = JSON.stringify(productsMetadata);
     expect(text).not.toMatch(/perfume/i);
     expect(productsMetadata.title).toBe('All Products');

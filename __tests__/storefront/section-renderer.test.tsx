@@ -11,7 +11,6 @@ describe('HomeView', () => {
   it('renders sections in the order the API returned them', () => {
     render(
       <HomeView
-        onSelect={() => {}}
         home={home([
           { id: 's1', type: 'ribbon', items: ['FIRST RIBBON'], speedSeconds: 38, surface: 'ink' },
           {
@@ -26,14 +25,13 @@ describe('HomeView', () => {
   });
 
   it('renders nothing at all for an empty section list', () => {
-    const { container } = render(<HomeView home={home([])} onSelect={() => {}} />);
+    const { container } = render(<HomeView home={home([])} />);
     expect(container.querySelector('section')).toBeNull();
   });
 
   it('skips a ribbon with no phrases', () => {
     render(
       <HomeView
-        onSelect={() => {}}
         home={home([{ id: 's1', type: 'ribbon', items: [], speedSeconds: 38, surface: 'ink' }])}
       />,
     );

@@ -16,7 +16,6 @@ interface ProductGridProps {
   brands: ResolvedBrandCard[];
   display: 'products' | 'brands';
   viewAllHref: string | null;
-  onSelect: (product: ApiProduct) => void;
   /** analytics — `product_impression`/`product_click`'s `listId`. Defaults to
    * a slug of `title` (this grid has no other stable id to reuse) so no
    * caller needs to change to get impressions wired. */
@@ -30,7 +29,6 @@ export default function ProductGrid({
   brands,
   display,
   viewAllHref,
-  onSelect,
   listId,
 }: ProductGridProps) {
   const head = useScrollReveal({ from: { y: 20, opacity: 0, scale: 1 } });
@@ -111,7 +109,6 @@ export default function ProductGrid({
                 <ProductCard
                   product={p as unknown as ApiProduct}
                   index={i}
-                  onClick={() => onSelect(p as unknown as ApiProduct)}
                 />
               </div>
             ))}

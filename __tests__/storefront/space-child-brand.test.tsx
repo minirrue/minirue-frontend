@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import type { StorefrontSpace, StorefrontSpaceBrand, StorefrontSpaceCategory } from '@/lib/api/storefront';
+import { SITE_URL } from '@/lib/seo/config';
 
 /**
  * Task 7 gap-close — `/helia/chanel` (a brand slug inside a space) used to
@@ -123,6 +124,26 @@ describe('SpaceChildPage — brand branch (Task 7 gap-close)', () => {
 
     expect(screen.getByRole('heading', { name: 'Jewellery' })).toBeInTheDocument();
     expect(listProducts).toHaveBeenCalledWith(expect.objectContaining({ categoryId: 'cat-1' }));
+  });
+
+  it('emits a BreadcrumbList JSON-LD node reading Home / Helia / Chanel (Task 9)', async () => {
+    fetchSpaceChild.mockResolvedValue({ kind: 'brand', space: SPACE, brand: BRAND });
+
+    const el = await SpaceChildPage({
+      params: Promise.resolve({ slug: 'helia', child: 'chanel' }),
+    });
+    const { container } = render(el);
+
+    const scripts = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]'),
+    ).map((s) => JSON.parse(s.innerHTML));
+    const breadcrumb = scripts.find((s) => s['@type'] === 'BreadcrumbList') as {
+      itemListElement: Array<{ name: string; item: string }>;
+    };
+    expect(breadcrumb).toBeDefined();
+    expect(breadcrumb.itemListElement.map((i) => i.name)).toEqual(['Home', 'Helia', 'Chanel']);
+    expect(breadcrumb.itemListElement[1].item).toBe(`${SITE_URL}/helia`);
+    expect(breadcrumb.itemListElement[2].item).toBe(`${SITE_URL}/helia/chanel`);
   });
 
   it('metadata names the brand and the space, not "Page not found"', async () => {

@@ -1,6 +1,5 @@
 import { JsonLd } from "./JsonLd";
-
-const BASE_URL = "https://minirueshop.com";
+import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
 /**
  * Brand-name variants. This is the actual mechanism that teaches Google that "Mini Rue",
@@ -24,16 +23,30 @@ const ALTERNATE_NAMES = [
 
 const organization: Record<string, unknown> = {
   "@context": "https://schema.org",
-  "@type": "Organization",
+  // OnlineStore in addition to Organization: this is a storefront, and the
+  // extra type is accurate and low-risk (Google ignores types it doesn't use
+  // for a given rich result, it doesn't penalise extras).
+  "@type": ["Organization", "OnlineStore"],
   "@id": `${BASE_URL}/#organization`,
   name: "MiniRue",
   alternateName: ALTERNATE_NAMES,
   legalName: "MiniRue",
   url: BASE_URL,
+  // Now a real, shipped file — see public/logo.png (generated from
+  // public/assets/logo-on-dark.png). `logo` is required for Organization to
+  // validate at all; it was pointing at a 404 before this.
   logo: `${BASE_URL}/logo.png`,
   description:
     "MiniRue (Mini Rue) — worldwide e-commerce for high-premium, original-quality perfume.",
   slogan: "Original quality perfumes",
+  // Broad, not a country list: the site's own copy (app/layout.tsx) only ever
+  // claims "Free worldwide shipping" and "duty-paid to 62 countries" — it
+  // never names which 62. lib/auth/dial-codes.ts is a curated ~49-country
+  // phone-signup select ("deliberately not the full ISO list", per its own
+  // comment), not a shipping-destination list, so treating it as one here
+  // would be inventing structured data the site doesn't actually assert.
+  // "Worldwide" is the literal claim already on every page.
+  areaServed: "Worldwide",
   brand: {
     "@type": "Brand",
     name: "MiniRue",
@@ -45,6 +58,16 @@ const organization: Record<string, unknown> = {
     "https://instagram.com/minirue",
     "https://tiktok.com/@minirue",
   ],
+  // Deliberately NOT included: address, contactPoint, telephone, email,
+  // vatID, foundingDate. A repo-wide search found no sourceable business
+  // address, support email, phone number, or founding date — only auth test
+  // fixtures and the Egypt dial-code table above. PRODUCT.md documents that
+  // MiniRue is Cairo-fulfilled/EGP-priced but is *presented* as an
+  // international "Maison Paris"-style atelier; publishing a Cairo postal
+  // address here is a brand-positioning decision for the business to make,
+  // not something to infer. A wrong or premature address in this node is
+  // exactly the signal Google uses to build a knowledge panel and match a
+  // Business Profile, so it's safer omitted than guessed.
 };
 
 /**

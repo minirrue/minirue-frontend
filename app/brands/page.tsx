@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
+import CollectionSchema from '@/components/seo/CollectionSchema';
+import { SITE_URL } from '@/lib/seo/config';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import BrandsGrid from './BrandsGrid';
 import { apiListPublicBrands } from '@/lib/api/collaborators';
@@ -47,6 +49,19 @@ export default async function BrandsPage() {
 
   return (
     <>
+      <CollectionSchema
+        name="Brands"
+        path="/brands"
+        items={{
+          kind: 'brands',
+          brands: brands.map((b) => ({
+            name: b.brandName,
+            url: `${SITE_URL}/${b.brandSlug}`,
+            imageUrl: b.logoUrl,
+            description: b.description,
+          })),
+        }}
+      />
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={storefrontAnnouncement?.announcementMessages}

@@ -5,8 +5,10 @@ import { catalog, primaryMedia, mediaImageUrl, productBrand } from '@/lib/api/ca
 import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
 import ProductPageClient from './ProductPageClient';
 import ProductSchema from '@/components/seo/ProductSchema';
-import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
+import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
+import { SITE_URL } from '@/lib/seo/config';
+import { getProductReviewsForSchema } from './product-data';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -21,23 +23,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const brand = productBrand(p);
     return {
       title: brand ? `${p.name} — ${brand}` : p.name,
-      description:
-        p.tagline ?? p.description ?? (brand ? `${p.name} by ${brand}` : p.name),
+      // p.tagline is never populated for products (Task 7 already removed
+      // this dead read from ProductSchema — see buildProductSchema — it
+      // only exists on storefront hero slides), so it's never read here
+      // either.
+      description: p.description ?? (brand ? `${p.name} by ${brand}` : p.name),
       alternates: {
         canonical: `/products/${slug}`,
       },
       openGraph: {
         title: p.name,
-        description: p.tagline ?? p.description,
+        description: p.description,
         type: 'website',
         siteName: 'MiniRue',
-        url: `https://minirueshop.com/products/${slug}`,
+        url: `${SITE_URL}/products/${slug}`,
         ...(imgUrl ? { images: [{ url: imgUrl, width: 1200, height: 1200, alt: p.name }] } : {}),
       },
       twitter: {
         card: 'summary_large_image',
         title: p.name,
-        description: p.tagline ?? p.description,
+        description: p.description,
         images: imgUrl ? [imgUrl] : [],
       },
     };
@@ -77,6 +82,10 @@ export default async function ProductPage({ params }: PageProps) {
   }
   const apiProductJson = JSON.stringify(p);
 
+  // Real reviews for the Product schema's `review` entries. A failure here
+  // must not take the product page down with it — see product-data.ts.
+  const reviews = await getProductReviewsForSchema(p!.id);
+
   // Fetched here rather than through useStorefrontChrome() in the client so the
   // service promises are in the server-rendered HTML. Read client-side only,
   // they were absent from the SSR markup entirely — worse for crawlers than the
@@ -91,8 +100,18 @@ export default async function ProductPage({ params }: PageProps) {
 
   return (
     <>
-      <ProductSchema slug={slug} productName={p!.name} apiProductJson={apiProductJson} />
-      <BreadcrumbSchema productName={p!.name} productSlug={slug} />
+      <ProductSchema
+        slug={slug}
+        productName={p!.name}
+        apiProductJson={apiProductJson}
+        reviews={reviews}
+      />
+      {/* path is `products/${slug}`, not the bare slug: a bare slug resolves
+          to the live partner-space route (/[slug]), so a product breadcrumb
+          built from it could hand Google a partner's shop page as this
+          product's parent instead of the product's own /products/{slug}
+          address. */}
+      <BreadcrumbSchema trail={[SHOP_CRUMB, { name: p!.name, path: `products/${slug}` }]} />
       <ProductPageClient slug={slug} apiProductJson={apiProductJson} perks={perks} />
       <FooterWithSettings />
     </>

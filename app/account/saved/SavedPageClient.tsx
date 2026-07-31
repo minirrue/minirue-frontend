@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useWishlistProducts } from '@/lib/hooks/use-wishlist';
 import ProductCard from '@/components/storefront/ProductCard';
 
@@ -32,7 +31,6 @@ function SavedSkeleton() {
 }
 
 export default function SavedPageClient() {
-  const router = useRouter();
   const { data: products, isLoading, isError, refetch } = useWishlistProducts();
 
   return (
@@ -121,7 +119,6 @@ export default function SavedPageClient() {
               key={product.id}
               product={product}
               index={i}
-              onClick={() => router.push(`/products/${product.slug}`)}
               traceIdPrefix="PG-STOREFRONT-ACCOUNT-006::EL-CARD-saved-product"
             />
           ))}
