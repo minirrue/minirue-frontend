@@ -110,21 +110,17 @@ export async function generateMetadata(): Promise<Metadata> {
       description:
         "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
       url: BASE_URL,
-      images: [
-        {
-          url: `${BASE_URL}/og-image.jpg`,
-          width: 1200,
-          height: 630,
-          alt: "MiniRue",
-        },
-      ],
+      // No `images` override here: app/opengraph-image.tsx (edge ImageResponse)
+      // is the Next.js file-convention OG image and is resolved automatically.
+      // An explicit override used to shadow it with a URL that 404s.
     },
     twitter: {
       card: "summary_large_image",
       title: "MiniRue — Original Quality Perfumes | Mini Rue Shop",
       description:
         "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics.",
-      images: [`${BASE_URL}/og-image.jpg`],
+      // No `images` override — falls back to app/opengraph-image.tsx, same as
+      // openGraph above (there is no separate twitter-image.tsx).
     },
     icons: {
       icon: "/favicon.ico",
