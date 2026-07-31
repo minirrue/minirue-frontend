@@ -98,10 +98,10 @@ describe('buildBreadcrumbSchema', () => {
       });
     });
 
-    it('/products/[slug]: trail=[SHOP_CRUMB, product] yields Home / Shop / {product}, item built from the bare slug (pre-existing behaviour, unchanged)', () => {
+    it('/products/[slug]: trail=[SHOP_CRUMB, product] yields Home / Shop / {product}, item built from products/{slug} — NOT the bare slug', () => {
       const schema = buildBreadcrumbSchema([
         SHOP_CRUMB,
-        { name: 'No. 5 Eau de Parfum', path: 'no-5-eau-de-parfum' },
+        { name: 'No. 5 Eau de Parfum', path: 'products/no-5-eau-de-parfum' },
       ]);
       expect(schema).toEqual({
         '@context': 'https://schema.org',
@@ -113,9 +113,13 @@ describe('buildBreadcrumbSchema', () => {
             '@type': 'ListItem',
             position: 3,
             name: 'No. 5 Eau de Parfum',
-            // Pre-existing behaviour: the item URL is built from the bare
-            // product slug, not `products/${slug}` — preserved unchanged.
-            item: `${SITE_URL}/no-5-eau-de-parfum`,
+            // Fixed: the item URL is built from products/${slug}, the
+            // product's real canonical address. The old bare-slug URL
+            // (${SITE_URL}/no-5-eau-de-parfum) resolves to the live
+            // partner-space route (/[slug]) instead — a product breadcrumb
+            // built from it could hand Google a partner's shop page as this
+            // product's parent.
+            item: `${SITE_URL}/products/no-5-eau-de-parfum`,
           },
         ],
       });

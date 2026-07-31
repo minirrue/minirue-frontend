@@ -45,9 +45,19 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
   // The anchor navigates on its own via `href` now — this is only responsible
   // for the touch two-tap reveal (preventDefault on the first tap so it reveals
   // instead of navigating) and firing the caller's side-effect hook (analytics).
+  //
+  // The card became keyboard-focusable when it switched from a div+onClick to
+  // a real <a> (Next Link) — so on a hybrid touch+keyboard device (isTouch is
+  // true because the device HAS a touchscreen, even if this activation came
+  // from a keyboard), the gate below used to swallow a keyboard Enter/Space
+  // behind the same "reveal, don't navigate" branch a touch tap gets. There is
+  // no touch to reveal for and no way to press Enter twice to recover, so a
+  // click event synthesised from keyboard activation — which always carries
+  // detail === 0, unlike a real pointer click (detail >= 1) — skips the gate
+  // and navigates immediately.
   const handleAnchorClick = React.useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>) => {
-      if (isTouch && !revealed) {
+      if (isTouch && !revealed && e.detail !== 0) {
         e.preventDefault();
         setRevealed(true);
         return;

@@ -23,14 +23,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const brand = productBrand(p);
     return {
       title: brand ? `${p.name} — ${brand}` : p.name,
-      description:
-        p.tagline ?? p.description ?? (brand ? `${p.name} by ${brand}` : p.name),
+      // p.tagline is never populated for products (Task 7 already removed
+      // this dead read from ProductSchema — see buildProductSchema — it
+      // only exists on storefront hero slides), so it's never read here
+      // either.
+      description: p.description ?? (brand ? `${p.name} by ${brand}` : p.name),
       alternates: {
         canonical: `/products/${slug}`,
       },
       openGraph: {
         title: p.name,
-        description: p.tagline ?? p.description,
+        description: p.description,
         type: 'website',
         siteName: 'MiniRue',
         url: `${SITE_URL}/products/${slug}`,
@@ -39,7 +42,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       twitter: {
         card: 'summary_large_image',
         title: p.name,
-        description: p.tagline ?? p.description,
+        description: p.description,
         images: imgUrl ? [imgUrl] : [],
       },
     };
@@ -103,7 +106,12 @@ export default async function ProductPage({ params }: PageProps) {
         apiProductJson={apiProductJson}
         reviews={reviews}
       />
-      <BreadcrumbSchema trail={[SHOP_CRUMB, { name: p!.name, path: slug }]} />
+      {/* path is `products/${slug}`, not the bare slug: a bare slug resolves
+          to the live partner-space route (/[slug]), so a product breadcrumb
+          built from it could hand Google a partner's shop page as this
+          product's parent instead of the product's own /products/{slug}
+          address. */}
+      <BreadcrumbSchema trail={[SHOP_CRUMB, { name: p!.name, path: `products/${slug}` }]} />
       <ProductPageClient slug={slug} apiProductJson={apiProductJson} perks={perks} />
       <FooterWithSettings />
     </>

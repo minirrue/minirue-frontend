@@ -49,11 +49,18 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
-  // Storefront pages are canonical at /<slug>. This has to be a config-level
-  // redirect, not permanentRedirect() in the page: the root layout streams
-  // inside <Suspense>, so by the time the page component runs the response has
-  // already started and Next can only fall back to a client-side redirect —
-  // crawlers saw an empty 200 instead of a 308.
+  // Storefront pages are canonical at /<slug>. This is a config-level
+  // redirect rather than permanentRedirect() in the page. It used to be
+  // required for a reason that no longer holds: the root layout used to
+  // stream the whole body inside a body-wide <Suspense fallback={null}>, so
+  // by the time the page component ran the response had already started and
+  // Next could only fall back to a client-side redirect — crawlers saw an
+  // empty 200 instead of a 308. That boundary has since been removed from
+  // app/layout.tsx (see the cacheComponents comment below for the full
+  // story), so the original justification is gone — but the redirect stays
+  // here rather than moving into the two page components: it already works,
+  // and splitting one redirect into two page-level ones would be a change
+  // with no upside.
   async redirects() {
     return [
       { source: "/pages/:slug", destination: "/:slug", permanent: true },
