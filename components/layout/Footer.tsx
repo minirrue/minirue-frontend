@@ -333,7 +333,7 @@ export default function Footer({ config }: { config: FooterConfig }) {
               textAlign: 'left',
             }}
           >
-            MiniRue (Mini Rue) is an independent maison for original quality perfumes and cosmetics, shipped worldwide with care.
+            MiniRue (Mini Rue) — an independent maison, shipping original quality perfumes and cosmetics worldwide.
           </p>
         </div>
 
@@ -358,8 +358,12 @@ export default function Footer({ config }: { config: FooterConfig }) {
             shop" / "mini rue store", but the spaced form previously appeared NOWHERE in visible
             copy — only in <title> and JSON-LD. Structured data alone does not fully substitute for
             the words existing as readable text on the page. One natural mention in the footer, on
-            every page, is the honest way to close that gap. The line now lives in the database
-            (FooterConfig.legalLine) — keep this comment so nobody "fixes" the spelling away.
+            every page, is the honest way to close that gap. This span is wired to the DB-driven
+            FooterConfig.legalLine — but that field is admin-authored and empty by default
+            (FALLBACK_CHROME.footer.legalLine === '' in lib/api/storefront.ts), so until an admin
+            fills it in, this span is a no-op and renders nothing. The guaranteed spaced mention is
+            the hardcoded "footer-maison-line" block above, added for that reason. Keep this comment
+            so nobody "fixes" the spelling away if/when an admin does set legalLine.
           */}
           <span>{config.legalLine}</span>
           <span>{config.secondaryLine}</span>
