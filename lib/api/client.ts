@@ -188,6 +188,21 @@ function isOnAuthRoute(): boolean {
 /** Called after a successful sign-in/refresh so a later expiry announces again. */
 export function markSessionRecovered(): void {
   sessionExpiryAnnounced = false;
+  // The sign-out quiet window ENDS here, and forgetting this was a real bug.
+  //
+  // `deliberateSignOutAt` suppresses refreshes so a sign-out cannot be undone
+  // by an in-flight 401. But nothing ever cleared it, so it also suppressed
+  // refreshes for the first SIGN_OUT_QUIET_MS of the NEXT session. Sign out,
+  // sign straight back in, and any authed request that 401s in that window got
+  // no refresh — apiFetch then cleared the `mr-auth` flag, and the Edge proxy,
+  // which gates /account on that flag alone, bounced the shopper it had just
+  // let in back to /login. Reported as "im signed in and when i tap on profile
+  // it redirects me to /login".
+  //
+  // This function is called on any successful authed response and after a
+  // successful refresh — both are proof the session is alive, which is exactly
+  // when suppressing refreshes stops being correct.
+  deliberateSignOutAt = 0;
 }
 
 /**
