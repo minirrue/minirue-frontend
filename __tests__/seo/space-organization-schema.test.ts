@@ -23,17 +23,23 @@ describe('buildSpaceOrganizationSchema', () => {
     logoUrl: 'https://res.cloudinary.com/minirue/helia-logo.png',
   };
 
-  it('builds an Organization node with name, description, logo, image and url — nothing else', () => {
+  it('builds an Organization node with @id, name, description, logo, image and url — nothing else', () => {
     const schema = buildSpaceOrganizationSchema(HELIA);
     expect(schema).toEqual({
       '@context': 'https://schema.org',
       '@type': 'Organization',
+      '@id': `${SITE_URL}/helia#organization`,
       name: 'Helia',
       url: `${SITE_URL}/helia`,
       description: 'A jewellery atelier.',
       logo: 'https://res.cloudinary.com/minirue/helia-logo.png',
       image: 'https://res.cloudinary.com/minirue/helia-logo.png',
     });
+  });
+
+  it('gives the partner Organization an addressable @id, so a same-page CollectionPage can reference it via `about`', () => {
+    const schema = buildSpaceOrganizationSchema(HELIA) as { '@id': string };
+    expect(schema['@id']).toBe(`${SITE_URL}/helia#organization`);
   });
 
   it('never emits sameAs — not present, not an empty array', () => {
@@ -64,11 +70,12 @@ describe('buildSpaceOrganizationSchema', () => {
     expect(schema.url).toBe(`${SITE_URL}/helia`);
   });
 
-  it('renders down to a minimal node with only name/url when description and logoUrl are both null', () => {
+  it('renders down to a minimal node with only @id/name/url when description and logoUrl are both null', () => {
     const schema = buildSpaceOrganizationSchema({ ...HELIA, description: null, logoUrl: null });
     expect(schema).toEqual({
       '@context': 'https://schema.org',
       '@type': 'Organization',
+      '@id': `${SITE_URL}/helia#organization`,
       name: 'Helia',
       url: `${SITE_URL}/helia`,
     });

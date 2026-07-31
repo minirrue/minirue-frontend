@@ -144,6 +144,14 @@ export default async function StorefrontSlugPage({ params }: PageProps) {
               description: b.description,
             })),
           }}
+          // Only a PARTNER space has its own addressable Organization node
+          // (SpaceOrganizationSchema, gated the same way just above) — a
+          // HOUSE space has none of its own to reference here.
+          about={
+            space.space.kind === 'PARTNER'
+              ? { '@id': `${SITE_URL}/${slug}#organization` }
+              : undefined
+          }
         />
         <div className="mr-page-sheet">
           <AnnouncementBar

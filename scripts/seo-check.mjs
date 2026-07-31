@@ -288,6 +288,10 @@ for (const [assetPath, files] of referencedAssets) {
 // public/) stops being shadowed. A page's og:image is allowed to resolve to EITHER a static file
 // under public/ OR a route present in the build output; it is a failure only when it resolves to
 // neither. Off-origin URLs (a CDN-hosted image, say) are ignored — nothing in this repo to verify.
+// Hardcoded rather than imported from lib/seo/config.ts — this is a plain
+// .mjs script outside the Next/TS module graph. If the fallback origin ever
+// changes, change it in BOTH places: here and lib/seo/config.ts's
+// `rawSiteUrl` default.
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://minirueshop.com").replace(/\/+$/, "");
 
 function sameOriginPathname(url) {

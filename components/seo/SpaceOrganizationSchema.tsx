@@ -21,6 +21,14 @@ export function buildSpaceOrganizationSchema(space: StorefrontSpace): Record<str
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
+    // Addressable, mirroring OrganizationSchema's own `${BASE_URL}/#organization`
+    // for MiniRue itself. Without this, three top-level nodes share the
+    // `/[slug]` URL (BreadcrumbList, this Organization, CollectionPage) and
+    // only MiniRue's Organization node had an @id anything else could
+    // reference — this partner's had none, so the CollectionPage on the same
+    // page couldn't unambiguously say it was about the partner rather than
+    // about MiniRue.
+    "@id": `${BASE_URL}/${space.slug}#organization`,
     name: space.name,
     url: `${BASE_URL}/${space.slug}`,
     ...(space.description ? { description: space.description } : {}),

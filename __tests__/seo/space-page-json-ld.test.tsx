@@ -113,6 +113,7 @@ describe('/[slug] — BreadcrumbSchema + SpaceOrganizationSchema wiring (Task 9)
     expect(org).toEqual({
       '@context': 'https://schema.org',
       '@type': 'Organization',
+      '@id': `${SITE_URL}/helia#organization`,
       name: 'Helia',
       url: `${SITE_URL}/helia`,
       description: 'A jewellery atelier.',
@@ -120,6 +121,14 @@ describe('/[slug] — BreadcrumbSchema + SpaceOrganizationSchema wiring (Task 9)
       image: 'https://res.cloudinary.com/minirue/helia-logo.png',
     });
     expect(org).not.toHaveProperty('sameAs');
+
+    // The CollectionPage on the same page must reference this Organization's
+    // @id via `about`, so the page is unambiguously about the partner rather
+    // than ambiguous between it and MiniRue's own Organization node.
+    const collection = nodes.find(
+      (n) => (n as { '@type'?: string })['@type'] === 'CollectionPage',
+    ) as { about?: { '@id': string } } | undefined;
+    expect(collection?.about).toEqual({ '@id': `${SITE_URL}/helia#organization` });
   });
 
   it('emits a BreadcrumbList for a HOUSE space but never a competing Organization node', async () => {
@@ -135,5 +144,12 @@ describe('/[slug] — BreadcrumbSchema + SpaceOrganizationSchema wiring (Task 9)
 
     const org = nodes.find((n) => (n as { '@type'?: string })['@type'] === 'Organization');
     expect(org).toBeUndefined();
+
+    // No partner Organization exists at this URL, so the CollectionPage must
+    // not claim to be `about` one.
+    const collection = nodes.find(
+      (n) => (n as { '@type'?: string })['@type'] === 'CollectionPage',
+    ) as { about?: unknown } | undefined;
+    expect(collection).not.toHaveProperty('about');
   });
 });
