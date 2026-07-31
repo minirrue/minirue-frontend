@@ -343,7 +343,29 @@ export async function apiFetch<T>(
   // Any successful authenticated call means the session is alive again, so a
   // future expiry is allowed to announce itself once more. Self-healing, rather
   // than relying on every sign-in path to remember to reset the flag.
-  if (auth) markSessionRecovered();
+  if (auth) {
+    markSessionRecovered();
+    // Re-assert the `mr-auth` hint, and note this is NOT redundant.
+    //
+    // The hint is only ever SET on sign-in and after a successful refresh, but
+    // it is CLEARED by any 401 on an authed request. So a single spurious 401
+    // — a request killed by a navigation, a blip, a poll racing a rotation —
+    // removed it permanently, and nothing restored it until the next sign-in.
+    //
+    // That is not cosmetic, because the Edge proxy (proxy.ts) gates /account
+    // and /orders on this flag ALONE: it runs on a different host from the API
+    // and never sees the httpOnly cookie, so it has nothing else to read. The
+    // shopper stayed genuinely signed in — avatar, chat, everything — while
+    // every proxy-guarded page bounced them to /login, forever. Reported as
+    // "im still logged in and it redirects me to /login although i can see my
+    // profile photo in the mobile bottom menu and chat clearly treats me as
+    // logged in".
+    //
+    // A response the server authenticated is proof the session is alive, which
+    // is exactly when the hint should be true. Setting it here makes the flag
+    // self-correcting instead of a one-shot that can be lost for good.
+    markAuthenticated();
+  }
 
   if (res.status === 204 || res.headers.get('content-length') === '0') {
     return undefined as T;
