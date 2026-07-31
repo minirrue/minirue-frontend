@@ -159,6 +159,13 @@ if (!indexHtml) {
 // brand entity failing Google's Rich Results validation (no `logo`, no OG share image, no home-
 // screen icon). Existence AND correct dimensions are asserted — a wrong-sized replacement is as
 // broken for Organization/OG validation as a missing file, just less obviously so.
+//
+// NOTE: `og-image.jpg` here is a deliberate fallback asset, kept present and correctly sized for
+// the pages that explicitly reference it (app/search/page.tsx, app/products/page.tsx's brand
+// listing). It is NOT currently the og:image emitted by any prerendered page in this build (those
+// all use the default app/opengraph-image.tsx dynamic route) — this existence+dimension check is
+// independent of, and does not substitute for, the og:image RESOLUTION check further below, which
+// verifies whatever og:image URL a page actually emits, wherever it points.
 
 const REQUIRED_ASSETS = [
   { rel: "logo.png", width: 512, height: 512, kind: "png" },
@@ -275,6 +282,66 @@ for (const [assetPath, files] of referencedAssets) {
   }
 }
 
+// og:image resolution. This is deliberately NOT a "must be a public/ file" check — Task 5 removed
+// the static openGraph.images override specifically so app/opengraph-image.tsx (a dynamic edge
+// route, `.next/server/app/opengraph-image/route.js` in the build output, not a file under
+// public/) stops being shadowed. A page's og:image is allowed to resolve to EITHER a static file
+// under public/ OR a route present in the build output; it is a failure only when it resolves to
+// neither. Off-origin URLs (a CDN-hosted image, say) are ignored — nothing in this repo to verify.
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://minirueshop.com").replace(/\/+$/, "");
+
+function sameOriginPathname(url) {
+  if (!url) return null;
+  if (url.startsWith("/")) return url.split(/[?#]/)[0]; // already root-relative; strip query/hash
+  try {
+    const u = new URL(url);
+    const site = new URL(SITE_ORIGIN);
+    if (u.origin !== site.origin) return null; // off-origin — nothing to verify
+    return u.pathname;
+  } catch {
+    return null;
+  }
+}
+
+function routeExistsInBuildOutput(pathname) {
+  const segments = pathname.replace(/^\//, "").split("/").filter(Boolean);
+  if (segments.length === 0) return fs.existsSync(path.join(appDir, "index.html"));
+  const base = path.join(appDir, ...segments);
+  if (fs.existsSync(`${base}.html`)) return true;
+  if (fs.existsSync(base) && fs.statSync(base).isDirectory()) {
+    // A Next.js route-handler output dir (e.g. opengraph-image/route.js) rather than a plain
+    // prerendered page — presence of any route.* file means the route built successfully.
+    return fs.readdirSync(base).some((entry) => entry.startsWith("route."));
+  }
+  return false;
+}
+
+const ogImageRefs = new Map(); // pathname -> Set of files that referenced it
+
+for (const file of htmlFiles) {
+  const rel = path.relative(repoRoot, file);
+  const html = fs.readFileSync(file, "utf8");
+  const ogMatch = /<meta property="og:image" content="([^"]+)"/.exec(html);
+  if (!ogMatch) continue;
+  const pathname = sameOriginPathname(ogMatch[1]);
+  if (pathname === null) continue; // off-origin or unparseable — nothing local to verify
+  if (!ogImageRefs.has(pathname)) ogImageRefs.set(pathname, new Set());
+  ogImageRefs.get(pathname).add(rel);
+}
+
+for (const [pathname, files] of ogImageRefs) {
+  const publicAbs = path.join(publicDir, pathname.replace(/^\//, ""));
+  const isPublicFile = fs.existsSync(publicAbs);
+  const isRoute = !isPublicFile && routeExistsInBuildOutput(pathname);
+  if (!isPublicFile && !isRoute) {
+    fail(
+      [...files].join(", "),
+      `og:image "${pathname}" resolves to a public/ file or a build route`,
+      `looked for public/${pathname.replace(/^\//, "")} (not found) and a route at .next/server/app${pathname} (not found either)`,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------------------------
 // 3. Product-link check — conditional, because this sandbox has no reachable backend.
 // ---------------------------------------------------------------------------------------------
@@ -313,12 +380,15 @@ if (productLinkCount === 0) {
     : `index.html has zero \`href="/products/"\` links, and app/sitemap.ts emitted only ${sitemapUrlCount} URL(s) (the static-only count is ${STATIC_ONLY_SITEMAP_COUNT}) — consistent with no backend being reachable during this build`;
 
   if (requireProducts || backendLooksReachable) {
+    const reachabilityReason = sitemapUrlCount === null
+      ? "sitemap.xml.body was not found at all, so backend-reachability could not be inferred — failing closed rather than silently downgrading to a warning"
+      : `the sitemap has ${sitemapUrlCount} URLs, more than the static-only count of ${STATIC_ONLY_SITEMAP_COUNT} — the backend looks reachable`;
     fail(
       indexHtmlPath ? path.relative(repoRoot, indexHtmlPath) : ".next/server/app/index.html",
       'index.html contains at least one href="/products/" link',
       requireProducts
         ? `${detail}. SEO_CHECK_REQUIRE_PRODUCTS=1 was set, so this is a hard failure regardless of backend reachability.`
-        : `${detail}, yet the sitemap has more than ${STATIC_ONLY_SITEMAP_COUNT} URLs — the backend looks reachable, so an empty homepage is a real regression, not an environment artifact.`,
+        : `${detail}, and ${reachabilityReason} — so an empty homepage is treated as a real regression, not an environment artifact.`,
     );
   } else {
     warn(
@@ -388,5 +458,5 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`\nseo-check: passed. ${htmlFiles.length} .html file(s), ${referencedAssets.size} referenced local asset(s), ${REQUIRED_ASSETS.length} required brand asset(s) — all clean.${warnings.length ? ` (${warnings.length} warning(s) above.)` : ""}`);
+console.log(`\nseo-check: passed. ${htmlFiles.length} .html file(s), ${referencedAssets.size} referenced local asset(s), ${ogImageRefs.size} og:image reference(s), ${REQUIRED_ASSETS.length} required brand asset(s) — all clean.${warnings.length ? ` (${warnings.length} warning(s) above.)` : ""}`);
 process.exit(0);
