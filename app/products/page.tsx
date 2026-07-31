@@ -123,7 +123,12 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   }
 
   const title = `${brandName} — MiniRue`;
-  const description = `${outcome.total} product${outcome.total === 1 ? '' : 's'} from ${brandName} at MiniRue. Original quality perfumes and cosmetics, with free worldwide shipping.`;
+  // No category/product-line clause here — MiniRue carries more than
+  // perfumes and cosmetics (see BreadcrumbSchema.tsx's note on the hardcoded
+  // "Perfumes" crumb removed for the same reason), so this stays true of any
+  // brand's listing rather than naming a product line a given brand may not
+  // even sell.
+  const description = `${outcome.total} product${outcome.total === 1 ? '' : 's'} from ${brandName} at MiniRue, with free worldwide shipping.`;
 
   return {
     title,
@@ -163,12 +168,23 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   const outcome = await getProductListing(brand, brandId);
   const { products: initialProducts, hasMore: initialHasMore, cursor: initialCursor } = outcome;
 
+  // Same resolution generateMetadata uses for its title/canonical — read here
+  // too so the CollectionPage JSON-LD and the visible <h1> can never disagree
+  // with what the canonical actually claims to be. Without this, a brand
+  // filter that generateMetadata makes indexable under a brand-scoped
+  // canonical still emitted CollectionSchema as "All Products" at "/products"
+  // — the JSON-LD claimed the whole catalogue while the canonical said
+  // otherwise — and the <h1> below said "All Products" too, so a brand-filtered
+  // page carried no brand term anywhere in its visible text.
+  const brandName = brandListingName(outcome);
+  const canonicalPath = brandFilterPath(brand, brandId);
+
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <BreadcrumbSchema trail={[SHOP_CRUMB, { name: 'All Products', path: 'products' }]} />
       <CollectionSchema
-        name="All Products"
-        path="/products"
+        name={brandName ?? 'All Products'}
+        path={canonicalPath}
         items={{ kind: 'products', products: initialProducts }}
       />
       <div className="mr-page-sheet">
@@ -246,7 +262,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
                 color: 'var(--mr-fg)',
               }}
             >
-              All Products
+              {brandName ?? 'All Products'}
             </h1>
           </div>
 
