@@ -48,6 +48,16 @@ export function variantInStock(v: ProductVariant): boolean {
   return true;
 }
 
+/**
+ * Whether the product itself can be bought — true if ANY active variant is
+ * in stock. A sold-out 50ml does not make the product unavailable when the
+ * 100ml is on the shelf. Shared by ProductSchema and SearchResultsSchema so
+ * the two JSON-LD emitters never drift into disagreeing about availability.
+ */
+export function productInStock(product: { variants?: ProductVariant[] }): boolean {
+  return (product.variants ?? []).some((v) => v.isActive && variantInStock(v));
+}
+
 /** Human label for a variant: its attribute answers ("50 ML · Amber"), falling
  * back to the legacy size/bottle columns, then to the SKU. Never renders the
  * "nullml" that reading sizeMl directly produces on attribute-based products. */
@@ -103,6 +113,14 @@ export interface ApiProduct {
   categoryName?: string | null;
   variants: ProductVariant[];
   media: MediaAsset[];
+  /**
+   * Product-level stock aggregate the backend sends (`catalog.service.ts`).
+   * Prefer `productInStock()` for availability decisions — it derives the
+   * same "any active variant in stock" rule from `variants` directly, so a
+   * stale or missing value here can never disagree with what the page
+   * actually shows for sale.
+   */
+  inStock?: boolean;
   /** Average of APPROVED reviews, rounded to one decimal. null when nobody has
    * reviewed it — which is not the same as everyone giving it zero. */
   reviewsAverage?: number | null;
@@ -251,15 +269,26 @@ export function carouselMedia(product: ApiProduct): MediaAsset[] {
   return cover ? [cover, ...rest] : rest;
 }
 
-/** Returns the lowest priceAmount across active variants (string, not parsed). */
-export function lowestPrice(product: ApiProduct): { amount: string; currency: string } | null {
+/**
+ * The active variant priced lowest — the one `lowestPrice()` quotes and the
+ * one whose SKU actually describes that price. Never falls back to an
+ * inactive variant, so its price always matches what the storefront lets you
+ * buy.
+ */
+export function cheapestActiveVariant(product: ApiProduct): ProductVariant | null {
   const active = product.variants?.filter((v) => v.isActive) ?? [];
   if (!active.length) return null;
   // Sort numerically by parsing for comparison only — never store as float
   const sorted = [...active].sort(
     (a, b) => parseFloat(a.priceAmount) - parseFloat(b.priceAmount),
   );
-  return { amount: sorted[0].priceAmount, currency: sorted[0].priceCurrency };
+  return sorted[0];
+}
+
+/** Returns the lowest priceAmount across active variants (string, not parsed). */
+export function lowestPrice(product: ApiProduct): { amount: string; currency: string } | null {
+  const variant = cheapestActiveVariant(product);
+  return variant ? { amount: variant.priceAmount, currency: variant.priceCurrency } : null;
 }
 
 // ── Fetch helpers ────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import { SITE_URL } from '@/lib/seo/config';
+import { getProductReviewsForSchema } from './product-data';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -78,6 +79,10 @@ export default async function ProductPage({ params }: PageProps) {
   }
   const apiProductJson = JSON.stringify(p);
 
+  // Real reviews for the Product schema's `review` entries. A failure here
+  // must not take the product page down with it — see product-data.ts.
+  const reviews = await getProductReviewsForSchema(p!.id);
+
   // Fetched here rather than through useStorefrontChrome() in the client so the
   // service promises are in the server-rendered HTML. Read client-side only,
   // they were absent from the SSR markup entirely — worse for crawlers than the
@@ -92,7 +97,12 @@ export default async function ProductPage({ params }: PageProps) {
 
   return (
     <>
-      <ProductSchema slug={slug} productName={p!.name} apiProductJson={apiProductJson} />
+      <ProductSchema
+        slug={slug}
+        productName={p!.name}
+        apiProductJson={apiProductJson}
+        reviews={reviews}
+      />
       <BreadcrumbSchema productName={p!.name} productSlug={slug} />
       <ProductPageClient slug={slug} apiProductJson={apiProductJson} perks={perks} />
       <FooterWithSettings />

@@ -5,7 +5,7 @@ import {
   mediaImageUrl,
   primaryMedia,
   productBrand,
-  variantInStock,
+  productInStock,
 } from "@/lib/api/catalog";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 
@@ -48,10 +48,9 @@ export default function SearchResultsSchema({ query, products }: SearchResultsSc
         const media = primaryMedia(product);
         const image = media ? mediaImageUrl(media, { w: 800, h: 1000 }) : null;
         // In stock if ANY active variant is — a sold-out 50ml does not make the
-        // product unavailable when the 100ml is on the shelf.
-        const inStock = (product.variants ?? []).some(
-          (v) => v.isActive && variantInStock(v),
-        );
+        // product unavailable when the 100ml is on the shelf. Shared with
+        // ProductSchema via productInStock() so the two never disagree.
+        const inStock = productInStock(product);
         const productUrl = `${BASE_URL}/products/${product.slug}`;
         return {
           "@type": "ListItem",
