@@ -12,7 +12,7 @@ import {
   type RegisterInput,
 } from '@/lib/api/auth';
 import { clearAuthFlag } from '@/lib/auth/tokens';
-import { markDeliberateSignOut } from '@/lib/api/client';
+import { markDeliberateSignOut, IDENTITY_CLEARED_EVENT } from '@/lib/api/client';
 import { setSession, clearSession } from '@/lib/session';
 import { clearGuestSupport } from '@/lib/support/session';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
@@ -180,11 +180,30 @@ export function useUser() {
   useEffect(() => {
     function onStorage(e: StorageEvent) {
       if (e.key === 'mr-session' && e.newValue == null) {
-        queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
+        clearIdentityCaches(queryClient);
       }
     }
+    /**
+     * The SAME-tab counterpart, and the one that was missing.
+     *
+     * `storage` fires in every tab EXCEPT the one that wrote the change, so
+     * the single tab where the session actually died was the only tab that
+     * never invalidated. `useUser`'s 15-minute `staleTime` meant it never
+     * refetched on its own either, so `authUser` stayed populated and the
+     * support widget kept the previous account's whole thread on screen —
+     * with a live composer — on the session-expired login page.
+     *
+     * `apiFetch` dispatches this the moment it clears auth state on a 401.
+     */
+    function onIdentityCleared() {
+      clearIdentityCaches(queryClient);
+    }
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);
+    };
   }, [queryClient]);
 
   const query = useClientQuery({

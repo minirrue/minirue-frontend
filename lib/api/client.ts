@@ -97,6 +97,10 @@ if (typeof BroadcastChannel !== 'undefined') {
         lastRefreshAt = 0;
         clearAuthFlag();
         clearSession();
+        // Same reason as the 401 path: `clearSession()` here fires `storage`
+        // in every tab EXCEPT this one, so without this the tab that received
+        // the sign-out broadcast would keep its cached identity on screen.
+        announceIdentityCleared();
         return;
       }
       if (e.data?.kind === 'refreshed') {
@@ -206,6 +210,35 @@ export function markDeliberateSignOut(): void {
   announceSignedOut();
 }
 
+/**
+ * Same-tab "this browser is no longer signed in" signal.
+ *
+ * `useUser()` already listens for the `storage` event to drop its cached
+ * identity — but **`storage` does not fire in the tab that made the change**,
+ * only in the others. So the ONE tab where the session actually died was the
+ * one tab that never invalidated. With `staleTime: 15 min` its `/auth/me`
+ * query never refetched either, so `authUser` stayed populated and every
+ * consumer went on believing the shopper was signed in.
+ *
+ * That is why an expired session still showed the previous account's full
+ * support thread, with a working composer, on the login screen — the redirect
+ * came from THIS handler while the widget's own identity was never touched.
+ *
+ * A DOM event rather than an import of the query client: `lib/api/client.ts`
+ * is imported by the hooks, so depending on them here would be a cycle.
+ */
+export const IDENTITY_CLEARED_EVENT = 'mr-identity-cleared';
+
+function announceIdentityCleared(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new Event(IDENTITY_CLEARED_EVENT));
+  } catch {
+    // A browser that refuses the event still has the cross-tab `storage`
+    // path and the next natural refetch; this is a fast path, not the only one.
+  }
+}
+
 function announceSessionExpired(): void {
   if (typeof window === 'undefined') return;
   if (Date.now() - deliberateSignOutAt < SIGN_OUT_QUIET_MS) return;
@@ -264,6 +297,12 @@ export async function apiFetch<T>(
     const hadSession = isAuthenticated();
     clearAuthFlag();
     clearSession();
+    // Unconditional, and BEFORE the expiry announcement: every consumer in
+    // THIS tab must drop the previous identity even when `hadSession` was
+    // already false, or a component holding a cached profile keeps rendering
+    // it. The redirect below is cosmetic by comparison — this is the line
+    // that stops the old account's data staying on screen.
+    announceIdentityCleared();
     if (hadSession) {
       // Announce at most once so polling callers cannot each fire a redirect.
       announceSessionExpired();
