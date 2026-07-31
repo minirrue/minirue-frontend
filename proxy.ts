@@ -12,7 +12,29 @@ import { NextRequest, NextResponse } from 'next/server'
  *
  * /account and /orders stay: there is nothing to show a guest on either.
  */
-const PROTECTED = ['/account', '/orders']
+/**
+ * The /account and /orders gate USED to live here and no longer does.
+ *
+ * Next.js's own guidance, verbatim: "Always verify authentication and
+ * authorization inside each Server Function rather than relying on Proxy
+ * alone." The middleware → proxy rename in v16 exists to signal it — "we
+ * recommend users avoid relying on Middleware unless no other options exist."
+ *
+ * Following it fixed a real bug rather than merely tidying. This file runs on
+ * a different HOST from the API, so it never receives the httpOnly session
+ * cookie and had to gate on `mr-auth`, a hint the client sets itself. That
+ * hint is losable: any 401 on any request cleared it and nothing restored it
+ * until the next sign-in, so a shopper with a live session was bounced off
+ * /account indefinitely while the rest of the app still knew them.
+ *
+ * The gate now lives in `app/account/layout.tsx`, a Server Component on
+ * minirueshop.com, which CAN read the real `.minirueshop.com`-scoped httpOnly
+ * cookie via `cookies()`. Nothing here needs to know about sessions any more.
+ *
+ * `mr-auth` survives for one narrow job below — keeping an already-signed-in
+ * visitor off /login and /signup — where being wrong costs a redirect, not
+ * access, and where nothing else is readable at this layer.
+ */
 
 /**
  * The mirror of PROTECTED: routes that only make sense to a GUEST.
@@ -202,12 +224,7 @@ export default function proxy(request: NextRequest) {
   // on it regardless of which branch below produced it — a visitor bounced
   // to /login must still get an id.
   let res: NextResponse
-  if (!isAuthed && PROTECTED.some(p => pathname.startsWith(p))) {
-    // Redirect unauthenticated users away from protected routes
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', pathname)
-    res = NextResponse.redirect(loginUrl)
-  } else if (isAuthed && AUTH_ONLY_FOR_GUESTS.some(p => pathname === p || pathname.startsWith(`${p}/`))) {
+  if (isAuthed && AUTH_ONLY_FOR_GUESTS.some(p => pathname === p || pathname.startsWith(`${p}/`))) {
     // Already signed in — the sign-in and sign-up screens have nothing to
     // offer, and reaching them is how a second, parallel session gets minted
     // over the top of a live one (owner: "prohibit visiting /login ... to

@@ -37,9 +37,16 @@ describe('proxy — visitor id + attribution cookies', () => {
   });
 
   it('sets mr-vid on the redirect branch — a bounced visitor still gets an id', () => {
-    const res = proxy(makeRequest('/account'));
+    // This used to bounce a GUEST off /account. That gate moved into
+    // app/account/layout.tsx, a Server Component that can read the real
+    // httpOnly cookie, because gating in the proxy meant trusting the
+    // forgeable `mr-auth` hint. The redirect branch that remains here is the
+    // opposite one — an already-signed-in visitor kept off /login — and the
+    // point of this test is unchanged: whichever branch redirects, the
+    // visitor id must still be minted on it.
+    const res = proxy(makeRequest('/login', { cookie: 'mr-auth=1' }));
     expect(res.status).toBe(307);
-    expect(res.headers.get('location')).toContain('/login');
+    expect(res.headers.get('location')).toContain('/account');
     const vid = res.cookies.get('mr-vid');
     expect(vid).toBeDefined();
   });

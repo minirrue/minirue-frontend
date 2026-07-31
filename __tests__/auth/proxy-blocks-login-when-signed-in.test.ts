@@ -85,10 +85,16 @@ describe('the edge proxy keeps a signed-in shopper off the auth screens', () => 
     ).toBeNull();
   });
 
-  it('still bounces a guest off a protected route', () => {
-    // The mirror rule must keep working.
+  it('no longer gates /account itself — that moved to the layout', () => {
+    // This assertion used to expect a redirect to /login. The gate moved into
+    // app/account/layout.tsx, a Server Component that can read the REAL
+    // httpOnly cookie, because gating here meant trusting the forgeable and
+    // losable `mr-auth` hint — which locked out shoppers who were genuinely
+    // signed in. Next.js's own guidance: "Always verify authentication and
+    // authorization inside each Server Function rather than relying on Proxy
+    // alone." Covered by account-gate-uses-real-cookie.test.ts.
     const res = proxy(makeRequest('/account/profile'));
 
-    expect(res.headers.get('location')).toContain('/login');
+    expect(res.headers.get('location')).toBeNull();
   });
 });
