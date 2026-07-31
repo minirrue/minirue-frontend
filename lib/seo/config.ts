@@ -8,6 +8,11 @@
  * style URLs everywhere. Normalise once, here, instead of at every call
  * site: if `NEXT_PUBLIC_SITE_URL` is ever set with a trailing slash, it is
  * stripped before anything imports this value.
+ *
+ * Contract: `NEXT_PUBLIC_SITE_URL`, if set, must be a valid absolute origin
+ * (e.g. `https://minirueshop.com`). Only trailing-slash noise is normalised;
+ * other malformed values (blank, whitespace-only, missing a scheme) are not
+ * validated or corrected here and will pass through as-is.
  */
 const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://minirueshop.com";
 
