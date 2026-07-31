@@ -187,8 +187,12 @@ export default async function SpaceView({
             <UploadPreviewImage
               src={space.logoUrl}
               alt=""
-              width={64}
-              height={64}
+              // 96, not 64 (owner, 2026-07-31: "make it bigger like 50% more").
+              // Kept in lockstep with the house shop panel's ShopLogo in
+              // app/categories/CategoriesGrid.tsx — the two are meant to be
+              // indistinguishable, so changing one alone is the bug.
+              width={96}
+              height={96}
               style={{ objectFit: 'contain', borderRadius: 4 }}
             />
           ) : null}

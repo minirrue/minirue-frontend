@@ -38,10 +38,10 @@ function ShopLogo({ logoUrl, shopName }: { logoUrl: string | null; shopName: str
       <img
         src={logoUrl}
         alt={shopName}
-        width={64}
-        height={64}
+        width={96}
+        height={96}
         onError={() => setErrored(true)}
-        style={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }}
+        style={{ width: 96, height: 96, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }}
       />
     );
   }
@@ -51,8 +51,11 @@ function ShopLogo({ logoUrl, shopName }: { logoUrl: string | null; shopName: str
       data-testid="shop-panel-logo-generic"
       aria-label={`${shopName} — no logo`}
       style={{
-        width: 64,
-        height: 64,
+        // Matches the <img> branch above exactly — a fallback that is a
+        // different size to the thing it stands in for makes the header jump
+        // as the logo resolves.
+        width: 96,
+        height: 96,
         borderRadius: 4,
         flexShrink: 0,
         display: 'flex',
