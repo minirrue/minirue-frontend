@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Button from '@/components/ui/Button';
 import BottleSVG from '@/components/ui/BottleSVG';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import { useScrollReveal } from '@/lib/motion/hooks';
@@ -100,15 +99,23 @@ export default function EditorialBlock({ section }: { section: JournalSection })
           <p style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 16, lineHeight: 1.65, color: 'var(--mr-cream-200)', opacity: 0.85, maxWidth: 420, margin: '0 0 36px' }}>
             {section.body}
           </p>
+          {/*
+            One button, whether or not a link was given — matching SlideContent.
+            Before, this block appended an arrow and rendered a different
+            component in the no-link case, so the same label typed into two
+            places in the dashboard produced two different-looking buttons. The
+            label is the only thing an admin controls, so it is the only thing
+            that should vary.
+          */}
           {section.ctaLabel &&
             (section.ctaHref ? (
               <a href={section.ctaHref} className="mr-hero-cta">
-                {section.ctaLabel} <span className="mr-link-arrow">→</span>
+                {section.ctaLabel}
               </a>
             ) : (
-              <Button variant="outlineLight">
-                {section.ctaLabel} <span className="mr-link-arrow">→</span>
-              </Button>
+              <span className="mr-hero-cta" role="presentation">
+                {section.ctaLabel}
+              </span>
             ))}
         </div>
       </div>

@@ -329,3 +329,66 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Hero call-to-action ─────────────────────────────────────────────────
+   The button an admin gets when they type a label into a hero slide or an
+   editorial block in the dashboard.
+
+   This class was applied by both SlideContent and EditorialBlock and defined
+   NOWHERE — so the "button" rendered as a bare inline link, inheriting whatever
+   the surrounding hero happened to set. That is the glitch: not a styling
+   disagreement between the two, an absence of styling in both.
+
+   One shape, deliberately. The background behind it is admin-configurable
+   (a colour or a gradient picked in the dashboard), so the button cannot
+   assume what it sits on. A solid cream pill with ink text keeps its contrast
+   over any hero art or gradient, which an outline-only treatment does not — an
+   outlined button disappears the moment someone picks a pale background.
+   The hairline border keeps the edge defined if the chosen background happens
+   to be cream too. */
+.mr-hero-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  padding: 0.85em 2.2em;
+  border-radius: 999px;
+  border: 1px solid var(--mr-cream-100);
+  background: var(--mr-cream-100);
+  color: var(--mr-ink-900);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 320ms var(--mr-ease-out),
+    color 320ms var(--mr-ease-out),
+    transform 320ms var(--mr-ease-out);
+}
+
+/* Inverts rather than dims — the maison idiom used by the nav and the sweep
+   button, and it stays legible on any hero because both states are chosen,
+   not derived from the background. */
+.mr-hero-cta:hover,
+.mr-hero-cta:focus-visible {
+  background: transparent;
+  color: var(--mr-cream-100);
+}
+
+.mr-hero-cta:focus-visible {
+  outline: 2px solid var(--mr-gold-400);
+  outline-offset: 3px;
+}
+
+.mr-hero-cta:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mr-hero-cta { transition: none; }
+  .mr-hero-cta:active { transform: none; }
+}

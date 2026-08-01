@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Image from 'next/image';
-import Button from '@/components/ui/Button';
 import BottleSVG from '@/components/ui/BottleSVG';
 import type { ResolvedHeroSlide } from '@/lib/api/storefront';
 
@@ -172,20 +171,22 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
               transition: `opacity 500ms cubic-bezier(0.16,1,0.3,1) ${textDelay + 360}ms, transform 500ms cubic-bezier(0.16,1,0.3,1) ${textDelay + 360}ms`,
             }}
           >
+            {/*
+              Same button either way. These two branches used to render
+              different things — a solid pill when a link was set, an OUTLINED
+              sweep button when it was not — so whether the hero CTA looked
+              filled or hollow depended on a field the admin may not even have
+              realised was empty. Only the behaviour differs now (navigate vs
+              scroll to the products); the appearance does not.
+            */}
             {slide.ctaHref ? (
               <a href={slide.ctaHref} className="mr-hero-cta">
                 {slide.ctaLabel}
               </a>
             ) : (
-              <Button
-                variant="outlineLight"
-                sweep
-                sweepColor="var(--mr-cream-100)"
-                sweepInk="var(--mr-ink-900)"
-                onClick={onShop}
-              >
+              <button type="button" className="mr-hero-cta" onClick={onShop}>
                 {slide.ctaLabel}
-              </Button>
+              </button>
             )}
           </div>
         )}
