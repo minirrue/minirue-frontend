@@ -5,7 +5,7 @@ import MobileSheet from '@/components/ui/MobileSheet';
 import StarRating from '@/components/storefront/StarRating';
 import Icon from '@/components/ui/Icon';
 import { apiCreateReview, apiAttachReviewMedia, type ReviewMedia } from '@/lib/api/reviews';
-import type { ApiError } from '@/lib/api/client';
+import { formatApiError, type ApiError } from '@/lib/api/client';
 import { capturePosterFrame } from '@/lib/media/capture-poster-frame';
 import ReviewMediaStrip, {
   type LocalReviewMedia,
@@ -221,10 +221,11 @@ export default function WriteReviewSheet({
       setDone(true);
       onWritten();
     } catch (e) {
-      const err = e as ApiError;
       setError(
-        err.message ||
+        formatApiError(
+          e,
           'Something went wrong sending that. Please try again in a moment.',
+        ),
       );
     } finally {
       setSubmitting(false);

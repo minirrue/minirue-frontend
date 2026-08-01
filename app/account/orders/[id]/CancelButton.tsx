@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiCancelOrder } from '@/lib/api/orders';
-import type { ApiError } from '@/lib/api/client';
+import { formatApiError, type ApiError } from '@/lib/api/client';
 
 interface Props {
   orderId: string;
@@ -50,7 +50,7 @@ export default function CancelButton({ orderId }: Props) {
       router.refresh();
     } catch (err: unknown) {
       const apiErr = err as ApiError;
-      setError(apiErr.message ?? 'Failed to cancel order.');
+      setError(formatApiError(apiErr, 'Failed to cancel order.'));
       setLoading(false);
     }
   };

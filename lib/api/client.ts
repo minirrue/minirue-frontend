@@ -3,7 +3,20 @@ import { clearSession } from '@/lib/session';
 
 export interface ApiError {
   status: number;
-  message: string;
+  /**
+   * A sentence, OR a list of them — and the union is not pedantry.
+   *
+   * class-validator's 422 body carries `message` as an ARRAY (`["password is
+   * not strong enough"]`), and Zod's as an array of `{ field, issue }`. This
+   * was typed `string`, so every call site believed it could use it as one.
+   * `app/(auth)/signup/page.tsx` called `.trim()` on it, which THREW inside
+   * the catch block — so `setApiError` never ran and the sign-up page showed
+   * the shopper nothing at all while the network tab held a perfectly clear
+   * explanation (owner, 2026-08-01: "nothing on frontend said something").
+   *
+   * Never render this directly. `formatApiError` handles every shape.
+   */
+  message: string | string[] | unknown;
   error?: string;
 }
 
@@ -488,18 +501,62 @@ export async function apiFetch<T>(
 }
 
 /**
- * A readable sentence from any API error.
+ * Bare HTTP reason phrases, which some backend paths send as the whole message.
+ * Printing "Unprocessable Entity" at a shopper tells them nothing about what to
+ * do next, so it counts as no message and the caller's own sentence wins.
+ */
+const HTTP_REASON_PHRASES = new Set([
+  'bad request',
+  'unauthorized',
+  'forbidden',
+  'not found',
+  'conflict',
+  'unprocessable entity',
+  'too many requests',
+  'internal server error',
+  'service unavailable',
+]);
+
+function usefulSentence(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return HTTP_REASON_PHRASES.has(trimmed.toLowerCase()) ? null : trimmed;
+}
+
+/**
+ * A readable sentence from any API error. THE one place that reads `message`.
  *
  * The backend's 422 body carries `message` as an ARRAY of `{ field, issue }`
  * (class-validator) or of plain strings (Zod), so `String(err.message)` rendered
  * "[object Object]" on the checkout page — the customer was told nothing at all
  * about why their order would not go through.
+ *
+ * The sign-up page then hit the same shape from the other direction: it called
+ * `.trim()` on the array, which threw INSIDE its catch block, so the error
+ * handler died before it could display anything. A page that shows nothing at
+ * all is worse than one that shows a clumsy message, and both are avoidable by
+ * never touching `message` outside this function.
+ *
+ * Total: this never throws, and never returns an empty string.
  */
 export function formatApiError(err: unknown, fallback: string): string {
+  try {
+    return formatApiErrorUnsafe(err, fallback);
+  } catch {
+    // A shape nobody anticipated is still not a reason to show a blank screen.
+    return fallback;
+  }
+}
+
+function formatApiErrorUnsafe(err: unknown, fallback: string): string {
   if (!err || typeof err !== 'object') return fallback;
   const message = (err as { message?: unknown }).message;
 
-  if (typeof message === 'string' && message.trim()) return message;
+  if (typeof message === 'string') {
+    const useful = usefulSentence(message);
+    if (useful) return useful;
+    return fallback;
+  }
 
   if (Array.isArray(message)) {
     const parts = message

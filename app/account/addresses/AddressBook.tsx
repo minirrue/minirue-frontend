@@ -10,7 +10,7 @@ import {
   useDeleteCustomerAddress,
   useSetDefaultCustomerAddress,
 } from '@/lib/hooks/use-customer';
-import type { ApiError } from '@/lib/api/client';
+import { formatApiError, type ApiError } from '@/lib/api/client';
 
 interface Props {
   addresses: Address[];
@@ -146,7 +146,7 @@ export default function AddressBook({ addresses }: Props) {
       await deleteAddress.mutateAsync(id);
     } catch (err: unknown) {
       const apiErr = err as ApiError;
-      setCardError({ id, message: apiErr.message ?? 'Could not delete this address.' });
+      setCardError({ id, message: formatApiError(apiErr, 'Could not delete this address.') });
     } finally {
       setBusyId(null);
     }
@@ -159,7 +159,10 @@ export default function AddressBook({ addresses }: Props) {
       await setDefaultAddress.mutateAsync(id);
     } catch (err: unknown) {
       const apiErr = err as ApiError;
-      setCardError({ id, message: apiErr.message ?? 'Could not set this address as default.' });
+      setCardError({
+        id,
+        message: formatApiError(apiErr, 'Could not set this address as default.'),
+      });
     } finally {
       setBusyId(null);
     }
@@ -179,7 +182,7 @@ export default function AddressBook({ addresses }: Props) {
       setShowForm(false);
     } catch (err: unknown) {
       const apiErr = err as ApiError;
-      setFormError(apiErr.message ?? 'Failed to save address. Please try again.');
+      setFormError(formatApiError(apiErr, 'Failed to save address. Please try again.'));
     }
   };
 

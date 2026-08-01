@@ -11,7 +11,7 @@ import ErrorBanner from '@/components/ui/ErrorBanner';
 import { apiResetPassword } from '@/lib/api/auth';
 import { PASSWORD_HELPER } from '@/lib/auth/schemas';
 import { blurActiveElement } from '@/lib/auth/blur-active-element';
-import type { ApiError } from '@/lib/api/client';
+import { formatApiError, type ApiError } from '@/lib/api/client';
 
 interface ResetForm {
   password: string;
@@ -54,8 +54,12 @@ function ResetPasswordContent() {
         setApiError('This reset link has expired or is invalid. Please request a new one.');
       } else if (!navigator.onLine || e.status === 0) {
         setApiError('Unable to connect. Check your connection.');
+      } else if (e.status === 422) {
+        // The new password itself was rejected — say which rule, rather than
+        // "something went wrong" about a form the person can actually fix.
+        setApiError(formatApiError(e, 'Please check your new password.'));
       } else {
-        setApiError('Something went wrong. Please try again.');
+        setApiError(formatApiError(e, 'Something went wrong. Please try again.'));
       }
     }
   };
@@ -131,7 +135,7 @@ function ResetPasswordContent() {
           lineHeight: 1.55,
         }}
       >
-        Choose a strong password for your account.
+        Choose a new password for your account.
       </p>
       <form
         onSubmit={handleSubmit}

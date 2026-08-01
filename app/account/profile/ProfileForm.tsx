@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { CustomerProfile } from '@/lib/api/customers';
 import { useUpdateCustomerProfile, useUploadCustomerAvatar } from '@/lib/hooks/use-customer';
-import type { ApiError } from '@/lib/api/client';
+import { formatApiError, type ApiError } from '@/lib/api/client';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import AvatarCropSheet from '@/components/storefront/AvatarCropSheet';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
@@ -78,7 +78,7 @@ export default function ProfileForm({ profile }: Props) {
       setUploadedAvatarUrl(updated.avatarUrl ?? null);
       setPendingAvatarFile(blob);
     } catch (err) {
-      setAvatarError((err as ApiError).message ?? 'Failed to upload photo');
+      setAvatarError(formatApiError(err, 'Failed to upload photo'));
     } finally {
       setPickedFile(null);
     }
@@ -92,7 +92,7 @@ export default function ProfileForm({ profile }: Props) {
 
   const loading = updateProfile.isPending;
   const error = updateProfile.isError
-    ? ((updateProfile.error as unknown as ApiError).message ?? 'Failed to save changes. Please try again.')
+    ? formatApiError(updateProfile.error, 'Failed to save changes. Please try again.')
     : null;
 
   const handleSubmit = async (e: React.FormEvent) => {

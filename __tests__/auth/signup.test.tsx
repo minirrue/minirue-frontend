@@ -207,6 +207,32 @@ describe('SignupPage', () => {
       );
     });
 
+    /**
+     * The shape a 422 REALLY has. Every other 422 test here passes a string,
+     * which is why none of them caught this: class-validator sends an ARRAY,
+     * the old handler called `.trim()` on it, and the throw happened inside
+     * the catch block — so the page showed the shopper nothing at all while
+     * the network tab said "password is not strong enough" (2026-08-01).
+     */
+    it('shows the message when a 422 arrives as an ARRAY, as the API sends it', async () => {
+      mockApiRegister.mockRejectedValueOnce({
+        status: 422,
+        message: ['password is not strong enough'],
+      });
+      render(<SignupPage />);
+      await fillForm();
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toHaveTextContent(/password is not strong enough/i),
+      );
+    });
+
+    it('never leaves the shopper with no message, whatever the error looks like', async () => {
+      mockApiRegister.mockRejectedValueOnce({ status: 422, message: { unexpected: true } });
+      render(<SignupPage />);
+      await fillForm();
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/\w/));
+    });
+
     it('shows generic error on 500', async () => {
       mockApiRegister.mockRejectedValueOnce({ status: 500, message: 'Internal Server Error' });
       render(<SignupPage />);

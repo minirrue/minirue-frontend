@@ -18,30 +18,12 @@ import { blurActiveElement } from '@/lib/auth/blur-active-element';
 import { setSession } from '@/lib/session';
 import { apiRegister } from '@/lib/api/auth';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
-import type { ApiError } from '@/lib/api/client';
+import { formatApiError, type ApiError } from '@/lib/api/client';
 
-/**
- * A message worth showing a shopper. Some backend paths send nothing but the
- * HTTP reason phrase ("Conflict", "Unprocessable Entity"), and printing that
- * verbatim tells the person nothing about what to do next — so treat it as no
- * message at all and let the caller's own sentence through.
- */
-const HTTP_REASON_PHRASES = new Set([
-  'bad request',
-  'unauthorized',
-  'forbidden',
-  'not found',
-  'conflict',
-  'unprocessable entity',
-  'too many requests',
-  'internal server error',
-]);
-
-function humanMessage(message: string | undefined | null): string | undefined {
-  const trimmed = message?.trim();
-  if (!trimmed) return undefined;
-  return HTTP_REASON_PHRASES.has(trimmed.toLowerCase()) ? undefined : trimmed;
-}
+// The reason-phrase filtering that used to live here (a local `humanMessage`)
+// is now inside formatApiError, which also handles the ARRAY shape that a 422
+// actually arrives in. One implementation, so it cannot be right in one place
+// and wrong in another.
 
 export default function SignupPage() {
   const router = useRouter();
@@ -113,18 +95,29 @@ export default function SignupPage() {
       return;
     } catch (err: unknown) {
       setLoading(false);
-      const e = err as ApiError;
-      if (!navigator.onLine || e.status === 0) {
-        setApiError('Unable to connect. Check your connection.');
-      } else if (e.status === 409) {
-        // Both the email and the phone are unique, so a 409 can mean either —
-        // show the server's own message rather than guessing at the email.
-        setApiError(
-          humanMessage(e.message) ?? 'An account with these details already exists.',
-        );
-      } else if (e.status === 422) {
-        setApiError(humanMessage(e.message) ?? 'Please check your details.');
-      } else {
+      // Never let the error handler itself be the thing that fails. It already
+      // did once: `message` arrives as an ARRAY on a 422, the old code called
+      // `.trim()` on it, that threw HERE, and the shopper got a button that
+      // stopped spinning and no explanation whatsoever while the network tab
+      // said "password is not strong enough" (2026-08-01).
+      try {
+        const e = err as ApiError;
+        if (!navigator.onLine || e.status === 0) {
+          setApiError('Unable to connect. Check your connection.');
+        } else if (e.status === 409) {
+          // Both the email and the phone are unique, so a 409 can mean either —
+          // show the server's own message rather than guessing at the email.
+          setApiError(
+            formatApiError(e, 'An account with these details already exists.'),
+          );
+        } else if (e.status === 422) {
+          setApiError(formatApiError(e, 'Please check your details.'));
+        } else if (e.status === 429) {
+          setApiError('Too many attempts. Please wait a moment and try again.');
+        } else {
+          setApiError(formatApiError(e, 'Something went wrong. Please try again.'));
+        }
+      } catch {
         setApiError('Something went wrong. Please try again.');
       }
     }

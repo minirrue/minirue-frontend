@@ -13,7 +13,7 @@ import { setSession } from '@/lib/session';
 import { apiLogin, apiLogout } from '@/lib/api/auth';
 import { clearAuthFlag } from '@/lib/auth/tokens';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
-import type { ApiError } from '@/lib/api/client';
+import { formatApiError, type ApiError } from '@/lib/api/client';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -117,17 +117,23 @@ export default function LoginPage() {
       return;
     } catch (err: unknown) {
       setLoading(false);
-      const e = err as ApiError;
-      if (!navigator.onLine || e.status === 0) {
-        setApiError('Unable to connect. Check your connection.');
-      } else if (e.status === 401) {
-        setApiError('Email or password is incorrect.');
-      } else if (e.status === 429) {
-        setApiError('Too many attempts. Please wait a minute.');
-        setRateLimitCountdown(60);
-      } else if (e.status === 422) {
-        setApiError(e.message ?? 'Please check your details.');
-      } else {
+      // Same guard as signup/page.tsx: the handler must always end with
+      // something on screen. `e.message` below is not a string on a 422.
+      try {
+        const e = err as ApiError;
+        if (!navigator.onLine || e.status === 0) {
+          setApiError('Unable to connect. Check your connection.');
+        } else if (e.status === 401) {
+          setApiError('Email or password is incorrect.');
+        } else if (e.status === 429) {
+          setApiError('Too many attempts. Please wait a minute.');
+          setRateLimitCountdown(60);
+        } else if (e.status === 422) {
+          setApiError(formatApiError(e, 'Please check your details.'));
+        } else {
+          setApiError(formatApiError(e, 'Something went wrong. Please try again.'));
+        }
+      } catch {
         setApiError('Something went wrong. Please try again.');
       }
     }
