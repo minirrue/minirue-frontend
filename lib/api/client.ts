@@ -23,7 +23,7 @@ export function setSessionExpiredHandler(handler: SessionExpiredHandler | null):
  * parallel /auth/refresh calls — each failing, each firing the expiry handler.
  * They now all await the same promise.
  */
-let refreshInFlight: Promise<boolean> | null = null;
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
 /**
  * Tells the shopper's OTHER tabs when a refresh has just happened.
@@ -117,7 +117,49 @@ if (typeof BroadcastChannel !== 'undefined') {
   }
 }
 
-async function refreshSession(): Promise<boolean> {
+/**
+ * What a refresh attempt actually established — three answers, not two.
+ *
+ * `false` used to mean both "the server says this browser has no session" and
+ * "we could not ask", and collapsing them is what turned a rate limit into a
+ * sign-out. See the 401 handler in apiFetch for the consequence of each.
+ */
+type RefreshOutcome =
+  /** New cookies are in place. Retry the request. */
+  | 'refreshed'
+  /** The SERVER refused: 401/403. This browser really has no session. */
+  | 'refused'
+  /** We never got an answer: 429, 5xx, offline, or a cooldown. Nothing proven. */
+  | 'unavailable';
+
+/**
+ * Refusing to ask again for a while after an unanswerable attempt.
+ *
+ * Every 401 on an authed request triggers a refresh, and there is no shortage
+ * of authed requests. Once /auth/refresh starts 429ing, retrying it on the next
+ * 401 is how a browser spends its whole rate-limit budget in a couple of
+ * seconds and then gets 429s on requests that would otherwise have worked —
+ * including the /auth/me straight after a successful sign-up, which is what
+ * showed the customer "something went wrong" for an account that had in fact
+ * been created (2026-08-01).
+ */
+let refreshBlockedUntil = 0;
+const REFRESH_UNAVAILABLE_COOLDOWN_MS = 30_000;
+
+/**
+ * And after a REFUSAL: the server has just said there is no session, so every
+ * further 401 in the next minute is the same question with the same answer.
+ *
+ * Time-boxed rather than a flag cleared only by markSessionRecovered(). A latch
+ * that needs someone to remember to reset it is a latch that eventually is not
+ * reset — and being stuck on "refused" would suppress the refresh that recovers
+ * a session, which is a worse failure than the noise it prevents. A minute is
+ * far longer than the sub-second loop this exists to kill.
+ */
+let refreshRefusedUntil = 0;
+const REFRESH_REFUSED_QUIET_MS = 60_000;
+
+async function refreshSession(): Promise<RefreshOutcome> {
   // Signing out is the one thing a refresh must never undo. Two separate ways
   // it used to:
   //   1. The echo shortcut below answers "yes, you are signed in" from a
@@ -130,14 +172,18 @@ async function refreshSession(): Promise<boolean> {
   // Either way the shopper is signed back in while the UI shows them signed
   // out, which is exactly the reported "logged out but my chat history is
   // still there". After a deliberate sign-out there is nothing to refresh.
-  if (Date.now() - deliberateSignOutAt < SIGN_OUT_QUIET_MS) return false;
+  if (Date.now() - deliberateSignOutAt < SIGN_OUT_QUIET_MS) return 'refused';
 
   // Another tab refreshed a moment ago, so the cookies in this tab are already
   // fresh. Posting the spent token would only rotate it again for nothing.
   if (Date.now() - lastRefreshAt < REFRESH_ECHO_MS) {
     markAuthenticated();
-    return true;
+    return 'refreshed';
   }
+
+  // Already answered, and the answer does not change until someone signs in.
+  if (Date.now() < refreshRefusedUntil) return 'refused';
+  if (Date.now() < refreshBlockedUntil) return 'unavailable';
 
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
@@ -152,11 +198,30 @@ async function refreshSession(): Promise<boolean> {
         if (res.ok) {
           markAuthenticated();
           announceRefresh();
-          return true;
+          return 'refreshed' as const;
         }
-        return false;
+        // 401/403 is the server stating there is no session to refresh. Any
+        // other failure status is the server declining to answer the question
+        // — a rate limit, an outage, a proxy — and says nothing about whether
+        // this browser is signed in.
+        if (res.status === 401 || res.status === 403) {
+          refreshRefusedUntil = Date.now() + REFRESH_REFUSED_QUIET_MS;
+          return 'refused' as const;
+        }
+        // Honour Retry-After when the server sent one; it knows better than a
+        // fixed constant how long its own limit lasts.
+        const retryAfter = Number(res.headers.get('retry-after'));
+        refreshBlockedUntil =
+          Date.now() +
+          (Number.isFinite(retryAfter) && retryAfter > 0
+            ? Math.min(retryAfter * 1000, 5 * 60_000)
+            : REFRESH_UNAVAILABLE_COOLDOWN_MS);
+        return 'unavailable' as const;
       } catch {
-        return false;
+        // Network failure — the request never reached the server, so this is
+        // emphatically not a refusal.
+        refreshBlockedUntil = Date.now() + REFRESH_UNAVAILABLE_COOLDOWN_MS;
+        return 'unavailable' as const;
       } finally {
         // Cleared synchronously. Concurrent callers have already joined by
         // awaiting this same promise; anyone arriving AFTER it settles must
@@ -188,6 +253,13 @@ function isOnAuthRoute(): boolean {
 /** Called after a successful sign-in/refresh so a later expiry announces again. */
 export function markSessionRecovered(): void {
   sessionExpiryAnnounced = false;
+  // A session exists again, so both refresh latches are stale: the refusal was
+  // about the previous (absent) session, and the cooldown was about a server
+  // that has evidently just answered us.
+  refreshRefusedUntil = 0;
+  refreshBlockedUntil = 0;
+  // A new identity may be cleared later; this one is alive.
+  identityClearedAnnouncedAt = 0;
   // The sign-out quiet window ENDS here, and forgetting this was a real bug.
   //
   // `deliberateSignOutAt` suppresses refreshes so a sign-out cannot be undone
@@ -219,6 +291,10 @@ const SIGN_OUT_QUIET_MS = 5_000;
 export function markDeliberateSignOut(): void {
   deliberateSignOutAt = Date.now();
   sessionExpiryAnnounced = true;
+  // There is definitively nothing to refresh now, and the quiet window is only
+  // five seconds. Without this, every authed request that 401s after those five
+  // seconds starts asking again.
+  refreshRefusedUntil = Date.now() + REFRESH_REFUSED_QUIET_MS;
   // Nothing in this tab may claim a recent refresh any more, and neither may
   // anything arriving from another tab — see announceSignedOut().
   lastRefreshAt = 0;
@@ -244,8 +320,27 @@ export function markDeliberateSignOut(): void {
  */
 export const IDENTITY_CLEARED_EVENT = 'mr-identity-cleared';
 
+/**
+ * Announced at most once per five seconds, and reset by markSessionRecovered().
+ *
+ * Listeners respond to this by dropping caches, and dropping a cache with a
+ * mounted observer makes React Query refetch it at once. If that refetch is an
+ * authed call it 401s, which lands back here — so an unguarded announcement is
+ * a request loop with extra steps. The identity is already gone; announcing it
+ * again a few milliseconds later cannot make it more gone.
+ *
+ * A window rather than a permanent flag, for the same reason as
+ * refreshRefusedUntil: five seconds is three orders of magnitude longer than
+ * the cascade this suppresses, and a guard that can get stuck on would silence
+ * a real sign-out later in the tab's life.
+ */
+let identityClearedAnnouncedAt = 0;
+const IDENTITY_CLEARED_QUIET_MS = 5_000;
+
 function announceIdentityCleared(): void {
   if (typeof window === 'undefined') return;
+  if (Date.now() - identityClearedAnnouncedAt < IDENTITY_CLEARED_QUIET_MS) return;
+  identityClearedAnnouncedAt = Date.now();
   try {
     window.dispatchEvent(new Event(IDENTITY_CLEARED_EVENT));
   } catch {
@@ -296,9 +391,27 @@ export async function apiFetch<T>(
   // account" veto, the Edge proxy) then kept treating a signed-out visitor as
   // signed in.
   if (res.status === 401 && auth) {
-    if (!_isRetry && (await refreshSession())) {
+    const outcome = _isRetry ? 'refused' : await refreshSession();
+    if (outcome === 'refreshed') {
       markSessionRecovered();
       return apiFetch<T>(path, { ...init, _isRetry: true });
+    }
+    // "We could not check" is not "you are signed out", and treating it as one
+    // is the whole bug. A 429 on /auth/refresh used to land here, clear the
+    // mr-auth hint, and dispatch IDENTITY_CLEARED — which signed out a shopper
+    // whose httpOnly cookies were perfectly valid, showed SIGN IN in the header
+    // while /account still rendered their profile from the same session, and
+    // could not recover until the tab was reloaded (2026-08-01).
+    //
+    // Throwing a distinct status matters: useSessionState only fails closed on
+    // a settled 401, so a 503 leaves the session 'unknown' and lets the hint
+    // cookie vouch — which is exactly the honest answer here.
+    if (outcome === 'unavailable') {
+      throw {
+        status: 503,
+        message: 'Could not verify your session just now',
+        error: 'session_check_unavailable',
+      } as ApiError;
     }
     // Was there ever a session to expire? Read this BEFORE clearing the flag,
     // or the answer is always "no".

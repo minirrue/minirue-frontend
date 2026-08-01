@@ -94,18 +94,27 @@ export default function LoginPage() {
         return;
       }
 
-      setSession({
-        userId: data.user.userId,
-        email: data.user.email,
-        name: data.user.name ?? form.email.split('@')[0],
-        role: data.user.role,
-        createdAt: Date.now(),
-      });
-      await syncCartAfterAuth();
+      // Past this line the session is live. Same rule as signup/page.tsx:
+      // post-sign-in housekeeping must not be able to report failure for a
+      // sign-in that worked, or the shopper is told to try again while already
+      // holding a valid session.
+      try {
+        setSession({
+          userId: data.user.userId,
+          email: data.user.email,
+          name: data.user.name ?? form.email.split('@')[0],
+          role: data.user.role,
+          createdAt: Date.now(),
+        });
+        await syncCartAfterAuth();
+      } catch {
+        // Best effort — the cart merge retries on the next load.
+      }
       // See signup/page.tsx: the redirect target may have no input at all,
       // so a still-focused field can leave a mobile keyboard stuck open there.
       blurActiveElement();
-      router.push(getNextPath());
+      router.replace(getNextPath());
+      return;
     } catch (err: unknown) {
       setLoading(false);
       const e = err as ApiError;

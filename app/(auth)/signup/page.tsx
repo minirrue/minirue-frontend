@@ -81,22 +81,36 @@ export default function SignupPage() {
         password: form.password,
         phone: toE164(form.dialCode, form.phoneNumber),
       });
-      setSession({
-        userId: data.user.userId,
-        email: data.user.email,
-        name:
-          data.user.name ??
-          `${form.firstName} ${form.lastName}`.trim(),
-        role: data.user.role,
-        createdAt: Date.now(),
-      });
-      await syncCartAfterAuth();
+      // PAST THIS LINE THE ACCOUNT EXISTS. Nothing below may throw the shopper
+      // back to an error message, because there is no error to report and no
+      // useful thing for them to do about it — pressing the button again just
+      // earns "an account with these details already exists" for the account
+      // they successfully created a second ago. That is the exact sequence the
+      // owner hit on 2026-08-01, and the culprit was cart merge / /auth/me,
+      // neither of which is the sign-up.
+      try {
+        setSession({
+          userId: data.user.userId,
+          email: data.user.email,
+          name:
+            data.user.name ??
+            `${form.firstName} ${form.lastName}`.trim(),
+          role: data.user.role,
+          createdAt: Date.now(),
+        });
+        // Best effort: a guest basket that fails to merge is worth a retry on
+        // the next page load, not a failed sign-up.
+        await syncCartAfterAuth();
+      } catch {
+        // Deliberately swallowed — see above.
+      }
       // The redirect target (home) has no input at all, so if the field the
       // shopper last typed into (often confirm-password) is still focused
       // when it unmounts, mobile keyboards can stay open there with nothing
       // to explain it. Blur before navigating away.
       blurActiveElement();
-      router.push('/');
+      router.replace('/');
+      return;
     } catch (err: unknown) {
       setLoading(false);
       const e = err as ApiError;

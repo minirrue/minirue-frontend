@@ -196,7 +196,28 @@ export function useUser() {
      * `apiFetch` dispatches this the moment it clears auth state on a 401.
      */
     function onIdentityCleared() {
-      clearIdentityCaches(queryClient);
+      // Every identity cache EXCEPT ['auth'], and that exception is the fix for
+      // a runaway request loop, not a nicety.
+      //
+      // apiFetch dispatches this event from inside its own 401 handler, and
+      // `removeQueries(['auth'])` on a query that still has a mounted observer
+      // makes React Query refetch it IMMEDIATELY. That refetch is /auth/me, it
+      // 401s for exactly the same reason as the one that got us here, and it
+      // dispatches the event again: ~12 requests a second, forever, for every
+      // signed-out visitor on the site. It burned the rate limit, so the very
+      // next real request — the /auth/me straight after a successful sign-up —
+      // came back 429 and the storefront said "something went wrong" about an
+      // account it had just created (2026-08-01; 231 requests in one tab).
+      //
+      // Removing it is not needed anyway. useUser() already returns
+      // `data: undefined` whenever the query is in error, and useSessionState
+      // latches `ended` off this same event, so no consumer can still be
+      // reading the old identity. The 401 is the signal; the refetch only ever
+      // re-asked a question that had just been answered.
+      for (const queryKey of IDENTITY_QUERY_PREFIXES) {
+        if (queryKey[0] === 'auth') continue;
+        queryClient.removeQueries({ queryKey: queryKey as unknown[] });
+      }
     }
     window.addEventListener('storage', onStorage);
     window.addEventListener(IDENTITY_CLEARED_EVENT, onIdentityCleared);

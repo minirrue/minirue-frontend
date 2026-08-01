@@ -12,7 +12,9 @@ import userEvent from '@testing-library/user-event';
 
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn() }),
+  // replace, not push: a completed sign-up must not leave the form in the
+  // back-stack for a shopper who now has a session.
+  useRouter: () => ({ push: jest.fn(), replace: mockPush }),
   useSearchParams: () => ({ get: () => null }),
 }));
 

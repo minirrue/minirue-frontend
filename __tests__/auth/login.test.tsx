@@ -121,7 +121,9 @@ describe('LoginPage', () => {
       mockApiLogin.mockResolvedValueOnce(mockAuthResponse());
       render(<LoginPage />);
       await fillAndSubmit();
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'));
+      // replace, not push: a completed sign-in must not leave the form in
+      // the back-stack for a shopper who now has a session.
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
     });
 
     it('shows loading state while request is in-flight', async () => {
