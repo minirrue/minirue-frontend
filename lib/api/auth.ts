@@ -117,6 +117,16 @@ export async function apiRefresh(): Promise<void> {
 }
 
 export async function apiLogout(): Promise<void> {
+  /**
+   * The backend clears BOTH cookie sets on this route — Better Auth's own and
+   * the legacy mr_access / mr_refresh pair — so one call ends whichever kind of
+   * session this browser happens to be holding.
+   *
+   * That matters during the cutover: a shopper signed in before the migration
+   * pressed Sign out, was told they were signed out, and was not, because only
+   * Better Auth's cookie had been cleared and the server-rendered account pages
+   * read the legacy one directly.
+   */
   await apiFetch<void>('/auth/sign-out', {
     method: 'POST',
     auth: true,
@@ -166,8 +176,24 @@ export async function apiMe(): Promise<MeResponse> {
     user?: { id: string; email: string; name?: string | null; role?: string | null };
   } | null>('/auth/get-session', { auth: true });
 
-  if (!session?.user) {
-    throw { status: 401, message: 'Session expired' };
-  }
-  return toUserProfile(session.user);
+  if (session?.user) return toUserProfile(session.user);
+
+  /**
+   * Fall back to the legacy `/auth/me` before declaring anyone signed out.
+   *
+   * A browser that signed in BEFORE the cutover holds the old mr_access /
+   * mr_refresh cookie pair, which Better Auth knows nothing about — so
+   * `get-session` correctly answers "no session" for a shopper who is, in every
+   * way that matters, still signed in. Without this the header showed SIGN IN
+   * while the server-rendered account pages happily displayed their profile
+   * from the same request's cookies. Reported exactly that way: "the frontend
+   * says sign in and when i tap sign out it still signed in".
+   *
+   * This is the whole reason the migration can be invisible. Existing sessions
+   * keep working until they age out; new ones are Better Auth's. Delete this
+   * fallback once the legacy cookie's lifetime has passed — the old `/auth/me`
+   * goes with it.
+   */
+  const legacy = await apiFetch<MeResponse>('/auth/me', { auth: true });
+  return parseAuthUser(legacy);
 }

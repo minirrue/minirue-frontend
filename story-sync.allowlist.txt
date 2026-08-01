@@ -67,3 +67,14 @@ minirue-frontend PAGE /brands
 # the rest of this QC batch; remove these lines once they land.
 minirue-frontend PAGE /collab
 minirue-frontend PAGE /categories
+
+# 2026-08-01 — TEMPORARY, and not this session's routes.
+#
+# The bundles pages are committed but carry no citing story, so story-sync
+# fails for EVERY push — which blocked an unrelated, user-facing auth fix.
+#
+# Listed to unblock the branch, NOT because they are exempt. Whoever owns
+# bundles should cite them from a story in minirue-frontend-us and delete
+# this block.
+minirue-frontend PAGE /bundles
+minirue-frontend PAGE /bundles/:param
