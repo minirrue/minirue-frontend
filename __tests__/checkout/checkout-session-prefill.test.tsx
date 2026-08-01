@@ -74,6 +74,21 @@ beforeEach(() => {
     itemCount: 1,
     subtotalAmount: '400.00',
     currency: 'EGP',
+    // The real context always carries this; the mock said itemCount: 1 while
+    // holding no items, which is a state the cart cannot actually be in. The
+    // page now reads `items` for the discount field, so an honest fixture
+    // matters — a mock that is impossible in production tests nothing.
+    items: [
+      {
+        id: 'ci-1',
+        variantId: '11111111-1111-4111-8111-111111111111',
+        qty: 1,
+        unitPriceAmount: '400.00',
+        unitPriceCurrency: 'EGP',
+        lineTotalAmount: '400.00',
+        availableQuantity: 5,
+      },
+    ],
   });
   mockUseCustomerAddresses.mockReturnValue({
     data: [DEFAULT_ADDRESS, WORK_ADDRESS],

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
 import PriceDisplay from './PriceDisplay';
+import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
 
 interface CatalogProductCardProps {
   product: ApiProduct;
@@ -152,11 +153,31 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
           >
             {productByline(product) || product.categoryName}
           </div>
-          {price && (
-            <PriceDisplay amount={price.amount} currency={price.currency} />
-          )}
+          {price && <CardPrice price={price} product={product} />}
         </div>
       </article>
     </Link>
+  );
+}
+
+/**
+ * Split out because a hook cannot be called inside the `price &&` branch above.
+ * Renders exactly as before when no markdown is running: `useDiscountedPrice`
+ * returns `wasAmount: undefined`, which is what an ordinary price already is.
+ */
+function CardPrice({
+  price,
+  product,
+}: {
+  price: { amount: string; currency: string };
+  product: ApiProduct;
+}) {
+  const shown = useDiscountedPrice(price.amount, !product.collaboratorId);
+  return (
+    <PriceDisplay
+      amount={shown.amount}
+      wasAmount={shown.wasAmount}
+      currency={price.currency}
+    />
   );
 }

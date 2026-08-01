@@ -41,7 +41,11 @@ export default function CheckoutPaymentPage() {
    */
   const discountLines = useMemo(
     () =>
-      items.map((i) => ({
+      // `?? []` is not defensive noise: this is an optional field on the page
+      // that takes payment. If the cart context is ever mid-load, or a caller
+      // supplies a partial one, a discount box must not white-screen the
+      // payment step. It renders empty and the shopper still pays.
+      (items ?? []).map((i) => ({
         variantId: i.variantId,
         qty: i.qty,
         unitPriceMinor: Math.round(parseFloat(i.unitPriceAmount) * 100),

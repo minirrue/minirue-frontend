@@ -7,6 +7,7 @@ import "./globals.css";
 import LenisProvider from "@/components/providers/LenisProvider";
 import OrganizationSchema from "@/components/seo/OrganizationSchema";
 import { CartProvider } from "@/components/storefront/cart/CartContext";
+import { SitewideDiscountProvider } from "@/lib/hooks/use-sitewide-discount";
 import CartDrawer from "@/components/storefront/cart/CartDrawer";
 import { RootQueryProvider, getQueryClient } from "@/lib/hooks";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
@@ -203,6 +204,11 @@ export default function RootLayout({
                 resets on a real refresh, which is what dismissing the bar
                 should do. */}
             <AnnouncementBarProvider>
+              {/* One fetch for the whole app. Every product card needs the same
+                  single percentage, and thirty cards asking separately would
+                  make the price — the thing a shopper reads first — the
+                  slowest element on a listing page. */}
+              <SitewideDiscountProvider>
               <CartProvider>
                 {/* SupportProvider must wrap {children} too — pages call
                     useSupportContext() to set the widget's default subject
@@ -223,6 +229,7 @@ export default function RootLayout({
                   <MobileBottomNav />
                 </SupportProvider>
               </CartProvider>
+              </SitewideDiscountProvider>
             </AnnouncementBarProvider>
           </HydrationBoundary>
         </RootQueryProvider>

@@ -105,6 +105,14 @@ export interface ApiProduct {
   brandName?: string | null;
   brand?: string | null;
   brandId?: string | null;
+  /**
+   * null = MiniRue's own product; set = a partner's.
+   *
+   * Only used to decide whether a sitewide markdown may strike this price
+   * through. MiniRue never cuts a partner's price, so striking one would
+   * advertise a discount that checkout refuses.
+   */
+  collaboratorId?: string | null;
   fragranceFamily?: string | null;
   gender?: 'men' | 'women' | 'unisex' | null;
   description?: string;

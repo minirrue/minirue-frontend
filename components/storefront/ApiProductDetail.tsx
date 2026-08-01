@@ -14,6 +14,7 @@ import {
 import WishlistHeart from './WishlistHeart';
 import VariantPicker from './VariantPicker';
 import PriceDisplay, { formatPrice } from './PriceDisplay';
+import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
 import Icon from '@/components/ui/Icon';
 import Sparkle from '@/components/ui/Sparkle';
 import type { ProductSectionConfig } from '@/lib/api/storefront';
@@ -124,6 +125,17 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
   ctaDisplay,
   addToBagRef,
 }: ProductInfoPanelProps) {
+  /**
+   * The price under the running sitewide markdown, or the plain price when
+   * none is running. Computed once and used by BOTH the main price and the
+   * sticky buy bar below — those two showing different numbers on one screen
+   * is the kind of thing a shopper screenshots.
+   */
+  const shownPrice = useDiscountedPrice(
+    selectedVariant?.priceAmount ?? '0',
+    !product.collaboratorId,
+  );
+
   return (
     <div
       data-testid="product-info-panel"
@@ -176,7 +188,8 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         >
           <span style={ctaStyle}>
             <PriceDisplay
-              amount={selectedVariant.priceAmount}
+              amount={shownPrice.amount}
+              wasAmount={shownPrice.wasAmount}
               currency={selectedVariant.priceCurrency}
               style={{ fontSize: 'var(--mr-text-xl)' }}
             />
@@ -498,8 +511,22 @@ export default function ApiProductDetail({
   // formatter every other price on the page uses (PriceDisplay's
   // formatPrice) — priceAmount is a raw NUMERIC(*,4) string like "400.0000"
   // and must never be glued to the currency code unformatted.
+  /**
+   * The sticky buy bar's price. Same hook and same inputs as the panel's, so
+   * the two prices on screen cannot disagree — one component computing it and
+   * passing it down would be tidier, but the panel is React.memo'd and the
+   * extra prop would defeat that for no gain: the hook reads one context value.
+   */
+  const shownPrice = useDiscountedPrice(
+    selectedVariant?.priceAmount ?? '0',
+    !product.collaboratorId,
+  );
+
+  // The crossfade label follows what is actually shown — animating from the
+  // old full price to the new full price while the visible figure is discounted
+  // would flash a number the shopper never sees anywhere else.
   const priceLabel = selectedVariant
-    ? formatPrice(selectedVariant.priceAmount, selectedVariant.priceCurrency)
+    ? formatPrice(shownPrice.amount, selectedVariant.priceCurrency)
     : '';
   const ctaX = useCrossfade(priceLabel);
 
@@ -736,7 +763,8 @@ export default function ApiProductDetail({
           </div>
           {selectedVariant ? (
             <PriceDisplay
-              amount={selectedVariant.priceAmount}
+              amount={shownPrice.amount}
+              wasAmount={shownPrice.wasAmount}
               currency={selectedVariant.priceCurrency}
               style={{ fontSize: 'var(--mr-text-md)' }}
             />
