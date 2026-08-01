@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { primaryMedia, mediaImageUrl, lowestPrice, productByline } from '@/lib/api/catalog';
+import { useImageRetry } from '@/lib/hooks/useImageRetry';
 import WishlistHeart from './WishlistHeart';
 import { MR_TX } from '@/lib/motion/presets';
 import { useIsTouch } from '@/lib/hooks/useIsTouch';
@@ -31,6 +32,11 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
     () => (media ? mediaImageUrl(media, { w: 600, h: 750 }) : null),
     [media],
   );
+  // A cold-miss image now falls back to the name placeholder below (the same
+  // one used when a product has no photo) and retries quietly behind it,
+  // instead of leaving the browser's broken-image icon on the card forever.
+  const image = useImageRetry(imgSrc);
+
   const price = React.useMemo(() => lowestPrice(product), [product]);
   const meta = React.useMemo(
     () => productByline(product) || (product.categoryName ?? ''),
@@ -134,12 +140,14 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
           }}
         >
           {/* Product image */}
-          {imgSrc ? (
+          {imgSrc && image.src && !image.failed ? (
             <Image
-              src={imgSrc}
+              src={image.src}
               alt={media?.altText || product.name}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              onError={image.onError}
+              onLoad={image.onLoad}
               style={{
                 objectFit: 'cover',
                 transform: showOverlays ? 'scale(1.04)' : 'scale(1)',
