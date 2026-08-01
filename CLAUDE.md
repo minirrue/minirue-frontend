@@ -61,7 +61,12 @@ feature batch, once per batch, not per commit.
 - `proxy.ts` (Next's middleware convention, just renamed) gates `/account`
   and `/orders` behind the `mr-auth` cookie, redirecting guests to `/login`.
   It does not gate `/cart` or `/checkout` — guests can hold a cart and reach
-  checkout; identity is only asked for at Place order.
+  checkout — but a guest CANNOT BUY. That gate is the backend's:
+  `CustomerOrdersController` is `@UseGuards(JwtAuthGuard)` at class level
+  (`orders.controller.ts:37`), so every checkout call without a token is
+  refused before any money is computed. The line above describes the ROUTE not
+  redirecting, nothing more; reading it as "guests can place orders" has
+  already misled one piece of work (discounts, 2026-08-01).
 - Auth is fully wired end-to-end (login/signup/session) — not a UI-only stub.
 
 ## Superrepo reference
