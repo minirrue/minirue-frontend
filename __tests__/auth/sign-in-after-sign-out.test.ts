@@ -71,7 +71,9 @@ describe('signing in again right after signing out', () => {
     const afterProof = jest
       .fn()
       .mockResolvedValueOnce(response(401)) // the request
-      .mockResolvedValueOnce(response(200)) // /auth/refresh — succeeds
+      // The session check now answers with a USER; an empty 200 means
+      // signed out, which is the opposite of what this test needs.
+      .mockResolvedValueOnce(response(200, { user: { id: 'u1', email: 'a@b.com', role: 'CUSTOMER' } })) // /auth/get-session — alive
       .mockResolvedValueOnce(response(200, { ok: true })); // the retry
     global.fetch = afterProof as unknown as typeof fetch;
 
@@ -79,7 +81,7 @@ describe('signing in again right after signing out', () => {
 
     // Three calls means the refresh was actually attempted and the retry ran.
     expect(afterProof).toHaveBeenCalledTimes(3);
-    expect(afterProof.mock.calls[1][0]).toContain('/auth/refresh');
+    expect(afterProof.mock.calls[1][0]).toContain('/auth/get-session');
     // And the shopper is still signed in — the flag survived.
     expect(isAuthenticated()).toBe(true);
   });
@@ -92,13 +94,15 @@ describe('signing in again right after signing out', () => {
     const fetchMock = jest
       .fn()
       .mockResolvedValueOnce(response(401))
-      .mockResolvedValueOnce(response(200))
+      .mockResolvedValueOnce(
+        response(200, { user: { id: 'u1', email: 'a@b.com', role: 'CUSTOMER' } }),
+      )
       .mockResolvedValueOnce(response(200, { ok: true }));
     global.fetch = fetchMock as unknown as typeof fetch;
 
     await apiFetch('/account', { auth: true });
 
-    expect(fetchMock.mock.calls[1][0]).toContain('/auth/refresh');
+    expect(fetchMock.mock.calls[1][0]).toContain('/auth/get-session');
   });
 
   it('still refuses to refresh during a genuine sign-out', async () => {

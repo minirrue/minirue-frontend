@@ -11,6 +11,11 @@ export interface UserProfile {
   name?: string;
 }
 
+/**
+ * Retained only for the dashboard's "sign in as" flow, which still mints a
+ * short-lived token rather than a cookie. Nothing in the storefront issues or
+ * reads one any more.
+ */
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -18,7 +23,15 @@ export interface TokenPair {
   tokenType: 'Bearer';
 }
 
-export interface AuthSuccessResponse extends TokenPair {
+/**
+ * What a successful sign-in or sign-up gives the client.
+ *
+ * No longer extends TokenPair. Better Auth's session lives entirely in an
+ * httpOnly cookie — there is no access or refresh token for a caller to hold,
+ * and pretending otherwise would mean returning empty strings that look like
+ * credentials. `user` is the only field any call site ever read.
+ */
+export interface AuthSuccessResponse {
   user: UserProfile;
 }
 

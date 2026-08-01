@@ -201,17 +201,39 @@ async function refreshSession(): Promise<RefreshOutcome> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
-        const res = await fetch(`${BASE}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        /**
+         * `get-session`, not `refresh` — Better Auth has no token rotation.
+         *
+         * The old stack handed out a short-lived access token that had to be
+         * exchanged for a new one, so a 401 meant "rotate and retry". Better
+         * Auth extends a session as it is used, so there is nothing to rotate:
+         * the only question worth asking after a 401 is whether the session
+         * still exists at all. That is exactly what this asks, and it costs one
+         * indexed lookup.
+         *
+         * The three-way answer below is unchanged and still load-bearing — see
+         * RefreshOutcome. A rate limit or an outage must never be read as "you
+         * are signed out"; that mistake put a SIGN IN button in front of
+         * shoppers whose session was perfectly valid.
+         */
+        const res = await fetch(`${BASE}/auth/get-session`, {
+          method: 'GET',
           credentials: 'include',
-          // Refresh token travels in the httpOnly cookie; empty JSON body.
-          body: '{}',
         });
         if (res.ok) {
-          markAuthenticated();
-          announceRefresh();
-          return 'refreshed' as const;
+          // A signed-out visitor gets 200 with a null body, not a 401 — so an
+          // OK status alone does not mean there is a session. Reading the body
+          // is what distinguishes "still signed in" from "definitely not".
+          const body = (await res.json().catch(() => null)) as {
+            user?: unknown;
+          } | null;
+          if (body?.user) {
+            markAuthenticated();
+            announceRefresh();
+            return 'refreshed' as const;
+          }
+          refreshRefusedUntil = Date.now() + REFRESH_REFUSED_QUIET_MS;
+          return 'refused' as const;
         }
         // 401/403 is the server stating there is no session to refresh. Any
         // other failure status is the server declining to answer the question

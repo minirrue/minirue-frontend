@@ -114,7 +114,9 @@ describe('a sign-out in one tab reaches every other tab', () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce(jsonResponse(401)) // original
-      .mockResolvedValueOnce(jsonResponse(200)) // /auth/refresh
+      // A live session: GET /auth/get-session answers with a user. An empty
+      // 200 now means the OPPOSITE — signed out — so the body matters here.
+      .mockResolvedValueOnce(jsonResponse(200, { user: { id: 'u1', email: 'a@b.com', role: 'CUSTOMER' } })) // /auth/get-session
       .mockResolvedValueOnce(jsonResponse(200, { ok: true })) as unknown as typeof fetch;
     await apiFetch('/account', { auth: true });
     expect(isAuthenticated()).toBe(true);

@@ -83,7 +83,7 @@ describe('signing out is final on the client', () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce(jsonResponse(401)) // original
-      .mockResolvedValueOnce(jsonResponse(200)) // /auth/refresh succeeds
+      .mockResolvedValueOnce(jsonResponse(200, { user: { id: 'u1', email: 'a@b.com', role: 'CUSTOMER' } })) // /auth/get-session: alive
       .mockResolvedValueOnce(jsonResponse(200, { ok: true })) as unknown as typeof fetch;
     await apiFetch('/account', { auth: true });
 
@@ -114,7 +114,7 @@ describe('signing out is final on the client', () => {
     const fetchMock = jest
       .fn()
       .mockResolvedValueOnce(jsonResponse(401)) // original
-      .mockResolvedValueOnce(jsonResponse(200)) // /auth/refresh
+      .mockResolvedValueOnce(jsonResponse(200, { user: { id: 'u1', email: 'a@b.com', role: 'CUSTOMER' } })) // /auth/get-session: alive
       .mockResolvedValueOnce(jsonResponse(401)); // retry
     global.fetch = fetchMock as unknown as typeof fetch;
 
