@@ -1,6 +1,6 @@
 import { apiFetch } from './client';
+import { parseAuthUser as parseAuthUserFn } from '@/lib/auth/session-role';
 import { markAuthenticated } from '@/lib/auth/tokens';
-import { parseAuthUser } from '@/lib/auth/session-role';
 import type { AuthSuccessResponse, MeResponse, UserProfile } from '@/lib/auth/types';
 
 export type { AuthSuccessResponse as AuthResponse, MeResponse } from '@/lib/auth/types';
@@ -33,7 +33,7 @@ function toUserProfile(user: {
   name?: string | null;
   role?: string | null;
 }): UserProfile {
-  return parseAuthUser({
+  return parseAuthUserFn({
     userId: user.id,
     role: user.role ?? 'CUSTOMER',
     email: user.email,
@@ -179,21 +179,13 @@ export async function apiMe(): Promise<MeResponse> {
   if (session?.user) return toUserProfile(session.user);
 
   /**
-   * Fall back to the legacy `/auth/me` before declaring anyone signed out.
+   * No fallback here, deliberately.
    *
-   * A browser that signed in BEFORE the cutover holds the old mr_access /
-   * mr_refresh cookie pair, which Better Auth knows nothing about — so
-   * `get-session` correctly answers "no session" for a shopper who is, in every
-   * way that matters, still signed in. Without this the header showed SIGN IN
-   * while the server-rendered account pages happily displayed their profile
-   * from the same request's cookies. Reported exactly that way: "the frontend
-   * says sign in and when i tap sign out it still signed in".
-   *
-   * This is the whole reason the migration can be invisible. Existing sessions
-   * keep working until they age out; new ones are Better Auth's. Delete this
-   * fallback once the legacy cookie's lifetime has passed — the old `/auth/me`
-   * goes with it.
+   * A browser holding a PRE-CUTOVER mr_access cookie is still recognised — but
+   * by `get-session` itself, on the server, not by the client trying a second
+   * endpoint. That is why the old `/auth/me` could be deleted: the
+   * compatibility lives in one place instead of in every client, and there is a
+   * single answer to "who is signed in" whatever cookie the browser holds.
    */
-  const legacy = await apiFetch<MeResponse>('/auth/me', { auth: true });
-  return parseAuthUser(legacy);
+  throw { status: 401, message: 'Session expired' };
 }
