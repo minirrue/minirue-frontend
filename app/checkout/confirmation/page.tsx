@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { apiCheckout } from '@/lib/checkout/checkout-api';
+import { loadAppliedCode, saveAppliedCode } from '@/lib/api/discounts';
 import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
@@ -74,12 +75,19 @@ export default function CheckoutConfirmationPage() {
         cartId,
         shippingAddressId: session.shippingAddressId,
         paymentMethod: 'COD',
+        // Whatever they applied in the bag or on the payment step. The server
+        // re-resolves it and recomputes the saving; an undefined code simply
+        // means no discount, never an error.
+        ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
       },
       newIdempotencyKey(),
     )
       .then((order) => {
         setOrderNumber(order.orderNumber);
         clearCheckoutSession();
+        // Forgotten once it has been spent. Leaving it behind would silently
+        // re-apply a one-use code to the next order and fail at placement.
+        saveAppliedCode(null);
         void clearCart();
       })
       .catch((err: unknown) => {

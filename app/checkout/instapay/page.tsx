@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { apiCheckout } from '@/lib/checkout/checkout-api';
+import { loadAppliedCode, saveAppliedCode } from '@/lib/api/discounts';
 import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
@@ -115,6 +116,7 @@ export default function InstapayCheckoutPage() {
           shippingAddressId: session.shippingAddressId,
           paymentMethod: 'INSTAPAY',
           receiptDataUrl: preview,
+          ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
         },
         newIdempotencyKey(),
       );
@@ -122,6 +124,7 @@ export default function InstapayCheckoutPage() {
       // outcome, not a reason to redirect.
       setPlaced(true);
       clearCheckoutSession();
+      saveAppliedCode(null);
       await clearCart();
       router.replace(`/checkout/confirmation?order=${encodeURIComponent(order.orderNumber)}`);
     } catch (err: unknown) {

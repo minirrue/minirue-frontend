@@ -12,6 +12,7 @@ import {
   type CartDto,
   type CartItemDto,
   EMPTY_CART,
+  apiAddBundle,
   apiGetCart,
   apiAddItem,
   apiUpdateItem,
@@ -60,6 +61,8 @@ export interface CartContextValue {
     enrichment?: VariantEnrichment,
     source?: CartEventSource,
   ) => Promise<void>;
+  /** Add a whole set. Throws on failure so the page can say what went wrong. */
+  addBundle: (slug: string) => Promise<void>;
   updateQty: (itemId: string, qty: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -133,6 +136,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       setError(extractErrorMessage(e, 'Failed to add item'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /**
+   * Unlike `addItem`, this RE-THROWS.
+   *
+   * A set can fail for a reason the shopper needs to read — a member sold out
+   * between the page rendering and the button being pressed. Swallowing it into
+   * the shared `error` state would leave the bundle page looking like nothing
+   * happened, since that state is rendered by the cart drawer, not by it.
+   */
+  async function addBundle(slug: string): Promise<void> {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiAddBundle(slug);
+      setCartFromApi(data);
+      setDrawerOpen(true);
+    } catch (e) {
+      const message = extractErrorMessage(e, 'Failed to add this set');
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -212,6 +239,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
     closeDrawer: () => setDrawerOpen(false),
     addItem,
+    addBundle,
     updateQty,
     removeItem,
     clearCart,

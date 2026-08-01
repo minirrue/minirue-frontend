@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { loadCheckoutSession, saveCheckoutSession } from '@/lib/checkout/checkout-session';
 import {
@@ -21,6 +21,8 @@ import {
   CheckoutSummaryCard,
 } from '@/components/checkout/checkout-ui';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
+import DiscountCodeField from '@/components/checkout/DiscountCodeField';
+import type { DiscountPreview } from '@/lib/api/discounts';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -28,8 +30,24 @@ function minorToAmount(minor: number): string {
 
 export default function CheckoutPaymentPage() {
   const router = useRouter();
-  const { cartId, subtotalAmount, currency } = useCart();
+  const { cartId, items, subtotalAmount, currency } = useCart();
   const [method, setMethod] = useState<'COD' | 'INSTAPAY'>('COD');
+  const [discount, setDiscount] = useState<DiscountPreview | null>(null);
+
+  /**
+   * The last chance to type a code before paying. The field re-checks whatever
+   * was applied in the bag, so a shopper who applied it there sees it here
+   * already filled in rather than an empty box that looks like it was lost.
+   */
+  const discountLines = useMemo(
+    () =>
+      items.map((i) => ({
+        variantId: i.variantId,
+        qty: i.qty,
+        unitPriceMinor: Math.round(parseFloat(i.unitPriceAmount) * 100),
+      })),
+    [items],
+  );
 
   useEffect(() => {
     if (!loadCheckoutSession()?.shippingAddressId) {
@@ -53,8 +71,15 @@ export default function CheckoutPaymentPage() {
     if (saved) setMethod(saved);
   }, []);
 
-  const codBlocked = !isCodAvailable(subtotalAmount);
-  const totalMinor = orderTotalMinor(subtotalAmount);
+  const discountMinor = discount?.discountMinor ?? 0;
+  /**
+   * Both the COD ceiling and the displayed total follow what is actually paid.
+   * That is the cash the courier collects, and judging the ceiling on the
+   * pre-discount figure would refuse cash on delivery for an order small enough
+   * to qualify.
+   */
+  const totalMinor = Math.max(0, orderTotalMinor(subtotalAmount) - discountMinor);
+  const codBlocked = totalMinor > COD_MAX_ORDER_MINOR;
 
   useEffect(() => {
     if (codBlocked && method === 'COD') {
@@ -99,8 +124,18 @@ export default function CheckoutPaymentPage() {
             }}
           >
             Includes shipping ({minorToAmount(SHIPPING_AMOUNT_MINOR)} {currency})
+            {discountMinor > 0 && (
+              <>
+                {' · '}
+                {discount?.code} −{minorToAmount(discountMinor)} {currency}
+              </>
+            )}
           </p>
         </CheckoutSummaryCard>
+
+        <CheckoutSection title="Discount code">
+          <DiscountCodeField lines={discountLines} onChange={setDiscount} compact />
+        </CheckoutSection>
 
         <CheckoutSection title="Payment method">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>

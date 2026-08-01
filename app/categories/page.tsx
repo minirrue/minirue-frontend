@@ -5,6 +5,7 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/products/HeaderWrapper';
 import { fetchHouseSpace } from '@/lib/api/storefront';
+import { countBundles } from '@/lib/api/bundles';
 import CategoriesGrid from './CategoriesGrid';
 
 /**
@@ -67,12 +68,34 @@ export default async function CategoriesIndexPage() {
     // No logo this request — CategoriesGrid falls back to the generic icon.
   }
 
+  /**
+   * The Bundles tile only exists once there is at least one set to see (owner
+   * request, 2026-08-01) — a card leading to an empty page is worse than no
+   * card.
+   *
+   * Fails soft for the same reason the house-space fetch above does: a count
+   * that does not answer hides the tile, it never takes the Shop page down.
+   * This page is what the phone's Shop tab opens, so it failing is the whole
+   * shop failing.
+   */
+  let bundleCount = 0;
+  try {
+    bundleCount = await countBundles();
+  } catch {
+    // No tile this request.
+  }
+
   return (
     <>
       <div className="mr-page-sheet">
         <AnnouncementBar />
         <HeaderWrapper />
-        <CategoriesGrid categories={topLevel} shopName={shopName} shopLogoUrl={shopLogoUrl} />
+        <CategoriesGrid
+          categories={topLevel}
+          shopName={shopName}
+          shopLogoUrl={shopLogoUrl}
+          hasBundles={bundleCount > 0}
+        />
       </div>
       <FooterWithSettings />
     </>

@@ -11,6 +11,12 @@ export interface CheckoutRequest {
   shippingAddressId: string;
   paymentMethod: PaymentMethod;
   receiptDataUrl?: string;
+  /**
+   * The code the shopper typed — text only. There is deliberately no field for
+   * an amount: the server recomputes the whole saving from this string, and
+   * accepting a number here would let anyone place an order at any price.
+   */
+  discountCode?: string;
 }
 
 export interface OrderItemSummary {

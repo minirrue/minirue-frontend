@@ -135,6 +135,7 @@ export default function CategoriesGrid({
   categories,
   shopName,
   shopLogoUrl,
+  hasBundles = false,
 }: {
   categories: Category[];
   /** MiniRue's own admin-configured name — falls back to "MiniRue" only for
@@ -144,6 +145,8 @@ export default function CategoriesGrid({
    *  the generic icon exactly as it does for an admin who never uploaded one. */
   shopName?: string | null;
   shopLogoUrl?: string | null;
+  /** True only when at least one live set exists — see app/categories/page.tsx. */
+  hasBundles?: boolean;
 }) {
   return (
     <main
@@ -226,6 +229,20 @@ export default function CategoriesGrid({
             traceId="PG-STOREFRONT-CATIDX-001::EL-CARD-category-card"
           />
         ))}
+
+        {/* Sets of products at one price. Sits immediately BEFORE All Products
+            (owner: "beside all products"), and only exists when there is at
+            least one live set — a card leading to an empty page is worse than
+            no card at all. Same glyph treatment as All Products, because
+            neither is a category and neither has a photograph of its own. */}
+        {hasBundles && (
+          <Tile
+            href="/bundles"
+            label="Bundles"
+            imageUrl={null}
+            traceId="PG-STOREFRONT-CATIDX-001::EL-CARD-bundles-card"
+          />
+        )}
 
         {/* The extra card the owner asked for — not a category, the flat
             all-products page — always last so the real categories read

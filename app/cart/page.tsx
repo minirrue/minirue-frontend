@@ -13,6 +13,8 @@ import Button from '@/components/ui/Button';
 import Toast from '@/components/ui/Toast';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { SHIPPING_AMOUNT_MINOR } from '@/lib/checkout/checkout-schemas';
+import DiscountCodeField from '@/components/checkout/DiscountCodeField';
+import type { DiscountPreview } from '@/lib/api/discounts';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -27,6 +29,32 @@ export default function CartPage() {
   const [authChecked, setAuthChecked] = React.useState(false);
 
   const shippingDisplay = minorToAmount(SHIPPING_AMOUNT_MINOR);
+
+  const [discount, setDiscount] = React.useState<DiscountPreview | null>(null);
+
+  /**
+   * The bag, in the shape the discount endpoint wants.
+   *
+   * Prices come from the cart's own line data rather than being looked up
+   * again, so the figure the shopper sees is derived from the same numbers the
+   * rest of this summary uses. The server recomputes all of it at Place order
+   * regardless — this is display only.
+   */
+  const discountLines = React.useMemo(
+    () =>
+      items.map((i) => ({
+        variantId: i.variantId,
+        qty: i.qty,
+        unitPriceMinor: Math.round(parseFloat(i.unitPriceAmount) * 100),
+      })),
+    [items],
+  );
+
+  const subtotalMinor = Math.round(parseFloat(subtotalAmount || '0') * 100);
+  const discountMinor = discount?.discountMinor ?? 0;
+  // Floored, exactly as the server floors it. A summary that can show a
+  // negative total is a summary nobody trusts again.
+  const estimatedTotal = minorToAmount(Math.max(0, subtotalMinor - discountMinor));
 
   // No auth gate. A guest has a cart — it is keyed by the mr-cart-session
   // cookie and the backend accepts it — so bouncing them here threw a shopper
@@ -202,18 +230,43 @@ export default function CartPage() {
                     </span>
                   }
                 />
+                {discountMinor > 0 && (
+                  <SummaryRow
+                    label={discount?.code ?? 'Discount'}
+                    value={
+                      <span
+                        style={{
+                          fontFamily: 'var(--mr-font-ui)',
+                          fontSize: 'var(--mr-text-sm)',
+                          color: 'var(--mr-fg-2)',
+                        }}
+                      >
+                        −{minorToAmount(discountMinor)} {currency}
+                      </span>
+                    }
+                  />
+                )}
                 <div style={{ height: 1, background: 'var(--mr-hairline)', margin: 'var(--mr-sp-2) 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ ...summaryTitleStyle, marginBottom: 0, fontSize: 'var(--mr-text-sm)' }}>
                     Estimated total
                   </span>
                   <PriceDisplay
-                    amount={subtotalAmount}
+                    amount={estimatedTotal}
                     currency={currency}
                     style={{ fontSize: 'var(--mr-text-lg)', color: 'var(--mr-fg)' }}
                   />
                 </div>
               </div>
+
+              {/* The owner's ask: somewhere in checkout to type the code the
+                  dashboard generates. Here on the Bag step, and again on
+                  Payment as a last chance before paying. */}
+              {items.length > 0 && (
+                <div style={{ marginTop: 'var(--mr-sp-5)', paddingTop: 'var(--mr-sp-4)', borderTop: '1px solid var(--mr-hairline)' }}>
+                  <DiscountCodeField lines={discountLines} onChange={setDiscount} />
+                </div>
+              )}
 
               <div style={{ marginTop: 'var(--mr-sp-6)' }}>
                 <Button variant="primary" sweep onClick={() => router.push('/checkout')} style={{ width: '100%' }}>

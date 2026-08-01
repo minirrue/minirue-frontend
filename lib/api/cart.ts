@@ -112,6 +112,21 @@ export async function apiAddItem(variantId: string, qty: number): Promise<CartDt
   });
 }
 
+/**
+ * Add a whole set. Sends the slug and nothing else — the server resolves the
+ * members and the price allocation, so a shopper cannot choose what a set costs
+ * by editing the request.
+ */
+export async function apiAddBundle(slug: string): Promise<CartDto> {
+  ensureCartSessionId();
+  return apiFetch<CartDto>('/cart/bundles', {
+    method: 'POST',
+    auth: true,
+    headers: sessionHeaders(),
+    body: JSON.stringify({ slug }),
+  });
+}
+
 /** Merge guest session cart into the authenticated user cart (BR-CART-006). */
 export async function apiMergeCart(): Promise<CartDto> {
   return apiFetch<CartDto>('/cart/merge', {
