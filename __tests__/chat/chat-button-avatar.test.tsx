@@ -3,22 +3,27 @@ import { render, screen } from '@testing-library/react';
 import ChatButton from '@/components/chat/ChatButton';
 
 /**
- * 2026-07-31 owner ask: "the minirue support avatar in floating chat menu
- * not isndie the chat have generic avatar although we have uplaoded our
- * brand logo it shoudl be visible like inside chat support window itself."
+ * REVERSED 2026-08-03, at the owner's explicit request: "get back the old icon
+ * chat on the ball not our avatar, the avatar is only inside here [the panel
+ * header] only leave it here".
  *
- * Inside the panel, the header already showed the uploaded logo
- * (chat-panel-message-avatar.test.tsx). The floating LAUNCHER button never
- * received `shopAvatarUrl` at all (`SupportWidget` fetched it and only
- * passed it to `ChatPanel`), so it always rendered a hardcoded chat-bubble
- * glyph regardless of what was uploaded. These tests pin the launcher to the
- * same avatar slot the panel header uses (`MessageAvatar`, exported from
- * ChatPanel.tsx): a real logo renders as an `<img>`, and no logo falls back
- * to the shared `GenericAvatarIcon` — never an initial letter, never the old
- * chat-bubble glyph.
+ * The previous rule (2026-07-31) put the uploaded shop logo on the floating
+ * launcher, to match the panel header. This file used to pin that. The owner has
+ * since decided the launcher is a CONTROL that says "talk to us" — identity
+ * belongs to the conversation, not the button that opens it — and the logo still
+ * renders in the panel header, which chat-panel-message-avatar.test.tsx covers.
+ *
+ * Keeping the file (rather than deleting it) because the rule flipped and the
+ * next person needs to see that it flipped deliberately, not by accident.
+ *
+ * There is a second, mechanical reason the launcher must not hold an image, and
+ * it is the bug that prompted this: an <img> inside the button made the browser's
+ * native HTML5 image drag win on desktop, so dragging the ball dragged a
+ * translucent copy of the LOGO instead of moving the button
+ * (chat-button-drag.test.tsx covers the gesture itself).
  */
-describe('ChatButton — the floating launcher shows the shop logo', () => {
-  it('renders the uploaded shop logo when shopAvatarUrl is provided', () => {
+describe('ChatButton — the launcher shows the chat glyph, never a picture', () => {
+  it('renders an inline svg glyph and no image, even when a shop logo is supplied', () => {
     render(
       <ChatButton
         onClick={() => {}}
@@ -27,18 +32,34 @@ describe('ChatButton — the floating launcher shows the shop logo', () => {
       />,
     );
 
-    const logo = screen.getByAltText('MiniRue');
-    expect(logo.tagName).toBe('IMG');
-    expect(logo).toHaveAttribute('src', 'https://example.com/shop-logo.png');
-    expect(screen.queryByTestId('chat-launcher-avatar-generic')).not.toBeInTheDocument();
+    const button = screen.getByTestId('chat-button');
+    expect(button.querySelector('svg')).not.toBeNull();
+
+    // The whole point: a supplied logo must NOT reach the launcher.
+    expect(document.querySelectorAll('img').length).toBe(0);
+    expect(screen.queryByAltText('MiniRue')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('chat-launcher-avatar-generic'),
+    ).not.toBeInTheDocument();
   });
 
-  it('falls back to the generic person icon (no img, no initial letter) when no logo is uploaded', () => {
+  it('renders the same glyph when no logo is supplied — there is no avatar branch left', () => {
     render(<ChatButton onClick={() => {}} shopAvatarUrl={null} />);
 
-    const fallback = screen.getByTestId('chat-launcher-avatar-generic');
-    expect(fallback.querySelector('svg')).not.toBeNull();
-    expect(fallback).toHaveTextContent('');
+    const button = screen.getByTestId('chat-button');
+    expect(button.querySelector('svg')).not.toBeNull();
     expect(document.querySelectorAll('img').length).toBe(0);
+  });
+
+  it('opts out of native dragging, so a drag moves the ball rather than an image', () => {
+    render(<ChatButton onClick={() => {}} shopAvatarUrl={null} />);
+
+    const button = screen.getByTestId('chat-button');
+    expect(button).toHaveAttribute('draggable', 'false');
+
+    // Nothing inside may be the drag source or the hit target for the gesture.
+    const glyph = button.querySelector('svg');
+    expect(glyph).not.toBeNull();
+    expect(glyph).toHaveStyle({ pointerEvents: 'none' });
   });
 });

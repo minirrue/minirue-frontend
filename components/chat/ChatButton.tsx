@@ -279,6 +279,18 @@ export default function ChatButton({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
+      /*
+       * Owner report 2026-08-03: on desktop, starting a drag dragged the PICTURE
+       * out of the button — the browser's native HTML5 image drag, complete with
+       * a translucent ghost — instead of moving the ball, because the launcher
+       * contained an <img>. The glyph above is an inline svg with
+       * pointerEvents:none so nothing inside can be the drag source, and these
+       * two are the belt and braces: `draggable={false}` opts the button itself
+       * out of native dragging, and preventing dragstart stops any future child
+       * re-introducing the same bug.
+       */
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
       style={{
         position: 'fixed', zIndex: 200,
         ...positionStyle,
@@ -293,6 +305,10 @@ export default function ChatButton({
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: dragStart.current ? 'grabbing' : 'grab',
         touchAction: 'none',
+        // A drag that selects text as it goes looks broken even when the button
+        // moves correctly.
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
         transform: `${snapOffset ? `translate(${snapOffset.x}px, ${snapOffset.y}px) ` : ''}${intoViewOffsetPx !== 0 ? `translateX(${intoViewOffsetPx}px) ` : ''}${isMobile && open && !hasCustomPosition ? 'translateY(-6.5vh) ' : ''}${pressed ? 'scale(0.92)' : hovered ? 'scale(1.06)' : 'scale(1)'}`,
         // Motion rule: transform + opacity only, never `left`/`top` (those
         // now always jump instantly to their new value — see `settleDrag`'s
@@ -305,30 +321,23 @@ export default function ChatButton({
         willChange: 'transform',
       }}
     >
-      {/* The shop's own uploaded logo — the same slot the panel header uses
-          (`MessageAvatar`), never the plain chat-bubble glyph this replaced.
-          A gold circle behind it (matching the panel header's avatar chip)
-          keeps a visible ring against the button's dark background whichever
-          state renders: a photo, or the generic-icon fallback. */}
-      <div
-        style={{
-          width: LAUNCHER_AVATAR_SIZE,
-          height: LAUNCHER_AVATAR_SIZE,
-          borderRadius: '50%',
-          overflow: 'hidden',
-          background: 'var(--mr-gold-500)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
+      {/* The chat glyph, restored 2026-08-03 at the owner's request: "get back
+          the old icon chat on the ball not our avatar, the avatar is only inside
+          here [the panel header] only leave it here".
+
+          The launcher is a control that says "talk to us", so it reads as an
+          action; identity belongs to the conversation itself, which is where the
+          shop logo still renders (ChatPanel's MessageAvatar). It also cannot be
+          dragged as an image, which the logo could — see the wrapper's
+          pointerEvents below. */}
+      <svg
+        width={22} height={22} viewBox="0 0 24 24" fill="none"
+        stroke="var(--mr-cream-100)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
+        aria-hidden="true"
+        style={{ pointerEvents: 'none' }}
       >
-        <MessageAvatar
-          url={shopAvatarUrl}
-          name={shopName}
-          fallbackTestId="chat-launcher-avatar-generic"
-        />
-      </div>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
 
       {hasUnread && (
         <span
