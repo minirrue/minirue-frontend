@@ -110,10 +110,10 @@ function Tile({
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         ) : (
-          // The one card that is deliberately not a photograph — "All
-          // Products" is a shortcut tile, not a category, so it gets a
-          // glyph on the same tinted square instead of an empty box that
-          // would read as a missing image.
+          // No picture chosen (or none set yet): a glyph on the same tinted
+          // square, never an empty box that would read as a broken image.
+          // Until 2026-08-03 the "All Products" and "Bundles" tiles could
+          // ONLY land here — they had no cover field at all.
           <Icon name="grid" size={28} color="var(--mr-fg-4)" />
         )}
       </div>
@@ -136,6 +136,8 @@ export default function CategoriesGrid({
   shopName,
   shopLogoUrl,
   hasBundles = false,
+  allProductsImageUrl = null,
+  bundlesImageUrl = null,
 }: {
   categories: Category[];
   /** MiniRue's own admin-configured name — falls back to "MiniRue" only for
@@ -147,6 +149,15 @@ export default function CategoriesGrid({
   shopLogoUrl?: string | null;
   /** True only when at least one live set exists — see app/categories/page.tsx. */
   hasBundles?: boolean;
+  /**
+   * Covers for the two tiles that are NOT categories. Owner ask 2026-08-03:
+   * these rendered a glyph with no way to set a picture anywhere, while every
+   * real category tile beside them had one. Set per space in the dashboard;
+   * `null` keeps the glyph, so an admin who has chosen nothing sees exactly
+   * what this page looked like before.
+   */
+  allProductsImageUrl?: string | null;
+  bundlesImageUrl?: string | null;
 }) {
   return (
     <main
@@ -239,7 +250,7 @@ export default function CategoriesGrid({
           <Tile
             href="/bundles"
             label="Bundles"
-            imageUrl={null}
+            imageUrl={bundlesImageUrl ?? null}
             traceId="PG-STOREFRONT-CATIDX-001::EL-CARD-bundles-card"
           />
         )}
@@ -250,7 +261,7 @@ export default function CategoriesGrid({
         <Tile
           href="/products"
           label="All Products"
-          imageUrl={null}
+          imageUrl={allProductsImageUrl ?? null}
           traceId="PG-STOREFRONT-CATIDX-001::EL-CARD-all-products-card"
         />
       </div>

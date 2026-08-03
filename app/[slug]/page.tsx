@@ -165,6 +165,7 @@ export default async function StorefrontSlugPage({ params }: PageProps) {
             space={space.space}
             categories={space.categories}
             brands={space.brands}
+            shopPanel={space.shopPanel}
           />
         </div>
 

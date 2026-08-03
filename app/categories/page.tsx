@@ -60,10 +60,16 @@ export default async function CategoriesIndexPage() {
   // when a partner's own fetch fails upstream in app/[slug]/page.tsx.
   let shopName: string | null = null;
   let shopLogoUrl: string | null = null;
+  // The two shortcut tiles' covers ride on the SAME house-space response as
+  // the logo and name — no extra request to paint this grid.
+  let allProductsImageUrl: string | null = null;
+  let bundlesImageUrl: string | null = null;
   try {
     const house = await fetchHouseSpace();
     shopName = house.space.name;
     shopLogoUrl = house.space.logoUrl;
+    allProductsImageUrl = house.shopPanel?.allProductsImageUrl ?? null;
+    bundlesImageUrl = house.shopPanel?.bundlesImageUrl ?? null;
   } catch {
     // No logo this request — CategoriesGrid falls back to the generic icon.
   }
@@ -95,6 +101,8 @@ export default async function CategoriesIndexPage() {
           shopName={shopName}
           shopLogoUrl={shopLogoUrl}
           hasBundles={bundleCount > 0}
+          allProductsImageUrl={allProductsImageUrl}
+          bundlesImageUrl={bundlesImageUrl}
         />
       </div>
       <FooterWithSettings />

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type {
+  StorefrontShopPanel,
   StorefrontSpace,
   StorefrontSpaceBrand,
   StorefrontSpaceCategory,
@@ -135,10 +136,14 @@ export default async function SpaceView({
   space,
   categories,
   brands,
+  shopPanel,
 }: {
   space: StorefrontSpace;
   categories: StorefrontSpaceCategory[];
   brands: StorefrontSpaceBrand[];
+  /** Covers for the shortcut tiles — see the "Everything" section below.
+   *  Optional: an older API build omits it and the tile keeps its glyph. */
+  shopPanel?: StorefrontShopPanel;
 }) {
   const base = space.kind === 'HOUSE' ? '' : `/${space.slug}`;
 
@@ -239,6 +244,49 @@ export default async function SpaceView({
                 imageUrl={c.imageUrl}
               />
             ))}
+          </TileGrid>
+        </section>
+      )}
+
+      {/* One tile leading to every product in this space.
+          Owner ask 2026-08-03: "unify business over minirue and collab, have
+          same mindset here" — MiniRue's shop panel has had an All Products
+          shortcut since 2026-07-31 and a partner's space had none, so a
+          shopper's route to "just show me everything" depended on whose shop
+          they were standing in.
+
+          It is NOT the Generic section further down: generic means products
+          with no brand, while this is every product whether it has a brand or
+          not (owner, same day, correcting exactly that confusion).
+
+          Rendered before Brands so "everything" reads as the widest option
+          first, and only when the space actually has products to show — a tile
+          leading to an empty page is worse than no tile, the same rule the
+          Bundles card follows on MiniRue's own panel. */}
+      {(categories.length > 0 || brands.length > 0) && (
+        <section>
+          <h2
+            style={{
+              fontFamily: 'var(--mr-font-label)',
+              fontSize: 'var(--mr-text-xs)',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--mr-fg-4)',
+              marginBottom: 'var(--mr-sp-4)',
+            }}
+          >
+            Everything
+          </h2>
+          <TileGrid>
+            <Tile
+              href={
+                space.kind === 'HOUSE'
+                  ? '/products'
+                  : `/products?space=${encodeURIComponent(space.slug)}`
+              }
+              label="All Products"
+              imageUrl={shopPanel?.allProductsImageUrl ?? null}
+            />
           </TileGrid>
         </section>
       )}

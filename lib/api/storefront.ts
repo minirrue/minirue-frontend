@@ -385,10 +385,28 @@ export interface StorefrontSpaceBrand {
   isGeneric: boolean;
 }
 
+/**
+ * Covers for the two shortcut tiles that are not categories — "All Products"
+ * and "Bundles". Set per space in the dashboard (MiniRue's in Settings, a
+ * partner's in the collab dashboard); `null` means none chosen and the tile
+ * keeps its glyph.
+ *
+ * Resolved URLs, not media ids: the storefront can do nothing with an id, and
+ * the backend already knows how a gallery item becomes an imgproxy URL.
+ *
+ * Optional because it arrives on the same response as categories and brands —
+ * an older API build simply omits it and every tile falls back to its glyph.
+ */
+export interface StorefrontShopPanel {
+  allProductsImageUrl: string | null;
+  bundlesImageUrl: string | null;
+}
+
 export interface StorefrontSpaceDetail {
   space: StorefrontSpace;
   categories: StorefrontSpaceCategory[];
   brands: StorefrontSpaceBrand[];
+  shopPanel?: StorefrontShopPanel;
 }
 
 /** The space at /<slug>, or null when nothing lives there. */
