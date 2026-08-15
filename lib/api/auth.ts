@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import { apiUpdateMe } from './customers';
 import { parseAuthUser as parseAuthUserFn } from '@/lib/auth/session-role';
 import { markAuthenticated } from '@/lib/auth/tokens';
 import type { AuthSuccessResponse, MeResponse, UserProfile } from '@/lib/auth/types';
@@ -77,7 +78,7 @@ export interface RegisterInput {
 export async function apiRegister(
   input: RegisterInput,
 ): Promise<AuthSuccessResponse> {
-  const { firstName, lastName, email, password } = input;
+  const { firstName, lastName, email, password, phone } = input;
   /**
    * Better Auth's sign-up takes a single `name`, so the two fields are joined
    * here exactly as the old backend joined them for `users.name`. The customer
@@ -92,6 +93,37 @@ export async function apiRegister(
     body: JSON.stringify({ email, password, name }),
   });
   markAuthenticated();
+
+  /**
+   * The phone the shopper just typed, saved as a second step.
+   *
+   * It used to be destructured out of `input` and silently dropped, so every
+   * account created since the Better Auth cutover stored no phone at all and
+   * the shopper saw an empty phone field on their profile moments after
+   * entering one. (The legacy /auth/register passed it through; the migration
+   * lost it.)
+   *
+   * It goes to /customers/me rather than into the sign-up body on purpose.
+   * Phone lives on `customer_profiles`, NOT on `users` — there is no phone
+   * column on the users table — so declaring it as a Better Auth additionalField
+   * would make the sign-up INSERT write a column that does not exist and fail
+   * every registration. /customers/me already accepts and validates a phone,
+   * including the uniqueness check that refuses a number another account holds.
+   *
+   * Best-effort, and deliberately after markAuthenticated(): the account itself
+   * is created and usable. Failing the whole signup because a phone could not
+   * be attached — or worse, because someone else already uses that number —
+   * would throw away a completed registration over a field the shopper can
+   * still have set later.
+   */
+  if (phone) {
+    try {
+      await apiUpdateMe({ phone });
+    } catch {
+      // Swallowed for the reason above. The account exists; the phone does not.
+    }
+  }
+
   return { user: toUserProfile(data.user) };
 }
 

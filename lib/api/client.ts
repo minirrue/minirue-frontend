@@ -470,7 +470,24 @@ export async function apiFetch<T>(
       // Announce at most once so polling callers cannot each fire a redirect.
       announceSessionExpired();
     }
-    throw { status: 401, message: 'Session expired' } as ApiError;
+    // `hadSession` already decides whether to redirect; it has to decide the
+    // WORDING too. This threw "Session expired" unconditionally, so a guest —
+    // who by definition never had a session to expire — was told theirs had
+    // run out. It surfaced on the cart, the one place a signed-out shopper is
+    // expected and welcome: adding an item showed "Session expired", which
+    // reads as "you have been signed out" to someone who never signed in, and
+    // as a broken shop to everyone else.
+    //
+    // The status stays 401 — callers branch on it and the server did refuse —
+    // and `error` carries the distinction as a stable code so a screen can act
+    // on it without matching prose.
+    throw {
+      status: 401,
+      message: hadSession
+        ? 'Session expired'
+        : 'You need to be signed in for that',
+      error: hadSession ? 'session_expired' : 'not_signed_in',
+    } as ApiError;
   }
 
   if (!res.ok) {
