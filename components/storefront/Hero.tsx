@@ -100,7 +100,10 @@ export default function Hero({
       onMouseLeave={() => setPaused(false)}
       style={{
         position: 'relative',
-        height: mobile ? '80vh' : 'min(100vh, 980px)',
+        // dvh, not vh: iOS Safari's toolbar collapses/expands while scrolling, and this
+        // banner sits at the very top of every page, so a plain vh reflow here is the most
+        // visible instance of the "page resizes as you scroll" bug on iPhone.
+        height: mobile ? '80dvh' : 'min(100dvh, 980px)',
         minHeight: mobile ? 520 : 680,
         background: '#0B0B0B',
         color: 'var(--mr-cream-100)',

@@ -306,7 +306,13 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
 .mr-page-sheet {
   position: relative; z-index: 1;
   background: var(--mr-cream-200);
+  /* iOS Safari's address bar collapses/expands as you scroll, which changes what 100vh
+     resolves to mid-scroll — on a route wrapper that mounts on every single page, that reads
+     as the whole page resizing under the shopper. 100dvh tracks the actual visible viewport
+     instead; kept second so engines without it (none left on iOS, but cheap insurance) still
+     get the plain vh value rather than an invalid declaration. */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Tabular numbers utility */

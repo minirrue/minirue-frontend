@@ -116,6 +116,22 @@ html {
   }
 }
 
+/* iOS Safari auto-zooms the page on focus of any form control computed under 16px, and never
+   zooms back out — that is the "zooms in and out when navigating" bug report. The site's own
+   type scale (--mr-text-base, mr-tokens.css) is 15px by design, and every input/select/textarea
+   in the app (components/ui/Input.tsx, checkout/account/auth fields, native <select>s) inherits
+   or sets sizes at or below that. Scoping to `pointer: coarse` (touch, not "narrow viewport")
+   means a resized desktop Chrome window is unaffected and the 15px editorial scale is untouched
+   there — only actual touchscreens get bumped. `!important` is required: every offending control
+   sets font-size via inline `style`, which otherwise outranks any stylesheet rule here. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 @keyframes mr-pillar-sweep {
   0% {
     transform: scaleY(0);

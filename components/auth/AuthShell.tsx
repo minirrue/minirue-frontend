@@ -11,7 +11,9 @@ export default function AuthShell({ children }: AuthShellProps) {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        // dvh, not vh: iOS Safari's toolbar collapses/expands while scrolling, so plain
+        // 100vh resizes this wrapper under the shopper mid-scroll on every auth page.
+        minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

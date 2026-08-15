@@ -45,6 +45,17 @@ const interTight = Inter_Tight({
 });
 
 export const viewport: Viewport = {
+  // Explicit, not relying on Next's implicit default — a partial `viewport` export
+  // (this one used to only set themeColor/viewportFit) does not backfill width/
+  // initialScale for you. Without these two, iOS Safari has rendered pages at an
+  // arbitrary zoomed-out scale on first paint and un-zooms inconsistently across
+  // navigations, which read as "it zooms in and out and never settles."
+  width: "device-width",
+  initialScale: 1,
+  // Deliberately NOT setting maximumScale/userScalable — that disables pinch-zoom,
+  // which is a WCAG 1.4.4 failure and was never the actual bug (see globals.css /
+  // components/ui/Input.tsx for the real cause: sub-16px form control text
+  // triggering iOS's own auto-zoom-on-focus, which this does not touch).
   // Light-only storefront. A dark themeColor variant made the browser chrome (and, on a
   // dark-mode OS, the pre-paint canvas) go near-black between pages — see globals.css.
   themeColor: "#F6F2E9", // --mr-cream-200, matches body + .mr-page-sheet

@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
-import { primaryMedia, mediaImageUrl, lowestPrice, productByline } from '@/lib/api/catalog';
+import { primaryMedia, mediaImageUrl, lowestPrice, productByline, productInStock } from '@/lib/api/catalog';
 import { useImageRetry } from '@/lib/hooks/useImageRetry';
 import WishlistHeart from './WishlistHeart';
 import { MR_TX } from '@/lib/motion/presets';
@@ -36,6 +36,10 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
   // one used when a product has no photo) and retries quietly behind it,
   // instead of leaving the browser's broken-image icon on the card forever.
   const image = useImageRetry(imgSrc);
+
+  // Same predicate ProductSchema/CollectionSchema use for JSON-LD availability —
+  // a sold-out grid card and a sold-out rich-result must never disagree.
+  const soldOut = React.useMemo(() => !productInStock(product), [product]);
 
   const price = React.useMemo(() => lowestPrice(product), [product]);
   const meta = React.useMemo(
@@ -150,6 +154,7 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
               onLoad={image.onLoad}
               style={{
                 objectFit: 'cover',
+                opacity: soldOut ? 0.6 : 1,
                 transform: showOverlays ? 'scale(1.04)' : 'scale(1)',
                 transition: 'transform 700ms cubic-bezier(0.16,0.84,0.44,1)',
               }}
@@ -168,9 +173,40 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
                 letterSpacing: '0.04em',
                 textAlign: 'center',
                 padding: 16,
+                opacity: soldOut ? 0.6 : 1,
               }}
             >
               {product.name}
+            </div>
+          )}
+
+          {/* Sold-out badge — always on, not hover-gated, since a shopper
+              scanning a grid never hovers most of the tiles they pass over.
+              The dashed border and "Out of stock" wording match the size
+              pills in VariantPicker and the CTA on the product page, so the
+              same refusal reads the same way everywhere it appears. Text,
+              not just the dimmed image, carries the meaning for screen
+              readers. The link stays enabled underneath — the shopper can
+              still open the product and pick a different size. */}
+          {soldOut && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 12,
+                left: 12,
+                background: 'rgba(11, 11, 11, 0.6)',
+                color: 'var(--mr-cream-100)',
+                border: '1px dashed var(--mr-cream-100)',
+                borderRadius: 'var(--mr-radius-pill)',
+                padding: '7px 14px',
+                fontFamily: 'Jost, sans-serif',
+                fontSize: 10,
+                letterSpacing: '0.22em',
+                textTransform: 'uppercase',
+                boxShadow: 'var(--mr-shadow-sm)',
+              }}
+            >
+              Out of stock
             </div>
           )}
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
-import { apiCheckout } from '@/lib/checkout/checkout-api';
+import { apiCheckout, type OrderSummary } from '@/lib/checkout/checkout-api';
 import { loadAppliedCode, saveAppliedCode } from '@/lib/api/discounts';
 import { formatApiError } from '@/lib/api/client';
 import {
@@ -23,6 +23,13 @@ export default function CheckoutConfirmationPage() {
   const router = useRouter();
   const { cartId, subtotalAmount, clearCart } = useCart();
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  /**
+   * The placed order, for the receipt below. Kept beside `orderNumber` rather
+   * than replacing it because the Instapay flow arrives here with only an
+   * `?order=` number in the URL and no order body to show — the number alone
+   * still has to render a valid confirmation.
+   */
+  const [order, setOrder] = useState<OrderSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const submitted = useRef(false);
@@ -44,14 +51,28 @@ export default function CheckoutConfirmationPage() {
       return;
     }
 
+    // Placed already — nothing left to do, and CRITICALLY nothing left to
+    // check. This guard used to sit BELOW the session check, which is how a
+    // customer who had just successfully paid got sent back to the address
+    // step: placing the order calls clearCheckoutSession() and clearCart(),
+    // and clearing the cart flips `cartId` — a dependency of this effect — so
+    // the effect re-ran, found the session it had itself just wiped, and read
+    // that as an expired checkout. The order existed; the customer was bounced
+    // off the confirmation of it.
+    //
+    // `submitted` covers the in-flight window and `orderNumber` the settled
+    // one, because a failed attempt resets `submitted` so a retry can proceed.
+    if (submitted.current || orderNumber) {
+      setSessionChecked(true);
+      return;
+    }
+
     const session = loadCheckoutSession();
     if (!session?.shippingAddressId || session.paymentMethod !== 'COD') {
       router.replace('/checkout');
       return;
     }
     setSessionChecked(true);
-
-    if (submitted.current) return;
     // Same reason as the Instapay page: an order is placed against a cart, so
     // without one there is nothing to place and the API answers
     // "cartId: Invalid uuid" after the customer has already been told to wait.
@@ -84,6 +105,7 @@ export default function CheckoutConfirmationPage() {
     )
       .then((order) => {
         setOrderNumber(order.orderNumber);
+        setOrder(order);
         clearCheckoutSession();
         // Forgotten once it has been spent. Leaving it behind would silently
         // re-apply a one-use code to the next order and fail at placement.
@@ -98,6 +120,10 @@ export default function CheckoutConfirmationPage() {
         track('payment_client_error', { method: 'COD', message });
         submitted.current = false;
       });
+    // `orderNumber` is read by the guard above but deliberately NOT a
+    // dependency: adding it would re-run this effect the moment the order
+    // lands, which is the re-entrancy the guard exists to absorb.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartId, clearCart, router]);
 
   if (!sessionChecked && !error) {
@@ -182,9 +208,179 @@ export default function CheckoutConfirmationPage() {
             >
               {orderNumber}
             </p>
+            {/*
+              What was actually bought, on the page that says it was bought.
+              The confirmation used to show a number and nothing else, so the
+              one moment a shopper most wants to check their order against had
+              the least to check. Rendered from the order the server returned,
+              never from the cart — the cart is deliberately empty by now.
+
+              Absent for the Instapay arrival, which carries only `?order=`.
+              The number-only confirmation stays valid; this is additive.
+            */}
+            {/*
+              Optional-chained, not asserted. The confirmation is the LAST
+              thing that should fail: an order body missing `items` must cost
+              the shopper a line-item list, never the page telling them their
+              order went through.
+            */}
+            {order?.items?.length ? (
+              <ul
+                style={{
+                  listStyle: 'none',
+                  margin: '0 0 var(--mr-sp-5)',
+                  padding: 'var(--mr-sp-5) 0 0',
+                  borderTop: '1px solid var(--mr-hairline)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--mr-sp-4)',
+                  textAlign: 'left',
+                }}
+              >
+                {order.items.map((item) => (
+                  <li
+                    key={item.id}
+                    style={{
+                      display: 'flex',
+                      gap: 'var(--mr-sp-4)',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {item.productSnapshot?.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.productSnapshot.imageUrl}
+                        alt=""
+                        width={56}
+                        height={56}
+                        style={{
+                          width: 56,
+                          height: 56,
+                          objectFit: 'cover',
+                          borderRadius: 'var(--mr-radius-sm)',
+                          border: '1px solid var(--mr-hairline)',
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        aria-hidden
+                        style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: 'var(--mr-radius-sm)',
+                          border: '1px solid var(--mr-hairline)',
+                          background: 'var(--mr-cream-200)',
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontFamily: 'var(--mr-font-serif)',
+                          fontSize: 'var(--mr-text-base)',
+                          color: 'var(--mr-fg)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {item.productSnapshot?.name ?? 'Item'}
+                      </p>
+                      <p
+                        style={{
+                          margin: '2px 0 0',
+                          fontFamily: 'var(--mr-font-label)',
+                          fontSize: 'var(--mr-text-xs)',
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                          color: 'var(--mr-fg-3)',
+                        }}
+                      >
+                        {item.productSnapshot?.brand
+                          ? `${item.productSnapshot.brand} · `
+                          : ''}
+                        Qty {item.qty}
+                      </p>
+                    </div>
+                    <p
+                      className="mr-num"
+                      style={{
+                        margin: 0,
+                        fontFamily: 'var(--mr-font-serif)',
+                        fontSize: 'var(--mr-text-base)',
+                        color: 'var(--mr-fg)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {item.lineTotalAmount} {order.totalCurrency}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {order?.totalAmount && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  gap: 'var(--mr-sp-4)',
+                  padding: 'var(--mr-sp-4) 0',
+                  borderTop: '1px solid var(--mr-hairline)',
+                  marginBottom: 'var(--mr-sp-5)',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'var(--mr-font-label)',
+                    fontSize: 'var(--mr-text-xs)',
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: 'var(--mr-fg-3)',
+                  }}
+                >
+                  Total paid
+                </span>
+                <span
+                  className="mr-num"
+                  style={{
+                    fontFamily: 'var(--mr-font-serif)',
+                    fontSize: 'var(--mr-text-xl)',
+                    color: 'var(--mr-fg)',
+                  }}
+                >
+                  {order.totalAmount} {order.totalCurrency}
+                </span>
+              </div>
+            )}
+
+            {/*
+              What happens next, in the shopper's terms. "Cash on delivery"
+              is the one thing a COD customer must know before the courier is
+              at the door with their hand out, and it is the single most common
+              support message this shop gets after an order.
+            */}
+            <p
+              style={{
+                margin: '0 0 var(--mr-sp-5)',
+                fontFamily: 'var(--mr-font-sans)',
+                fontSize: 'var(--mr-text-sm)',
+                lineHeight: 1.6,
+                color: 'var(--mr-fg-2)',
+                textAlign: 'left',
+              }}
+            >
+              We&apos;re preparing your order now. You&apos;ll get a message when it
+              ships, and you can follow it any time from your orders.
+            </p>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>
               <Button variant="primary" sweep onClick={() => router.push('/account/orders')} style={{ width: '100%' }}>
-                View order history
+                Track your order
               </Button>
               <Link
                 href="/products"

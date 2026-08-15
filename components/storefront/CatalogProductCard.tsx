@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
-import { mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
+import { mediaImageUrl, primaryMedia, lowestPrice, productByline, productInStock } from '@/lib/api/catalog';
 import PriceDisplay from './PriceDisplay';
 import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
 
@@ -23,6 +23,9 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
 
   const media = primaryMedia(product);
   const price = lowestPrice(product);
+  // Same predicate ProductSchema/CollectionSchema use for JSON-LD availability —
+  // a sold-out grid card and a sold-out rich-result must never disagree.
+  const soldOut = !productInStock(product);
 
   const imgSrc = media ? mediaImageUrl(media, { w: 600, h: 750 }) : null;
 
@@ -74,6 +77,7 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               style={{
                 objectFit: 'cover',
+                opacity: soldOut ? 0.6 : 1,
                 transform: hover ? 'scale(1.04)' : 'scale(1)',
                 transition: 'transform 700ms cubic-bezier(0.16,0.84,0.44,1)',
               }}
@@ -91,9 +95,40 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
                 fontFamily: 'var(--mr-font-serif)',
                 fontStyle: 'italic',
                 fontSize: 'var(--mr-text-sm)',
+                opacity: soldOut ? 0.6 : 1,
               }}
             >
               {product.name}
+            </div>
+          )}
+
+          {/* Sold-out badge — always on, not hover-gated, since a shopper
+              scanning a grid never hovers most of the tiles they pass over.
+              Dashed border and "Out of stock" wording reuse VariantPicker's
+              sold-out pill and the product page's disabled-CTA copy, so the
+              refusal reads the same way everywhere it appears. The text
+              itself carries the meaning for screen readers, not just the
+              dimmed image. The link stays enabled underneath — the shopper
+              can still open the product and pick a different size. */}
+          {soldOut && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 'var(--mr-sp-3)',
+                left: 'var(--mr-sp-3)',
+                background: 'var(--mr-bg-raised)',
+                color: 'var(--mr-fg-2)',
+                border: '1px dashed var(--mr-border)',
+                borderRadius: 'var(--mr-radius-pill)',
+                padding: '6px 14px',
+                fontFamily: 'var(--mr-font-label)',
+                fontSize: 'var(--mr-text-xs)',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                boxShadow: 'var(--mr-shadow-sm)',
+              }}
+            >
+              Out of stock
             </div>
           )}
 

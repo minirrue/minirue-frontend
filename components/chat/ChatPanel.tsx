@@ -251,8 +251,8 @@ export default function ChatPanel({
     // resizes while the panel is open — `min(560px, …)` mirrors the fixed
     // corner's own sizing below rather than always filling every last px.
     const available = openAbove
-      ? `calc(100vh - ${Math.max(margin, viewportH - buttonPos.y + gap)}px - ${margin}px)`
-      : `calc(100vh - ${buttonPos.y + CHAT_BUTTON_SIZE + gap}px - ${margin}px)`;
+      ? `calc(100dvh - ${Math.max(margin, viewportH - buttonPos.y + gap)}px - ${margin}px)`
+      : `calc(100dvh - ${buttonPos.y + CHAT_BUTTON_SIZE + gap}px - ${margin}px)`;
 
     return openAbove
       ? {
@@ -281,8 +281,8 @@ export default function ChatPanel({
   const baseHeightExpr = anchor
     ? anchor.heightCalc
     : isMobile
-      ? 'min(560px, calc(100vh - 140px - 6.5vh))'
-      : 'min(560px, calc(100vh - 140px))';
+      ? 'min(560px, calc(100dvh - 140px - 6.5dvh))'
+      : 'min(560px, calc(100dvh - 140px))';
 
   // ── Scroll-to-bottom ──────────────────────────────────────────────────
   //

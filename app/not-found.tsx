@@ -22,7 +22,9 @@ export default function NotFound() {
   return (
     <main
       style={{
-        minHeight: "100vh",
+        // dvh tracks iOS Safari's actual visible viewport as its toolbar collapses/expands;
+        // plain vh resized this full-page state mid-scroll.
+        minHeight: "100dvh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",

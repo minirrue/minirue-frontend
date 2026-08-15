@@ -71,7 +71,9 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
           style={{
             display: 'flex',
             flexDirection: mobile ? 'column' : 'row',
-            minHeight: 'calc(100vh - 120px)',
+            // dvh tracks iOS Safari's actual visible viewport as its toolbar collapses/expands;
+            // plain vh resized this column mid-scroll.
+            minHeight: 'calc(100dvh - 120px)',
             background: 'var(--mr-bg)',
             fontFamily: 'var(--mr-font-ui)',
           }}
