@@ -88,18 +88,38 @@ const labelStyle: React.CSSProperties = {
   color: 'var(--mr-fg-3)',
 };
 
+/**
+ * The border has to be VISIBLE, and on this background it was not.
+ *
+ * `--mr-line` is a hairline tuned for dividers on cream — perfect for
+ * separating a summary row, far too faint to say "this is a box you type in".
+ * The result was a column of labels with text floating under them: no field
+ * looked like a field, and nothing told the shopper where one ended and the
+ * next began (owner, 2026-08-21: "make border black on input fields to
+ * distinguish… because look its bad").
+ *
+ * `--mr-fg` at 45% is the compromise that keeps the shop's ink palette while
+ * clearing the 3:1 contrast a form control needs against its background. A
+ * literal #000 would out-weigh the product photography this page sits beside.
+ */
 const inputStyle: React.CSSProperties = {
   font: 'inherit',
   // 16px, so iOS does not zoom the page when the field takes focus — the
   // single most common way a mobile form feels broken.
   fontSize: 16,
-  padding: '11px 12px',
-  borderRadius: 10,
-  border: '1px solid var(--mr-line)',
-  background: 'var(--mr-bg)',
+  padding: '12px 14px',
+  borderRadius: 8,
+  border: '1px solid color-mix(in srgb, var(--mr-fg) 45%, transparent)',
+  // White, not the page's cream. A field that shares its background with the
+  // page relies on the border alone to exist; giving it its own surface makes
+  // it read as a control even before the border is noticed.
+  background: 'var(--mr-bg-raised, #fff)',
   color: 'var(--mr-fg)',
   width: '100%',
   minWidth: 0,
+  outline: 'none',
+  transition:
+    'border-color var(--mr-dur-fast, 160ms) var(--mr-ease-out, ease), box-shadow var(--mr-dur-fast, 160ms) var(--mr-ease-out, ease)',
 };
 
 const errorStyle: React.CSSProperties = {
@@ -144,6 +164,23 @@ function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        /**
+         * Focus is drawn inline rather than through a class because this file
+         * carries its own styles. `outline: none` above would otherwise leave
+         * keyboard users with no indication of where they are at all — the
+         * ring below replaces it, it does not merely decorate.
+         */
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = 'var(--mr-fg)';
+          e.currentTarget.style.boxShadow =
+            '0 0 0 3px color-mix(in srgb, var(--mr-fg) 12%, transparent)';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = error
+            ? 'var(--mr-danger, #c0392b)'
+            : 'color-mix(in srgb, var(--mr-fg) 45%, transparent)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
         // Real autocomplete tokens, so a phone fills the whole form from its
         // own address book in one tap. This is the single largest thing that
         // decides whether a guest form gets completed.
@@ -154,7 +191,7 @@ function Field({
         aria-describedby={error ? `${id}-error` : undefined}
         style={{
           ...inputStyle,
-          borderColor: error ? 'var(--mr-danger, #c0392b)' : 'var(--mr-line)',
+          ...(error ? { borderColor: 'var(--mr-danger, #c0392b)' } : {}),
         }}
         data-trace-id={`PG-STOREFRONT-CHK-002::EL-FIELD-guest-${id}`}
       />
@@ -186,11 +223,11 @@ export default function GuestDetailsForm({
   const twoUp: React.CSSProperties = {
     display: 'grid',
     gridTemplateColumns: mobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)',
-    gap: 'var(--mr-sp-4)',
+    gap: 'var(--mr-sp-3)',
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-4)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>
       <Field
         id="fullName"
         label="Full name"

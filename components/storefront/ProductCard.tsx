@@ -302,7 +302,7 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
       >
         <WishlistHeart
           productId={product.id}
-          returnTo={`/products/${product.slug}`}
+          returnTo={productPath(product)}
           size={34}
           traceId={
             traceIdPrefix

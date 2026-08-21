@@ -60,6 +60,22 @@ export default function LoginPage() {
     const target = params.get('next') ?? params.get('returnUrl');
     return target?.startsWith('/') && !target.startsWith('//') ? target : '/';
   };
+  /**
+   * "Create account" has to inherit this page's own destination.
+   *
+   * Computed in state rather than during render: `window.location` does not
+   * exist on the server, so reading it inline would make the first client
+   * render disagree with the HTML. The bare "/signup" is the honest fallback
+   * for the frame before the effect runs and for anyone with no `next` at all.
+   */
+  const [signupHref, setSignupHref] = React.useState('/signup');
+  React.useEffect(() => {
+    const target = getNextPath();
+    setSignupHref(
+      target === '/' ? '/signup' : `/signup?next=${encodeURIComponent(target)}`,
+    );
+  }, []);
+
   const [form, setForm] = React.useState<LoginFormData>({ email: '', password: '', remember: false });
   const [errors, setErrors] = React.useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [loading, setLoading] = React.useState(false);
@@ -295,7 +311,16 @@ export default function LoginPage() {
       >
         New to MiniRue?{' '}
         <Link
-          href="/signup"
+          /**
+           * Carries `next` across to sign-up.
+           *
+           * This was a bare "/signup", so a shopper who arrived here from
+           * somewhere specific — saving a product, checking out — and decided
+           * to create an account instead of signing in lost the destination
+           * on the way. They finished signing up on the home page, with no
+           * sign that they had been going anywhere.
+           */
+          href={signupHref}
           data-trace-id="PG-STOREFRONT-IAM-001::EL-LINK-create-account"
           style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}
         >

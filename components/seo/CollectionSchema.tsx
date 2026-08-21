@@ -1,3 +1,4 @@
+import { productPath } from '@/lib/routes';
 import { JsonLd } from "./JsonLd";
 import type { ApiProduct } from "@/lib/api/catalog";
 import {
@@ -67,7 +68,9 @@ export function productListItem(product: ApiProduct): Record<string, unknown> {
   // SearchResultsSchema via productInStock() so no JSON-LD emitter on the
   // site can disagree about a product's availability.
   const inStock = productInStock(product);
-  const productUrl = `${BASE_URL}/products/${product.slug}`;
+  // See ProductSchema: this has to be the URL that serves the page, not the
+  // legacy one that redirects to it.
+  const productUrl = `${BASE_URL}${productPath(product)}`;
   return {
     "@type": "Product",
     name: product.name,

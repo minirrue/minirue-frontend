@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useCustomerAddresses } from '@/lib/hooks/use-customer';
-import { isAuthenticated } from '@/lib/auth/tokens';
+import { useUser } from '@/lib/hooks/use-auth';
 import {
   loadCheckoutSession,
   saveCheckoutSession,
@@ -83,15 +83,34 @@ export default function CheckoutPage() {
    * navigation it was racing had not landed yet.
    */
   useEffect(() => {
-    const authed = isAuthenticated();
-    setSignedIn(authed);
-    if (!authed) {
-      // Coming back from Payment, or reloading mid-flow: rehydrate whatever
-      // they already typed rather than making them type it twice.
-      const saved = loadCheckoutSession()?.guest;
-      if (saved) setGuest(saved);
-    }
+    // Rehydrate anything typed on a previous pass through this step BEFORE
+    // identity settles, so coming back from Payment never shows empty fields
+    // for a frame.
+    const saved = loadCheckoutSession()?.guest;
+    if (saved) setGuest(saved);
   }, []);
+
+  /**
+   * Identity comes from the real /auth/me query, NOT from `isAuthenticated()`.
+   *
+   * `isAuthenticated()` reads the `mr-auth` cookie hint, and that hint is a
+   * cache that can be WRONG in exactly the direction that breaks this page: a
+   * browser that signed in once, whose session has since died, still carries
+   * it. That shopper is a guest in every way that matters, but the hint said
+   * signed-in — so this screen showed them the saved-address branch, the
+   * address fetch 401'd, and they sat on "Loading your addresses…" forever.
+   * Only a reload fixed it, because the 401 had cleared the hint by then
+   * (owner, 2026-08-21: "still stale, and on refresh it appears").
+   *
+   * `useUser()` answers with the server. It also self-corrects: it returns
+   * `data: undefined` whenever the query errored, so a dead session reads as
+   * "guest" on the FIRST render that knows anything, not the second visit.
+   */
+  const { data: authUser, isPending: authPending } = useUser();
+  useEffect(() => {
+    if (authPending) return;
+    setSignedIn(!!authUser);
+  }, [authUser, authPending]);
 
   useEffect(() => {
     if (!addresses?.length) return;

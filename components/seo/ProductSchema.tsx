@@ -39,10 +39,21 @@ export function buildProductSchema(
   const hasRating =
     typeof p.reviewsCount === "number" && p.reviewsCount > 0 && p.reviewsAverage != null;
 
+/**
+ * The canonical product URL, and it must be the one that ACTUALLY serves the
+ * page.
+ *
+ * Structured data is a claim made to a search engine about identity, so
+ * pointing it at `/products/{slug}` — a permanent redirect since the routes
+ * moved under /shop — told Google the canonical address of every product was
+ * a URL that immediately forwards somewhere else. That splits the signal
+ * between two addresses and makes the @id disagree with the page's own
+ * canonical tag, which is the one thing an @id exists to pin down.
+ */
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
-    "@id": `${BASE_URL}/products/${p.slug}#product`,
+    "@id": `${BASE_URL}${productPath(p)}#product`,
     name: p.name,
     description: p.description,
     ...(offerVariant?.sku ? { sku: offerVariant.sku } : {}),

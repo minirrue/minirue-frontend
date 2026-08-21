@@ -21,8 +21,21 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace, prefetch: jest.fn() }),
 }));
 
-jest.mock('@/lib/auth/tokens', () => ({
-  isAuthenticated: () => true,
+/**
+ * Identity now comes from useUser(), not the `mr-auth` cookie hint.
+ *
+ * The page used to read isAuthenticated(), which is a CACHE and can be stale:
+ * a browser whose session had since died still carried the hint, so checkout
+ * showed the saved-address branch, the address fetch 401'd, and the shopper
+ * sat on "Loading your addresses…" until they reloaded. useUser() asks the
+ * server and returns undefined whenever the query errored, so a dead session
+ * reads as "guest" immediately.
+ *
+ * These cases are all about a SIGNED-IN shopper's saved address, so the mock
+ * returns a user. The guest branch has its own file.
+ */
+jest.mock('@/lib/hooks/use-auth', () => ({
+  useUser: () => ({ data: { id: 'cust-1' }, isPending: false }),
 }));
 
 const mockUseCart = jest.fn();

@@ -12,6 +12,7 @@ import {
   productByline,
   variantLabel, variantInStock } from '@/lib/api/catalog';
 import WishlistHeart from './WishlistHeart';
+import { productPath } from '@/lib/routes';
 import VariantPicker from './VariantPicker';
 import PriceDisplay, { formatPrice } from './PriceDisplay';
 import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
@@ -296,7 +297,16 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
 
         <WishlistHeart
           productId={product.id}
-          returnTo={`/products/${product.slug}`}
+          /**
+           * The CANONICAL path, not `/products/{slug}`.
+           *
+           * That legacy route is a permanentRedirect shim now, so a guest who
+           * tapped save, signed in, and was returned here landed on a 308 and
+           * bounced through to /shop/{category}/{product} — a visible extra
+           * navigation at the exact moment they were expecting to be back
+           * where they started.
+           */
+          returnTo={productPath(product)}
           variant="pill"
         />
       </div>
@@ -312,12 +322,74 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         }}
       >
         <ShareButton
-          url={`/products/${product.slug}`}
+          /**
+           * The canonical path, not the legacy one.
+           *
+           * A shared link is the longest-lived artefact this page produces —
+           * it goes into WhatsApp threads and stays there — and this was
+           * handing out `/products/{slug}`, which permanently redirects now.
+           * Every recipient paid a 308, and the URL they saw in the share
+           * sheet was not the URL of the page being shared (owner,
+           * 2026-08-21: "fix share, it has the old url").
+           */
+          url={productPath(product)}
           title={product.name}
           text={[productBrand(product), product.tagline].filter(Boolean).join(' — ')}
           traceId="PG-STOREFRONT-CAT-005::EL-BTN-share-product"
         />
       </div>
+
+      {/*
+        The product's own description, from the dashboard.
+        Never rendered until 2026-08-21 (owner: "add description on each
+        product under add to bag, where it holds the info from the dashboard").
+        The text was in every API response the whole time — the page simply
+        dropped it — so a shop that had written proper copy for a fragrance was
+        showing a name, a price and nothing else. It sits BELOW the buy button
+        on purpose: someone who already knows they want it should not have to
+        scroll past prose to reach the CTA, and someone still deciding reads on.
+      */}
+      {product.description && (
+        <div
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-description"
+          style={{
+            marginBottom: 32,
+            animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
+            animationDelay: '530ms',
+          }}
+        >
+          {/* Split on blank lines so a description written as paragraphs in
+              the dashboard reads as paragraphs here. Rendered as text, never
+              as HTML — this is admin-authored copy, but a description field is
+              not a template and must not become one. */}
+          {product.description
+            .split(/\n\s*\n/)
+            .map((para) => para.trim())
+            .filter(Boolean)
+            .map((para, i) => (
+              <p
+                key={i}
+                style={{
+                  fontFamily: 'var(--mr-font-ui)',
+                  fontSize: 'var(--mr-text-sm)',
+                  // Generous for a block of prose. The rest of this column is
+                  // labels and numbers, which want tighter leading than a
+                  // paragraph somebody is expected to actually read.
+                  lineHeight: 1.75,
+                  color: 'var(--mr-fg-2)',
+                  textWrap: 'pretty',
+                  margin: i === 0 ? 0 : 'var(--mr-sp-3) 0 0',
+                  // Prose past ~70 characters a line is measurably harder to
+                  // read; the column itself can be wider than that on a large
+                  // desktop.
+                  maxWidth: '62ch',
+                }}
+              >
+                {para}
+              </p>
+            ))}
+        </div>
+      )}
 
       {/* Gender + fragrance family badges */}
       <div
@@ -835,7 +907,7 @@ export default function ApiProductDetail({
 
         <WishlistHeart
           productId={product.id}
-          returnTo={`/products/${product.slug}`}
+          returnTo={productPath(product)}
           size={44}
           traceId="PG-STOREFRONT-CAT-005::EL-BTN-toggle-wishlist-sticky"
         />
