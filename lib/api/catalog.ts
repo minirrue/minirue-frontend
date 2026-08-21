@@ -71,7 +71,21 @@ export function variantLabel(v: ProductVariant): string {
   const parts = [...fromValues, ...fromCustom];
   if (parts.length) return parts.join(' · ');
   const legacy = [v.sizeMl ? `${v.sizeMl}ml` : null, v.bottleType].filter(Boolean);
-  return legacy.length ? legacy.join(' · ') : v.sku;
+  /**
+   * Empty, NEVER the SKU.
+   *
+   * This used to fall back to `v.sku`, so a product whose single variant
+   * carries no option values rendered a picker chip reading "000001" — an
+   * internal identifier shown to a shopper as though it were a choice (owner,
+   * 2026-08-21). The readable composite SKU shipped the same day makes that
+   * strictly worse, not better: the chip would now read
+   * EILISH-INTENSE-EAU-PERFUMES-BILLIE-EILISH-000001.
+   *
+   * A variant with nothing to say about itself has no label, and the caller
+   * decides what to do with that — VariantPicker hides itself entirely, which
+   * is the honest answer when there is no choice to make.
+   */
+  return legacy.length ? legacy.join(' · ') : '';
 }
 
 export interface MediaAsset {

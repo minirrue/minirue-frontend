@@ -20,6 +20,24 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
 
   if (!active.length) return null;
 
+  /**
+   * No picker when there is nothing to pick.
+   *
+   * Every product carries at least one variant — that is where price and stock
+   * live — but that is a fact about the DATA MODEL, not a decision the shopper
+   * has to make. A product with a single unnamed variant was rendering a
+   * heading and one chip, asking someone to choose between one thing, and the
+   * chip read "000001" because the label fell back to the SKU (owner,
+   * 2026-08-21: "i tried it with no variants, so no variants should be there").
+   *
+   * The test is whether any variant can describe itself. Two variants that
+   * differ only by price still get a picker — the price on each chip is the
+   * choice — but a lone nameless one is just the product, and the buy button
+   * below already carries its price and its sold-out state.
+   */
+  const labelled = active.filter((v) => variantLabel(v).length > 0);
+  if (active.length < 2 && labelled.length === 0) return null;
+
   return (
     <div>
       <div
@@ -34,9 +52,13 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
           marginBottom: 'var(--mr-sp-3)',
         }}
       >
+        {/* The real dimension names when the variants carry them. "Options"
+            when they do not — the old fallback said "Volume", which is a guess
+            about what the product IS, on a shop that sells cosmetics as well as
+            perfume. A wrong label is worse than a generic one. */}
         {active[0]?.values?.length
           ? active[0].values.map((x) => x.attributeName).join(' / ')
-          : 'Volume'}
+          : 'Options'}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--mr-sp-2)' }}>
         {active.map((v) => {
@@ -77,7 +99,12 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
                 gap: 6,
               }}
             >
-              <span>{variantLabel(v)}</span>
+              {/* An unlabelled variant in a picker that IS showing (two or
+                  more, some named) falls back to its position rather than to
+                  its SKU — "Option 2" tells a shopper as little as possible
+                  while still being pickable, where a SKU tells them nothing at
+                  all and looks like a mistake. */}
+              <span>{variantLabel(v) || `Option ${active.indexOf(v) + 1}`}</span>
               {sellable ? (
                 <span
                   style={{
