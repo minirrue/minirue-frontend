@@ -153,40 +153,34 @@ describe('a transient /auth/me failure is not a sign-out (Header)', () => {
   });
 });
 
-describe('the account tab links where the shopper can actually go (MobileBottomNav)', () => {
-  it('sends a refused shopper to /login even though mr-session still names them', async () => {
-    // The stale-snapshot bug, exactly: sign-out cleared the server session but
-    // this render still has the localStorage note. The old code read the note
-    // alone, so the tab linked to /account/profile and the gate bounced them.
-    setSession({ ...SARAH, createdAt: Date.now() });
-    apiMe.mockRejectedValue(REFUSED_401);
-
-    renderBottomNav();
-
-    await waitFor(() => {
-      expect(accountLink()).toHaveAttribute('href', '/login');
-    });
-  });
-
-  it('sends a signed-in shopper to their profile', async () => {
+describe('the account tab opens the menu (MobileBottomNav)', () => {
+  /**
+   * The destination moved; the rule did not.
+   *
+   * Since 2026-08-21 this tab is a BUTTON that opens the menu sheet rather than
+   * a link — the same avatar in the header does the same thing, and one control
+   * meaning two things depending on which end of the screen it sat at was the
+   * confusion the unification removed.
+   *
+   * The "where does a refused shopper end up" invariant these tests were
+   * written for now lives one tap deeper, on the sheet's own account entry, and
+   * is asserted in __tests__/storefront/mobile-nav-account-button.test.tsx —
+   * which already owns a full sheet fixture. `signedIn` reaches the sheet from
+   * Header's PROVEN identity, not the localStorage note, which is the half that
+   * made the original stale-snapshot bug possible.
+   */
+  it('is a button that opens the menu, carrying no destination of its own', async () => {
     apiMe.mockResolvedValue(SARAH);
 
     renderBottomNav();
 
+    // By label, not role: the bar sits at `visibility: hidden` until a scroll
+    // slides it in, so a role query skips it — same reason the helper above
+    // uses getByLabelText.
     await waitFor(() => {
-      expect(accountLink()).toHaveAttribute('href', '/account/profile');
+      expect(screen.getByLabelText('Account and menu')).toBeInTheDocument();
     });
-  });
-
-  it('does not send a shopper to /login on a transient failure once the session was proven', async () => {
-    apiMe.mockResolvedValueOnce(SARAH).mockRejectedValue(TRANSIENT_503);
-
-    renderBottomNav();
-
-    await waitFor(() => {
-      expect(accountLink()).toHaveAttribute('href', '/account/profile');
-    });
-    // The link must not flip to /login just because a background poll failed.
-    expect(accountLink()).toHaveAttribute('href', '/account/profile');
+    expect(screen.getByLabelText('Account and menu').tagName).toBe('BUTTON');
+    expect(screen.queryByLabelText('Account')).not.toBeInTheDocument();
   });
 });

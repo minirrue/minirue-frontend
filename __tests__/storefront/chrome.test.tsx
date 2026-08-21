@@ -55,9 +55,21 @@ describe('Header', () => {
     expect(href('Atelier X')).toBe('/brands/atelier-x');
   });
 
-  it('renders no nav links when the admin listed none', () => {
-    const { container } = render(<Header navbar={FALLBACK_CHROME.navbar} />);
-    expect(container.querySelector('nav a')).toBeNull();
+  it('still offers Shop and Collab when the admin has listed no nav items', () => {
+    /**
+     * These two are FIXED, not merchandising.
+     *
+     * The phone's bottom bar has always carried both; the desktop bar only ever
+     * rendered the storefront-appearance items, so the two most-used
+     * destinations existed on one breakpoint and not the other (owner,
+     * 2026-08-21). Fixing them here also means a store that empties its nav by
+     * accident still has a way back to its own catalogue — which is why this
+     * test now asserts their presence rather than an empty bar.
+     */
+    render(<Header navbar={FALLBACK_CHROME.navbar} />);
+
+    expect(screen.getByRole('link', { name: /^Shop$/ })).toHaveAttribute('href', '/shop');
+    expect(screen.getByRole('link', { name: /^Collab$/ })).toHaveAttribute('href', '/collab');
   });
 });
 

@@ -60,6 +60,19 @@ describe('MobileNavSheet — account button dedupe', () => {
     expect(screen.getByRole('link', { name: /^home$/i })).toBeInTheDocument();
   });
 
+  it('points a guest at /login and never at a profile the gate would bounce them off', () => {
+    // The bottom nav's account tab stopped carrying this destination on
+    // 2026-08-21 (it opens this sheet instead), so the rule is asserted here
+    // now. The bug it guards against is real and was fixed once already: a
+    // shopper whose session the server had refused being sent to
+    // /account/profile because a stale localStorage note still named them.
+    renderSheet({ signedIn: false });
+
+    const hrefs = screen.getAllByRole('link').map((l) => l.getAttribute('href'));
+    expect(hrefs).toContain('/login');
+    expect(hrefs).not.toContain('/account/profile');
+  });
+
   it('a shortcut tile that is the ONLY account entry point (no footer button configured) is kept', () => {
     renderSheet({
       signedIn: false,

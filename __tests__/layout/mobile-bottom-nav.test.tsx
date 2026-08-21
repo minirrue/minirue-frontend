@@ -187,7 +187,27 @@ describe('MobileBottomNav (W4a.2)', () => {
     // No Menu tab since 2026-08-21 — the header's account avatar opens the menu
     // sheet, so a second door labelled Menu did the same job twice. Collab is
     // still the middle of what remains.
-    expect(labels).toEqual(['Search', 'Collab', 'Shop', 'Cart', 'Account']);
+    //
+    // No 'Account' caption either: that tab is a photograph of the shopper, and
+    // a face needs no word under it the way an outline of a bag does. Its
+    // accessible name lives on the control, asserted below.
+    expect(labels).toEqual(['Search', 'Collab', 'Shop', 'Cart']);
+  });
+
+  it('makes the account tab a menu button, not a link to /account', () => {
+    setViewportWidth(600);
+    renderNav();
+    // The bar is hidden until a scroll reveals it, same as the sibling tests.
+    scrollTo(100);
+    scrollTo(160);
+
+    // Same face, same meaning, wherever it appears: the header avatar opens the
+    // menu sheet and so does this one. Having it navigate instead would make
+    // the identical control mean two different things depending on which end of
+    // the screen it sat at.
+    const account = screen.getByRole('button', { name: /account and menu/i });
+    expect(account).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /account/i })).not.toBeInTheDocument();
   });
 
   it('sends Shop to the shop panel, not the flat product list', () => {

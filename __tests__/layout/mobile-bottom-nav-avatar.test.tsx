@@ -90,8 +90,15 @@ afterEach(() => {
   setViewportWidth(1024);
 });
 
+/**
+ * The account tab became a menu BUTTON on 2026-08-21 — it opens the sheet
+ * rather than navigating, matching the header avatar. Queried by label because
+ * the bar sits at `visibility: hidden` until a scroll slides it in, so a role
+ * query skips it; what these tests care about is what the tab RENDERS, which is
+ * decided long before the shopper can see it.
+ */
 function accountLink(): HTMLElement {
-  return screen.getByRole('link', { name: /^Account$/ });
+  return screen.getByLabelText('Account and menu');
 }
 
 describe('MobileBottomNav — account tab avatar', () => {

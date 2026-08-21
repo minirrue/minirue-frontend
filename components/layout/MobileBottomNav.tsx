@@ -64,6 +64,16 @@ interface NavItem {
   icon: Parameters<typeof Icon>[0]['name'];
 }
 
+/**
+ * The account avatar, larger than the 20px glyphs beside it.
+ *
+ * It is a photograph of a person, not a line icon, and at glyph size it read as
+ * a smudge rather than as "you". It is also the one tab that opens the whole
+ * menu now, so it earns the extra weight. 30px keeps the 44px touch target of
+ * the tab intact — the label it replaces was ~11px of the same column.
+ */
+const ACCOUNT_AVATAR_SIZE = 30;
+
 const ITEMS: NavItem[] = [
   // No 'menu' item. The account avatar in the header opens the menu sheet now,
   // so a second door labelled Menu sat beside a door that did the same thing
@@ -231,10 +241,17 @@ export default function MobileBottomNav() {
               alt=""
               data-testid="mobile-nav-avatar-photo"
               onError={() => setAvatarErrored(true)}
-              style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+              style={{
+                width: ACCOUNT_AVATAR_SIZE,
+                height: ACCOUNT_AVATAR_SIZE,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                display: 'block',
+                border: '1px solid var(--mr-hairline)',
+              }}
             />
           ) : (
-            <GenericAvatarIcon size={20} />
+            <GenericAvatarIcon size={ACCOUNT_AVATAR_SIZE} />
           )
         ) : (
           <Icon name={item.icon} size={20} />
@@ -266,17 +283,25 @@ export default function MobileBottomNav() {
                 </span>
               )}
             </span>
-            <span
-              style={{
-                fontFamily: 'Jost, sans-serif',
-                fontSize: 9,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--mr-ink-700)',
-              }}
-            >
-              {item.label}
-            </span>
+            {/* No caption under the account tab. A face is self-evident in a
+                way a glyph is not, and the word was competing with the avatar
+                for the same few pixels of bar height — dropping it is what pays
+                for the larger picture. Every other tab keeps its label, since
+                an outline of a bag is genuinely ambiguous without one. The
+                accessible name is unaffected: it lives on the control. */}
+            {!isAccount && (
+              <span
+                style={{
+                  fontFamily: 'Jost, sans-serif',
+                  fontSize: 9,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--mr-ink-700)',
+                }}
+              >
+                {item.label}
+              </span>
+            )}
           </>
         );
 
@@ -332,6 +357,33 @@ export default function MobileBottomNav() {
               tabIndex={visible ? 0 : -1}
               onClick={openDrawer}
               style={itemStyle}
+            >
+              {content}
+            </button>
+          );
+        }
+
+        /**
+         * The account tab OPENS THE MENU; it does not navigate.
+         *
+         * The header avatar already does this, and having the same face mean
+         * two different things depending on which end of the screen it sits at
+         * is the confusion the unification was meant to remove (owner,
+         * 2026-08-21: "upon tapping it reveals the bottom sheet like top left
+         * navbar"). The sheet carries the Account link, so nothing is lost —
+         * the account page is one tap further, behind a door that also offers
+         * everything else.
+         */
+        if (isAccount) {
+          return (
+            <button
+              key={item.key}
+              type="button"
+              aria-label="Account and menu"
+              tabIndex={visible ? 0 : -1}
+              onClick={openMobileMenu}
+              style={itemStyle}
+              data-trace-id="PG-STOREFRONT-IAM-006::EL-BTN-account-menu-trigger-bottom-nav"
             >
               {content}
             </button>

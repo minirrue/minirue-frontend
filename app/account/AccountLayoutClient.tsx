@@ -14,6 +14,7 @@ import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { useLogout } from '@/lib/hooks/use-auth';
+import Button from '@/components/ui/Button';
 
 const NAV_LINKS = [
   { href: '/account/profile', label: 'Profile' },
@@ -88,18 +89,50 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
               background: 'var(--mr-bg-raised)',
             }}
           >
-            <p
+            {/* "MY ACCOUNT" and Sign out share one line.
+                Sign out used to sit under the chip row, where it read as a
+                seventh section rather than a way out, and left an odd band of
+                empty space between the two (owner, 2026-08-21). Opposite ends
+                of the header is where a leave-action belongs: near the title it
+                qualifies, far from the things you tap by accident. */}
+            <div
               style={{
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 'var(--mr-text-xs)',
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: 'var(--mr-fg-4)',
-                padding: mobile ? '0 var(--mr-gutter) var(--mr-sp-3)' : '0 20px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 'var(--mr-sp-4)',
+                minWidth: 0,
+                padding: mobile ? '0 var(--mr-gutter) var(--mr-sp-4)' : '0 20px 16px',
               }}
             >
-              My Account
-            </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontFamily: 'var(--mr-font-label)',
+                  fontSize: 'var(--mr-text-xs)',
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  color: 'var(--mr-fg-4)',
+                }}
+              >
+                My Account
+              </p>
+              {/* The house button, not a bare link. It is the only real action
+                  in this header and it was previously indistinguishable from
+                  body text — "make it visible, better default minirue button".
+                  `outline` rather than `primary`: leaving is not the thing we
+                  want the eye to land on first. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                disabled={logoutMutation.isPending}
+                traceId="PG-STOREFRONT-IAM-005::EL-BTN-sign-out-sidebar"
+                style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+              >
+                {logoutMutation.isPending ? 'Signing out…' : 'Sign out'}
+              </Button>
+            </div>
             {logoutError && (
               <div style={{ padding: mobile ? '0 var(--mr-gutter) var(--mr-sp-3)' : '0 20px 16px' }}>
                 <ErrorBanner
@@ -195,37 +228,6 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
                 />
               )}
             </nav>
-            <button
-              onClick={handleLogout}
-              disabled={logoutMutation.isPending}
-              data-trace-id="PG-STOREFRONT-IAM-005::EL-BTN-sign-out-sidebar"
-              style={{
-                display: 'block',
-                width: '100%',
-                minHeight: mobile ? 44 : undefined,
-                marginTop: mobile ? 'var(--mr-sp-3)' : 0,
-                borderTop: mobile ? '1px solid var(--mr-hairline)' : 'none',
-                padding: mobile
-                  ? 'var(--mr-sp-3) var(--mr-gutter) 0'
-                  : '10px 20px',
-                fontSize: 'var(--mr-text-sm)',
-                fontWeight: 400,
-                color: 'var(--mr-fg-2)',
-                textDecoration: 'none',
-                background: 'transparent',
-                border: 'none',
-                borderRadius: 0,
-                cursor: logoutMutation.isPending ? 'default' : 'pointer',
-                opacity: logoutMutation.isPending ? 0.6 : 1,
-                textAlign: 'left',
-                fontFamily: 'var(--mr-font-ui)',
-                transition:
-                  'color var(--mr-dur-fast) var(--mr-ease-out), background var(--mr-dur-fast) var(--mr-ease-out)',
-              }}
-              aria-label="Sign out"
-            >
-              {logoutMutation.isPending ? 'Signing out\u2026' : 'Sign out'}
-            </button>
           </aside>
 
           <main

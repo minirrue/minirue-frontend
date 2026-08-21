@@ -19,6 +19,7 @@ import SearchSheet from '@/components/layout/SearchSheet';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { FALLBACK_CHROME, type ResolvedChrome, type ResolvedNavItem } from '@/lib/api/storefront';
 import AccountAvatarButton from '@/components/layout/AccountAvatarButton';
+import { SHOP_ROOT } from '@/lib/routes';
 
 interface HeaderProps {
   navbar: ResolvedChrome['navbar'];
@@ -32,6 +33,19 @@ interface HeaderProps {
  *  gap between the link and the panel a dead zone. */
 const HOVER_OPEN_MS = 90;
 const HOVER_CLOSE_MS = 220;
+
+/**
+ * The two destinations the desktop bar always offers.
+ *
+ * `prefetch` on both: every shop route is dynamic, so the default prefetch
+ * stops at the loading boundary and a tap would still pay a full round trip
+ * (see ShopRouteSkeleton). Two links is a bounded cost for the two things
+ * people click most.
+ */
+const FIXED_NAV_LINKS: ReadonlyArray<{ label: string; href: string }> = [
+  { label: 'Shop', href: SHOP_ROOT },
+  { label: 'Collab', href: '/collab' },
+];
 
 export default function Header({ navbar, onOpenCart, cartCount = 0, transparent = false }: HeaderProps) {
   // `mobileOpen`/`searchOpen` used to be local useState here — but W4a.2's
@@ -235,6 +249,34 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 textTransform: 'uppercase',
               }}
             >
+              {/* Shop and Collab, always, ahead of whatever the admin has
+                  configured.
+                  The phone's bottom bar has carried both since it was built;
+                  the desktop bar only ever showed the storefront-appearance
+                  items, so the two most-used destinations were present on one
+                  breakpoint and absent on the other (owner, 2026-08-21). Fixed
+                  rather than admin-editable for the same reason the bottom bar
+                  fixes them: they are the shop's structure, not merchandising,
+                  and a store that removed them by accident would have no way
+                  back to its own catalogue.
+                  Skipped when the admin has already configured a link to the
+                  same place, so nobody ends up with Shop twice. */}
+              {FIXED_NAV_LINKS.filter(
+                (fixed) =>
+                  !navbar.items.some(
+                    (item) => item.href === fixed.href,
+                  ),
+              ).map((fixed) => (
+                <Link
+                  key={fixed.href}
+                  href={fixed.href}
+                  className="mr-nav-link"
+                  prefetch
+                  style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
+                >
+                  {fixed.label}
+                </Link>
+              ))}
               {navbar.items.map((item) => {
                 const hasPanel = (item.featured?.length ?? 0) > 0;
                 return (

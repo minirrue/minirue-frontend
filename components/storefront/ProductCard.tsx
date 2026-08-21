@@ -202,6 +202,22 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
                 position: 'absolute',
                 top: 12,
                 left: 12,
+                /**
+                 * Stops short of the wishlist heart, always.
+                 *
+                 * The badge is pinned left and the heart right, which looks
+                 * safe until the card is narrow — then the pill grew under the
+                 * heart and its last letter was covered ("OUT OF STOC", owner
+                 * 2026-08-21). They cannot share a flex row: the heart is a
+                 * <button> and has to be a sibling of the <a>, not a descendant
+                 * of it, so the space has to be reserved arithmetically instead.
+                 *
+                 * 12 left inset + 34 heart + 12 right inset + 8 breathing room.
+                 * Wrapping rather than clipping if it ever does run out: two
+                 * short lines still say what they mean.
+                 */
+                maxWidth: 'calc(100% - 66px)',
+                boxSizing: 'border-box',
                 background: 'rgba(11, 11, 11, 0.6)',
                 color: 'var(--mr-cream-100)',
                 border: '1px dashed var(--mr-cream-100)',
