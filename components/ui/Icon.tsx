@@ -6,7 +6,7 @@ type IconName =
   | 'search' | 'user' | 'bag' | 'heart' | 'close' | 'arrowRight' | 'arrowLeft'
   | 'minus' | 'plus' | 'check' | 'gift' | 'truck' | 'menu' | 'x' | 'grid' | 'external'
   | 'share' | 'chevronRight' | 'chevronLeft' | 'chevronDown' | 'home'
-  | 'collab' | 'star';
+  | 'collab' | 'star' | 'copy';
 
 interface IconProps {
   name: IconName;
@@ -26,6 +26,10 @@ const PATHS: Record<IconName, React.ReactNode> = {
   minus:      <><path d="M5 12h14"/></>,
   plus:       <><path d="M12 5v14M5 12h14"/></>,
   check:      <><path d="M4 12l5 5L20 6"/></>,
+  // Two offset sheets — the universal "copy" glyph. Added for the SKU control
+  // on the product page; nothing existing meant "duplicate this text" and
+  // borrowing `grid` or `external` would have said something else.
+  copy:       <><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></>,
   gift:       <><path d="M4 5h16v4H4zM6 9v11h12V9"/></>,
   truck:      <><path d="M3 7h13l3 4v6a2 2 0 0 1-2 2H3V7z"/><circle cx="7" cy="19" r="2"/><circle cx="17" cy="19" r="2"/></>,
   menu:       <><path d="M4 7h16M4 12h16M4 17h16"/></>,

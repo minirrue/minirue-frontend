@@ -39,6 +39,11 @@ const RECENT_MAX = 5;
 // Shared with MobileNavSheet and MobileSheet — see lib/motion/sheet.ts.
 import { SHEET_EASE, ITEM_TRANSITION } from '@/lib/motion/sheet';
 import { productPath } from '@/lib/routes';
+import {
+  loadDestinations,
+  matchDestinations,
+  type Destination,
+} from '@/lib/search/destinations';
 
 /** Always the canonical form, so an internal link never points at a URL the
  *  destination page disowns via its own canonical tag. */
@@ -105,6 +110,17 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
   } | null>(null);
   const [failedTerm, setFailedTerm] = React.useState<string | null>(null);
   const [recent, setRecent] = React.useState<string[]>([]);
+  /**
+   * Categories and partners, held whole.
+   *
+   * Loaded ONCE per session on the sheet's first open, not per keystroke:
+   * these lists are a handful of rows, they change when the shop changes
+   * rather than when the query does, and matching them in the browser is what
+   * makes the match exhaustive instead of paginated. See lib/search/
+   * destinations.ts for why products are treated the opposite way.
+   */
+  const [destinations, setDestinations] = React.useState<Destination[]>([]);
+  const destinationsRequested = React.useRef(false);
 
   // Recent terms are re-read each time the sheet opens, adjusted during render
   // rather than in an effect so the list is right on the first painted frame.
@@ -113,6 +129,14 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
     setWasOpen(open);
     if (open) setRecent(readRecent());
   }
+
+  React.useEffect(() => {
+    if (!open || destinationsRequested.current) return;
+    destinationsRequested.current = true;
+    // A failure here is silent on purpose: product search still works, and an
+    // error banner for a list the shopper never asked for would be noise.
+    void loadDestinations().then(setDestinations).catch(() => {});
+  }, [open]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -196,6 +220,19 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
   const searching = showResults && !fresh && !failed;
   const results = fresh?.items ?? [];
   const total = fresh?.total ?? 0;
+  /**
+   * Matched from state, so these appear on the SAME keystroke the shopper
+   * typed rather than waiting on the product request. Nothing is fetched here
+   * — the list is already in memory — so debouncing it would only add lag.
+   */
+  const destinationMatches = React.useMemo(
+    () => (showResults ? matchDestinations(destinations, q) : []),
+    [destinations, q, showResults],
+  );
+  // "Nothing here" has to account for BOTH kinds, or a query that found only a
+  // partner still reads "No matches" above the partner it found.
+  const nothingFound =
+    !searching && !failed && total === 0 && destinationMatches.length === 0;
 
   return (
     <div
@@ -383,12 +420,116 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
                 >
                   {failed
                     ? 'Search is unavailable right now.'
-                    : searching
+                    : searching && destinationMatches.length === 0
                       ? 'Searching…'
-                      : total === 0
+                      : nothingFound
                         ? `No matches for “${q}”`
-                        : `${total} result${total === 1 ? '' : 's'}`}
+                        : total === 0
+                          ? `${destinationMatches.length} result${destinationMatches.length === 1 ? '' : 's'}`
+                          : `${total} result${total === 1 ? '' : 's'}`}
                 </p>
+
+                {/*
+                  Categories and partners come FIRST.
+
+                  Someone typing "helia" or "perfumes" is naming a place, not
+                  describing a thing they want — and until 2026-08-21 the shop
+                  answered "No matches for HELIA" for a partner it hosts a
+                  whole page for. When a query is the exact name of a
+                  destination, that destination IS the answer, and burying it
+                  under twelve products that merely mention the word would be
+                  answering a different question.
+                */}
+                {destinationMatches.map((d) => (
+                  <Link
+                    key={d.id}
+                    href={d.href}
+                    onClick={() => {
+                      rememberRecent(q);
+                      onClose();
+                    }}
+                    data-trace-id={`PG-STOREFRONT-CAT-004::EL-LINK-search-destination@${d.id}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 14,
+                      padding: '10px 0',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 48,
+                        height: 48,
+                        flex: '0 0 auto',
+                        borderRadius: d.kind === 'partner' ? '50%' : 8,
+                        overflow: 'hidden',
+                        background: 'var(--mr-cream-300)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {d.imageUrl ? (
+                        <Image
+                          src={d.imageUrl}
+                          alt=""
+                          width={48}
+                          height={48}
+                          // `contain` for a partner: a logo cropped to fill its
+                          // circle loses the wordmark, which is the only part
+                          // anybody recognises. Categories are photographs and
+                          // want the opposite.
+                          style={{
+                            objectFit: d.kind === 'partner' ? 'contain' : 'cover',
+                            width: '100%',
+                            height: '100%',
+                          }}
+                        />
+                      ) : null}
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                      <span
+                        style={{
+                          display: 'block',
+                          fontFamily: 'var(--mr-font-serif)',
+                          fontSize: 'var(--mr-text-base)',
+                          color: 'var(--mr-fg)',
+                        }}
+                      >
+                        {d.name}
+                      </span>
+                      {d.detail && (
+                        <span
+                          style={{
+                            display: 'block',
+                            fontFamily: 'var(--mr-font-label)',
+                            fontSize: 'var(--mr-text-xs)',
+                            letterSpacing: '0.18em',
+                            textTransform: 'uppercase',
+                            color: 'var(--mr-fg-4)',
+                            marginTop: 3,
+                          }}
+                        >
+                          {d.detail}
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                ))}
+
+                {/* A rule, only when both kinds are present — it exists to
+                    separate them, not to decorate a single list. */}
+                {destinationMatches.length > 0 && results.length > 0 && (
+                  <div
+                    style={{
+                      height: 1,
+                      background: 'var(--mr-hairline)',
+                      margin: '14px 0 18px',
+                    }}
+                  />
+                )}
 
                 {results.map((product, i) => (
                   <SearchRow key={product.id} product={product} index={i} term={q} onNavigate={onClose} />
@@ -424,7 +565,7 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
                   </Link>
                 )}
 
-                {!searching && !failed && total === 0 && (
+                {nothingFound && (
                   <Link
                     href="/shop/all"
                     onClick={onClose}

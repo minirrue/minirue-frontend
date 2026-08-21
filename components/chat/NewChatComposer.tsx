@@ -149,7 +149,7 @@ export default function NewChatComposer({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search for a product…"
+              placeholder="Product name or code…"
               autoFocus
               style={fieldStyle}
               data-trace-id={`${TRACE}::EL-FIELD-new-chat-product`}
@@ -162,7 +162,8 @@ export default function NewChatComposer({
 
           {!searching && query.trim() && results.length === 0 && (
             <span style={{ fontSize: 13, color: 'var(--mr-fg-3)' }}>
-              Nothing matched. Try another word, or ask a general question below.
+              Nothing matched. Try another word or paste the item code from the
+              product page, or ask a general question below.
             </span>
           )}
 
@@ -176,6 +177,22 @@ export default function NewChatComposer({
                   ? mediaImageUrl(p.media[0], { w: 112, h: 112 })
                   : null;
                 const brand = productBrand(p);
+                /**
+                 * The code of the variant that MATCHED, when the shopper
+                 * pasted one; otherwise the first, as a label for the product.
+                 *
+                 * Shown because the whole point of pasting a code is being
+                 * exact — and a picker that swallows the code and offers three
+                 * similar-looking bottles has given the exactness straight
+                 * back. Seeing their own string echoed on a row is how the
+                 * customer knows it is the right one.
+                 */
+                const typed = query.trim().toUpperCase();
+                const variants = p.variants ?? [];
+                const matchedSku =
+                  variants.find((v) => v.sku?.toUpperCase().includes(typed))?.sku ??
+                  variants[0]?.sku ??
+                  null;
                 return (
                   <button
                     key={p.id}
@@ -216,6 +233,25 @@ export default function NewChatComposer({
                           style={{ display: 'block', fontSize: 12, color: 'var(--mr-fg-3)' }}
                         >
                           {brand}
+                        </span>
+                      )}
+                      {matchedSku && (
+                        <span
+                          style={{
+                            display: 'block',
+                            fontFamily: 'var(--mr-font-mono, ui-monospace, monospace)',
+                            fontSize: 11,
+                            letterSpacing: '0.04em',
+                            color: 'var(--mr-fg-4)',
+                            marginTop: 2,
+                            // Long composite SKUs must not widen the row and
+                            // push the panel sideways.
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {matchedSku}
                         </span>
                       )}
                     </span>

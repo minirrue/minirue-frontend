@@ -94,6 +94,81 @@ const ProductBackButton = React.memo(function ProductBackButton({
   );
 });
 
+/**
+ * The item's code, copied on tap.
+ *
+ * Deliberately quiet — a mono label, not a button that competes with Share.
+ * Most shoppers never need it; the one who does is on a chat with support
+ * being asked which item they mean, and for them it is the difference between
+ * a precise answer and a description.
+ */
+const SkuCopyButton = React.memo(function SkuCopyButton({ sku }: { sku: string }) {
+  const [copied, setCopied] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(sku);
+      setCopied(true);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // Clipboard blocked (insecure context, permission denied). The code is
+      // still on screen and selectable, so there is nothing to recover from.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void copy()}
+      // The visible text is the code; the accessible name has to say what the
+      // code IS, or a screen reader announces a string of letters and numbers
+      // with no idea it is a button that copies them.
+      aria-label={copied ? `Item code ${sku} copied` : `Copy item code ${sku}`}
+      title="Copy item code"
+      data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-copy-sku"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        // Matches the Share pill's height so the row reads as one line of
+        // controls rather than two things that happen to be adjacent.
+        minHeight: 40,
+        padding: '0 14px',
+        borderRadius: 'var(--mr-radius-pill)',
+        border: '1px solid var(--mr-border)',
+        background: 'transparent',
+        cursor: 'pointer',
+        fontFamily: 'var(--mr-font-mono, ui-monospace, monospace)',
+        fontSize: 'var(--mr-text-xs)',
+        letterSpacing: '0.04em',
+        color: copied ? 'var(--mr-fg)' : 'var(--mr-fg-3)',
+        transition: 'color var(--mr-dur-fast) var(--mr-ease-out)',
+        maxWidth: '100%',
+      }}
+    >
+      <Icon name={copied ? 'check' : 'copy'} size={13} />
+      <span
+        style={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {copied ? 'Copied' : sku}
+      </span>
+    </button>
+  );
+});
+
 interface ProductInfoPanelProps {
   product: ApiProduct;
   perks: ProductSectionConfig['perks'];
@@ -313,9 +388,21 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
 
       {/* Share — OS share sheet on phones and Chrome/Windows, link copy
           elsewhere. The URL unfurls with the cover photo via the page's
-          OpenGraph tags. */}
+          OpenGraph tags.
+
+          The SKU sits alongside it because both are the same gesture: taking
+          something about this exact item somewhere else. A shopper messaging
+          support is asked "which one?", and the SKU answers it precisely where
+          "the gold one, the intense" does not — the shop's search accepts a
+          pasted SKU now, so the code they copy here resolves straight back to
+          this page at the other end. It is the SELECTED VARIANT's code, not
+          the product's, because 50ml and 100ml are different things to send. */}
       <div
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 10,
           marginBottom: 24,
           animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
           animationDelay: '520ms',
@@ -337,59 +424,8 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           text={[productBrand(product), product.tagline].filter(Boolean).join(' — ')}
           traceId="PG-STOREFRONT-CAT-005::EL-BTN-share-product"
         />
+        {selectedVariant?.sku && <SkuCopyButton sku={selectedVariant.sku} />}
       </div>
-
-      {/*
-        The product's own description, from the dashboard.
-        Never rendered until 2026-08-21 (owner: "add description on each
-        product under add to bag, where it holds the info from the dashboard").
-        The text was in every API response the whole time — the page simply
-        dropped it — so a shop that had written proper copy for a fragrance was
-        showing a name, a price and nothing else. It sits BELOW the buy button
-        on purpose: someone who already knows they want it should not have to
-        scroll past prose to reach the CTA, and someone still deciding reads on.
-      */}
-      {product.description && (
-        <div
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-description"
-          style={{
-            marginBottom: 32,
-            animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
-            animationDelay: '530ms',
-          }}
-        >
-          {/* Split on blank lines so a description written as paragraphs in
-              the dashboard reads as paragraphs here. Rendered as text, never
-              as HTML — this is admin-authored copy, but a description field is
-              not a template and must not become one. */}
-          {product.description
-            .split(/\n\s*\n/)
-            .map((para) => para.trim())
-            .filter(Boolean)
-            .map((para, i) => (
-              <p
-                key={i}
-                style={{
-                  fontFamily: 'var(--mr-font-ui)',
-                  fontSize: 'var(--mr-text-sm)',
-                  // Generous for a block of prose. The rest of this column is
-                  // labels and numbers, which want tighter leading than a
-                  // paragraph somebody is expected to actually read.
-                  lineHeight: 1.75,
-                  color: 'var(--mr-fg-2)',
-                  textWrap: 'pretty',
-                  margin: i === 0 ? 0 : 'var(--mr-sp-3) 0 0',
-                  // Prose past ~70 characters a line is measurably harder to
-                  // read; the column itself can be wider than that on a large
-                  // desktop.
-                  maxWidth: '62ch',
-                }}
-              >
-                {para}
-              </p>
-            ))}
-        </div>
-      )}
 
       {/* Gender + fragrance family badges */}
       <div
@@ -497,6 +533,65 @@ const EditorialMoment = React.memo(function EditorialMoment({
         >
           {productBrand(product) ?? product.categoryName}
         </div>
+
+        {/*
+          The description, from the dashboard.
+
+          It sat under the buy button first; the owner moved it here
+          (2026-08-21: "description here is better than under the share
+          button… under the photos better"), and the panel is the better home
+          for a reason worth writing down. This section already existed to be
+          the pause between the photographs and the closing panel — a full
+          dark screen holding one line of type. It was doing that job with the
+          product NAME repeated in quote marks, which is decoration standing in
+          for content. Real copy is what the moment was built for; the shopper
+          arrives here having already scrolled past the photographs, which is
+          exactly when someone is reading rather than deciding.
+
+          Kept centred and narrow to match the blockquote above it rather than
+          becoming a left-aligned article — this is still an editorial pause,
+          not a spec sheet.
+        */}
+        {product.description && (
+          <div
+            data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-description"
+            style={{
+              marginTop: 40,
+              // Own hairline above it so the copy reads as a separate thought
+              // from the brand line, without a second heading to announce it.
+              paddingTop: 36,
+              borderTop: '1px solid color-mix(in srgb, var(--mr-gold-400) 28%, transparent)',
+              maxWidth: 620,
+              marginInline: 'auto',
+              textAlign: 'left',
+            }}
+          >
+            {/* Split on blank lines so copy written as paragraphs reads as
+                paragraphs. Rendered as text, never HTML — a description field
+                is admin-authored, but it is not a template. */}
+            {product.description
+              .split(/\n\s*\n/)
+              .map((para) => para.trim())
+              .filter(Boolean)
+              .map((para, i) => (
+                <p
+                  key={i}
+                  style={{
+                    fontFamily: 'var(--mr-font-ui)',
+                    fontSize: 'clamp(14px, 1.05vw, 16px)',
+                    lineHeight: 1.8,
+                    // cream-300, not cream-100: the blockquote above is the
+                    // loudest thing on this screen and must stay that way.
+                    color: 'var(--mr-cream-300)',
+                    textWrap: 'pretty',
+                    margin: i === 0 ? 0 : '18px 0 0',
+                  }}
+                >
+                  {para}
+                </p>
+              ))}
+          </div>
+        )}
       </div>
     </div>
   );
