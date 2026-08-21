@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import CategoriesGrid from '@/app/categories/CategoriesGrid';
+import CategoriesGrid from '@/app/shop/CategoriesGrid';
 import type { Category } from '@/lib/api/catalog';
 
 /**
@@ -31,11 +31,11 @@ describe('CategoriesGrid', () => {
     render(<CategoriesGrid categories={CATEGORIES} />);
     expect(screen.getByRole('link', { name: /perfumes/i })).toHaveAttribute(
       'href',
-      '/categories/perfumes',
+      '/shop/perfumes',
     );
     expect(screen.getByRole('link', { name: /jewellery/i })).toHaveAttribute(
       'href',
-      '/categories/jewellery',
+      '/shop/jewellery',
     );
   });
 
@@ -43,7 +43,7 @@ describe('CategoriesGrid', () => {
     render(<CategoriesGrid categories={CATEGORIES} />);
     expect(screen.getByRole('link', { name: /all products/i })).toHaveAttribute(
       'href',
-      '/products',
+      '/shop/all',
     );
   });
 

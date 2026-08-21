@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Fragment } from 'react';
 import type { Category } from '@/lib/api/catalog';
+import { categoryPath } from '@/lib/routes';
 
 /**
  * Finds a category by slug in a flat+nested tree and returns its full
@@ -69,7 +70,7 @@ export function CategoryBreadcrumb({
         </li>
         <span aria-hidden="true">/</span>
         <li>
-          <Link href="/products" style={{ color: 'inherit', textDecoration: 'none' }}>
+          <Link href="/shop/all" style={{ color: 'inherit', textDecoration: 'none' }}>
             Shop
           </Link>
         </li>
@@ -78,7 +79,7 @@ export function CategoryBreadcrumb({
             <span aria-hidden="true">/</span>
             <li>
               <Link
-                href={`/categories/${a.slug}`}
+                href={categoryPath(a.slug)}
                 style={{ color: 'inherit', textDecoration: 'none' }}
               >
                 {a.name}

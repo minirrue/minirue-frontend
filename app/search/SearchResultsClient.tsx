@@ -224,7 +224,7 @@ export default function SearchResultsClient({
             Start typing to find a fragrance.
           </p>
           <Link
-            href="/products"
+            href="/shop/all"
             data-trace-id={`${TRACE}::EL-LINK-browse-all-perfumes-from-search`}
             style={{
               fontFamily: 'var(--mr-font-label)',

@@ -222,7 +222,7 @@ export default async function TrackOrderPage({
 
         <div style={{ marginTop: 'var(--mr-sp-6)' }}>
           <Link
-            href="/products"
+            href="/shop/all"
             style={{
               display: 'inline-flex',
               alignItems: 'center',

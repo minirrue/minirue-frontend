@@ -3,7 +3,7 @@ import { connection } from 'next/server';
 import Link from 'next/link';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import Icon from '@/components/ui/Icon';
 import { listBundles, type Bundle } from '@/lib/api/bundles';
@@ -67,7 +67,7 @@ export default async function BundlesIndexPage() {
               alignItems: 'center',
             }}
           >
-            <Link href="/categories" style={{ color: 'inherit', textDecoration: 'none' }}>
+            <Link href="/shop" style={{ color: 'inherit', textDecoration: 'none' }}>
               Shop
             </Link>
             <span aria-hidden="true">/</span>

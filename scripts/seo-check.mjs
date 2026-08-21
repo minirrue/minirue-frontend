@@ -128,7 +128,7 @@ for (const file of htmlFiles) {
   // not a route at all — see isFrameworkErrorShell above). This reads the ROBOTS TAG THE PAGE
   // ITSELF SHIPPED, rather than hand-maintaining a list of noindex routes in this script — the
   // two would drift the moment someone adds a new noindex page (account/*, orders/*, (auth)/*,
-  // _internal/preview/*, or a conditionally-noindex page like /search or /products) without
+  // _internal/preview/*, or a conditionally-noindex page like /search or /shop/all) without
   // remembering to update a second list here.
   if (!isFrameworkErrorShell(html)) {
     const robotsContent = /<meta name="robots" content="([^"]*)"/.exec(html)?.[1] ?? "";
@@ -161,7 +161,7 @@ if (!indexHtml) {
 // broken for Organization/OG validation as a missing file, just less obviously so.
 //
 // NOTE: `og-image.jpg` here is a deliberate fallback asset, kept present and correctly sized for
-// the pages that explicitly reference it (app/search/page.tsx, app/products/page.tsx's brand
+// the pages that explicitly reference it (app/search/page.tsx, app/shop/all/page.tsx's brand
 // listing). It is NOT currently the og:image emitted by any prerendered page in this build (those
 // all use the default app/opengraph-image.tsx dynamic route) — this existence+dimension check is
 // independent of, and does not substitute for, the og:image RESOLUTION check further below, which
@@ -390,10 +390,20 @@ const sitemapBodyPath = path.join(appDir, "sitemap.xml.body");
 let sitemapProductUrls = null;
 if (fs.existsSync(sitemapBodyPath)) {
   const sitemapBody = fs.readFileSync(sitemapBodyPath, "utf8");
-  sitemapProductUrls = (sitemapBody.match(/<loc>[^<]*\/products\/[^<]+<\/loc>/g) || []).length;
+  // A product URL is /shop/{category}/{product} since 2026-08-21 — three
+  // segments under /shop, which is what distinguishes it from /shop/{category}
+  // (two) and /shop/all. The legacy /products/{slug} form still counts: it is a
+  // permanent redirect, so a sitemap or a cached page carrying one is stale but
+  // not broken, and the guard should not fire on the difference.
+  sitemapProductUrls = (
+    sitemapBody.match(/<loc>[^<]*\/(?:shop\/[^<\/]+\/[^<\/]+|products\/[^<\/]+)<\/loc>/g) || []
+  ).filter((u) => !/\/shop\/all</.test(u)).length;
 }
 
-const productLinkCount = indexHtml ? (indexHtml.match(/href="\/products\//g) || []).length : 0;
+const PRODUCT_HREF_RE = /href="\/(?:shop\/[^"\/]+\/[^"\/]+|products\/[^"\/]+)"/g;
+const productLinkCount = indexHtml
+  ? (indexHtml.match(PRODUCT_HREF_RE) || []).filter((h) => !h.includes('/shop/all')).length
+  : 0;
 const where = indexHtmlPath ? path.relative(repoRoot, indexHtmlPath) : ".next/server/app/index.html";
 const assertion = 'index.html links to a product whenever the catalog contains one';
 
@@ -402,13 +412,13 @@ if (productLinkCount === 0) {
     fail(
       where,
       assertion,
-      `index.html has zero \`href="/products/"\` links, but this build's own sitemap contains ${sitemapProductUrls} product URL(s) — so the catalog resolved and the homepage should be linking into it. This is the regression the guard exists to catch: check that ProductCard still renders a real <a>/<Link> and that the homepage sections are receiving products.`,
+      `index.html has zero product links (\`/shop/{category}/{product}\`), but this build's own sitemap contains ${sitemapProductUrls} product URL(s) — so the catalog resolved and the homepage should be linking into it. This is the regression the guard exists to catch: check that ProductCard still renders a real <a>/<Link> and that the homepage sections are receiving products.`,
     );
   } else {
     warn(
       where,
       assertion,
-      `index.html has zero \`href="/products/"\` links, and this build's sitemap contains no product URLs either — the catalog was empty or unreachable at build time (app/sitemap.ts logs the specific reason above). An empty homepage is the correct rendering of an empty catalog, so this is a warning, not a failure. It becomes a hard failure automatically once the catalog has products.`,
+      `index.html has zero product links (\`/shop/{category}/{product}\`), and this build's sitemap contains no product URLs either — the catalog was empty or unreachable at build time (app/sitemap.ts logs the specific reason above). An empty homepage is the correct rendering of an empty catalog, so this is a warning, not a failure. It becomes a hard failure automatically once the catalog has products.`,
     );
   }
 }

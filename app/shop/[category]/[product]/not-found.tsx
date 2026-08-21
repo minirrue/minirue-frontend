@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 
@@ -43,7 +43,7 @@ export default function ProductNotFound() {
             This fragrance may have been removed or the link is no longer valid.
           </p>
           <Link
-            href="/products"
+            href="/shop/all"
             style={{
               fontFamily: 'var(--mr-font-label)',
               fontSize: 'var(--mr-text-xs)',

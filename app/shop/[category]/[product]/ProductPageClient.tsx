@@ -74,7 +74,7 @@ export default function ProductPageClient({ slug, apiProductJson, perks }: Props
         <ApiProductDetail
           product={product}
           perks={perks}
-          onBack={() => router.push('/products')}
+          onBack={() => router.push('/shop/all')}
           onAddToBag={handleAddToBag}
         />
       </div>

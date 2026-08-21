@@ -56,18 +56,18 @@ describe('buildBreadcrumbSchema', () => {
 
   describe('dedupe filter (preserved from the pre-generalisation component)', () => {
     it('drops a crumb whose path repeats the previous crumb\'s path', () => {
-      // e.g. /products: SHOP_CRUMB and the page's own "All Products" crumb
-      // both resolve to path "products".
+      // e.g. /shop: SHOP_CRUMB and a page's own crumb both resolving to the
+      // same path "shop".
       const schema = buildBreadcrumbSchema([
         SHOP_CRUMB,
-        { name: 'All Products', path: 'products' },
+        { name: 'All Products', path: 'shop' },
       ]) as { itemListElement: Array<{ name: string }> };
       expect(schema.itemListElement.map((i) => i.name)).toEqual(['Home', 'Shop']);
     });
 
     it('drops a crumb whose name repeats the previous crumb\'s name (case/whitespace-insensitive)', () => {
       const schema = buildBreadcrumbSchema([
-        { name: '  Shop  ', path: 'products' },
+        { name: '  Shop  ', path: 'shop' },
         { name: 'shop', path: 'categories/shop' },
       ]) as { itemListElement: Array<{ name: string }> };
       expect(schema.itemListElement.map((i) => i.name)).toEqual(['Home', '  Shop  ']);
@@ -75,101 +75,102 @@ describe('buildBreadcrumbSchema', () => {
 
     it('keeps two crumbs that differ in both name and path', () => {
       const schema = buildBreadcrumbSchema([
-        { name: 'Jewellery', path: 'categories/jewellery' },
-        { name: 'Rings', path: 'categories/rings' },
+        { name: 'Jewellery', path: 'shop/jewellery' },
+        { name: 'Rings', path: 'shop/rings' },
       ]) as { itemListElement: Array<{ name: string }> };
       expect(schema.itemListElement.map((i) => i.name)).toEqual(['Home', 'Jewellery', 'Rings']);
     });
   });
 
   describe('regression — the three pre-existing call sites (Task 9 generalisation)', () => {
-    it('/products: trail=[SHOP_CRUMB, All Products] collapses to Home / Shop, exactly as the old hardcoded SECTION did', () => {
+    it('/shop: trail=[SHOP_CRUMB, All Products] collapses to Home / Shop, exactly as the old hardcoded SECTION did', () => {
       const schema = buildBreadcrumbSchema([
         SHOP_CRUMB,
-        { name: 'All Products', path: 'products' },
+        { name: 'All Products', path: 'shop' },
       ]);
       expect(schema).toEqual({
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/products` },
+          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/shop` },
         ],
       });
     });
 
-    it('/products/[slug]: trail=[SHOP_CRUMB, product] yields Home / Shop / {product}, item built from products/{slug} — NOT the bare slug', () => {
+    it('/shop/[category]/[product]: trail=[SHOP_CRUMB, product] yields Home / Shop / {product}, item built from products/{slug} — NOT the bare slug', () => {
       const schema = buildBreadcrumbSchema([
         SHOP_CRUMB,
-        { name: 'No. 5 Eau de Parfum', path: 'products/no-5-eau-de-parfum' },
+        { name: 'No. 5 Eau de Parfum', path: 'shop/perfumes/no-5-eau-de-parfum' },
       ]);
       expect(schema).toEqual({
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/products` },
+          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/shop` },
           {
             '@type': 'ListItem',
             position: 3,
             name: 'No. 5 Eau de Parfum',
-            // Fixed: the item URL is built from products/${slug}, the
-            // product's real canonical address. The old bare-slug URL
+            // The item URL is built from the product's real canonical
+            // address, which since 2026-08-21 nests it under its own
+            // category: /shop/{category}/{slug}. The old bare-slug URL
             // (${SITE_URL}/no-5-eau-de-parfum) resolves to the live
             // partner-space route (/[slug]) instead — a product breadcrumb
             // built from it could hand Google a partner's shop page as this
             // product's parent.
-            item: `${SITE_URL}/products/no-5-eau-de-parfum`,
+            item: `${SITE_URL}/shop/perfumes/no-5-eau-de-parfum`,
           },
         ],
       });
     });
 
-    it('/categories/[slug]: trail=[SHOP_CRUMB, ...ancestors, category] yields Home / Shop / {ancestors} / {category}', () => {
-      const schemaAncestors = [{ name: 'Jewellery', path: 'categories/jewellery' }];
+    it('/shop/[category]: trail=[SHOP_CRUMB, ...ancestors, category] yields Home / Shop / {ancestors} / {category}', () => {
+      const schemaAncestors = [{ name: 'Jewellery', path: 'shop/jewellery' }];
       const schema = buildBreadcrumbSchema([
         SHOP_CRUMB,
         ...schemaAncestors,
-        { name: 'Rings', path: 'categories/rings' },
+        { name: 'Rings', path: 'shop/rings' },
       ]);
       expect(schema).toEqual({
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/products` },
+          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/shop` },
           {
             '@type': 'ListItem',
             position: 3,
             name: 'Jewellery',
-            item: `${SITE_URL}/categories/jewellery`,
+            item: `${SITE_URL}/shop/jewellery`,
           },
           {
             '@type': 'ListItem',
             position: 4,
             name: 'Rings',
-            item: `${SITE_URL}/categories/rings`,
+            item: `${SITE_URL}/shop/rings`,
           },
         ],
       });
     });
 
-    it('/categories/[slug] with no ancestors (a top-level category) yields Home / Shop / {category}', () => {
+    it('/shop/[category] with no ancestors (a top-level category) yields Home / Shop / {category}', () => {
       const schema = buildBreadcrumbSchema([
         SHOP_CRUMB,
-        { name: 'Jewellery', path: 'categories/jewellery' },
+        { name: 'Jewellery', path: 'shop/jewellery' },
       ]);
       expect(schema).toEqual({
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/products` },
+          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/shop` },
           {
             '@type': 'ListItem',
             position: 3,
             name: 'Jewellery',
-            item: `${SITE_URL}/categories/jewellery`,
+            item: `${SITE_URL}/shop/jewellery`,
           },
         ],
       });

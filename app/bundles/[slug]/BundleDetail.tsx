@@ -7,6 +7,7 @@ import Icon from '@/components/ui/Icon';
 import Button from '@/components/ui/Button';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import type { Bundle } from '@/lib/api/bundles';
+import { productPath } from '@/lib/routes';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -65,7 +66,7 @@ export default function BundleDetail({ bundle }: { bundle: Bundle }) {
           flexWrap: 'wrap',
         }}
       >
-        <Link href="/categories" style={{ color: 'inherit', textDecoration: 'none' }}>
+        <Link href="/shop" style={{ color: 'inherit', textDecoration: 'none' }}>
           Shop
         </Link>
         <span aria-hidden="true">/</span>
@@ -192,8 +193,14 @@ export default function BundleDetail({ bundle }: { bundle: Bundle }) {
                   color: 'var(--mr-fg-2)',
                 }}
               >
+                {/* A bundle member carries only a slug, not its category, so
+                    this resolves to the legacy flat path — which permanently
+                    redirects to /shop/{category}/{slug}. One extra hop from an
+                    internal link is the cost of not plumbing a category through
+                    the bundles API for a handful of rows; it is exactly the
+                    fallback productPath() documents. */}
                 <Link
-                  href={`/products/${m.productSlug}`}
+                  href={productPath({ slug: m.productSlug })}
                   style={{ color: 'inherit', textDecoration: 'none' }}
                 >
                   {m.quantity > 1 && `${m.quantity} × `}

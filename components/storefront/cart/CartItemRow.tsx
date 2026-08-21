@@ -137,7 +137,32 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
       </div>
 
       {/* Details */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-2)' }}>
+      <div
+        style={{
+          flex: 1,
+          /**
+           * `minWidth: 0` is load-bearing, not tidiness.
+           *
+           * A flex item defaults to `min-width: auto`, which refuses to shrink
+           * below its content's intrinsic minimum. A long product name —
+           * "Eilish Intense Eau de Parfum" — therefore pushed this column wider
+           * than the space available, and the whole row overflowed its
+           * container: on a phone the line items ran past the right edge while
+           * the order-summary card below them sat correctly inset, which is
+           * what "the screen looks cut out on the right side" was (owner,
+           * 2026-08-21, /cart at 390px).
+           *
+           * Fixed here rather than left to `overflow-x: clip` on the root. That
+           * rule exists for the chat button, which hangs off the edge BY
+           * DESIGN; using it to hide real content would turn an overflowing
+           * row into a silently truncated one, which is worse than a scrollbar.
+           */
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--mr-sp-2)',
+        }}
+      >
         {/* Name */}
         <div
           style={{
@@ -146,6 +171,10 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
             fontWeight: 500,
             color: 'var(--mr-fg)',
             lineHeight: 1.3,
+            // The other half of minWidth:0 above — the column may now shrink,
+            // so the name has to be allowed to wrap inside it rather than
+            // sitting on one unbreakable line.
+            overflowWrap: 'anywhere',
           }}
         >
           {item.name ?? `Variant #${item.variantId}`}

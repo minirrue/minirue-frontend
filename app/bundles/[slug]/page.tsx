@@ -3,7 +3,7 @@ import { connection } from 'next/server';
 import { notFound } from 'next/navigation';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import { getBundle, type Bundle } from '@/lib/api/bundles';
 import BundleDetail from './BundleDetail';
 

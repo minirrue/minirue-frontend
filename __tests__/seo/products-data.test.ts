@@ -29,8 +29,8 @@ import {
   brandListingName,
   categoryListingName,
   getShopName,
-} from '@/app/products/products-data';
-import type { BrandListingOutcome } from '@/app/products/products-data';
+} from '@/app/shop/all/products-data';
+import type { BrandListingOutcome } from '@/app/shop/all/products-data';
 import { PRODUCT_FIXTURE } from '../storefront/fixtures/product';
 
 beforeEach(() => {

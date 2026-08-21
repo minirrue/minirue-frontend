@@ -4,7 +4,7 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import CollectionSchema from '@/components/seo/CollectionSchema';
 import { SITE_URL } from '@/lib/seo/config';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import BrandsGrid from './BrandsGrid';
 import { apiListPublicBrands } from '@/lib/api/collaborators';
 import { apiGetPublicSettings } from '@/lib/api/settings';

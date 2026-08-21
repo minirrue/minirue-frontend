@@ -3,14 +3,23 @@ import { connection } from 'next/server';
 import { catalog } from '@/lib/api/catalog';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import { fetchHouseSpace } from '@/lib/api/storefront';
 import { countBundles } from '@/lib/api/bundles';
 import CategoriesGrid from './CategoriesGrid';
+import { SHOP_ROOT } from '@/lib/routes';
 
 /**
- * `/categories` — Task AA (owner request 2026-07-30): the mobile nav's Shop
- * tab now opens this instead of the flat `/products` list. "shop button on
+ * `/shop` — the shop's one front door.
+ *
+ * Was `/categories`, whose page was titled "Shop" — a URL that disagreed with
+ * its own heading, and only one of two ways in, the other being the flat
+ * `/products` list this page linked to. Both are gone (owner, 2026-08-21): the
+ * address now matches the title, and every route below it hangs off this one.
+ * See `lib/routes.ts` for the whole scheme.
+ *
+ * Originally Task AA (owner request 2026-07-30): the mobile nav's Shop
+ * tab opens this rather than a flat list. "shop button on
  * mobile nav redirects to minirue categories which have their images section
  * on each card better and additional card inside categories is the card
  * which holds all products page."
@@ -34,9 +43,9 @@ import CategoriesGrid from './CategoriesGrid';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Shop by Category — MiniRue',
+  title: 'Shop — MiniRue',
   description: 'Browse every MiniRue category, or shop the full catalogue at once.',
-  alternates: { canonical: '/categories' },
+  alternates: { canonical: SHOP_ROOT },
 };
 
 export default async function CategoriesIndexPage() {
@@ -48,11 +57,11 @@ export default async function CategoriesIndexPage() {
   try {
     categories = await catalog.listCategories();
   } catch {
-    // API unavailable — graceful degradation, same as app/categories/[slug].
+    // API unavailable — graceful degradation, same as app/shop/[category].
   }
 
   // Top-level only: the tree's own children render inside a category's own
-  // page (app/categories/[slug]), not flattened into this index.
+  // page (app/shop/[category]), not flattened into this index.
   const topLevel = categories.filter((c) => c.parentId === null);
 
   // Best-effort: a house-space fetch failure must not take the whole "Shop"

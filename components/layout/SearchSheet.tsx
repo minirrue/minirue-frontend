@@ -38,6 +38,7 @@ const RECENT_KEY = 'mr:recent-searches';
 const RECENT_MAX = 5;
 // Shared with MobileNavSheet and MobileSheet — see lib/motion/sheet.ts.
 import { SHEET_EASE, ITEM_TRANSITION } from '@/lib/motion/sheet';
+import { productPath } from '@/lib/routes';
 
 /** Always the canonical form, so an internal link never points at a URL the
  *  destination page disowns via its own canonical tag. */
@@ -425,7 +426,7 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
 
                 {!searching && !failed && total === 0 && (
                   <Link
-                    href="/products"
+                    href="/shop/all"
                     onClick={onClose}
                     style={{
                       display: 'inline-block',
@@ -575,7 +576,7 @@ function SearchRow({
 
   return (
     <Link
-      href={`/products/${product.slug}`}
+      href={productPath(product)}
       onClick={() => {
         track('search_result_click', { q: term, productId: product.id, position: index });
         onNavigate();

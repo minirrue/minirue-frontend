@@ -22,7 +22,7 @@ jest.mock('next/server', () => ({
   connection: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('@/app/products/HeaderWrapper', () => ({
+jest.mock('@/app/shop/HeaderWrapper', () => ({
   __esModule: true,
   default: () => null,
 }));
@@ -37,7 +37,7 @@ jest.mock('@/components/layout/AnnouncementBar', () => ({
   default: () => null,
 }));
 
-jest.mock('@/app/products/ProductListingClient', () => ({
+jest.mock('@/app/shop/all/ProductListingClient', () => ({
   __esModule: true,
   default: () => null,
 }));
@@ -51,7 +51,7 @@ jest.mock('@/lib/api/catalog', () => {
   };
 });
 
-import ProductsPage from '@/app/products/page';
+import ProductsPage from '@/app/shop/all/page';
 
 function render(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -81,7 +81,7 @@ beforeEach(() => {
 });
 
 describe('/products breadcrumb — visible trail and JSON-LD agree (Task: no hardcoded breadcrumbs)', () => {
-  it('unfiltered /products: both trails stay "Home / Shop", never naming a product that happens to sort first', async () => {
+  it('unfiltered /shop/all: both trails stay "Home / Shop", never naming a product that happens to sort first', async () => {
     listProducts.mockResolvedValue({
       data: [PRODUCT_FIXTURE],
       meta: { total: 1, hasMore: false, cursor: null },
@@ -94,7 +94,7 @@ describe('/products breadcrumb — visible trail and JSON-LD agree (Task: no har
     expect(breadcrumbListNames(container)).toEqual(['Home', 'Shop']);
   });
 
-  it('brand-filtered /products?brandId=X: both trails end in the resolved brand name', async () => {
+  it('brand-filtered /shop/all?brandId=X: both trails end in the resolved brand name', async () => {
     listProducts.mockResolvedValue({
       data: [PRODUCT_FIXTURE],
       meta: { total: 1, hasMore: false, cursor: null },
@@ -109,17 +109,17 @@ describe('/products breadcrumb — visible trail and JSON-LD agree (Task: no har
 
     // "Shop" stopped being the terminal crumb, so it must now be a real link
     // back to the unfiltered listing rather than plain text.
-    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/products');
+    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/shop');
 
     const breadcrumbList = jsonLdNodes(container).find(
       (n) => n['@type'] === 'BreadcrumbList',
     ) as { itemListElement: Array<{ name: string; item: string }> };
     expect(breadcrumbList.itemListElement.at(-1)?.item).toBe(
-      `${SITE_URL}/products?brandId=brand-billie`,
+      `${SITE_URL}/shop/all?brandId=brand-billie`,
     );
   });
 
-  it('category-filtered /products?categoryId=X: both trails end in the resolved category name', async () => {
+  it('category-filtered /shop/all?categoryId=X: both trails end in the resolved category name', async () => {
     listProducts.mockResolvedValue({
       data: [PRODUCT_FIXTURE],
       meta: { total: 1, hasMore: false, cursor: null },
@@ -131,13 +131,13 @@ describe('/products breadcrumb — visible trail and JSON-LD agree (Task: no har
     const expected = ['Home', 'Shop', PRODUCT_FIXTURE.categoryName as string];
     expect(visibleBreadcrumbNames()).toEqual(expected);
     expect(breadcrumbListNames(container)).toEqual(expected);
-    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/products');
+    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/shop');
 
     const breadcrumbList = jsonLdNodes(container).find(
       (n) => n['@type'] === 'BreadcrumbList',
     ) as { itemListElement: Array<{ name: string; item: string }> };
     expect(breadcrumbList.itemListElement.at(-1)?.item).toBe(
-      `${SITE_URL}/products?categoryId=cat-perfume`,
+      `${SITE_URL}/shop/all?categoryId=cat-perfume`,
     );
   });
 

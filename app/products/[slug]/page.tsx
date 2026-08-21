@@ -1,119 +1,51 @@
-import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { permanentRedirect, notFound } from 'next/navigation';
 import { connection } from 'next/server';
-import { catalog, primaryMedia, mediaImageUrl, productBrand } from '@/lib/api/catalog';
-import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
-import ProductPageClient from './ProductPageClient';
-import ProductSchema from '@/components/seo/ProductSchema';
-import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
-import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import { SITE_URL } from '@/lib/seo/config';
-import { getProductReviewsForSchema } from './product-data';
+import { catalog } from '@/lib/api/catalog';
+import { productPath, SHOP_ALL } from '@/lib/routes';
+
+/**
+ * The old flat product address, kept ONLY to forward.
+ *
+ * `/products/{slug}` was the product page until 2026-08-21, when the shop's two
+ * front doors (`/products` and `/categories`, the latter titled "Shop") became
+ * one and every product moved under its own category — see `lib/routes.ts`.
+ * These URLs are indexed, shared and sitting in people's history, so they
+ * cannot simply 404.
+ *
+ * This is a page rather than a `redirects()` entry in next.config because the
+ * destination is not derivable from the source: `/shop/{category}/{slug}` needs
+ * the product's category, which only a lookup can supply. The rest of the old
+ * scheme IS static and does live in next.config.
+ *
+ * `permanentRedirect` issues a 308, so search engines move their index across
+ * and stop asking. If the product cannot be resolved at all we fall through to
+ * a 404 rather than dumping the visitor on a listing — a dead product link
+ * should say so, not pretend to have found something.
+ *
+ * Delete this once the old URLs have aged out of the index and the logs stop
+ * showing hits.
+ */
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
-  try {
-    const p = await catalog.getProductBySlug(slug);
-    const media = primaryMedia(p);
-    const imgUrl = media ? mediaImageUrl(media, { w: 1200, h: 1200 }) ?? undefined : undefined;
-    const brand = productBrand(p);
-    return {
-      title: brand ? `${p.name} — ${brand}` : p.name,
-      // p.tagline is never populated for products (Task 7 already removed
-      // this dead read from ProductSchema — see buildProductSchema — it
-      // only exists on storefront hero slides), so it's never read here
-      // either.
-      description: p.description ?? (brand ? `${p.name} by ${brand}` : p.name),
-      alternates: {
-        canonical: `/products/${slug}`,
-      },
-      openGraph: {
-        title: p.name,
-        description: p.description,
-        type: 'website',
-        siteName: 'MiniRue',
-        url: `${SITE_URL}/products/${slug}`,
-        ...(imgUrl ? { images: [{ url: imgUrl, width: 1200, height: 1200, alt: p.name }] } : {}),
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: p.name,
-        description: p.description,
-        images: imgUrl ? [imgUrl] : [],
-      },
-    };
-  } catch {
-    return { title: 'Product not found' };
-  }
-}
-
-export default async function ProductPage({ params }: PageProps) {
-  const { slug } = await params;
-  // Opt out of the partially-prerendered shell. With Cache Components this
-  // route was prerendered and then "resumed" at request time; the replayed
-  // tree never matched the stored one, so React logged "Couldn't find all
-  // resumable slots by key/index during replaying", discarded the server HTML
-  // and fell back to client rendering — which, behind the root layout's
-  // <Suspense fallback={null}>, showed an empty page. Rendering on demand
-  // removes the shell, so there is nothing to resume and nothing to mismatch.
+export default async function LegacyProductRedirect({ params }: PageProps) {
   await connection();
+  const { slug } = await params;
 
-  // NOTE: this page deliberately does NOT prefetch into React Query and wrap
-  // itself in a HydrationBoundary any more. Nothing here consumed that query —
-  // the product is passed to the client as `apiProductJson` — but dehydrate()
-  // stamps each entry with Date.now(), which baked a build-time timestamp into
-  // the partially-prerendered shell. At request time the replayed tree no
-  // longer matched it, so React logged "Couldn't find all resumable slots by
-  // key/index during replaying" and threw the server HTML away; with the root
-  // layout's <Suspense fallback={null}> that left the whole page blank behind
-  // the error boundary. The product data is still fetched below, so the markup
-  // is unchanged for SEO.
-  let p;
+  let product;
   try {
-    p = await catalog.getProductBySlug(slug);
-  } catch (err) {
-    const status = (err as { status?: number }).status;
-    if (status === 404 || !status) notFound();
+    product = await catalog.getProductBySlug(slug);
+  } catch {
     notFound();
   }
-  const apiProductJson = JSON.stringify(p);
 
-  // Real reviews for the Product schema's `review` entries. A failure here
-  // must not take the product page down with it — see product-data.ts.
-  const reviews = await getProductReviewsForSchema(p!.id);
+  // No category on the record means the API is older than the field. Sending
+  // them to the full listing is a poor answer but a working one, and it cannot
+  // loop: /shop/all is a real page that never redirects here.
+  if (!product?.categorySlug) permanentRedirect(SHOP_ALL);
 
-  // Fetched here rather than through useStorefrontChrome() in the client so the
-  // service promises are in the server-rendered HTML. Read client-side only,
-  // they were absent from the SSR markup entirely — worse for crawlers than the
-  // hardcoded lines they replaced.
-  let perks = FALLBACK_CHROME.productSection.perks;
-  try {
-    const chrome = await fetchStorefrontChrome();
-    perks = chrome.productSection?.perks ?? perks;
-  } catch {
-    // A chrome fetch failure must not take the product page down with it.
-  }
-
-  return (
-    <>
-      <ProductSchema
-        slug={slug}
-        productName={p!.name}
-        apiProductJson={apiProductJson}
-        reviews={reviews}
-      />
-      {/* path is `products/${slug}`, not the bare slug: a bare slug resolves
-          to the live partner-space route (/[slug]), so a product breadcrumb
-          built from it could hand Google a partner's shop page as this
-          product's parent instead of the product's own /products/{slug}
-          address. */}
-      <BreadcrumbSchema trail={[SHOP_CRUMB, { name: p!.name, path: `products/${slug}` }]} />
-      <ProductPageClient slug={slug} apiProductJson={apiProductJson} perks={perks} />
-      <FooterWithSettings />
-    </>
-  );
+  permanentRedirect(productPath(product));
 }

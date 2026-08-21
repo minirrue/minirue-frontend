@@ -5,17 +5,18 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import CollectionSchema from '@/components/seo/CollectionSchema';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
+import { categoryPath } from '@/lib/routes';
 import CategoryClient from './CategoryClient';
 import { CategoryBreadcrumb } from './category-breadcrumb';
 import { resolveCategoryPath, getCategoryListing, buildCategoryDescription } from './category-data';
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ category: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { category: slug } = await params;
   const path = await resolveCategoryPath(slug);
   const cat = path?.at(-1);
   if (!cat) {
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: 'Browse by Category',
       description: 'Browse products by category at MiniRue.',
       alternates: {
-        canonical: `/categories/${slug}`,
+        canonical: categoryPath(slug),
       },
     };
   }
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: cat.name,
     description,
     alternates: {
-      canonical: `/categories/${slug}`,
+      canonical: categoryPath(slug),
     },
     openGraph: {
       title: `${cat.name} | MiniRue`,
@@ -49,9 +50,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function CategoryPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { category: slug } = await params;
   // Opt out of the partially-prerendered shell — see the note in
-  // app/products/[slug]/page.tsx. The resumed tree never matched the stored
+  // app/shop/[category]/[product]/page.tsx. The resumed tree never matched the stored
   // shell, so React discarded the server HTML and the page rendered blank.
   await connection();
 
@@ -84,7 +85,7 @@ export default async function CategoryPage({ params }: PageProps) {
   // below, expressed as { name, path } for BreadcrumbSchema.
   const schemaAncestors = ancestors.map((a) => ({
     name: a.name,
-    path: `categories/${a.slug}`,
+    path: categoryPath(a.slug).slice(1),
   }));
 
   return (
@@ -93,12 +94,12 @@ export default async function CategoryPage({ params }: PageProps) {
         trail={[
           SHOP_CRUMB,
           ...schemaAncestors,
-          { name: displayName, path: `categories/${slug}` },
+          { name: displayName, path: categoryPath(slug).slice(1) },
         ]}
       />
       <CollectionSchema
         name={displayName}
-        path={`/categories/${slug}`}
+        path={categoryPath(slug)}
         items={{ kind: 'products', products: initialProducts }}
       />
       <div className="mr-page-sheet">

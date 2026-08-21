@@ -35,7 +35,7 @@ type CollectionSchemaItems =
 interface CollectionSchemaProps {
   /** The page's own name, e.g. "All Products" or a category/space name. */
   name: string;
-  /** Site-relative canonical path, e.g. "/products", "/categories/rings". */
+  /** Site-relative canonical path, e.g. "/shop/all", "/shop/rings". */
   path: string;
   items: CollectionSchemaItems;
   /**

@@ -32,7 +32,7 @@ jest.mock('next/server', () => ({
   connection: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('@/app/products/HeaderWrapper', () => ({
+jest.mock('@/app/shop/HeaderWrapper', () => ({
   __esModule: true,
   default: () => null,
 }));
@@ -47,7 +47,7 @@ jest.mock('@/components/layout/AnnouncementBar', () => ({
   default: () => null,
 }));
 
-jest.mock('@/app/products/ProductListingClient', () => ({
+jest.mock('@/app/shop/all/ProductListingClient', () => ({
   __esModule: true,
   default: () => null,
 }));
@@ -61,7 +61,7 @@ jest.mock('@/lib/api/catalog', () => {
   };
 });
 
-import ProductsPage from '@/app/products/page';
+import ProductsPage from '@/app/shop/all/page';
 
 function render(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -79,7 +79,7 @@ describe('/products page body — brandName must be gated on hasFilter (Critical
     listProducts.mockReset();
   });
 
-  it('unfiltered /products with a non-empty catalogue: <h1> and CollectionSchema name stay "All Products"', async () => {
+  it('unfiltered /shop/all with a non-empty catalogue: <h1> and CollectionSchema name stay "All Products"', async () => {
     listProducts.mockResolvedValue({
       data: [PRODUCT_FIXTURE],
       meta: { total: 1, hasMore: false, cursor: null },
@@ -97,10 +97,10 @@ describe('/products page body — brandName must be gated on hasFilter (Critical
       (n) => (n as { '@type'?: string })['@type'] === 'CollectionPage',
     ) as { name: string; url: string } | undefined;
     expect(collection?.name).toBe('All Products');
-    expect(collection?.url).toBe(`${SITE_URL}/products`);
+    expect(collection?.url).toBe(`${SITE_URL}/shop/all`);
   });
 
-  it('/products?brandId=X with a non-empty result: <h1> and CollectionSchema name carry the brand name', async () => {
+  it('/shop/all?brandId=X with a non-empty result: <h1> and CollectionSchema name carry the brand name', async () => {
     listProducts.mockResolvedValue({
       data: [PRODUCT_FIXTURE],
       meta: { total: 1, hasMore: false, cursor: null },
@@ -117,6 +117,6 @@ describe('/products page body — brandName must be gated on hasFilter (Critical
       (n) => (n as { '@type'?: string })['@type'] === 'CollectionPage',
     ) as { name: string; url: string } | undefined;
     expect(collection?.name).toBe(PRODUCT_FIXTURE.brandName);
-    expect(collection?.url).toBe(`${SITE_URL}/products?brandId=brand-billie`);
+    expect(collection?.url).toBe(`${SITE_URL}/shop/all?brandId=brand-billie`);
   });
 });

@@ -26,7 +26,7 @@ jest.mock('@/components/layout/FooterWithSettings', () => ({
   default: () => null,
 }));
 
-jest.mock('@/app/products/HeaderWrapper', () => ({
+jest.mock('@/app/shop/HeaderWrapper', () => ({
   __esModule: true,
   default: () => null,
 }));

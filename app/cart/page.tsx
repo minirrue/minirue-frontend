@@ -152,7 +152,7 @@ export default function CartPage() {
             >
               Your bag is empty — the maison awaits.
             </p>
-            <Button variant="primary" sweep onClick={() => router.push('/products')}>
+            <Button variant="primary" sweep onClick={() => router.push('/shop/all')}>
               Explore fragrances
             </Button>
           </div>
@@ -197,7 +197,7 @@ export default function CartPage() {
               ))}
 
               <div style={{ marginTop: 'var(--mr-sp-5)' }}>
-                <Link href="/products" style={continueLinkStyle}>
+                <Link href="/shop/all" style={continueLinkStyle}>
                   ← Continue shopping
                 </Link>
               </div>

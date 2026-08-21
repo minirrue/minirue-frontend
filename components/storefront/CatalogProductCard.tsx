@@ -7,6 +7,7 @@ import type { ApiProduct } from '@/lib/api/catalog';
 import { mediaImageUrl, primaryMedia, lowestPrice, productByline, productInStock } from '@/lib/api/catalog';
 import PriceDisplay from './PriceDisplay';
 import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
+import { productPath } from '@/lib/routes';
 
 interface CatalogProductCardProps {
   product: ApiProduct;
@@ -33,7 +34,7 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
 
   return (
     <Link
-      href={`/products/${product.slug}`}
+      href={productPath(product)}
       style={{ textDecoration: 'none', color: 'inherit' }}
     >
       <article

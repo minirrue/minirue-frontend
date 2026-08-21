@@ -1,5 +1,6 @@
 import { JsonLd } from "./JsonLd";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
+import { SHOP_ROOT } from '@/lib/routes';
 
 export interface Crumb {
   name: string;
@@ -20,7 +21,10 @@ const HOME_CRUMB: Crumb = { name: "Home", path: "" };
  * Was hardcoded to "Perfumes" until Task 19 (2026-07-30); MiniRue sells more
  * than perfume and a category literally named that read as a duplicate.
  */
-export const SHOP_CRUMB: Crumb = { name: "Shop", path: "products" };
+// "Shop" now IS a page at /shop, so the crumb finally points at the thing it
+// is named after. It used to say "Shop" and link to "products", from the era
+// when the shop had two front doors and neither was called Shop.
+export const SHOP_CRUMB: Crumb = { name: "Shop", path: SHOP_ROOT.slice(1) };
 
 /**
  * Builds a BreadcrumbList from Home plus an arbitrary caller-supplied trail,

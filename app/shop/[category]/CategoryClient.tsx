@@ -51,7 +51,7 @@ export default function CategoryClient({
       loadMoreTraceId="PG-STOREFRONT-CAT-001::EL-BTN-load-more-products"
       emptyAction={
         <Link
-          href="/products"
+          href="/shop/all"
           data-trace-id="PG-STOREFRONT-CAT-001::EL-LINK-browse-all-products"
           style={{
             fontFamily: 'var(--mr-font-label)',

@@ -383,7 +383,7 @@ export default function CheckoutConfirmationPage() {
                 Track your order
               </Button>
               <Link
-                href="/products"
+                href="/shop/all"
                 style={{
                   fontFamily: 'var(--mr-font-label)',
                   fontSize: 'var(--mr-text-xs)',

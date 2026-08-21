@@ -4,7 +4,7 @@ import { connection } from 'next/server';
 import Link from 'next/link';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import { fetchSpaceChild } from '@/lib/api/storefront';
 import { apiGetPublicSettings } from '@/lib/api/settings';
 import { catalog } from '@/lib/api/catalog';

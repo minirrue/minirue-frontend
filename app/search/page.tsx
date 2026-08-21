@@ -4,7 +4,7 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { getQueryClient } from '@/lib/hooks/query-client';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import SearchResultsSchema from '@/components/seo/SearchResultsSchema';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { normalizeSearchTerm, searchCanonicalPath } from '@/lib/search/query';

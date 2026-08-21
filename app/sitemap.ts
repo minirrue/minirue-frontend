@@ -7,6 +7,7 @@ import {
   searchCanonicalPath,
 } from "@/lib/search/query";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
+import { SHOP_ROOT, SHOP_ALL, categoryPath, productPath } from '@/lib/routes';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [
@@ -16,8 +17,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 1.0,
     },
+    // /shop is the shop's one front door; /shop/all is the full catalogue
+    // under it. Both are listed — they are different pages with different
+    // jobs, not a duplicate. (Was /products and /categories; see lib/routes.ts
+    // for why those merged, and next.config for the 301s.)
     {
-      url: `${BASE_URL}/products`,
+      url: `${BASE_URL}${SHOP_ROOT}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE_URL}${SHOP_ALL}`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
@@ -30,12 +41,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${BASE_URL}/collab`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/categories`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.8,
@@ -61,7 +66,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const result = await catalog.listProducts({ limit: 1000 });
     for (const p of result.data) {
       entries.push({
-        url: `${BASE_URL}/products/${p.slug}`,
+        // productPath nests the product under its own category. A product
+        // whose category the API did not return falls back to the legacy flat
+        // path, which permanently redirects — so the sitemap never carries a
+        // URL that 404s, only at worst one that costs a hop.
+        url: `${BASE_URL}${productPath(p)}`,
         lastModified: new Date(),
         changeFrequency: "weekly",
         priority: 0.8,
@@ -86,7 +95,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const categories = await catalog.listCategories();
     for (const cat of categories) {
       entries.push({
-        url: `${BASE_URL}/categories/${cat.slug}`,
+        url: `${BASE_URL}${categoryPath(cat.slug)}`,
         lastModified: new Date(),
         changeFrequency: "daily",
         priority: 0.7,

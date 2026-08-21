@@ -362,7 +362,7 @@ export default async function OrderConfirmationPage({
               </Link>
 
               <Link
-                href="/products"
+                href="/shop/all"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',

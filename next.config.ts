@@ -69,6 +69,28 @@ const nextConfig: NextConfig = {
       // Instagram bio, an existing Google result — keeps landing, and so the
       // ranking follows the new address rather than splitting across two.
       { source: "/brands/:slug", destination: "/:slug", permanent: true },
+
+      /**
+       * The shop had two front doors; it now has one.
+       *
+       * `/categories` rendered a page titled "Shop" — a URL disagreeing with
+       * its own heading — and `/products` was a second flat catalogue reached
+       * from a tile on it. The owner asked for one entry point and for a URL
+       * to match the title of the page it opens (2026-08-21). The whole scheme
+       * is written down in `lib/routes.ts`.
+       *
+       * Permanent, for the same reason the partner redirect above is: these
+       * paths are indexed and shared, so the ranking has to follow the new
+       * address rather than split across two.
+       *
+       * `/products/:slug` is NOT here. Its destination depends on the
+       * product's category, which no static rule can supply, so it is a page
+       * that looks the product up and forwards — see
+       * app/products/[slug]/page.tsx.
+       */
+      { source: "/categories", destination: "/shop", permanent: true },
+      { source: "/categories/:slug", destination: "/shop/:slug", permanent: true },
+      { source: "/products", destination: "/shop/all", permanent: true },
     ];
   },
   reactCompiler: true,

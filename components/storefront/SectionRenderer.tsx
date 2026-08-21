@@ -7,6 +7,32 @@ import Marquee from '@/components/ui/Marquee';
 import ProductGrid from './ProductGrid';
 import EditorialBlock from './EditorialBlock';
 import CollabShowcase from './CollabShowcase';
+import { SHOP_ALL } from '@/lib/routes';
+
+/**
+ * Carries a section's own headline to the page its "View all" opens.
+ *
+ * Tapping View all under "The Spring Edit" used to land on a page headed "All
+ * Products", which reads as having gone somewhere other than where you clicked
+ * (owner, 2026-08-21: "page name must be name of headline on view all"). The
+ * destination reads `?collection=` and uses it as its heading.
+ *
+ * Only applied to the shop's own listing. A section may point its View all at
+ * anything an admin configures — a partner space, a journal entry, an external
+ * URL — and appending a query param to those would be meddling with a link this
+ * component does not own.
+ */
+function withCollectionLabel(href: string | null, title: string): string | null {
+  if (!href || !title.trim()) return href;
+  const [path, existingQuery] = href.split('?');
+  if (path !== SHOP_ALL) return href;
+  const params = new URLSearchParams(existingQuery ?? '');
+  // Never overwrite a label an admin set deliberately on the link itself.
+  if (params.has('collection')) return href;
+  params.set('collection', title.trim());
+  return `${path}?${params.toString()}`;
+}
+
 
 export default function SectionRenderer({
   section,
@@ -45,7 +71,7 @@ export default function SectionRenderer({
         <ProductGrid
           eyebrow={section.eyebrow}
           title={section.title}
-          viewAllHref={section.viewAllHref}
+          viewAllHref={withCollectionLabel(section.viewAllHref, section.title)}
           products={section.products}
           brands={section.brands}
           display={section.display}

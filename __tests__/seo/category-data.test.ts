@@ -24,8 +24,8 @@ import {
   resolveCategoryPath,
   buildCategoryDescription,
   representativeBrandNames,
-} from '@/app/categories/[slug]/category-data';
-import type { CategoryListingOutcome } from '@/app/categories/[slug]/category-data';
+} from '@/app/shop/[category]/category-data';
+import type { CategoryListingOutcome } from '@/app/shop/[category]/category-data';
 import type { Category } from '@/lib/api/catalog';
 import { PRODUCT_FIXTURE } from '../storefront/fixtures/product';
 

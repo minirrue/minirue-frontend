@@ -8,7 +8,7 @@ import CollectionSchema from '@/components/seo/CollectionSchema';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
 import SpaceOrganizationSchema from '@/components/seo/SpaceOrganizationSchema';
 import { SITE_URL } from '@/lib/seo/config';
-import HeaderWrapper from '@/app/products/HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import SpaceView from './SpaceView';
 import { fetchSpace, fetchStorefrontPage } from '@/lib/api/storefront';
 import { apiGetPublicSettings } from '@/lib/api/settings';

@@ -84,7 +84,7 @@ export default function SavedPageClient() {
             to, and it will be waiting here — on this device or any other.
           </p>
           <Link
-            href="/products"
+            href="/shop/all"
             style={{
               display: 'inline-flex',
               alignItems: 'center',

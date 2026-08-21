@@ -8,7 +8,7 @@ import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import CollectionSchema from '@/components/seo/CollectionSchema';
 import ProductListingClient from './ProductListingClient';
-import HeaderWrapper from './HeaderWrapper';
+import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import {
   getProductListing,
   isIndexableBrandListing,
@@ -17,6 +17,7 @@ import {
   getShopName,
 } from './products-data';
 import { SITE_URL as BASE_URL } from '@/lib/seo/config';
+import { SHOP_ALL, SHOP_ROOT } from '@/lib/routes';
 
 // This is the shop's main area — every product regardless of category or
 // brand. Nothing about what it sells is fixed to one kind of product, so the
@@ -27,7 +28,7 @@ function defaultMetadata(shopName: string): Metadata {
     title: 'All Products',
     description: `Browse the full ${shopName} collection.`,
     alternates: {
-      canonical: '/products',
+      canonical: SHOP_ALL,
     },
     openGraph: {
       title: `All Products | ${shopName}`,
@@ -42,6 +43,31 @@ interface PageProps {
 
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
+}
+
+/**
+ * The headline of the storefront section a shopper clicked "View all" on.
+ *
+ * The owner's ask (2026-08-21): "still page name must be name of headline on
+ * view all" — tapping View all under "The Spring Edit" landed on a page headed
+ * "All Products", which reads as having gone somewhere else entirely.
+ *
+ * It is a LABEL, not a filter. The section's View all points at the whole
+ * catalogue, so the products here are the same ones /shop/all always showed;
+ * only the heading changes, to match the door the shopper came through.
+ *
+ * That is why the labelled variant is `noindex` below. Identical content under
+ * two headings is exactly the duplicate a search engine should not have to
+ * choose between, and the canonical already names the plain /shop/all as the
+ * indexable one. Trimmed and length-capped because it is rendered as an <h1>
+ * and comes from the query string.
+ */
+const MAX_COLLECTION_LABEL = 60;
+
+function collectionLabel(sp: Record<string, string | string[] | undefined>): string | null {
+  const raw = (first(sp['collection']) ?? '').trim();
+  if (!raw) return null;
+  return raw.slice(0, MAX_COLLECTION_LABEL);
 }
 
 /** The one URL a given brand filter is allowed to live at — brandId first,
@@ -82,13 +108,13 @@ function filterPath(brand: string, brandId: string, categoryId: string): string 
   if (brandId) parts.push(`brandId=${encodeURIComponent(brandId)}`);
   if (brand) parts.push(`brand=${encodeURIComponent(brand)}`);
   if (categoryId) parts.push(`categoryId=${encodeURIComponent(categoryId)}`);
-  return parts.length ? `/products?${parts.join('&')}` : '/products';
+  return parts.length ? `${SHOP_ALL}?${parts.join('&')}` : SHOP_ALL;
 }
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const sp = await searchParams;
   // `brandId` is the scoped filter a house brand tile links with
-  // (`/products?brandId=<id>`, Task 7) — `brand` (by name) is legacy, no
+  // (`/shop/all?brandId=<id>`, Task 7) — `brand` (by name) is legacy, no
   // longer linked to anywhere in this app, and now backend-restricted to
   // house/unowned brands so it can't leak a partner's products into this
   // listing. They are not interchangeable (an id vs. a free-text name
@@ -98,9 +124,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const brand = (first(sp['brand']) ?? '').trim();
   const brandId = (first(sp['brandId']) ?? '').trim();
   // `categoryId` scopes the listing to one node of the catalogue's own
-  // category tree — the same filter `/categories/[slug]` resolves to a
-  // catalogue call with, wired here so a category-filtered `/products` URL
-  // (e.g. a category tile linking `/products?categoryId=<id>`) is just as
+  // category tree — the same filter `/shop/[category]` resolves to a
+  // catalogue call with, wired here so a category-filtered `/shop/all` URL
+  // (e.g. a category tile linking `/shop/all?categoryId=<id>`) is just as
   // controllable/indexable as a brand-filtered one, not a second-class case.
   const categoryId = (first(sp['categoryId']) ?? '').trim();
   const hasFilter = Boolean(brand || brandId || categoryId);
@@ -108,7 +134,21 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const shopName = await getShopName();
 
   if (!hasFilter) {
-    return defaultMetadata(shopName);
+    const collection = collectionLabel(sp);
+    if (!collection) return defaultMetadata(shopName);
+    // Same products, different heading — so it points at the plain listing as
+    // its canonical and stays out of the index itself. `follow: true` because
+    // every product link on it is worth crawling.
+    return {
+      ...defaultMetadata(shopName),
+      title: collection,
+      alternates: { canonical: SHOP_ALL },
+      robots: { index: false, follow: true },
+      openGraph: {
+        title: `${collection} | ${shopName}`,
+        description: `Browse the full ${shopName} collection.`,
+      },
+    };
   }
 
   // Deduped with the page body below — one API call serves both.
@@ -180,7 +220,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   // product attributes are admin-managed/free-entry now. `brand` stays because
   // it is a real, dynamic value; real attribute-driven filters come later.
   // `brandId` is the scoped filter a house brand tile links with
-  // (`/products?brandId=<id>`, Task 7) — `brand` (by name) is legacy and now
+  // (`/shop/all?brandId=<id>`, Task 7) — `brand` (by name) is legacy and now
   // backend-restricted to house/unowned brands so it can't leak a partner's
   // products into this listing.
   const brand = (first(sp['brand']) ?? '').trim();
@@ -206,7 +246,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   // <h1> can never disagree with what the canonical actually claims to be.
   // Without this, a brand filter that generateMetadata makes indexable under
   // a brand-scoped canonical still emitted CollectionSchema as "All Products"
-  // at "/products", the breadcrumb as plain "Home / Shop", and the <h1> as
+  // at "/shop/all", the breadcrumb as plain "Home / Shop", and the <h1> as
   // "All Products" too — the JSON-LD, the visible trail and the canonical all
   // disagreed with each other, on both the brand and the (until now
   // unsupported) category case.
@@ -215,7 +255,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   // return defaultMetadata(...)` guard above — brandListingName()/
   // categoryListingName() just read outcome.products[0]'s brand/category and
   // have no idea whether a filter was actually requested, so on the plain
-  // unfiltered /products route (where the fetch returns the whole catalogue)
+  // unfiltered /shop/all route (where the fetch returns the whole catalogue)
   // an ungated call resolves to whichever product happens to sort first, and
   // the shop's main page renders that product's brand/category as its own
   // <h1>, breadcrumb and CollectionPage name — the same page-vs-markup
@@ -223,16 +263,19 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   // Decided by which filter was actually requested, same as generateMetadata
   // above — never by which name happens to be non-null on the resolved
   // product (every product has both a brand and a category).
+  // A section's headline names the UNFILTERED listing only. A real brand or
+  // category filter always wins — it describes what is actually on the page,
+  // whereas the label only describes where the shopper came from.
   const contextName = hasFilter
     ? (brand || brandId ? brandListingName(outcome) : categoryListingName(outcome))
-    : null;
+    : collectionLabel(sp);
   const canonicalPath = filterPath(brand, brandId, categoryId);
 
   // The ONE trail this page ever shows — reused, unchanged, for the visible
   // breadcrumb below and the JSON-LD BreadcrumbList, so the two structurally
   // cannot disagree. `contextName` is null on the unfiltered page (and on any
   // filter that resolved to nothing safe to name), in which case the trail
-  // stays exactly "Home / Shop" — /products IS the shop's top level, so
+  // stays exactly "Home / Shop" — /shop/all IS the shop's top level, so
   // "Shop" is the terminal, non-link crumb, same as before this fix. Once a
   // brand or category actually resolves, "Shop" stops being the last crumb
   // and becomes a link, with the real context name as the new terminal crumb
@@ -295,7 +338,13 @@ export default async function ProductsPage({ searchParams }: PageProps) {
               <span aria-hidden="true">/</span>
               {contextName ? (
                 <li>
-                  <Link href="/products" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {/* SHOP_ROOT, not this page. The crumb is named "Shop" and
+                      there is now a page called exactly that — so it has to be
+                      where the word leads, or the visible trail says something
+                      different from the JSON-LD beside it, which SHOP_CRUMB
+                      resolves to /shop. Keeping the two in step is the whole
+                      point of this file's contextName/canonicalPath pairing. */}
+                  <Link href={SHOP_ROOT} style={{ color: 'inherit', textDecoration: 'none' }}>
                     Shop
                   </Link>
                 </li>

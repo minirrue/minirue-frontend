@@ -6,6 +6,7 @@ import Icon from '@/components/ui/Icon';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import type { Category } from '@/lib/api/catalog';
+import { categoryPath } from '@/lib/routes';
 
 /**
  * One card per top-level category, image-led (owner: "have their images
@@ -234,7 +235,7 @@ export default function CategoriesGrid({
         {categories.map((category) => (
           <Tile
             key={category.id}
-            href={`/categories/${category.slug}`}
+            href={categoryPath(category.slug)}
             label={category.name}
             imageUrl={category.imageUrl ?? null}
             traceId="PG-STOREFRONT-CATIDX-001::EL-CARD-category-card"
@@ -259,7 +260,7 @@ export default function CategoriesGrid({
             all-products page — always last so the real categories read
             first. */}
         <Tile
-          href="/products"
+          href="/shop/all"
           label="All Products"
           imageUrl={allProductsImageUrl ?? null}
           traceId="PG-STOREFRONT-CATIDX-001::EL-CARD-all-products-card"

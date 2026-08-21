@@ -9,6 +9,7 @@ import { useImageRetry } from '@/lib/hooks/useImageRetry';
 import WishlistHeart from './WishlistHeart';
 import { MR_TX } from '@/lib/motion/presets';
 import { useIsTouch } from '@/lib/hooks/useIsTouch';
+import { productPath } from '@/lib/routes';
 
 interface ProductCardProps {
   product: ApiProduct;
@@ -113,7 +114,7 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
       style={{ position: 'relative', display: 'flex', flexDirection: 'column', ...enterStyle }}
     >
       <Link
-        href={`/products/${product.slug}`}
+        href={productPath(product)}
         onClick={handleAnchorClick}
         style={{
           cursor: 'pointer',

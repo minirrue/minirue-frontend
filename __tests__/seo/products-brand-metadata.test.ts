@@ -1,6 +1,6 @@
 /**
  * Route-level check for `app/products/page.tsx`'s `generateMetadata` — the
- * full indexability truth table for a brand-filtered `/products` listing
+ * full indexability truth table for a brand-filtered `/shop/all` listing
  * (Task 10), exercised against a mocked catalog client rather than the
  * derivation functions in isolation, so a wiring mistake between
  * `products-data.ts` and the page itself would show up here too.
@@ -28,7 +28,7 @@ jest.mock('@/lib/api/storefront', () => {
   };
 });
 
-import { generateMetadata } from '@/app/products/page';
+import { generateMetadata } from '@/app/shop/all/page';
 import { PRODUCT_FIXTURE } from '../storefront/fixtures/product';
 
 function searchParams(params: Record<string, string>) {
@@ -42,7 +42,7 @@ beforeEach(() => {
 describe('ProductsPage generateMetadata — brand filter', () => {
   it('no filter: stays the static, indexable /products metadata with no API call', async () => {
     const meta = await generateMetadata(searchParams({}));
-    expect(meta.alternates).toEqual({ canonical: '/products' });
+    expect(meta.alternates).toEqual({ canonical: '/shop/all' });
     expect(meta.robots).toBeUndefined(); // defaults to indexable
     expect(listProducts).not.toHaveBeenCalled();
   });
@@ -56,7 +56,7 @@ describe('ProductsPage generateMetadata — brand filter', () => {
     expect(meta.title).toBe(`${PRODUCT_FIXTURE.brandName} — MiniRue`);
     expect(meta.description).toContain('4 products');
     expect(meta.description).toContain(PRODUCT_FIXTURE.brandName as string);
-    expect(meta.alternates).toEqual({ canonical: '/products?brandId=brand-billie' });
+    expect(meta.alternates).toEqual({ canonical: '/shop/all?brandId=brand-billie' });
     expect(meta.robots).toEqual({ index: true, follow: true });
   });
 
@@ -64,7 +64,7 @@ describe('ProductsPage generateMetadata — brand filter', () => {
     listProducts.mockResolvedValue({ data: [], meta: { total: 0, hasMore: false, cursor: null } });
     const meta = await generateMetadata(searchParams({ brand: 'Nonexistent House' }));
     expect(meta.title).toBe('All Products');
-    expect(meta.alternates).toEqual({ canonical: '/products?brand=Nonexistent%20House' });
+    expect(meta.alternates).toEqual({ canonical: '/shop/all?brand=Nonexistent%20House' });
     expect(meta.robots).toEqual({ index: false, follow: true });
   });
 
@@ -104,7 +104,7 @@ describe('ProductsPage generateMetadata — category filter (Task 19 follow-up)'
     expect(meta.title).toBe(`${PRODUCT_FIXTURE.categoryName} — MiniRue`);
     expect(meta.description).toContain('4 products');
     expect(meta.description).toContain(PRODUCT_FIXTURE.categoryName as string);
-    expect(meta.alternates).toEqual({ canonical: '/products?categoryId=cat-perfume' });
+    expect(meta.alternates).toEqual({ canonical: '/shop/all?categoryId=cat-perfume' });
     expect(meta.robots).toEqual({ index: true, follow: true });
   });
 

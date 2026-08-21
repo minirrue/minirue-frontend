@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/catalog";
 import type { PublicReview } from "@/lib/api/reviews";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
+import { productPath } from '@/lib/routes';
 
 interface ProductSchemaProps {
   slug: string;
@@ -78,7 +79,7 @@ export function buildProductSchema(
           availability: productInStock(p)
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
-          url: `${BASE_URL}/products/${p.slug}`,
+          url: `${BASE_URL}${productPath(p)}`,
         }
       : undefined,
   };

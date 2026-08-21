@@ -4,8 +4,8 @@ import { render, screen } from '@testing-library/react';
 /**
  * Task 19 — nothing about the shop area is hardcoded.
  *
- * `/products` used to say "All Perfumes" everywhere (metadata, breadcrumb,
- * heading) and every `/categories/[slug]` page built its breadcrumb from a
+ * `/shop/all` used to say "All Perfumes" everywhere (metadata, breadcrumb,
+ * heading) and every `/shop/[category]` page built its breadcrumb from a
  * literal `Perfumes` crumb rather than the route and the category's own
  * ancestry — with a special case that only existed to suppress the duplicate
  * that hardcoding caused.
@@ -38,11 +38,11 @@ jest.mock('@/lib/api/storefront', () => {
   };
 });
 
-import { generateMetadata } from '@/app/products/page';
-import { findCategoryPath, CategoryBreadcrumb } from '@/app/categories/[slug]/category-breadcrumb';
+import { generateMetadata } from '@/app/shop/all/page';
+import { findCategoryPath, CategoryBreadcrumb } from '@/app/shop/[category]/category-breadcrumb';
 import type { Category } from '@/lib/api/catalog';
 
-describe('the shop index (/products) says nothing about perfume', () => {
+describe('the shop index (/shop/all) says nothing about perfume', () => {
   it('has no literal category name in its metadata', async () => {
     // Task 10 turned the static `metadata` export into `generateMetadata`
     // (needed for the brand-filtered variants) — the unfiltered call is the
@@ -100,13 +100,13 @@ describe('CategoryBreadcrumb — built from the route, never a fixed word', () =
     expect(crumbs).toEqual(['Home', 'Shop', 'Jewellery', 'Rings']);
   });
 
-  it('links "Shop" to /products and an ancestor to its own category page', () => {
+  it('links "Shop" to /shop and an ancestor to its own category page', () => {
     const parent: Category = { id: 'cat-1', slug: 'jewellery', name: 'Jewellery', parentId: null };
     render(<CategoryBreadcrumb ancestors={[parent]} displayName="Rings" />);
-    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/products');
+    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/shop/all');
     expect(screen.getByRole('link', { name: 'Jewellery' })).toHaveAttribute(
       'href',
-      '/categories/jewellery',
+      '/shop/jewellery',
     );
     // The final crumb is the current page — text, not a link.
     expect(screen.queryByRole('link', { name: 'Rings' })).not.toBeInTheDocument();

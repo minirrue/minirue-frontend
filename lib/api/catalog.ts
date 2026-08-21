@@ -119,6 +119,12 @@ export interface ApiProduct {
   tagline?: string;
   categoryId?: string;
   categoryName?: string | null;
+  /** The category's URL slug. A product lives at /shop/{categorySlug}/{slug},
+   *  and `products.category_id` is NOT NULL, so every product has exactly one
+   *  — which is what makes that a canonical address rather than one of
+   *  several. Optional only because older cached responses predate the field;
+   *  `productPath()` falls back rather than emitting a broken link. */
+  categorySlug?: string | null;
   variants: ProductVariant[];
   media: MediaAsset[];
   /**

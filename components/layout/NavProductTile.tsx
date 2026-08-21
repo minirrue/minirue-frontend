@@ -15,6 +15,7 @@ import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
+import { productPath } from '@/lib/routes';
 
 interface NavProductTileProps {
   product: ApiProduct;
@@ -57,7 +58,7 @@ export default function NavProductTile({
   if (layout === 'row') {
     return (
       <Link
-        href={`/products/${product.slug}`}
+        href={productPath(product)}
         onClick={onNavigate}
         data-trace-id={`PG-STOREFRONT-NAV-001::EL-LINK-nav-product@${product.slug}`}
         style={{
@@ -128,7 +129,7 @@ export default function NavProductTile({
 
   return (
     <Link
-      href={`/products/${product.slug}`}
+      href={productPath(product)}
       onClick={onNavigate}
       data-trace-id={`PG-STOREFRONT-NAV-001::EL-LINK-nav-product@${product.slug}`}
       style={{

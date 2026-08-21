@@ -89,7 +89,7 @@ export default function CheckoutPage() {
           title="Your bag is empty"
           subtitle="Add a fragrance before continuing to delivery."
         >
-          <Button variant="primary" sweep onClick={() => router.push('/products')} style={{ width: '100%' }}>
+          <Button variant="primary" sweep onClick={() => router.push('/shop/all')} style={{ width: '100%' }}>
             Browse collection
           </Button>
         </CheckoutPageFrame>
