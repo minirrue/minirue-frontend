@@ -85,6 +85,16 @@ function Tile({
     <Link
       href={href}
       data-trace-id={traceId}
+      /* Full prefetch, unlike the product grid.
+       *
+       * Every shop route is dynamic, and a dynamic route's DEFAULT prefetch
+       * stops at the nearest loading boundary — so without this the tap still
+       * pays a full server round trip (see ShopRouteSkeleton). Affordable here
+       * and not on a product grid: this panel is a handful of tiles and each
+       * one is why the shopper opened the page, so the cost is bounded and the
+       * hit rate is high. A 24-card grid would fire 24 full payloads on scroll,
+       * which is why those warm on intent instead (usePrefetchOnIntent). */
+      prefetch
       style={{ display: 'block', textDecoration: 'none', color: 'inherit', minWidth: 0 }}
     >
       <div

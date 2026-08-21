@@ -8,6 +8,7 @@ import { mediaImageUrl, primaryMedia, lowestPrice, productByline, productInStock
 import PriceDisplay from './PriceDisplay';
 import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
 import { productPath } from '@/lib/routes';
+import { usePrefetchOnIntent } from '@/lib/hooks/usePrefetchOnIntent';
 
 interface CatalogProductCardProps {
   product: ApiProduct;
@@ -22,6 +23,11 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
   const [hover, setHover] = React.useState(false);
   const [press, setPress] = React.useState(false);
 
+  // Warm the product page on intent rather than on viewport — see
+  // usePrefetchOnIntent for why a 24-card grid must not prefetch eagerly.
+  const href = productPath(product);
+  const prefetchProps = usePrefetchOnIntent(href);
+
   const media = primaryMedia(product);
   const price = lowestPrice(product);
   // Same predicate ProductSchema/CollectionSchema use for JSON-LD availability —
@@ -34,7 +40,8 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
 
   return (
     <Link
-      href={productPath(product)}
+      href={href}
+      {...prefetchProps}
       style={{ textDecoration: 'none', color: 'inherit' }}
     >
       <article

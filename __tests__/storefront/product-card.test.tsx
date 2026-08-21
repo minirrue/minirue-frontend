@@ -23,6 +23,18 @@ jest.mock('@/lib/hooks/useIsTouch', () => ({
   useIsTouch: () => true,
 }));
 
+/**
+ * The card warms the product page on pointer/touch intent
+ * (usePrefetchOnIntent), which reads the app router. Rendering the card on its
+ * own means no router is mounted, so `useRouter()` throws its
+ * "expected app router to be mounted" invariant before any of the behaviour
+ * under test runs. Mocked rather than worked around in the component: needing a
+ * router is correct for a card whose whole job is to navigate.
+ */
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ prefetch: jest.fn(), push: jest.fn(), replace: jest.fn() }),
+}));
+
 jest.mock('@/components/storefront/WishlistHeart', () => ({
   __esModule: true,
   default: () => null,

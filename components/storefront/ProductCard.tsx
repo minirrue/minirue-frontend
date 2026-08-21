@@ -10,6 +10,7 @@ import WishlistHeart from './WishlistHeart';
 import { MR_TX } from '@/lib/motion/presets';
 import { useIsTouch } from '@/lib/hooks/useIsTouch';
 import { productPath } from '@/lib/routes';
+import { usePrefetchOnIntent } from '@/lib/hooks/usePrefetchOnIntent';
 
 interface ProductCardProps {
   product: ApiProduct;
@@ -27,6 +28,11 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
   const [press, setPress] = React.useState(false);
   const isTouch = useIsTouch();
   const [revealed, setRevealed] = React.useState(false);
+
+  // Warm the product page on intent rather than on viewport — see
+  // usePrefetchOnIntent for why a 24-card grid must not prefetch eagerly.
+  const href = productPath(product);
+  const prefetchProps = usePrefetchOnIntent(href);
 
   const media = React.useMemo(() => primaryMedia(product), [product]);
   const imgSrc = React.useMemo(
@@ -114,7 +120,8 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
       style={{ position: 'relative', display: 'flex', flexDirection: 'column', ...enterStyle }}
     >
       <Link
-        href={productPath(product)}
+        href={href}
+        {...prefetchProps}
         onClick={handleAnchorClick}
         style={{
           cursor: 'pointer',
