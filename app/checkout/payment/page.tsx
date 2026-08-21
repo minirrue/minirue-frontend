@@ -101,7 +101,7 @@ export default function CheckoutPaymentPage() {
         maxWidth={560}
       >
         <CheckoutSummaryCard>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--mr-sp-3)', minWidth: 0 }}>
             <span
               style={{
                 fontFamily: 'var(--mr-font-label)',

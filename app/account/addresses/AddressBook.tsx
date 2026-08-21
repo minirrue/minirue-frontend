@@ -295,7 +295,7 @@ export default function AddressBook({ addresses }: Props) {
             <input type="text" value={form.line2 ?? ''} onChange={field('line2')} style={inputStyle} />
           </label>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14 }}>
             <label style={labelStyle}>
               <span style={labelTextStyle}>City</span>
               <input type="text" value={form.city} onChange={field('city')} required style={inputStyle} />
@@ -306,7 +306,7 @@ export default function AddressBook({ addresses }: Props) {
             </label>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14 }}>
             <label style={labelStyle}>
               <span style={labelTextStyle}>Postal Code (optional)</span>
               <input type="text" value={form.postalCode ?? ''} onChange={field('postalCode')} style={inputStyle} />

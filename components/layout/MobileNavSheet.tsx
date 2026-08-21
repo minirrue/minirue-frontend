@@ -521,7 +521,7 @@ export default function MobileNavSheet({
               activeDepth={drillPath.length}
               reducedMotion={reducedMotion}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16 }}>
                 {(item.children ?? []).map((child, i) => (
                   <div key={child.id} style={{ gridColumn: '1 / -1' }}>
                     <MobileNavRow

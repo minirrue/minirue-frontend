@@ -103,7 +103,7 @@ export default async function LoyaltyPage() {
               key={tx.id}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr auto',
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
                 gap: 16,
                 padding: '12px 18px',
                 borderBottom: idx < transactions.length - 1 ? '1px solid var(--mr-hairline)' : 'none',

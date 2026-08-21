@@ -29,7 +29,7 @@ export default function EditorialBlock({ section }: { section: JournalSection })
           maxWidth: 1100,
           margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: mobile ? '1fr' : '1fr 1fr',
+          gridTemplateColumns: mobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)',
           gap: mobile ? 48 : 80,
           alignItems: 'center',
         }}

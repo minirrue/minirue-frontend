@@ -204,7 +204,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
           className="mr-header-inner"
           style={{
             display: 'grid',
-            gridTemplateColumns: mobile ? '44px 1fr 44px' : '1fr auto 1fr',
+            gridTemplateColumns: mobile ? '44px minmax(0, 1fr) 44px' : 'minmax(0, 1fr) auto minmax(0, 1fr)',
             alignItems: 'center',
             padding: scrolled
               ? mobile ? '10px 16px' : '14px 48px'

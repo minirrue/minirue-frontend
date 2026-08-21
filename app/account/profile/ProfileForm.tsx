@@ -204,7 +204,7 @@ export default function ProfileForm({ profile }: Props) {
       </label>
 
       {/* First + Last */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16 }}>
         <label style={labelStyle}>
           <span style={labelTextStyle}>First Name</span>
           <input

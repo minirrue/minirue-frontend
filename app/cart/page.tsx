@@ -160,7 +160,32 @@ export default function CartPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1fr) minmax(260px, 320px)',
+              /**
+               * `minmax(0, 1fr)` on BOTH branches. The mobile one was a bare
+               * `1fr`, and that is the whole bug.
+               *
+               * A bare `1fr` track is `minmax(auto, 1fr)`, and that `auto`
+               * minimum refuses to shrink the track below its content's
+               * min-content width. So the moment anything inside was wider than
+               * the phone — a long product name, the discount input, the
+               * summary card's own padding — the TRACK grew and the entire grid
+               * spilled past the right edge, while the left stayed correctly
+               * inset by the gutter. That is precisely the reported symptom:
+               * "laid off to the right, cut out" on /cart, on mobile only
+               * (owner, 2026-08-21, reported three times).
+               *
+               * The desktop branch already had it right, which is why this only
+               * ever went wrong on a phone.
+               *
+               * Fixing it HERE and not with `overflow` is the point: this page
+               * sits under `overflow-x: clip` (added for the chat button, which
+               * hangs off the edge by design), so an overflowing track is not
+               * scrolled, it is silently CUT. A layout that cannot overflow is
+               * the only version of this that stays fixed.
+               */
+              gridTemplateColumns: mobile
+                ? 'minmax(0, 1fr)'
+                : 'minmax(0, 1fr) minmax(260px, 320px)',
               gap: mobile ? 'var(--mr-sp-6)' : 'var(--mr-sp-7)',
               alignItems: 'start',
             }}
@@ -177,7 +202,10 @@ export default function CartPage() {
                   aria-hidden
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr auto',
+                    // minmax(0, …), not a bare 1fr — same reason as the outer
+                    // grid above: a bare track will not shrink below its
+                    // content and pushes the row past the container.
+                    gridTemplateColumns: 'minmax(0, 1fr) auto',
                     paddingBottom: 'var(--mr-sp-3)',
                     borderBottom: '1px solid var(--mr-hairline)',
                   }}
@@ -247,7 +275,7 @@ export default function CartPage() {
                   />
                 )}
                 <div style={{ height: 1, background: 'var(--mr-hairline)', margin: 'var(--mr-sp-2) 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--mr-sp-3)', minWidth: 0 }}>
                   <span style={{ ...summaryTitleStyle, marginBottom: 0, fontSize: 'var(--mr-text-sm)' }}>
                     Estimated total
                   </span>

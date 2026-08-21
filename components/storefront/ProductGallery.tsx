@@ -94,14 +94,22 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
       </Carousel>
 
       {!single && (
-        // Below the photo on a phone (never covering it), floating over the
-        // bottom of the full-height frame on a laptop. An ink scrim rather
-        // than glass: the photograph underneath is unknown, and this has to
-        // stay legible over every one of them.
-        <div className="relative flex items-center justify-center gap-4 py-4 lg:absolute lg:bottom-8 lg:left-1/2 lg:z-10 lg:-translate-x-1/2 lg:rounded-full lg:px-5 lg:py-3">
-          {/* The scrim only exists where the row sits on a photograph. */}
+        /**
+         * Floating over the bottom of the photograph, at EVERY size.
+         *
+         * It used to sit below the image on a phone and only become an overlay
+         * at `lg:`. Below the image means on the cream page, full-bleed, between
+         * the photograph and the one after it — which reads as a stray band
+         * ruled across the middle of the page rather than as a control
+         * belonging to the picture (owner, 2026-08-21: "prohibit this weird line
+         * in middle, same as desktop better").
+         *
+         * An ink scrim rather than glass: the photograph underneath is unknown,
+         * and this has to stay legible over every one of them.
+         */
+        <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center gap-4 rounded-full px-5 py-3 lg:bottom-8">
           <div
-            className="absolute inset-0 hidden rounded-full lg:block"
+            className="absolute inset-0 rounded-full"
             style={{ background: 'rgba(11,11,11,0.55)' }}
           />
           <div className="relative flex items-center gap-1">
@@ -119,10 +127,11 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                 <span
                   className={
                     index === i
-                      ? 'block h-1.5 w-[18px] rounded-full bg-[var(--mr-gold-500)] lg:bg-[var(--mr-gold-300)]'
-                      // ink-400 rather than ink-300: an inactive dot still has
-                      // to be visible enough to aim at.
-                      : 'block h-1.5 w-1.5 rounded-full bg-[var(--mr-ink-400)] lg:bg-[color-mix(in_oklab,var(--mr-cream-100)_70%,transparent)]'
+                      ? 'block h-1.5 w-[18px] rounded-full bg-[var(--mr-gold-300)]'
+                      // 70% cream rather than a flat tint: an inactive dot
+                      // still has to be visible enough to aim at against an
+                      // unknown photograph.
+                      : 'block h-1.5 w-1.5 rounded-full bg-[color-mix(in_oklab,var(--mr-cream-100)_70%,transparent)]'
                   }
                   style={{
                     transition: reduceMotion
@@ -134,7 +143,7 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
             ))}
           </div>
           <span
-            className="relative text-[var(--mr-fg-3)] lg:text-[var(--mr-cream-100)]"
+            className="relative text-[var(--mr-cream-100)]"
             aria-hidden="true"
             style={{
               fontFamily: 'var(--mr-font-label)',

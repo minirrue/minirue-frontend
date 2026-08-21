@@ -111,7 +111,12 @@ export default function CheckoutPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1fr) minmax(240px, 280px)',
+            // minmax(0, 1fr), not a bare '1fr' — identical bug to /cart, and the
+              // reason the overflow ran the whole checkout flow rather than one
+              // screen. See app/cart/page.tsx for the full explanation.
+              gridTemplateColumns: mobile
+                ? 'minmax(0, 1fr)'
+                : 'minmax(0, 1fr) minmax(240px, 280px)',
             gap: 'var(--mr-sp-6)',
             alignItems: 'start',
           }}
@@ -188,7 +193,7 @@ export default function CheckoutPage() {
                 <PriceDisplay amount={minorToAmount(SHIPPING_AMOUNT_MINOR)} currency={currency} />
               </div>
               <div style={{ height: 1, background: 'var(--mr-hairline)', margin: 'var(--mr-sp-1) 0' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--mr-sp-3)', minWidth: 0 }}>
                 <span
                   style={{
                     fontFamily: 'var(--mr-font-label)',
