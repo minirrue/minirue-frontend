@@ -66,7 +66,6 @@ minirue-frontend PAGE /brands
 # image cards plus an All Products card. Stories owed under §18/§21 alongside
 # the rest of this QC batch; remove these lines once they land.
 minirue-frontend PAGE /collab
-minirue-frontend PAGE /categories
 
 # 2026-08-01 — TEMPORARY, and not this session's routes.
 #
@@ -78,3 +77,30 @@ minirue-frontend PAGE /categories
 # this block.
 minirue-frontend PAGE /bundles
 minirue-frontend PAGE /bundles/:param
+
+# 2026-08-21 — TEMPORARY. The shop's two front doors merged into one.
+#
+# `/categories` (a page titled "Shop") and `/products` (a second flat catalogue
+# reached from a tile on it) became `/shop`, with every shop route hanging off
+# it — see apps/minirue-frontend/lib/routes.ts for the whole scheme and
+# next.config.ts for the 308s that keep the old URLs working.
+#
+# The four MISSING routes below are the new addresses; the two STALE ones are
+# the old addresses their stories still cite. Both stories already exist and
+# both still describe exactly what the shopper does — only the path changed:
+#
+#   US-SHOPPER-CAT-001  cites  /products          ->  should cite /shop/all
+#   US-SHOPPER-CAT-015  cites  /categories/:param ->  should cite /shop/:param
+#
+# Listed here rather than fixed properly because minirue-us is not checked out
+# in this working copy, so the stories cannot be edited from here. This is a
+# debt, not an exemption: update those two stories to the new paths, add the
+# /shop panel and /shop/:category/:product to whichever stories describe
+# browsing and viewing a product, regenerate story-manifest.json, and delete
+# this entire block.
+minirue-frontend PAGE /shop
+minirue-frontend PAGE /shop/all
+minirue-frontend PAGE /shop/:param
+minirue-frontend PAGE /shop/:param/:param
+minirue-frontend PAGE /categories/:param
+minirue-frontend PAGE /products
