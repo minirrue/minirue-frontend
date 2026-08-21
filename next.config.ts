@@ -69,6 +69,18 @@ const nextConfig: NextConfig = {
       // Instagram bio, an existing Google result — keeps landing, and so the
       // ranking follows the new address rather than splitting across two.
       { source: "/brands/:slug", destination: "/:slug", permanent: true },
+      /**
+       * `/brands` retired 2026-08-21 — /collab already showed the same makers
+       * from the same source (`apiListPublicBrands()`), so the shop had two
+       * pages answering one question (owner: "delete this page, we already
+       * have /collab").
+       *
+       * Redirected rather than deleted outright: it was in the sitemap, so it
+       * is indexed, and a 404 would throw away whatever standing those results
+       * have instead of handing it to the page that replaced it. Permanent, so
+       * search engines move rather than keep asking.
+       */
+      { source: "/brands", destination: "/collab", permanent: true },
 
       /**
        * The shop had two front doors; it now has one.
