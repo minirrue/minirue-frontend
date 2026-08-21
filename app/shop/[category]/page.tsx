@@ -7,6 +7,7 @@ import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema'
 import CollectionSchema from '@/components/seo/CollectionSchema';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import { categoryPath } from '@/lib/routes';
+import { catalog } from '@/lib/api/catalog';
 import CategoryClient from './CategoryClient';
 import { CategoryBreadcrumb } from './category-breadcrumb';
 import { resolveCategoryPath, getCategoryListing, buildCategoryDescription } from './category-data';
@@ -79,6 +80,14 @@ export default async function CategoryPage({ params }: PageProps) {
   // same array, so they can never disagree.
   const outcome = await getCategoryListing(category.id);
   const { products: initialProducts, hasMore: initialHasMore, cursor: initialCursor } = outcome;
+
+  // The brand facet for this category's rail. Settled, not all: losing the
+  // filter is a worse page, losing the page is a broken one.
+  const brandResult = await Promise.allSettled([catalog.listBrands()]);
+  const facetBrands =
+    brandResult[0].status === 'fulfilled'
+      ? brandResult[0].value.map((b) => ({ id: b.id, name: b.name }))
+      : [];
 
   const displayName = category.name;
   // Ancestor crumbs for the JSON-LD schema — the same chain rendered visibly
@@ -157,6 +166,7 @@ export default async function CategoryPage({ params }: PageProps) {
             initialProducts={initialProducts}
             initialHasMore={initialHasMore}
             initialCursor={initialCursor}
+            brands={facetBrands}
           />
         </main>
       </div>

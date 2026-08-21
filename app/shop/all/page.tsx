@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
+import { catalog } from '@/lib/api/catalog';
 import type { ProductListFilters } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
@@ -213,6 +214,21 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   };
 }
 
+/** Depth-first, so a child sits directly under its parent in the rail. */
+function flattenCategories(
+  nodes: Array<{ id: string; name: string; children?: Array<{ id: string; name: string }> }>,
+): Array<{ id: string; name: string }> {
+  const out: Array<{ id: string; name: string }> = [];
+  const walk = (list: typeof nodes) => {
+    for (const n of list) {
+      out.push({ id: n.id, name: n.name });
+      if (n.children?.length) walk(n.children as typeof nodes);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
 export default async function ProductsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
 
@@ -233,6 +249,29 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     categoryId: categoryId || undefined,
     limit: 24,
   };
+
+  /**
+   * The two SERVER-SIDE facets, fetched here so the rail is in the first
+   * paint rather than appearing a moment after the products it filters.
+   *
+   * Settled, not all: a facet list that fails must not take the product
+   * listing down with it. Losing the brand filter is a worse page; losing the
+   * page is a broken one.
+   */
+  const [brandResult, categoryResult] = await Promise.allSettled([
+    catalog.listBrands(),
+    catalog.listCategories(),
+  ]);
+  const facetBrands =
+    brandResult.status === 'fulfilled'
+      ? brandResult.value.map((b) => ({ id: b.id, name: b.name }))
+      : [];
+  const facetCategories =
+    categoryResult.status === 'fulfilled'
+      ? // Flattened: a child category is a real thing to filter by, and
+        // nesting would hide it from the rail entirely.
+        flattenCategories(categoryResult.value)
+      : [];
 
   const queryClient = getQueryClient();
 
@@ -401,6 +440,8 @@ export default async function ProductsPage({ searchParams }: PageProps) {
             initialHasMore={initialHasMore}
             initialCursor={initialCursor}
             initialFilters={filters}
+            brands={facetBrands}
+            categories={facetCategories}
           />
         </main>
       </div>

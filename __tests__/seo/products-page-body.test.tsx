@@ -57,7 +57,14 @@ jest.mock('@/lib/api/catalog', () => {
   const actual = jest.requireActual('@/lib/api/catalog');
   return {
     ...actual,
-    catalog: { listProducts: (...args: unknown[]) => listProducts(...args) },
+    catalog: {
+      listProducts: (...args: unknown[]) => listProducts(...args),
+      // The filter rail's facets. Empty here on purpose: these suites are
+      // about the <h1>, the canonical and the CollectionSchema agreeing, and a
+      // populated rail would only add noise to that.
+      listBrands: async () => [],
+      listCategories: async () => [],
+    },
   };
 });
 

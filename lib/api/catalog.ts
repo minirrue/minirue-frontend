@@ -155,6 +155,14 @@ export interface ApiProduct {
   reviewsCount?: number;
 }
 
+/** A brand as the shop's filter rail needs it — id, name, picture, nothing else. */
+export interface ShopBrand {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+}
+
 export interface Category {
   id: string;
   slug: string;
@@ -185,6 +193,12 @@ export interface ProductListFilters {
   priceMax?: number;
   cursor?: string;
   limit?: number;
+  /**
+   * Opt back into Next's Data Cache for this call. NOT a filter — the sitemap
+   * is the only caller, because a statically generated route cannot contain a
+   * no-store fetch. See listProducts.
+   */
+  revalidate?: number;
 }
 
 export interface PaginatedProducts {
@@ -363,9 +377,20 @@ export const catalog = {
     if (filters.cursor) params.set('cursor', filters.cursor);
     if (filters.limit != null) params.set('limit', String(filters.limit));
     const qs = params.toString();
-    // See the note on getProductBySlug below: the backend owns this cache now.
+    /**
+     * See the note on getProductBySlug below: the backend owns this cache now.
+     *
+     * `revalidate` is the ONE exception, and it exists for the sitemap. A
+     * statically generated route cannot contain a no-store fetch — Next
+     * refuses to prerender it — so with no way to opt back in, the build
+     * emitted a sitemap with zero product URLs. Silently, at build time,
+     * having "fixed" a caching bug. Freshness there is worth nothing anyway:
+     * the sitemap is regenerated on deploy.
+     */
     return catalogFetch<PaginatedProducts>(`/products${qs ? `?${qs}` : ''}`, {
-      cache: 'no-store',
+      ...(filters.revalidate !== undefined
+        ? { next: { revalidate: filters.revalidate } }
+        : { cache: 'no-store' }),
     });
   },
 
@@ -409,8 +434,22 @@ export const catalog = {
     });
   },
 
+  /**
+   * GET /v1/catalog/brands — the house brands the shop can be filtered by.
+   *
+   * Backend 0.89.0. Partners are NOT in here; they have their own list at
+   * /collab/brands and their own pages. Cached 120s server-side and asked for
+   * fresh here, same as every other catalogue read — see getProductBySlug.
+   */
+  async listBrands(): Promise<ShopBrand[]> {
+    const res = await catalogFetch<{ data: ShopBrand[] }>('/brands', {
+      cache: 'no-store',
+    });
+    return res.data;
+  },
+
   /** GET /v1/catalog/categories */
-  async listCategories(): Promise<Category[]> {
+  async listCategories(opts?: { revalidate?: number }): Promise<Category[]> {
     // 60s, matching products — NOT the 300s this used to be. The category list
     // carries each category's PICTURE, and the shop renders categories as
     // image tiles. Five minutes of Data Cache (on top of React Query's own
@@ -420,8 +459,10 @@ export const catalog = {
     // replaced objects, serving a BROKEN tile for that window, because the
     // object behind the old url was already gone (owner, 2026-07-31).
     // Pinned by __tests__/storefront/replaced-image-freshness.test.ts.
+    // See listProducts: `revalidate` is here so the statically generated
+    // sitemap can opt back into caching. Everything else asks fresh.
     const res = await catalogFetch<{ data: Category[] }>('/categories', {
-      next: { revalidate: 60 },
+      next: { revalidate: opts?.revalidate ?? 60 },
     });
     return res.data;
   },

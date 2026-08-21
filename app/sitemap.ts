@@ -57,7 +57,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 5 links is worse than a build error — it tells Google the site is empty (RULEBOOK §32: a
   // swallowed failure is a falsified success). Now every miss is logged in the build output.
   try {
-    const result = await catalog.listProducts({ limit: 1000 });
+    // Cached, unlike every other catalogue read. This route is PRERENDERED,
+    // and Next refuses to prerender anything containing a no-store fetch — so
+    // without opting back in the build silently produced a sitemap with no
+    // product URLs at all. Freshness is worthless here: the file is rebuilt on
+    // every deploy.
+    const result = await catalog.listProducts({ limit: 1000, revalidate: 3600 });
     for (const p of result.data) {
       entries.push({
         // productPath nests the product under its own category. A product
@@ -86,7 +91,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const searchTerms = new Set<string>();
 
   try {
-    const categories = await catalog.listCategories();
+    const categories = await catalog.listCategories({ revalidate: 3600 });
     for (const cat of categories) {
       entries.push({
         url: `${BASE_URL}${categoryPath(cat.slug)}`,
