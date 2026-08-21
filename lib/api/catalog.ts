@@ -363,24 +363,40 @@ export const catalog = {
     if (filters.cursor) params.set('cursor', filters.cursor);
     if (filters.limit != null) params.set('limit', String(filters.limit));
     const qs = params.toString();
-    // 60s revalidate — real Next.js Data Cache (ISR), not the Cache Components
-    // 'use cache' directive: a plain fetch() option is safe to import from
-    // both Server and Client Components (browser fetch just ignores the
-    // extra `next` key), unlike 'use cache' which Turbopack forbids in any
-    // file also reachable from a Client Component (see 2026-07-08 revert).
+    // See the note on getProductBySlug below: the backend owns this cache now.
     return catalogFetch<PaginatedProducts>(`/products${qs ? `?${qs}` : ''}`, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
     });
   },
 
   /** GET /v1/catalog/products/:id */
   async getProductById(id: string): Promise<ApiProduct> {
-    return catalogFetch<ApiProduct>(`/products/${id}`, { next: { revalidate: 60 } });
+    return catalogFetch<ApiProduct>(`/products/${id}`, { cache: 'no-store' });
   },
 
+  /**
+   * NO Next Data Cache on the catalogue reads (2026-08-21).
+   *
+   * These used to carry `next: { revalidate: 60 }`, which put every product
+   * page behind a cache nothing in the system can invalidate. An admin added a
+   * variant, the backend purged its own caches exactly as designed, and the
+   * shop went on serving Next's copy for up to a minute — reported as "it
+   * doesn't reflect on the storefront, even on refresh".
+   *
+   * Two caching layers where only ONE can be purged is strictly worse than one
+   * layer that can, because the un-purgeable one sets the floor on how stale
+   * the shop can be. So the storefront asks every time and the backend holds
+   * the cache: @CachePublic(CacheNs.CATALOG, 60) on the same endpoints, which
+   * invalidateProductCache already drops on every product and variant write.
+   *
+   * Same wall-clock cost — one HTTP call to a warm cache instead of a local
+   * cache read — and the shop is correct the instant a save lands.
+   */
   /** GET /v1/catalog/products/slug/:slug */
   async getProductBySlug(slug: string): Promise<ApiProduct> {
-    return catalogFetch<ApiProduct>(`/products/slug/${slug}`, { next: { revalidate: 60 } });
+    return catalogFetch<ApiProduct>(`/products/slug/${slug}`, {
+      cache: 'no-store',
+    });
   },
 
   /** GET /v1/catalog/search?q= */

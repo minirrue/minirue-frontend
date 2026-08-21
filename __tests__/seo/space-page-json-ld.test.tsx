@@ -34,7 +34,7 @@ jest.mock('@/app/shop/HeaderWrapper', () => ({
   default: () => null,
 }));
 
-jest.mock('@/app/[slug]/SpaceView', () => ({
+jest.mock('@/app/collab/[slug]/SpaceView', () => ({
   __esModule: true,
   default: () => null,
 }));
@@ -54,7 +54,7 @@ jest.mock('@/lib/api/storefront', () => {
   };
 });
 
-import StorefrontSlugPage from '@/app/[slug]/page';
+import StorefrontSlugPage from '@/app/collab/[slug]/page';
 
 function jsonLdNodes(container: HTMLElement): unknown[] {
   return Array.from(container.querySelectorAll('script[type="application/ld+json"]')).map(
@@ -104,7 +104,7 @@ describe('/[slug] — BreadcrumbSchema + SpaceOrganizationSchema wiring (Task 9)
       itemListElement: Array<{ name: string; item: string }>;
     };
     expect(breadcrumb.itemListElement.map((i) => i.name)).toEqual(['Home', 'Helia']);
-    expect(breadcrumb.itemListElement[1].item).toBe(`${SITE_URL}/helia`);
+    expect(breadcrumb.itemListElement[1].item).toBe(`${SITE_URL}/collab/helia`);
 
     const org = nodes.find((n) => (n as { '@type'?: string })['@type'] === 'Organization') as
       | { name: string; url: string; description: string; logo: string; image: string }
@@ -113,9 +113,9 @@ describe('/[slug] — BreadcrumbSchema + SpaceOrganizationSchema wiring (Task 9)
     expect(org).toEqual({
       '@context': 'https://schema.org',
       '@type': 'Organization',
-      '@id': `${SITE_URL}/helia#organization`,
+      '@id': `${SITE_URL}/collab/helia#organization`,
       name: 'Helia',
-      url: `${SITE_URL}/helia`,
+      url: `${SITE_URL}/collab/helia`,
       description: 'A jewellery atelier.',
       logo: 'https://res.cloudinary.com/minirue/helia-logo.png',
       image: 'https://res.cloudinary.com/minirue/helia-logo.png',
@@ -128,7 +128,7 @@ describe('/[slug] — BreadcrumbSchema + SpaceOrganizationSchema wiring (Task 9)
     const collection = nodes.find(
       (n) => (n as { '@type'?: string })['@type'] === 'CollectionPage',
     ) as { about?: { '@id': string } } | undefined;
-    expect(collection?.about).toEqual({ '@id': `${SITE_URL}/helia#organization` });
+    expect(collection?.about).toEqual({ '@id': `${SITE_URL}/collab/helia#organization` });
   });
 
   it('emits a BreadcrumbList for a HOUSE space but never a competing Organization node', async () => {

@@ -49,7 +49,7 @@ jest.mock('@/lib/api/catalog', () => ({
   catalog: { listProducts: (...args: unknown[]) => listProducts(...args) },
 }));
 
-import SpaceChildPage, { generateMetadata } from '@/app/[slug]/[child]/page';
+import SpaceChildPage, { generateMetadata } from '@/app/collab/[slug]/[child]/page';
 
 const SPACE: StorefrontSpace = {
   id: 'space-1',
@@ -107,7 +107,7 @@ describe('SpaceChildPage — brand branch (Task 7 gap-close)', () => {
     render(el);
 
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Helia' })).toHaveAttribute('href', '/helia');
+    expect(screen.getByRole('link', { name: 'Helia' })).toHaveAttribute('href', '/collab/helia');
     // The final crumb ("Chanel") is the current page — not a link — and also
     // the h1, so this asserts it's present at least once rather than picking
     // one role.
@@ -142,8 +142,8 @@ describe('SpaceChildPage — brand branch (Task 7 gap-close)', () => {
     };
     expect(breadcrumb).toBeDefined();
     expect(breadcrumb.itemListElement.map((i) => i.name)).toEqual(['Home', 'Helia', 'Chanel']);
-    expect(breadcrumb.itemListElement[1].item).toBe(`${SITE_URL}/helia`);
-    expect(breadcrumb.itemListElement[2].item).toBe(`${SITE_URL}/helia/chanel`);
+    expect(breadcrumb.itemListElement[1].item).toBe(`${SITE_URL}/collab/helia`);
+    expect(breadcrumb.itemListElement[2].item).toBe(`${SITE_URL}/collab/helia/chanel`);
   });
 
   it('metadata names the brand and the space, not "Page not found"', async () => {

@@ -18,7 +18,7 @@ jest.mock('@/lib/api/catalog', () => ({
   },
 }));
 
-import SpaceView from '@/app/[slug]/SpaceView';
+import SpaceView from '@/app/collab/[slug]/SpaceView';
 
 const HELIA: StorefrontSpace = {
   id: 'space-1',
@@ -78,7 +78,7 @@ describe('SpaceView — Generic as a collection, not a brand tile', () => {
     expect(screen.getByText('A little of everything Helia carries.')).toBeInTheDocument();
     // Only the real brand gets a tile link.
     const links = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
-    expect(links).toContain('/helia/chanel');
+    expect(links).toContain('/collab/helia/chanel');
     expect(links.some((h) => h?.includes('generic'))).toBe(false);
   });
 
@@ -88,7 +88,7 @@ describe('SpaceView — Generic as a collection, not a brand tile', () => {
     render(el);
 
     const link = screen.getByRole('link', { name: /chanel/i });
-    expect(link).toHaveAttribute('href', '/helia/chanel');
+    expect(link).toHaveAttribute('href', '/collab/helia/chanel');
   });
 
   it('links a house brand tile to /products?brandId=<id>, scoped and not name-based', async () => {

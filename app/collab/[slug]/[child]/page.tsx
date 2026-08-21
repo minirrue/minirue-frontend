@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { connection } from 'next/server';
+import { spacePath } from '@/lib/routes';
 import Link from 'next/link';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
@@ -64,6 +65,9 @@ export default async function SpaceChildPage({ params }: PageProps) {
 
   // A product keeps its one canonical address under /products.
   if (resolved.kind === 'product') {
+    // productPath needs the category slug, which this resolver does not
+    // carry; /products/{slug} is itself a permanent redirect that looks it
+    // up, so this is one hop rather than a wrong address.
     redirect(`/products/${child}`);
   }
 
@@ -107,8 +111,8 @@ export default async function SpaceChildPage({ params }: PageProps) {
         shop, not nested under it. */}
     <BreadcrumbSchema
       trail={[
-        { name: space.name, path: space.slug },
-        { name, path: `${space.slug}/${child}` },
+        { name: space.name, path: `collab/${space.slug}` },
+        { name, path: `collab/${space.slug}/${child}` },
       ]}
     />
     {/* The sixth product-listing surface on the site — a real 24-product grid
@@ -160,7 +164,7 @@ export default async function SpaceChildPage({ params }: PageProps) {
           </Link>
           <span aria-hidden="true">/</span>
           <Link
-            href={`/${space.slug}`}
+            href={spacePath(space.slug)}
             style={{ color: 'inherit', textDecoration: 'none' }}
           >
             {space.name}

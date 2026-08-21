@@ -1,5 +1,6 @@
 'use client';
 
+import { spacePath } from '@/lib/routes';
 import React from 'react';
 import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
@@ -218,7 +219,7 @@ export default function CollabShowcase({
           )}
         </div>
         <Link
-          href={`/${encodeURIComponent(tab.brandSlug)}`}
+          href={spacePath(encodeURIComponent(tab.brandSlug))}
           style={{
             fontFamily: 'var(--mr-font-label)',
             fontSize: 11,

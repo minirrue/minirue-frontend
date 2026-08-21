@@ -28,9 +28,9 @@ describe('buildSpaceOrganizationSchema', () => {
     expect(schema).toEqual({
       '@context': 'https://schema.org',
       '@type': 'Organization',
-      '@id': `${SITE_URL}/helia#organization`,
+      '@id': `${SITE_URL}/collab/helia#organization`,
       name: 'Helia',
-      url: `${SITE_URL}/helia`,
+      url: `${SITE_URL}/collab/helia`,
       description: 'A jewellery atelier.',
       logo: 'https://res.cloudinary.com/minirue/helia-logo.png',
       image: 'https://res.cloudinary.com/minirue/helia-logo.png',
@@ -39,7 +39,7 @@ describe('buildSpaceOrganizationSchema', () => {
 
   it('gives the partner Organization an addressable @id, so a same-page CollectionPage can reference it via `about`', () => {
     const schema = buildSpaceOrganizationSchema(HELIA) as { '@id': string };
-    expect(schema['@id']).toBe(`${SITE_URL}/helia#organization`);
+    expect(schema['@id']).toBe(`${SITE_URL}/collab/helia#organization`);
   });
 
   it('never emits sameAs — not present, not an empty array', () => {
@@ -67,7 +67,7 @@ describe('buildSpaceOrganizationSchema', () => {
 
   it('builds url as ${SITE_URL}/${slug}, never a house-style root URL', () => {
     const schema = buildSpaceOrganizationSchema(HELIA) as { url: string };
-    expect(schema.url).toBe(`${SITE_URL}/helia`);
+    expect(schema.url).toBe(`${SITE_URL}/collab/helia`);
   });
 
   it('renders down to a minimal node with only @id/name/url when description and logoUrl are both null', () => {
@@ -75,9 +75,9 @@ describe('buildSpaceOrganizationSchema', () => {
     expect(schema).toEqual({
       '@context': 'https://schema.org',
       '@type': 'Organization',
-      '@id': `${SITE_URL}/helia#organization`,
+      '@id': `${SITE_URL}/collab/helia#organization`,
       name: 'Helia',
-      url: `${SITE_URL}/helia`,
+      url: `${SITE_URL}/collab/helia`,
     });
   });
 });

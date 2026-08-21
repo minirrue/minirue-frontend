@@ -1,3 +1,4 @@
+import { spacePath } from '@/lib/routes';
 import Link from 'next/link';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import Icon from '@/components/ui/Icon';
@@ -18,7 +19,7 @@ function CollabCard({ brand }: { brand: PublicCollaboratorBrand }) {
 
   return (
     <Link
-      href={`/${brand.brandSlug}`}
+      href={spacePath(brand.brandSlug)}
       data-trace-id="PG-STOREFRONT-COLLAB-001::EL-CARD-collab-card"
       style={{ display: 'block', textDecoration: 'none', color: 'inherit', minWidth: 0 }}
     >

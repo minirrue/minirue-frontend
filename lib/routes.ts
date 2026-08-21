@@ -65,3 +65,32 @@ export function productPath(product: {
 
 /** Kept only as the redirect source — never link to it. */
 export const LEGACY_PRODUCT_ROOT = '/products';
+
+/** Where the partners live. */
+export const COLLAB_ROOT = '/collab';
+
+/**
+ * A partner's own shop.
+ *
+ * Moved from the root (`/helia`) to `/collab/helia` on 2026-08-21, at the
+ * owner's instruction. This REVERSES an earlier deliberate decision — a
+ * root-level path was chosen so that searching a partner's own name landed on
+ * their MiniRue page — and the trade is worth stating plainly, because the
+ * next person to read the old comment in next.config.ts deserves to know it
+ * was overruled rather than forgotten:
+ *
+ *   lost — a shorter, more brandable address, and a little SEO weight from
+ *          the shallower path.
+ *   won  — the root namespace stops being shared between partners and
+ *          admin-authored pages. That sharing forced the backend to guard the
+ *          whole root in both directions (a page cannot take "helia", a
+ *          partner cannot take "terms"), and every new static route the shop
+ *          ever adds is one more name a partner can never have.
+ *
+ * The old address still works: /{slug} permanently redirects when it resolves
+ * to a space, so existing links and anything already indexed follow through to
+ * one canonical home.
+ */
+export function spacePath(slug: string): string {
+  return `${COLLAB_ROOT}/${slug}`;
+}

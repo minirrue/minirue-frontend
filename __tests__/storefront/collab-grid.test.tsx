@@ -34,13 +34,39 @@ const BRANDS: PublicCollaboratorBrand[] = [
 ];
 
 describe('CollabGrid', () => {
-  it('links every card to its root-level space, not /collab/<slug> or /brands/<slug>', () => {
+  /**
+   * This test used to assert the OPPOSITE — "links every card to its
+   * root-level space, not /collab/<slug>" — because partners lived at the root
+   * until 2026-08-21, when the owner moved them under /collab. The reversal is
+   * deliberate and the reasoning is recorded on `spacePath` in lib/routes.ts;
+   * the assertion is rewritten rather than deleted so the invariant still has
+   * a guard, pointing the other way.
+   */
+  it('links every card to that partner under /collab', () => {
     render(<CollabGrid brands={BRANDS} />);
-    expect(screen.getByRole('link', { name: /helia/i })).toHaveAttribute('href', '/helia');
+    expect(screen.getByRole('link', { name: /helia/i })).toHaveAttribute(
+      'href',
+      '/collab/helia',
+    );
     expect(screen.getByRole('link', { name: /atelier x/i })).toHaveAttribute(
       'href',
-      '/atelier-x',
+      '/collab/atelier-x',
     );
+  });
+
+  it('never links a partner at the bare root', () => {
+    // The root is the shop's own namespace now (/terms, /shipping). A link
+    // straight to /helia would still WORK — it permanently redirects — which
+    // is exactly why an assertion is needed: a 308 hides a stale link rather
+    // than breaking it, and nobody would notice from the browser.
+    render(<CollabGrid brands={BRANDS} />);
+    // Scoped to the partner cards by name. The grid also renders chrome links
+    // ("/" among them) which are not partners and are not what this guards.
+    for (const name of [/helia/i, /atelier x/i]) {
+      expect(screen.getByRole('link', { name }).getAttribute('href')).toMatch(
+        /^\/collab\//,
+      );
+    }
   });
 
   it('shows the rating average and how many ratings it is built from', () => {

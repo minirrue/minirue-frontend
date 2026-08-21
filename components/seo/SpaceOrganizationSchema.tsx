@@ -1,3 +1,4 @@
+import { spacePath } from '@/lib/routes';
 import { JsonLd } from "./JsonLd";
 import type { StorefrontSpace } from "@/lib/api/storefront";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
@@ -28,9 +29,12 @@ export function buildSpaceOrganizationSchema(space: StorefrontSpace): Record<str
     // reference — this partner's had none, so the CollectionPage on the same
     // page couldn't unambiguously say it was about the partner rather than
     // about MiniRue.
-    "@id": `${BASE_URL}/${space.slug}#organization`,
+    "@id": `${BASE_URL}${spacePath(space.slug)}#organization`,
     name: space.name,
-    url: `${BASE_URL}/${space.slug}`,
+    // The address that SERVES the page — /{slug} permanently
+    // redirects here now, and an @id naming a redirect is an identity
+    // claim pointing at a forwarding address.
+    url: `${BASE_URL}${spacePath(space.slug)}`,
     ...(space.description ? { description: space.description } : {}),
     ...(space.logoUrl ? { logo: space.logoUrl, image: space.logoUrl } : {}),
   };

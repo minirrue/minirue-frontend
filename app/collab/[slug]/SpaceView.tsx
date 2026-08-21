@@ -9,7 +9,7 @@ import { catalog } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
 import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
-import { SHOP_ALL } from '@/lib/routes';
+import { SHOP_ALL, spacePath } from '@/lib/routes';
 
 /**
  * A seller's own corner of the shop.
@@ -146,7 +146,7 @@ export default async function SpaceView({
    *  Optional: an older API build omits it and the tile keeps its glyph. */
   shopPanel?: StorefrontShopPanel;
 }) {
-  const base = space.kind === 'HOUSE' ? '' : `/${space.slug}`;
+  const base = space.kind === 'HOUSE' ? '' : spacePath(space.slug);
 
   // Generic is a collection, never a brand tile — see the note above.
   const brandTiles = brands.filter((b) => !b.isGeneric);
