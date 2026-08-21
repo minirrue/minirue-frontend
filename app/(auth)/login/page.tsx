@@ -17,13 +17,29 @@ import { formatApiError, type ApiError } from '@/lib/api/client';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [sessionExpired, setSessionExpired] = React.useState(false);
   const [signInRequired, setSignInRequired] = React.useState(false);
 
+  /**
+   * There is no "your session expired" state any more.
+   *
+   * It was removed outright on 2026-08-21 (owner: "remove entirely the message
+   * of frontend your session expired, it's wrong info and wrong UI
+   * experience"), and the objection is correct on both counts. It was wrong
+   * INFORMATION because the shopper reaches this screen for several reasons —
+   * a cookie the browser dropped, a sign-out in another tab, a background poll
+   * that raced a refresh — and "expired" asserted one specific cause the page
+   * cannot actually know. And it was wrong EXPERIENCE because it reads as an
+   * error the shopper caused, in a warning colour, for something that is
+   * simply "sign in again".
+   *
+   * `reason=session-expired` is still ACCEPTED rather than ignored, because
+   * links carrying it are already live in open tabs and in browser history. It
+   * now resolves to the same neutral prompt as every other reason.
+   */
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setSessionExpired(params.get('reason') === 'session-expired');
-    setSignInRequired(params.get('reason') === 'sign-in-required');
+    const reason = params.get('reason');
+    setSignInRequired(reason === 'sign-in-required' || reason === 'session-expired');
   }, []);
 
   /**
@@ -181,25 +197,10 @@ export default function LoginPage() {
           transition: 'opacity 0.2s ease-out',
         }}
       >
-        {sessionExpired && !apiError && (
-          <div
-            role="status"
-            data-trace-id="PG-STOREFRONT-IAM-001::EL-REGION-session-expired-banner"
-            style={{
-              padding: '12px 16px',
-              background: 'var(--mr-st-warn-bg)',
-              color: 'var(--mr-st-warn-fg)',
-              borderRadius: 'var(--mr-radius-md)',
-              fontSize: 14,
-            }}
-          >
-            Your session expired. Sign in again to continue.
-          </div>
-        )}
         {/* The cart and checkout guards sent no reason at all, so a shopper
             bounced out of their basket got a bare sign-in form with nothing
             explaining why they were looking at it. */}
-        {signInRequired && !sessionExpired && !apiError && (
+        {signInRequired && !apiError && (
           <div
             role="status"
             data-trace-id="PG-STOREFRONT-IAM-001::EL-REGION-sign-in-required-banner"

@@ -481,11 +481,17 @@ export async function apiFetch<T>(
     // The status stays 401 — callers branch on it and the server did refuse —
     // and `error` carries the distinction as a stable code so a screen can act
     // on it without matching prose.
+    // Neither branch says "expired" any more (owner, 2026-08-21: "remove
+    // entirely the message of frontend your session expired, it's wrong info
+    // and wrong UI experience"). This message is rendered raw by several
+    // screens, so it was the second place the wording reached a shopper after
+    // the login banner. It is also unknowable: this code sees a 401, not a
+    // reason, and "expired" asserts one cause out of several. `error` keeps
+    // carrying the distinction as a stable code, so any screen that needs to
+    // branch still can — without matching prose.
     throw {
       status: 401,
-      message: hadSession
-        ? 'Session expired'
-        : 'You need to be signed in for that',
+      message: 'Please sign in to continue',
       error: hadSession ? 'session_expired' : 'not_signed_in',
     } as ApiError;
   }

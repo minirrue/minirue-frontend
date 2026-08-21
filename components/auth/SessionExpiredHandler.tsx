@@ -32,8 +32,12 @@ export default function SessionExpiredHandler() {
       );
       if (!needsSession) return;
 
+      // `sign-in-required`, not `session-expired`. The reason lands in the
+      // address bar, so it was the last user-visible place the retired wording
+      // survived (owner, 2026-08-21). The login page still accepts the old
+      // value for links already open in a tab; nothing emits it any more.
       const next = encodeURIComponent(returnPath);
-      router.push(`/login?next=${next}&reason=session-expired`);
+      router.push(`/login?next=${next}&reason=sign-in-required`);
     });
     return () => setSessionExpiredHandler(null);
   }, [router]);

@@ -13,6 +13,30 @@ body {
      produced the sub-second black flash between pages. The footer paints its own ink
      background, so nothing depends on this being dark. */
   background: var(--mr-cream-200);
+  /* No horizontal scroll, ever.
+   *
+   * `clip`, NOT `hidden`, and the difference is load-bearing: `overflow:hidden`
+   * makes this element a scroll container, which silently kills `position:
+   * sticky` on every descendant — and the footer is sticky (Footer.tsx). `clip`
+   * paints nothing outside the box and creates no scroll container, so sticky,
+   * Lenis and vertical scrolling all keep working exactly as before.
+   *
+   * Why it is needed: the support chat button DOCKS 20% of itself past the
+   * edge on purpose (CHAT_BUTTON_TUCK_PX, useChatButtonPosition.ts) so it reads
+   * as parked rather than gone. It is `position: fixed`, and a fixed box
+   * sticking out past the right edge still extends the scrollable overflow
+   * area — so the whole page gained 10.4px of scrollable width it had no use
+   * for. On a phone that is not invisible: the page could be dragged sideways
+   * and came to rest with a strip of empty ground down the right, which is the
+   * "extra right margin which makes it exit fullscreen on mobile only"
+   * reported on /cart (owner, 2026-08-21). Measured on a 390px viewport, the
+   * button's own devtools panel read `left: 348.4px` — exactly 390 - 52 + 10.4.
+   *
+   * Applied here rather than at the chat button because a deliberately
+   * off-canvas fixed element is not a bug to be argued with, and because this
+   * closes the same hole for anything else that ever hangs over an edge.
+   */
+  overflow-x: clip;
 }
 html {
   scroll-behavior: auto; /* Lenis handles smooth scroll; native smooth interferes */

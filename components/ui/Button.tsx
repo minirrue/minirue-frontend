@@ -13,6 +13,13 @@ interface ButtonProps {
   onClick?: () => void;
   disabled?: boolean;
   style?: React.CSSProperties;
+  /**
+   * The gliding fill on hover. ON by default since 2026-08-21 — the owner
+   * asked for the "Proceed to checkout" pill's behaviour to be what a button
+   * on this site DOES, rather than something each call site had to remember to
+   * opt into. Pass `sweep={false}` only where the animation is genuinely wrong
+   * for the surface.
+   */
   sweep?: boolean;
   sweepColor?: string;
   sweepInk?: string;
@@ -39,6 +46,34 @@ const HOVER_STYLES: Record<Variant, React.CSSProperties> = {
   ghost:        { color: 'var(--mr-gold-700)' },
 };
 
+/**
+ * What the sweep panel is PAINTED with, per variant.
+ *
+ * This used to be one value for every variant — `--mr-cream-100` — and that was
+ * a real, visible bug on `outline`. An outline button sweeps cream, and its
+ * swept label colour is also cream (below), so the words vanished the moment
+ * the fill passed under them. Nobody noticed because the default sweep pill in
+ * use was `primary`, which is dark and reads correctly against cream.
+ *
+ * The rule now: each variant sweeps to the INVERSE of its resting surface, and
+ * `SWEEP_HOVER` names the label colour that is legible against that. Read the
+ * two tables as pairs — changing one without the other is exactly how the text
+ * disappeared. Owner, 2026-08-21: "make sure when color changes the text is
+ * visible also."
+ */
+const SWEEP_FILL: Record<Variant, string> = {
+  // Dark button, cream fill.
+  primary:      'var(--mr-cream-100)',
+  gold:         'var(--mr-cream-100)',
+  // Transparent-on-cream button, INK fill — matching its non-sweep hover,
+  // which has always been `background: ink-900 / color: cream-100`.
+  outline:      'var(--mr-ink-900)',
+  // Transparent-on-dark button, cream fill.
+  outlineLight: 'var(--mr-cream-100)',
+  // No panel: ghost is an underline, not a surface.
+  ghost:        'transparent',
+};
+
 const SWEEP_HOVER: Record<Variant, React.CSSProperties> = {
   primary:      { color: 'var(--mr-ink-900)' },
   gold:         { color: 'var(--mr-ink-900)' },
@@ -54,7 +89,7 @@ function Button({
   onClick,
   disabled,
   style,
-  sweep = false,
+  sweep = true,
   sweepColor,
   sweepInk,
   type = 'button',
@@ -89,19 +124,31 @@ function Button({
 
   const scale = p ? 'scale(0.96)' : h && !disabled ? 'scale(var(--mp-scale-hover, 1.02))' : 'scale(1)';
 
-  const hoverStyle = sweep
+  /**
+   * `ghost` never sweeps, whatever the caller asks.
+   *
+   * It is an underlined word, not a surface — there is nothing for a panel to
+   * fill. Now that `sweep` defaults to true, opting ghost out here is what stops
+   * every ghost button on the site silently acquiring `overflow: hidden` and an
+   * invisible transparent panel from `.mr-btn-sweep`.
+   */
+  const swept = sweep && variant !== 'ghost';
+
+  const hoverStyle = swept
     ? { ...SWEEP_HOVER[variant], ...(sweepInk ? { color: sweepInk } : {}) }
     : HOVER_STYLES[variant];
 
-  const sweepVars = sweep
-    ? ({ '--sweep-color': sweepColor ?? 'var(--mr-cream-100)' } as React.CSSProperties)
+  // Per-variant fill, so an outline button no longer sweeps cream under a
+  // cream label. An explicit `sweepColor` still wins.
+  const sweepVars = swept
+    ? ({ '--sweep-color': sweepColor ?? SWEEP_FILL[variant] } as React.CSSProperties)
     : {};
 
   return (
     <button
       type={type}
       data-trace-id={traceId}
-      className={sweep ? 'mr-btn-sweep' : undefined}
+      className={swept ? 'mr-btn-sweep' : undefined}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       onMouseEnter={handleMouseEnter}
@@ -119,7 +166,7 @@ function Button({
           : 'transform var(--mp-dur-hover) var(--mr-ease-spring), background-color var(--mr-dur-fast) var(--mr-ease-snappy), color var(--mr-dur-fast) var(--mr-ease-snappy), box-shadow var(--mr-dur-fast) var(--mr-ease-out)',
       }}
     >
-      {sweep ? <span style={{ position: 'relative', zIndex: 1 }}>{children}</span> : children}
+      {swept ? <span style={{ position: 'relative', zIndex: 1 }}>{children}</span> : children}
     </button>
   );
 }

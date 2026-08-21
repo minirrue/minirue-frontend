@@ -61,8 +61,10 @@ export async function apiLogin(
     body: JSON.stringify({ email, password, rememberMe }),
   });
   // The httpOnly session cookie is already set by the response; this only flips
-  // the client-visible hint the Edge proxy and the UI read.
-  markAuthenticated();
+  // the client-visible hint the Edge proxy and the UI read. `rememberMe` is
+  // passed on so the hint outlives the browser window exactly when the session
+  // itself does — without it, "Remember me" changed the session and not the UI.
+  markAuthenticated(rememberMe);
   return { user: toUserProfile(data.user) };
 }
 
@@ -219,5 +221,9 @@ export async function apiMe(): Promise<MeResponse> {
    * compatibility lives in one place instead of in every client, and there is a
    * single answer to "who is signed in" whatever cookie the browser holds.
    */
-  throw { status: 401, message: 'Session expired' };
+  // Not "Session expired" — see the note in `lib/api/client.ts` on the 401
+  // branch. `get-session` returning no user is the ordinary shape of "nobody is
+  // signed in", which is true for every guest on every page load; calling that
+  // an expiry was wrong for the overwhelming majority of the times it fired.
+  throw { status: 401, message: 'Not signed in', error: 'not_signed_in' };
 }

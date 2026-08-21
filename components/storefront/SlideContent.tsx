@@ -181,11 +181,16 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
             */}
             {slide.ctaHref ? (
               <a href={slide.ctaHref} className="mr-hero-cta">
-                {slide.ctaLabel}
+                {/* Wrapped, not bare text. `.mr-hero-cta::before` is a positioned
+                    z-index:0 panel, and CSS paints positioned descendants ABOVE an
+                    element's own inline content — so an unwrapped label is covered
+                    by the sweep the instant it glides in. Same reason Button.tsx
+                    wraps its children. */}
+                <span>{slide.ctaLabel}</span>
               </a>
             ) : (
               <button type="button" className="mr-hero-cta" onClick={onShop}>
-                {slide.ctaLabel}
+                <span>{slide.ctaLabel}</span>
               </button>
             )}
           </div>

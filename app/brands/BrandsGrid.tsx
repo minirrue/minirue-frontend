@@ -17,6 +17,9 @@ function Tile({ href, label, imageUrl }: { href: string; label: string; imageUrl
           borderRadius: 6,
           overflow: 'hidden',
           marginBottom: 'var(--mr-sp-2)',
+          // Pad the square so a wordmark sits inside the tile rather than
+          // bleeding to its edges — see the objectFit note below.
+          padding: 'var(--mr-sp-3)',
         }}
       >
         {imageUrl ? (
@@ -29,7 +32,12 @@ function Tile({ href, label, imageUrl }: { href: string; label: string; imageUrl
           <UploadPreviewImage
             src={imageUrl}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            // 'contain'. A brand image is a wordmark in a square tile, and
+            // 'cover' cropped every wide logo to its middle — "BURBERRY"
+            // rendered as "BURB" (owner, 2026-08-21). The backend serves brand
+            // images as a fit resize now, so the whole mark arrives; this is
+            // what lets it be seen.
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
           />
         ) : null}
       </div>

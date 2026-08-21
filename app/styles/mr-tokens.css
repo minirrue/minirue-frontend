@@ -376,13 +376,62 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
     transform 320ms var(--mr-ease-out);
 }
 
-/* Inverts rather than dims — the maison idiom used by the nav and the sweep
-   button, and it stays legible on any hero because both states are chosen,
-   not derived from the background. */
+/* The gliding fill, not a crossfade.
+ *
+ * The hero CTA used to invert by transitioning `background` and `color`
+ * together — a plain fade, while the "Proceed to checkout" pill a click away
+ * glided. The owner asked for one behaviour everywhere, the pill's, "instead of
+ * the static home buttons" (2026-08-21). Reusing `.mr-btn-sweep`'s own
+ * mechanism rather than re-implementing it means the two cannot drift: same
+ * ::before panel, same 480ms, same right-to-left origin flip.
+ *
+ * Direction of the inversion is deliberate. The panel is INK and the label
+ * turns cream — the reverse of the old hover, which went to `transparent` and
+ * relied on the hero photo showing through. A sweep panel has to be a real
+ * colour, and "whatever the photograph happens to be" is not one; a cream label
+ * over an unknown image is exactly the "text not visible when the color
+ * changes" the owner flagged. Ink is chosen, so both states are legible on any
+ * hero, which was the original intent of this comment's first version.
+ */
+.mr-hero-cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  --sweep-color: var(--mr-ink-900);
+}
+
+.mr-hero-cta > * {
+  position: relative;
+  z-index: 1;
+}
+
+.mr-hero-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--sweep-color);
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 480ms var(--mr-ease-out);
+  will-change: transform;
+}
+
+.mr-hero-cta:hover::before,
+.mr-hero-cta:focus-visible::before {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
 .mr-hero-cta:hover,
 .mr-hero-cta:focus-visible {
-  background: transparent;
   color: var(--mr-cream-100);
+}
+
+/* The panel is a transform, so it cannot animate for someone who has asked for
+   less motion. Fall back to the colour swap that was here before. */
+@media (prefers-reduced-motion: reduce) {
+  .mr-hero-cta::before { transition: none; }
 }
 
 .mr-hero-cta:focus-visible {

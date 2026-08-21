@@ -110,11 +110,16 @@ export default function EditorialBlock({ section }: { section: JournalSection })
           {section.ctaLabel &&
             (section.ctaHref ? (
               <a href={section.ctaHref} className="mr-hero-cta">
-                {section.ctaLabel}
+                {/* Wrapped, not bare text. `.mr-hero-cta::before` is a positioned
+                    z-index:0 panel, and CSS paints positioned descendants ABOVE an
+                    element's own inline content — so an unwrapped label is covered
+                    by the sweep the instant it glides in. Same reason Button.tsx
+                    wraps its children. */}
+                <span>{section.ctaLabel}</span>
               </a>
             ) : (
               <span className="mr-hero-cta" role="presentation">
-                {section.ctaLabel}
+                <span>{section.ctaLabel}</span>
               </span>
             ))}
         </div>
