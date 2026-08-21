@@ -104,3 +104,19 @@ minirue-frontend PAGE /shop/:param
 minirue-frontend PAGE /shop/:param/:param
 minirue-frontend PAGE /categories/:param
 minirue-frontend PAGE /products
+
+# 2026-08-21 — TEMPORARY. Partner spaces moved from / to /collab.
+#
+# Same capability at a new address, not new capability: US-SHOPPER-BRAND-001
+# describes a shopper browsing a partner's own shop, and still does — only the
+# URL changed (owner: "it should be all under /collab/brandslug"). The STALE
+# entry below is that story's old route; the two MISSING ones are where the
+# same pages live now. /{slug}/{child} still 308s, so nothing it described has
+# stopped working.
+#
+# Owed: repoint US-SHOPPER-BRAND-001 at /collab/:slug and /collab/:slug/:child,
+# regenerate story-manifest.json, and delete this block. Listed here only
+# because minirue-us is not checked out in this working copy.
+minirue-frontend PAGE /collab/:param
+minirue-frontend PAGE /collab/:param/:param
+minirue-frontend PAGE /:param/:param
