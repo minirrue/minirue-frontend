@@ -113,14 +113,26 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
             <nav
               aria-label="Account sections"
               data-trace-id="PG-STOREFRONT-IAM-005::EL-REGION-account-nav"
+              className={mobile ? 'mr-account-nav-scroller scrollbar-hide' : undefined}
               style={
                 mobile
                   ? {
                       display: 'flex',
-                      gap: 'var(--mr-sp-1)',
+                      gap: 'var(--mr-sp-2)',
                       overflowX: 'auto',
-                      padding: `0 var(--mr-gutter)`,
+                      // Snap so the row never rests mid-chip, and pad the scroll
+                      // start so a snapped chip clears the gutter rather than
+                      // kissing the edge.
+                      scrollSnapType: 'x proximity',
+                      scrollPaddingLeft: 'var(--mr-gutter)',
+                      scrollPaddingRight: 'var(--mr-gutter)',
+                      // Left/right padding on a scroller: browsers reliably
+                      // honour the LEADING inline padding and drop the trailing
+                      // one, so the last chip ran into the edge. The trailing
+                      // spacer after the list is what actually holds that gap.
+                      padding: `var(--mr-sp-1) var(--mr-gutter)`,
                       WebkitOverflowScrolling: 'touch',
+                      overscrollBehaviorX: 'contain',
                     }
                   : undefined
               }
@@ -134,23 +146,54 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
                     aria-current={active ? 'page' : undefined}
                     data-trace-id={`PG-STOREFRONT-IAM-005::EL-LINK-account-nav-item@${href.split('/').pop()}`}
                     style={{
-                      display: 'block',
-                      padding: mobile ? '10px 14px' : '10px 20px',
+                      // A chip on a phone, a list row on a laptop.
+                      display: mobile ? 'inline-flex' : 'block',
+                      alignItems: 'center',
+                      // 44px is the floor for a touch target; the old 10px/14px
+                      // padding produced ~38px, which is a miss waiting to
+                      // happen on the one screen a shopper manages their
+                      // account from.
+                      minHeight: mobile ? 44 : undefined,
+                      padding: mobile ? '0 16px' : '10px 20px',
                       fontSize: 'var(--mr-text-sm)',
                       fontWeight: active ? 600 : 400,
-                      color: active ? 'var(--mr-fg)' : 'var(--mr-fg-2)',
+                      // Filled when active, so the current section is legible at
+                      // a glance in a scrolling row rather than distinguished
+                      // only by a faint tint and a weight step.
+                      color: active
+                        ? mobile
+                          ? 'var(--mr-cream-100)'
+                          : 'var(--mr-fg)'
+                        : 'var(--mr-fg-2)',
                       textDecoration: 'none',
-                      background: active ? 'var(--mr-bg)' : 'transparent',
-                      borderRadius: mobile ? 'var(--mr-radius-sm)' : 0,
+                      background: active
+                        ? mobile
+                          ? 'var(--mr-ink-900)'
+                          : 'var(--mr-bg)'
+                        : mobile
+                          ? 'var(--mr-cream-100)'
+                          : 'transparent',
+                      border: mobile
+                        ? `1px solid ${active ? 'var(--mr-ink-900)' : 'var(--mr-hairline)'}`
+                        : undefined,
+                      borderRadius: mobile ? 'var(--mr-radius-pill)' : 0,
                       whiteSpace: mobile ? 'nowrap' : undefined,
+                      flexShrink: mobile ? 0 : undefined,
+                      scrollSnapAlign: mobile ? 'start' : undefined,
                       transition:
-                        'color var(--mr-dur-fast) var(--mr-ease-out), background var(--mr-dur-fast) var(--mr-ease-out)',
+                        'color var(--mr-dur-fast) var(--mr-ease-out), background var(--mr-dur-fast) var(--mr-ease-out), border-color var(--mr-dur-fast) var(--mr-ease-out)',
                     }}
                   >
                     {label}
                   </Link>
                 );
               })}
+              {mobile && (
+                <span
+                  aria-hidden="true"
+                  style={{ flex: '0 0 var(--mr-gutter)' }}
+                />
+              )}
             </nav>
             <button
               onClick={handleLogout}
@@ -159,14 +202,19 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
               style={{
                 display: 'block',
                 width: '100%',
-                padding: mobile ? '10px 14px' : '10px 20px',
+                minHeight: mobile ? 44 : undefined,
+                marginTop: mobile ? 'var(--mr-sp-3)' : 0,
+                borderTop: mobile ? '1px solid var(--mr-hairline)' : 'none',
+                padding: mobile
+                  ? 'var(--mr-sp-3) var(--mr-gutter) 0'
+                  : '10px 20px',
                 fontSize: 'var(--mr-text-sm)',
                 fontWeight: 400,
                 color: 'var(--mr-fg-2)',
                 textDecoration: 'none',
                 background: 'transparent',
                 border: 'none',
-                borderRadius: mobile ? 'var(--mr-radius-sm)' : 0,
+                borderRadius: 0,
                 cursor: logoutMutation.isPending ? 'default' : 'pointer',
                 opacity: logoutMutation.isPending ? 0.6 : 1,
                 textAlign: 'left',

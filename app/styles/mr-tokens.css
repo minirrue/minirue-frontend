@@ -447,3 +447,41 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
   .mr-hero-cta { transition: none; }
   .mr-hero-cta:active { transform: none; }
 }
+
+/* ── Account section nav, on a phone ──────────────────────────────────────
+   A horizontally scrolling row of chips whose right edge previously just
+   stopped mid-word, with nothing to say the row continues (owner, 2026-08-21:
+   "i feel its so awful, make it more mobile ux friendly").
+
+   The mask fades the last few pixels out instead of cutting them, which reads
+   as "there is more" without spending vertical space on an affordance. Applied
+   with a mask rather than an overlaid gradient because the strip sits on
+   --mr-bg-raised and an opaque gradient would have to hardcode that colour and
+   then drift from it.
+
+   Only while the row actually overflows: `mask-image` with a fixed stop would
+   fade the final chip of a short list that has nothing hidden behind it. */
+.mr-account-nav-scroller {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--mr-gutter),
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--mr-gutter),
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+}
+
+/* A row that fits needs no fade at either end. */
+@media (min-width: 700px) {
+  .mr-account-nav-scroller {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
