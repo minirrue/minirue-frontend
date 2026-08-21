@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
-import { apiCheckout, type OrderSummary } from '@/lib/checkout/checkout-api';
+import { guestCheckoutFields, apiCheckout, type OrderSummary } from '@/lib/checkout/checkout-api';
 import { loadAppliedCode, saveAppliedCode } from '@/lib/api/discounts';
 import { formatApiError } from '@/lib/api/client';
 import {
@@ -68,7 +68,13 @@ export default function CheckoutConfirmationPage() {
     }
 
     const session = loadCheckoutSession();
-    if (!session?.shippingAddressId || session.paymentMethod !== 'COD') {
+    // A guest carries `guest` where a signed-in shopper carries
+    // `shippingAddressId`; either one means the Delivery step was completed.
+    // Requiring the id alone sent every guest back to /checkout in a loop.
+    if (
+      !(session?.shippingAddressId || session?.guest) ||
+      session.paymentMethod !== 'COD'
+    ) {
       router.replace('/checkout');
       return;
     }
@@ -94,7 +100,9 @@ export default function CheckoutConfirmationPage() {
     void apiCheckout(
       {
         cartId,
-        shippingAddressId: session.shippingAddressId,
+        ...(session.guest
+          ? guestCheckoutFields(session.guest)
+          : { shippingAddressId: session.shippingAddressId }),
         paymentMethod: 'COD',
         // Whatever they applied in the bag or on the payment step. The server
         // re-resolves it and recomputes the saving; an undefined code simply

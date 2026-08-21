@@ -6,7 +6,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useCustomerAddresses } from '@/lib/hooks/use-customer';
 import { isAuthenticated } from '@/lib/auth/tokens';
-import { loadCheckoutSession, saveCheckoutSession } from '@/lib/checkout/checkout-session';
+import {
+  loadCheckoutSession,
+  saveCheckoutSession,
+  type GuestCheckoutDetails,
+} from '@/lib/checkout/checkout-session';
+import GuestDetailsForm, {
+  EMPTY_GUEST,
+  validateGuest,
+  type GuestFieldErrors,
+} from '@/components/checkout/GuestDetailsForm';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import {
@@ -33,6 +42,19 @@ export default function CheckoutPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { mobile } = useBreakpoint();
 
+  /**
+   * Signed in, or checking out as a guest.
+   *
+   * Resolved in an effect rather than during render because `isAuthenticated`
+   * reads a cookie, which does not exist on the server — reading it inline
+   * would make the first client render disagree with the HTML and hydration
+   * would throw. `null` means "not known yet" and renders neither branch, so
+   * a signed-in shopper never sees a guest form flash past.
+   */
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [guest, setGuest] = useState<GuestCheckoutDetails>(EMPTY_GUEST);
+  const [guestErrors, setGuestErrors] = useState<GuestFieldErrors>({});
+
   // `begin_checkout` fires once, the moment there is a real cart to check out
   // with — not on the render that still shows the "your bag is empty" dead
   // end below. `checkout_step_view` piggybacks on the same guard since this
@@ -50,21 +72,26 @@ export default function CheckoutPage() {
   }, [cartId, itemCount, subtotalAmount]);
 
   /**
-   * The ONE place a guest is asked to sign in.
+   * No sign-in wall. This used to `router.replace` a guest to /login, on the
+   * reasoning that checkout needs saved addresses and an order needs an owner
+   * — and both premises are now false: a guest types their address here, and
+   * an order can belong to a guest_contact instead of a user (owner,
+   * 2026-08-21: "he can order normally as a guest").
    *
-   * /cart no longer redirects — a guest has a real cart and can browse it —
-   * so this is the single prompt, at the point identity is genuinely needed:
-   * checkout reads the customer's saved addresses, and an order has to belong
-   * to someone. `next` (not `returnUrl`, which the sign-in page never read)
-   * brings them straight back with their cart intact.
+   * The redirect was also the reason this screen hung on "Loading your
+   * addresses…" for guests: `useCustomerAddresses` fired, got a 401, and the
+   * navigation it was racing had not landed yet.
    */
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace(
-        `/login?next=${encodeURIComponent('/checkout')}&reason=sign-in-required`,
-      );
+    const authed = isAuthenticated();
+    setSignedIn(authed);
+    if (!authed) {
+      // Coming back from Payment, or reloading mid-flow: rehydrate whatever
+      // they already typed rather than making them type it twice.
+      const saved = loadCheckoutSession()?.guest;
+      if (saved) setGuest(saved);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (!addresses?.length) return;
@@ -122,7 +149,42 @@ export default function CheckoutPage() {
           }}
         >
           <CheckoutSection title="Shipping address">
-            {isLoading && (
+            {signedIn === false && (
+              <>
+                <GuestDetailsForm
+                  value={guest}
+                  onChange={(next) => {
+                    setGuest(next);
+                    // Errors clear as the shopper types, but never APPEAR that
+                    // way: validating on every keystroke tells someone their
+                    // email is invalid while they are still typing the @.
+                    if (Object.keys(guestErrors).length) {
+                      setGuestErrors(validateGuest(next));
+                    }
+                  }}
+                  errors={guestErrors}
+                  mobile={mobile}
+                />
+                <p
+                  style={{
+                    marginTop: 'var(--mr-sp-5)',
+                    fontFamily: 'var(--mr-font-ui)',
+                    fontSize: 'var(--mr-text-sm)',
+                    color: 'var(--mr-fg-3)',
+                  }}
+                >
+                  Have an account?{' '}
+                  <Link
+                    href={`/login?next=${encodeURIComponent('/checkout')}`}
+                    style={{ color: 'inherit', fontWeight: 600 }}
+                  >
+                    Sign in
+                  </Link>{' '}
+                  to use a saved address and a discount code.
+                </p>
+              </>
+            )}
+            {signedIn === true && isLoading && (
               <p
                 style={{
                   fontFamily: 'var(--mr-font-ui)',
@@ -134,7 +196,7 @@ export default function CheckoutPage() {
                 Loading your addresses…
               </p>
             )}
-            {!isLoading && !addresses?.length && (
+            {signedIn === true && !isLoading && !addresses?.length && (
               <CheckoutAlert variant="info">
                 Add a delivery address in{' '}
                 <Link href="/account/addresses" style={{ color: 'inherit', fontWeight: 600 }}>
@@ -144,7 +206,8 @@ export default function CheckoutPage() {
               </CheckoutAlert>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>
-              {addresses?.map((addr) => (
+              {signedIn === true &&
+                addresses?.map((addr) => (
                 <CheckoutOption
                   key={addr.id}
                   name="address"
@@ -162,7 +225,7 @@ export default function CheckoutPage() {
                   }
                   badge={addr.isDefault ? 'Default' : undefined}
                 />
-              ))}
+                ))}
             </div>
           </CheckoutSection>
 
@@ -227,10 +290,34 @@ export default function CheckoutPage() {
 
         <CheckoutActions
           primaryLabel="Continue to payment"
-          primaryDisabled={!selectedId}
+          /**
+           * Enabled for a guest even with an empty form, on purpose. A button
+           * that is disabled with no stated reason is the exact complaint this
+           * shop already had about Add to bag — pressing it and being shown
+           * which fields are missing teaches more than a dead control does.
+           */
+          primaryDisabled={signedIn === null || (signedIn && !selectedId)}
           onPrimary={() => {
+            if (signedIn === false) {
+              const errors = validateGuest(guest);
+              if (Object.keys(errors).length) {
+                setGuestErrors(errors);
+                // Send focus to the first problem rather than leaving the
+                // shopper to hunt for it below the fold on a phone.
+                const first = Object.keys(errors)[0];
+                document.getElementById(first)?.focus();
+                return;
+              }
+              setGuestErrors({});
+              saveCheckoutSession({ guest, shippingAddressId: undefined });
+              track('checkout_address_entered', { cartId, hasAddress: true });
+              track('checkout_shipping_selected', { method: 'STANDARD', cartId });
+              router.push('/checkout/payment');
+              return;
+            }
+
             if (!selectedId) return;
-            saveCheckoutSession({ shippingAddressId: selectedId });
+            saveCheckoutSession({ shippingAddressId: selectedId, guest: undefined });
             track('checkout_address_entered', { cartId, hasAddress: true });
             // This shop has one flat shipping rate — there is no separate
             // picker screen, so "selected" is recorded here, the moment the

@@ -54,7 +54,23 @@ export default function CartPage() {
   const discountMinor = discount?.discountMinor ?? 0;
   // Floored, exactly as the server floors it. A summary that can show a
   // negative total is a summary nobody trusts again.
-  const estimatedTotal = minorToAmount(Math.max(0, subtotalMinor - discountMinor));
+  /**
+   * Subtotal − discount + shipping.
+   *
+   * Shipping was shown as its own row and then LEFT OUT of the total, so the
+   * bag said EGP 180 and the very next screen said EGP 230 (owner,
+   * 2026-08-21). A summary that contradicts the checkout it leads to is worse
+   * than no summary: the shopper reads the smaller number as the price and
+   * meets the real one at the point they are asked to pay.
+   *
+   * SHIPPING_AMOUNT_MINOR is the same flat constant checkout charges, so the
+   * two screens now agree by construction. Still "estimated" because the
+   * server recomputes everything at Place order — it is the authority, this is
+   * display.
+   */
+  const estimatedTotal = minorToAmount(
+    Math.max(0, subtotalMinor - discountMinor) + SHIPPING_AMOUNT_MINOR,
+  );
 
   // No auth gate. A guest has a cart — it is keyed by the mr-cart-session
   // cookie and the backend accepts it — so bouncing them here threw a shopper
@@ -254,7 +270,7 @@ export default function CartPage() {
                   label="Shipping"
                   value={
                     <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-4)', fontStyle: 'italic' }}>
-                      From {shippingDisplay} {currency}
+                      {shippingDisplay} {currency}
                     </span>
                   }
                 />

@@ -67,6 +67,7 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
           // product look like it never had that size, and letting it be picked
           // only moves the refusal to checkout.
           const sellable = variantInStock(v);
+          const label = variantLabel(v);
           return (
             <button
               key={v.id}
@@ -99,23 +100,28 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
                 gap: 6,
               }}
             >
-              {/* An unlabelled variant in a picker that IS showing (two or
-                  more, some named) falls back to its position rather than to
-                  its SKU — "Option 2" tells a shopper as little as possible
-                  while still being pickable, where a SKU tells them nothing at
-                  all and looks like a mistake. */}
-              <span>{variantLabel(v) || `Option ${active.indexOf(v) + 1}`}</span>
+              {/* An unlabelled variant shows its PRICE and nothing else.
+                  "Option 1" was a placeholder for a name that does not exist,
+                  and it read as though the shopper were missing information
+                  (owner, 2026-08-21: "option 1 remove it, just the price on
+                  it, because that's the only field anyway"). When price is the
+                  only thing distinguishing two variants, price IS the label —
+                  so the separator dot below is dropped too, or the chip opens
+                  with a bullet and nothing before it. */}
+              {label && <span>{label}</span>}
               {sellable ? (
                 <span
                   style={{
                     fontFamily: 'var(--mr-font-serif)',
                     fontWeight: 500,
                     fontSize: 'var(--mr-text-sm)',
-                    opacity: 0.75,
+                    // A price that IS the label carries full weight; a price
+                    // trailing a name stays secondary to it.
+                    opacity: label ? 0.75 : 1,
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  ·{' '}
+                  {label ? <>·{' '}</> : null}
                   <PriceDisplay
                     amount={v.priceAmount}
                     currency={v.priceCurrency}
@@ -132,7 +138,7 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
                     color: 'var(--mr-fg-3)',
                   }}
                 >
-                  · Sold out
+                  {label ? '· ' : ''}Sold out
                 </span>
               )}
             </button>

@@ -54,7 +54,10 @@ export default function CheckoutPaymentPage() {
   );
 
   useEffect(() => {
-    if (!loadCheckoutSession()?.shippingAddressId) {
+    // A guest completes Delivery by filling in `guest`, not by picking a saved
+    // address — checking only for the id bounced every guest back a step.
+    const session = loadCheckoutSession();
+    if (!session?.shippingAddressId && !session?.guest) {
       router.replace('/checkout');
     }
   }, [router]);

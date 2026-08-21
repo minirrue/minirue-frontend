@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
-import { apiCheckout } from '@/lib/checkout/checkout-api';
+import { apiCheckout, guestCheckoutFields } from '@/lib/checkout/checkout-api';
 import { loadAppliedCode, saveAppliedCode } from '@/lib/api/discounts';
 import { formatApiError } from '@/lib/api/client';
 import {
@@ -46,7 +46,11 @@ export default function InstapayCheckoutPage() {
 
   useEffect(() => {
     const session = loadCheckoutSession();
-    if (!session?.shippingAddressId || session.paymentMethod !== 'INSTAPAY') {
+    // See the COD page: a guest has `guest`, not `shippingAddressId`.
+    if (
+      !(session?.shippingAddressId || session?.guest) ||
+      session.paymentMethod !== 'INSTAPAY'
+    ) {
       router.replace('/checkout');
       return;
     }
@@ -90,7 +94,7 @@ export default function InstapayCheckoutPage() {
 
   async function submit() {
     const session = loadCheckoutSession();
-    if (!session?.shippingAddressId || !preview) return;
+    if (!(session?.shippingAddressId || session?.guest) || !preview) return;
     // Checked again at submit time: the cart can empty out between render and
     // click (another tab, an expired cart), and the redirect above only runs on
     // a state change.
@@ -113,7 +117,9 @@ export default function InstapayCheckoutPage() {
       const order = await apiCheckout(
         {
           cartId,
-          shippingAddressId: session.shippingAddressId,
+          ...(session.guest
+            ? guestCheckoutFields(session.guest)
+            : { shippingAddressId: session.shippingAddressId }),
           paymentMethod: 'INSTAPAY',
           receiptDataUrl: preview,
           ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),

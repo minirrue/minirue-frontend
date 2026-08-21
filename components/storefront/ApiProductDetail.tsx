@@ -103,6 +103,9 @@ interface ProductInfoPanelProps {
   addedAnim: boolean;
   soldOut: boolean;
   allSoldOut: boolean;
+  /** Nothing to sell at all — no active variant. Distinct from allSoldOut,
+   *  which means "we stock this and have none". */
+  unavailable: boolean;
   onAdd: () => void;
   ctaStyle: React.CSSProperties;
   ctaDisplay: string;
@@ -120,6 +123,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
   addedAnim,
   soldOut,
   allSoldOut,
+  unavailable,
   onAdd,
   ctaStyle,
   ctaDisplay,
@@ -250,7 +254,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           ref={addToBagRef}
           data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag"
           onClick={onAdd}
-          disabled={!selectedVariant || soldOut}
+          disabled={!selectedVariant || soldOut || unavailable}
           style={{
             flex: 1,
             padding: '16px 24px',
@@ -279,6 +283,10 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
             <>
               <Icon name="check" size={14} /> Added
             </>
+          ) : unavailable ? (
+            // "Unavailable", not "Out of stock": nothing was withdrawn from
+            // sale, there is nothing here to sell in the first place.
+            <>Currently unavailable</>
           ) : soldOut ? (
             <>{allSoldOut ? 'Out of stock' : 'This size is out of stock'}</>
           ) : (
@@ -541,6 +549,17 @@ export default function ApiProductDetail({
   // Nothing on the product is buyable — every active variant is at zero.
   const allSoldOut =
     activeVariants.length > 0 && !activeVariants.some((v) => variantInStock(v));
+  /**
+   * Nothing to sell AT ALL — every variant removed or deactivated.
+   *
+   * Distinct from `allSoldOut`, which means "we stock this and have none".
+   * Both of the flags above are guarded on a variant existing (`!!selected`,
+   * `length > 0`), so with zero active variants both were false, the button
+   * fell through to the "Add to bag" branch, and it rendered greyed out with
+   * no explanation — a shopper could not tell a sold-out product from a broken
+   * page (owner, 2026-08-21).
+   */
+  const unavailable = activeVariants.length === 0;
 
   // No useCallback here on purpose: the React Compiler is on for this app and
   // memoises these itself. Wrapping them by hand made it bail out of optimising
@@ -629,6 +648,7 @@ export default function ApiProductDetail({
               addedAnim={addedAnim}
               soldOut={soldOut}
               allSoldOut={allSoldOut}
+              unavailable={unavailable}
               onAdd={() => handleAdd('pdp')}
               ctaStyle={ctaX.style}
               ctaDisplay={ctaX.display}
@@ -802,6 +822,10 @@ export default function ApiProductDetail({
             <>
               <Icon name="check" size={14} /> Added
             </>
+          ) : unavailable ? (
+            // Same three states as the main button above — a sticky bar that
+            // disagreed with the button it mirrors would be worse than none.
+            <>Unavailable</>
           ) : soldOut ? (
             <>{allSoldOut ? 'Out of stock' : 'This size is out'}</>
           ) : (

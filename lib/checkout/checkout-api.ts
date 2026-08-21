@@ -3,12 +3,29 @@
  */
 import { apiFetch } from '../api/client';
 import { attributionHeaders } from '../analytics/attribution';
+import { getCartSessionId } from '../api/cart';
+import { isAuthenticated } from '../auth/tokens';
+import type { GuestCheckoutDetails } from './checkout-session';
 
 export type PaymentMethod = 'COD' | 'INSTAPAY';
 
 export interface CheckoutRequest {
   cartId: string;
-  shippingAddressId: string;
+  /** Signed-in shopper: one of their saved addresses. Omitted by a guest. */
+  shippingAddressId?: string;
+  /**
+   * Guest checkout (2026-08-21): who they are and where it goes, sent instead
+   * of an address id. The server rejects a request carrying both — see
+   * CheckoutRequestSchema.
+   */
+  guest?: { fullName: string; email: string; phone: string };
+  shippingAddress?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    governorate: string;
+    postalCode?: string;
+  };
   paymentMethod: PaymentMethod;
   receiptDataUrl?: string;
   /**
@@ -65,14 +82,70 @@ export interface OrderListResponse {
   limit: number;
 }
 
+/**
+ * Splits the one flat object the checkout UI holds into the two the API wants.
+ *
+ * The form is a single list of fields to the shopper, but the server keeps
+ * WHO they are (guest_contact on the order) apart from WHERE it goes (the
+ * address snapshot) — so the split belongs here, once, rather than in each of
+ * the two pages that submit.
+ */
+export function guestCheckoutFields(guest: GuestCheckoutDetails): {
+  guest: NonNullable<CheckoutRequest['guest']>;
+  shippingAddress: NonNullable<CheckoutRequest['shippingAddress']>;
+} {
+  return {
+    guest: {
+      fullName: guest.fullName.trim(),
+      email: guest.email.trim(),
+      phone: guest.phone.trim(),
+    },
+    shippingAddress: {
+      line1: guest.line1.trim(),
+      // Empty optional fields are dropped, not sent as "". The server's schema
+      // treats them as absent either way, but an empty string would be written
+      // into the address snapshot and printed on the label as a blank line.
+      ...(guest.line2?.trim() ? { line2: guest.line2.trim() } : {}),
+      city: guest.city.trim(),
+      governorate: guest.governorate.trim(),
+      ...(guest.postalCode?.trim() ? { postalCode: guest.postalCode.trim() } : {}),
+    },
+  };
+}
+
+/**
+ * `x-session-id` is what proves a GUEST owns the cart they are buying — the
+ * server refuses an anonymous checkout without it (CartCheckoutAdapter). It is
+ * harmless on a signed-in request, where the token identifies the buyer and
+ * the cart is matched by user instead.
+ */
+function checkoutSessionHeaders(): Record<string, string> {
+  const sid = getCartSessionId();
+  return sid ? { 'x-session-id': sid } : {};
+}
+
 export async function apiCheckout(
   body: CheckoutRequest,
   idempotencyKey: string,
 ): Promise<OrderSummary> {
   return apiFetch<OrderSummary>('/checkout', {
     method: 'POST',
-    auth: true,
-    headers: { 'Idempotency-Key': idempotencyKey, ...attributionHeaders() },
+    /**
+     * `auth` here is bookkeeping, not authorisation — credentials are sent on
+     * every request regardless. What it controls is the 401-refresh path and,
+     * on success, `markAuthenticated()`.
+     *
+     * So a GUEST must not set it: a successful guest order would otherwise
+     * stamp the `mr-auth` hint, and the Edge proxy gates /account and /orders
+     * on that flag alone. The guest would be waved into pages that then 401 —
+     * signed in according to the proxy, anonymous according to the API.
+     */
+    auth: isAuthenticated(),
+    headers: {
+      'Idempotency-Key': idempotencyKey,
+      ...checkoutSessionHeaders(),
+      ...attributionHeaders(),
+    },
     body: JSON.stringify(body),
   });
 }
