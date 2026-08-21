@@ -5,7 +5,7 @@
  * that nothing revokes — exactly once, in a mount-only effect.
  *
  * So a sign-out that happened anywhere other than the header's OWN button left
- * "Hi, Sarah" and the whole account menu on screen: the account page's Sign
+ * the account avatar and the whole account menu on screen: the account page's Sign
  * out (AccountLayoutClient), another tab, or a session revoked server-side.
  * The header is not remounted by a client-side navigation, so nothing ever
  * re-read the note.
@@ -84,7 +84,13 @@ describe('the header stops greeting someone the server has refused', () => {
     });
 
     renderHeader();
-    expect(await screen.findByText(/Hi, Sarah/)).toBeInTheDocument();
+    // The signed-in header shows the account AVATAR, not a greeting. The name
+    // moved into the button's accessible label when "HI, SARAH" was replaced by
+    // the avatar (2026-08-21) — the invariant under test is unchanged: a
+    // shopper whose session was proven still has their account control.
+    expect(
+      await screen.findByRole('button', { name: /Account menu for Sarah/i }),
+    ).toBeInTheDocument();
   });
 
   it('drops the greeting once /auth/me answers 401, even though mr-session still says otherwise', async () => {
@@ -103,7 +109,7 @@ describe('the header stops greeting someone the server has refused', () => {
     renderHeader();
 
     await waitFor(() => {
-      expect(screen.queryByText(/Hi, Sarah/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Account menu for Sarah/i })).not.toBeInTheDocument();
     });
     // And it offers the way back in instead.
     expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();

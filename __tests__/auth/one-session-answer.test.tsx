@@ -118,7 +118,11 @@ describe('a transient /auth/me failure is not a sign-out (Header)', () => {
     apiMe.mockResolvedValueOnce(SARAH);
 
     const { client } = renderHeader();
-    await screen.findByText(/Hi, Sarah/);
+    // The signed-in header shows the account AVATAR, not a greeting. The name
+    // moved into the button's accessible label when "HI, SARAH" was replaced by
+    // the avatar (2026-08-21) — the invariant under test is unchanged: a
+    // shopper whose session was proven still has their account control.
+    await screen.findByRole('button', { name: /Account menu for Sarah/i });
 
     // Now a BACKGROUND poll fails for a reason that is not a refusal. An
     // explicit refetch, because useUser()'s 15-minute staleTime means nothing
@@ -133,7 +137,7 @@ describe('a transient /auth/me failure is not a sign-out (Header)', () => {
     // Before the fix this read `isError`, which is true for a 503 as well as a
     // 401, so the greeting and the whole account menu vanished for a shopper
     // whose session was perfectly alive.
-    expect(screen.getByText(/Hi, Sarah/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Account menu for Sarah/i })).toBeInTheDocument();
   });
 
   it('still drops the greeting on a settled 401 — failing closed is not weakened', async () => {
@@ -143,7 +147,7 @@ describe('a transient /auth/me failure is not a sign-out (Header)', () => {
     renderHeader();
 
     await waitFor(() => {
-      expect(screen.queryByText(/Hi, Sarah/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Account menu for Sarah/i })).not.toBeInTheDocument();
     });
     expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
   });

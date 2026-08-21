@@ -9,6 +9,7 @@ import { catalog } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
 import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
+import { SHOP_ALL } from '@/lib/routes';
 
 /**
  * A seller's own corner of the shop.
@@ -281,8 +282,8 @@ export default async function SpaceView({
             <Tile
               href={
                 space.kind === 'HOUSE'
-                  ? '/products'
-                  : `/products?space=${encodeURIComponent(space.slug)}`
+                  ? SHOP_ALL
+                  : `${SHOP_ALL}?space=${encodeURIComponent(space.slug)}`
               }
               label="All Products"
               imageUrl={shopPanel?.allProductsImageUrl ?? null}

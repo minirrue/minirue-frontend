@@ -184,15 +184,18 @@ describe('MobileBottomNav (W4a.2)', () => {
     const labels = screen
       .getAllByText(/^(Menu|Search|Collab|Shop|Cart|Account)$/)
       .map((el) => el.textContent);
-    expect(labels).toEqual(['Menu', 'Search', 'Collab', 'Shop', 'Cart', 'Account']);
+    // No Menu tab since 2026-08-21 — the header's account avatar opens the menu
+    // sheet, so a second door labelled Menu did the same job twice. Collab is
+    // still the middle of what remains.
+    expect(labels).toEqual(['Search', 'Collab', 'Shop', 'Cart', 'Account']);
   });
 
-  it('sends Shop to the categories index, not the flat product list', () => {
+  it('sends Shop to the shop panel, not the flat product list', () => {
     setViewportWidth(600);
     renderNav();
     scrollTo(100);
     scrollTo(160);
-    expect(screen.getByRole('link', { name: /^Shop$/ })).toHaveAttribute('href', '/categories');
+    expect(screen.getByRole('link', { name: /^Shop$/ })).toHaveAttribute('href', '/shop');
   });
 
   it('applies no transition when prefers-reduced-motion is set', () => {

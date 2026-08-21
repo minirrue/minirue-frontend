@@ -18,6 +18,7 @@ import NavCategorySheet from '@/components/layout/NavCategorySheet';
 import SearchSheet from '@/components/layout/SearchSheet';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { FALLBACK_CHROME, type ResolvedChrome, type ResolvedNavItem } from '@/lib/api/storefront';
+import AccountAvatarButton from '@/components/layout/AccountAvatarButton';
 
 interface HeaderProps {
   navbar: ResolvedChrome['navbar'];
@@ -213,14 +214,15 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             margin: '0 auto',
           }}
         >
-          {/* Left: Nav or Hamburger */}
+          {/* Left: nav on a laptop, the account avatar on a phone.
+              The hamburger is gone — one recognisable door into the menu and
+              the account, and it is the avatar (owner, 2026-08-21). It opens
+              exactly the sheet the hamburger used to. */}
           {mobile ? (
-            <IconButton
-              icon="menu"
+            <AccountAvatarButton
               size={40}
               tone={isLight ? 'glass' : 'cream'}
-              label="Menu"
-              onClick={openMobileMenu}
+              traceId="PG-STOREFRONT-IAM-006::EL-BTN-account-menu-trigger-mobile"
             />
           ) : (
             <nav
@@ -303,28 +305,27 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
               tone={isLight ? 'glass' : 'cream'}
               onClick={openMobileSearch}
             />
-            {/* Account — desktop identity menu; on mobile it lives inside the
-                hamburger menu. */}
+            <IconButton
+              icon="bag"
+              label="Bag"
+              tone={isLight ? 'glass' : 'cream'}
+              onClick={onOpenCart}
+              badge={cartCount}
+              badgeBump={bump}
+            />
+            {/* Account — LAST, after the bag: search, cart, then you
+                (owner, 2026-08-21). On a phone the same account door sits at
+                the top-left of the bar instead. */}
             {!mobile && (
               identity ? (
                 <div style={{ position: 'relative' }}>
-                  <button
+                  <AccountAvatarButton
+                    size={40}
+                    tone={isLight ? 'glass' : 'cream'}
+                    label={`Account menu for ${(authUser?.name ?? identity.name)?.split(' ')[0] || 'you'}`}
                     onClick={() => setAccountOpen((o) => !o)}
-                    data-trace-id="PG-STOREFRONT-IAM-006::EL-BTN-account-menu-trigger"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontFamily: 'Jost, sans-serif',
-                      fontSize: 11,
-                      letterSpacing: '0.18em',
-                      textTransform: 'uppercase',
-                      color: 'inherit',
-                      padding: '6px 0',
-                    }}
-                  >
-                    Hi, {(authUser?.name ?? identity.name)?.split(' ')[0] || 'there'}
-                  </button>
+                    traceId="PG-STOREFRONT-IAM-006::EL-BTN-account-menu-trigger"
+                  />
                   {accountOpen && (
                     <div
                       data-trace-id="PG-STOREFRONT-IAM-006::EL-MENU-account-dropdown"
@@ -469,14 +470,6 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 </Link>
               )
             )}
-            <IconButton
-              icon="bag"
-              label="Bag"
-              tone={isLight ? 'glass' : 'cream'}
-              onClick={onOpenCart}
-              badge={cartCount}
-              badgeBump={bump}
-            />
           </div>
         </div>
 

@@ -11,8 +11,26 @@ export function CheckoutSection({
   title: string;
   children: React.ReactNode;
 }) {
+  /**
+   * A top margin, not only a bottom one.
+   *
+   * Spacing used to come entirely from `marginBottom`, so two stacked
+   * sections were separated correctly but the FIRST section after something
+   * else — the order-summary card on the Payment step — had nothing above it
+   * at all. "DISCOUNT CODE" sat flush against the bottom of that card while
+   * "PAYMENT METHOD" below it had proper air, which reads as the label
+   * belonging to the card rather than to its own section (owner, 2026-08-21:
+   * "discount code is sticky to its upper element").
+   *
+   * `sp-7` above against `sp-4` below the heading: a heading takes more space
+   * above than below, so it groups with its own content instead of floating
+   * between two. These are plain block siblings inside CheckoutPageFrame, so
+   * the top and bottom margins COLLAPSE between adjacent sections — the gap
+   * between two sections stays a single sp-7 rather than stacking to
+   * sp-6 + sp-7.
+   */
   return (
-    <section style={{ marginBottom: 'var(--mr-sp-6)' }}>
+    <section style={{ marginTop: 'var(--mr-sp-7)', marginBottom: 'var(--mr-sp-6)' }}>
       <h2
         style={{
           fontFamily: 'var(--mr-font-label)',

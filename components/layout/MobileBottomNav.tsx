@@ -24,7 +24,7 @@
  * no room for the item the owner actually wanted front and center. Collab
  * takes the freed middle slot instead and opens `/collab`, an index of every
  * partner MiniRue works with (logo tile, rating, product count — one request
- * for the whole grid via `apiListPublicBrands()`). Shop now opens `/categories`
+ * for the whole grid via `apiListPublicBrands()`). Shop now opens `/shop`
  * — MiniRue's real category tree with images, not the flat all-products list
  * — since a picture-led category browse is what the owner asked for; the
  * all-products page is still one tap away as the grid's own extra card.
@@ -41,6 +41,7 @@ import { openMobileMenu, openMobileSearch } from '@/lib/hooks/useMobileChrome';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useSessionState } from '@/lib/hooks/use-session-state';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
+import { SHOP_ROOT } from '@/lib/routes';
 
 const BAR_HEIGHT = 58;
 
@@ -64,7 +65,11 @@ interface NavItem {
 }
 
 const ITEMS: NavItem[] = [
-  { key: 'menu', label: 'Menu', icon: 'menu' },
+  // No 'menu' item. The account avatar in the header opens the menu sheet now,
+  // so a second door labelled Menu sat beside a door that did the same thing
+  // (owner, 2026-08-21: "remove menu from navbar, just move it there on profile
+  // icon"). Five tabs also gives each one noticeably more width on a small
+  // phone, which the labels needed.
   { key: 'search', label: 'Search', icon: 'search' },
   { key: 'collab', label: 'Collab', icon: 'collab' },
   { key: 'shop', label: 'Shop', icon: 'grid' },
@@ -334,7 +339,7 @@ export default function MobileBottomNav() {
         }
 
         const href =
-          item.key === 'shop' ? '/categories' : item.key === 'collab' ? '/collab' : accountHref;
+          item.key === 'shop' ? SHOP_ROOT : item.key === 'collab' ? '/collab' : accountHref;
         return (
           <Link
             key={item.key}

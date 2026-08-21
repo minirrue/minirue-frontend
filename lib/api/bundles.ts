@@ -6,6 +6,9 @@ export interface BundleMember {
   variantId: string | null;
   productName: string;
   productSlug: string;
+  /** The member's category slug, so its link goes straight to
+   *  /shop/{category}/{product} instead of via the legacy redirect. */
+  categorySlug?: string | null;
   brandName: string;
   quantity: number;
   unitMinor: number;
