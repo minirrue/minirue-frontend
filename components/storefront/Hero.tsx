@@ -100,10 +100,27 @@ export default function Hero({
       onMouseLeave={() => setPaused(false)}
       style={{
         position: 'relative',
-        // dvh, not vh: iOS Safari's toolbar collapses/expands while scrolling, and this
-        // banner sits at the very top of every page, so a plain vh reflow here is the most
-        // visible instance of the "page resizes as you scroll" bug on iPhone.
-        height: mobile ? '80dvh' : 'min(100dvh, 980px)',
+        /*
+         * svh, NOT dvh — this is the whole "page expands as you scroll" bug on
+         * mobile (reported 2026-08-23), and an earlier pass fixed it in the
+         * wrong direction.
+         *
+         *   vh  = LARGE viewport (chrome hidden). Constant.
+         *   svh = SMALL viewport (chrome shown).  Constant.
+         *   dvh = DYNAMIC. Re-resolves live as the URL bar collapses.
+         *
+         * `dvh` is the only one of the three that changes mid-scroll, so
+         * putting it on an in-flow element makes that element — and the page
+         * under it — literally grow as the toolbar hides. On this banner, which
+         * sits at the top of every page, that is the most visible possible
+         * place for it. `svh` is stable AND small, so the hero never reflows
+         * and never gets clipped by chrome that is still on screen.
+         *
+         * dvh is still right for FIXED overlays (the chat panel, the nav and
+         * search sheets) — those must fit the visible area and contribute no
+         * page height. Do not sweep those to svh.
+         */
+        height: mobile ? '80svh' : 'min(100svh, 980px)',
         minHeight: mobile ? 520 : 680,
         background: '#0B0B0B',
         color: 'var(--mr-cream-100)',

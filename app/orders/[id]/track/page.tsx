@@ -74,7 +74,7 @@ export default async function TrackOrderPage({
       style={{
         // dvh tracks iOS Safari's actual visible viewport as its toolbar collapses/expands;
         // plain vh resized this full-page state mid-scroll.
-        minHeight: '100dvh',
+        minHeight: '100svh',
         background: 'var(--mr-bg)',
         fontFamily: 'var(--mr-font-ui)',
         display: 'flex',

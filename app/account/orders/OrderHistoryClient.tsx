@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiListOrders, type OrderSummary } from '@/lib/checkout/checkout-api';
+import { apiListMyRefunds, type RefundStatus } from '@/lib/api/refunds';
 import {
   formatOrderRef,
   formatOrderStatus,
@@ -20,7 +21,68 @@ const STATUS_TONE: Record<string, string> = {
   REFUNDED: 'var(--mr-crimson-700)',
 };
 
-function OrderCard({ order }: { order: OrderSummary }) {
+/**
+ * A status the shopper can actually find.
+ *
+ * It used to be tinted text sitting in the same small grey line as the date,
+ * separated by a dot — the single most important word on the row rendered at
+ * the same weight as everything around it. This is the same palette, given a
+ * tinted chip so the eye lands on it (owner, 2026-08-23).
+ *
+ * `color-mix` rather than a second hard-coded colour per status: the fill is
+ * always the status's own tone at 12%, so adding a status needs one entry
+ * above and nothing here.
+ */
+function StatusPill({ tone, children }: { tone: string; children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '2px 8px',
+        borderRadius: 999,
+        fontSize: 'var(--mr-text-xs)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: tone,
+        background: `color-mix(in srgb, ${tone} 12%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${tone} 28%, transparent)`,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Where a refund REQUEST has got to, in the shopper's words.
+ *
+ * The row already showed "x refunded" — but only once the money had actually
+ * moved. Between asking and being paid, which is the stretch a shopper checks
+ * this page most, there was nothing at all: their request appeared to have
+ * vanished (owner, 2026-08-23). CANCELLED and REJECTED are deliberately shown
+ * too; a refused refund the shopper is never told about is worse than a slow
+ * one.
+ */
+const REFUND_LABEL: Record<RefundStatus, string> = {
+  REQUESTED: 'Refund requested',
+  UNDER_REVIEW: 'Refund under review',
+  APPROVED: 'Refund approved',
+  REFUNDED: 'Refunded',
+  REJECTED: 'Refund declined',
+  CANCELLED: 'Refund cancelled',
+};
+
+const REFUND_TONE: Record<RefundStatus, string> = {
+  REQUESTED: 'var(--mr-gold-500)',
+  UNDER_REVIEW: 'var(--mr-gold-500)',
+  APPROVED: 'var(--mr-gold-700)',
+  REFUNDED: 'var(--mr-crimson-700)',
+  REJECTED: 'var(--mr-crimson-700)',
+  CANCELLED: 'var(--mr-fg-3)',
+};
+
+function OrderCard({ order, refundStatus }: { order: OrderSummary; refundStatus?: RefundStatus }) {
   // Up to three thumbnails; beyond that a summary becomes a gallery.
   const thumbs = order.items
     .map((item) => item.productSnapshot?.imageUrl)
@@ -135,9 +197,19 @@ function OrderCard({ order }: { order: OrderSummary }) {
               alignItems: 'center',
             }}
           >
-            <span style={{ color: STATUS_TONE[order.status] ?? 'var(--mr-fg-3)' }}>
+            <StatusPill tone={STATUS_TONE[order.status] ?? 'var(--mr-fg-3)'}>
               {formatOrderStatus(order.status)}
-            </span>
+            </StatusPill>
+            {/* Beside the order status, not instead of it: an order can be
+                DELIVERED and have a refund under review at the same time, and
+                collapsing the two would hide whichever the shopper came for.
+                Suppressed once the order status already says REFUNDED — at
+                that point the two say the same thing. */}
+            {refundStatus && order.status !== 'REFUNDED' && (
+              <StatusPill tone={REFUND_TONE[refundStatus]}>
+                {REFUND_LABEL[refundStatus]}
+              </StatusPill>
+            )}
             <span aria-hidden>·</span>
             <span>
               {new Date(order.createdAt).toLocaleDateString(undefined, {
@@ -177,6 +249,12 @@ function OrderCard({ order }: { order: OrderSummary }) {
 
 export default function OrderHistoryClient() {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
+  /**
+   * Refund status per order id. Its own read rather than a field on the order:
+   * a refund is a ticket against an order, not a property of it, and one
+   * failing must never blank the order list — hence the silent catch below.
+   */
+  const [refundByOrder, setRefundByOrder] = useState<Record<string, RefundStatus>>({});
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -194,6 +272,22 @@ export default function OrderHistoryClient() {
       })
       .catch(() => setError('Sign in to view your orders.'));
   }, [debounced]);
+
+  // Not keyed to the search box: the tickets are the shopper's own and the
+  // list is short, so fetching once is cheaper than refetching per keystroke.
+  useEffect(() => {
+    void apiListMyRefunds({ page: 1, limit: 50 })
+      .then((res) => {
+        const byOrder: Record<string, RefundStatus> = {};
+        // Newest first from the API; the first ticket seen for an order is
+        // therefore the current one, and older closed tickets do not overwrite it.
+        for (const t of res.data) {
+          if (!byOrder[t.orderId]) byOrder[t.orderId] = t.status;
+        }
+        setRefundByOrder(byOrder);
+      })
+      .catch(() => setRefundByOrder({}));
+  }, []);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-16">
@@ -218,7 +312,7 @@ export default function OrderHistoryClient() {
 
       <ul style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 32 }}>
         {orders.map((o) => (
-          <OrderCard key={o.id} order={o} />
+          <OrderCard key={o.id} order={o} refundStatus={refundByOrder[o.id]} />
         ))}
       </ul>
     </main>

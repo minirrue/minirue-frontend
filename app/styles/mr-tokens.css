@@ -306,13 +306,13 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
 .mr-page-sheet {
   position: relative; z-index: 1;
   background: var(--mr-cream-200);
-  /* iOS Safari's address bar collapses/expands as you scroll, which changes what 100vh
-     resolves to mid-scroll — on a route wrapper that mounts on every single page, that reads
-     as the whole page resizing under the shopper. 100dvh tracks the actual visible viewport
-     instead; kept second so engines without it (none left on iOS, but cheap insurance) still
-     get the plain vh value rather than an invalid declaration. */
+  /* svh, not dvh. `dvh` is the DYNAMIC unit: it re-resolves as iOS Safari's address bar
+     collapses on scroll, so on a wrapper that mounts on every page it made the whole page
+     grow under the shopper mid-scroll — the exact symptom it was added to fix. `svh` is the
+     SMALL viewport (chrome visible) and is constant, so nothing reflows and nothing is
+     clipped. Plain vh kept first so engines without svh still get a valid declaration. */
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100svh;
 }
 
 /* Tabular numbers utility */
