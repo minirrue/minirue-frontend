@@ -10,7 +10,7 @@ import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
   loadCheckoutSession,
-  newIdempotencyKey,
+  checkoutIdempotencyKey,
 } from '@/lib/checkout/checkout-session';
 import { orderTotalMinor } from '@/lib/checkout/checkout-schemas';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
@@ -109,7 +109,7 @@ export default function CheckoutConfirmationPage() {
         // means no discount, never an error.
         ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
       },
-      newIdempotencyKey(),
+      checkoutIdempotencyKey(),
     )
       .then((order) => {
         setOrderNumber(order.orderNumber);

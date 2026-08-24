@@ -9,7 +9,7 @@ import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
   loadCheckoutSession,
-  newIdempotencyKey,
+  checkoutIdempotencyKey,
   saveCheckoutSession,
 } from '@/lib/checkout/checkout-session';
 import { orderTotalMinor } from '@/lib/checkout/checkout-schemas';
@@ -124,7 +124,7 @@ export default function InstapayCheckoutPage() {
           receiptDataUrl: preview,
           ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
         },
-        newIdempotencyKey(),
+        checkoutIdempotencyKey(),
       );
       // Before clearing anything: from here on an empty cart is the expected
       // outcome, not a reason to redirect.

@@ -26,6 +26,11 @@ export interface CheckoutSession {
   guest?: GuestCheckoutDetails;
   paymentMethod: CheckoutPaymentMethod;
   receiptDataUrl?: string;
+  /**
+   * The Idempotency-Key for this checkout attempt. Minted once and kept here
+   * so a RETRY sends the same one -- see checkoutIdempotencyKey below.
+   */
+  idempotencyKey?: string;
 }
 
 const STORAGE_KEY = 'mr-checkout';
@@ -53,6 +58,30 @@ export function clearCheckoutSession(): void {
   }
 }
 
-export function newIdempotencyKey(): string {
-  return crypto.randomUUID();
+/**
+ * The Idempotency-Key for this checkout attempt: minted once, then remembered.
+ *
+ * This used to be `newIdempotencyKey()`, a bare `crypto.randomUUID()` called
+ * inline in the request. That is the one thing an idempotency key must never
+ * be. The dangerous case is not a double-click -- a ref guard already covers
+ * that -- it is the request that SUCCEEDS on the server and whose response is
+ * lost on the way back: a timeout, a 502, a dropped connection. The shopper
+ * sees an error and presses the button again, a fresh uuid goes out, the
+ * server sees a brand-new checkout, and they are charged for a second order.
+ * Retrying after a failure is exactly when the key has to stay the same.
+ *
+ * Held in the same sessionStorage blob as the rest of the checkout, so it also
+ * survives a reload -- which resets the in-memory ref guard but not this.
+ * `clearCheckoutSession()` runs on success, so the NEXT order correctly gets a
+ * new key rather than colliding with the finished one.
+ */
+export function checkoutIdempotencyKey(): string {
+  const existing = loadCheckoutSession()?.idempotencyKey;
+  if (existing) return existing;
+
+  const key = crypto.randomUUID();
+  // No sessionStorage during SSR; these callers are client-side, but returning
+  // a usable key rather than throwing keeps that an implementation detail.
+  if (typeof window !== 'undefined') saveCheckoutSession({ idempotencyKey: key });
+  return key;
 }
