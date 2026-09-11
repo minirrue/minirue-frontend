@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { CustomerProfile } from '@/lib/api/customers';
 import { useUpdateCustomerProfile, useUploadCustomerAvatar } from '@/lib/hooks/use-customer';
-import { formatApiError, type ApiError } from '@/lib/api/client';
+import { formatApiError } from '@/lib/api/client';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import AvatarCropSheet from '@/components/storefront/AvatarCropSheet';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';

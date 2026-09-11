@@ -5,7 +5,7 @@ import MobileSheet from '@/components/ui/MobileSheet';
 import StarRating from '@/components/storefront/StarRating';
 import Icon from '@/components/ui/Icon';
 import { apiCreateReview, apiAttachReviewMedia, type ReviewMedia } from '@/lib/api/reviews';
-import { formatApiError, type ApiError } from '@/lib/api/client';
+import { formatApiError } from '@/lib/api/client';
 import { capturePosterFrame } from '@/lib/media/capture-poster-frame';
 import ReviewMediaStrip, {
   type LocalReviewMedia,

@@ -49,8 +49,6 @@ import { NextRequest, NextResponse } from 'next/server'
  * on one device may legitimately be resetting a password they no longer trust.
  */
 const AUTH_ONLY_FOR_GUESTS = ['/login', '/signup']
-// Auth pages — redirect away if already logged in
-const AUTH_PAGES = ['/login', '/signup', '/forgot', '/reset-password']
 // Cookie name — must match tokens.ts (mr-auth)
 const AUTH_COOKIE = 'mr-auth'
 

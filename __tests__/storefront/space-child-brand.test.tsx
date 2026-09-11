@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import type { StorefrontSpace, StorefrontSpaceBrand, StorefrontSpaceCategory } from '@/lib/api/storefront';
 import { SITE_URL } from '@/lib/seo/config';
