@@ -15,8 +15,24 @@ import AnnouncementBar, { AnnouncementBarProvider } from '@/components/layout/An
  * route-scoped child would be.
  */
 
+/**
+ * The bar needs a message to render at all.
+ *
+ * `AnnouncementBar` returns null when `messages.length === 0` — an unconfigured
+ * bar shows nothing rather than an empty strip. This harness used to mount
+ * `<AnnouncementBar />` with no props, so every test here failed on
+ * "Unable to find a label with the text of: Announcements": it was asserting
+ * dismiss and scroll-collapse behaviour against a component that had correctly
+ * rendered nothing.
+ */
+const MESSAGES = ['Free shipping over 1500 EGP'];
+
 function Harness({ showBar }: { showBar: boolean }) {
-  return <AnnouncementBarProvider>{showBar && <AnnouncementBar />}</AnnouncementBarProvider>;
+  return (
+    <AnnouncementBarProvider>
+      {showBar && <AnnouncementBar messages={MESSAGES} />}
+    </AnnouncementBarProvider>
+  );
 }
 
 function collapseBar() {

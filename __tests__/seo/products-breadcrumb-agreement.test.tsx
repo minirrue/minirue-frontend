@@ -37,6 +37,17 @@ jest.mock('@/components/layout/AnnouncementBar', () => ({
   default: () => null,
 }));
 
+// The page renders AnnouncementBarServer, not AnnouncementBar — a different
+// module, so the mock above never covered it. It is an async Server Component,
+// which React's client renderer refuses outright ("is an async Client
+// Component. Only Server Components can be async at the moment"), failing every
+// test in this file before a single assertion ran. Nothing here is about the
+// announcement bar.
+jest.mock('@/components/layout/AnnouncementBarServer', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 jest.mock('@/app/shop/all/ProductListingClient', () => ({
   __esModule: true,
   default: () => null,
