@@ -72,7 +72,18 @@ export function useSitewideDiscount(): number | null {
  */
 export function useDiscountedPrice(
   amount: string,
-  isMinirueOwned = true,
+  /**
+   * Required, and with no default.
+   *
+   * This used to default to `true`, so any caller that forgot the argument
+   * discounted unconditionally — and a discount shown but not honoured is worse
+   * than one missed. The safe answer to "I don't know" is "not eligible", and
+   * making it required means a caller cannot quietly pick the unsafe one.
+   *
+   * Pass the server's `product.isMinirueOwned`, never a locally-derived guess:
+   * ownership is the product AND its brand, and only the API sees both.
+   */
+  isMinirueOwned: boolean,
 ): { amount: string; wasAmount?: string } {
   const percent = useSitewideDiscount();
 

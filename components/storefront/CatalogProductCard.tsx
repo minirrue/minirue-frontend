@@ -215,7 +215,12 @@ function CardPrice({
   price: { amount: string; currency: string };
   product: ApiProduct;
 }) {
-  const shown = useDiscountedPrice(price.amount, !product.collaboratorId);
+  // The server's answer, not `!product.collaboratorId`. Ownership is the
+  // product AND its brand, and only the API sees both — this local check
+  // struck through prices on partner-brand products that checkout charged in
+  // full (#3). `?? false` so an older response without the field shows the
+  // real price rather than a discount that will not be honoured.
+  const shown = useDiscountedPrice(price.amount, product.isMinirueOwned ?? false);
   return (
     <PriceDisplay
       amount={shown.amount}
