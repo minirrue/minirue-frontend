@@ -75,6 +75,9 @@ function renderListing(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // clearAllMocks clears CALLS, not implementations — a router double that one
+  // test taught to update the URL would otherwise keep doing it for the rest.
+  mockPush.mockReset();
   mockSearch = '';
   listProducts.mockResolvedValue({
     data: [product('b')],
@@ -166,5 +169,77 @@ describe('shop filters', () => {
 
     expect(screen.getByText(/nothing matches those filters/i)).toBeInTheDocument();
     expect(screen.queryByText(/no products available/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * #5 — "the filters take 2-3 seconds to respond to a tap".
+ *
+ * The state lives in the URL, which is right, but it meant a tap could not move
+ * the radio until `router.push` had completed a route transition and
+ * `searchParams` came back changed. The control looked dead for the whole round
+ * trip, so shoppers tapped again and changed the filter twice.
+ *
+ * `useOptimistic` + `useTransition` show the new selection at once and hand it
+ * back to the URL when the navigation lands.
+ *
+ * What is NOT asserted here, and cannot be: the instant feedback itself. With a
+ * stubbed router the transition completes on the same tick, so the optimistic
+ * value is applied and reverted within one flush and there is no pending window
+ * to observe. That claim rests on the hook semantics and wants a real device.
+ * What IS asserted is everything that could regress around it — the extra
+ * request the optimistic value could cause, and the control lying about a
+ * filter that never applied.
+ */
+describe('shop filters — responding to a tap', () => {
+  it('fires ONE request when the URL catches up with the tap', async () => {
+    // The risk the optimistic value introduces: `state` now changes identity
+    // twice per tap — once optimistically, once when the URL lands with the
+    // same filters — so a refetch keyed on object identity would fire the same
+    // query twice. It is keyed on the filters' VALUE instead.
+    //
+    // This needs a router double that behaves like the real one: Next updates
+    // the URL as part of the navigation, so by the time the optimistic value is
+    // handed back, `searchParams` already carries it. A `push` that does
+    // nothing makes the value revert to the OLD filters and refetch those —
+    // an artefact of the stub, not of the component.
+    const user = userEvent.setup();
+    mockPush.mockImplementation((href: string) => {
+      mockSearch = href.split('?')[1] ?? '';
+    });
+    renderListing();
+
+    await user.click(screen.getByRole('radio', { name: /billie eilish/i }));
+
+    await waitFor(() => expect(listProducts).toHaveBeenCalled());
+    expect(listProducts).toHaveBeenCalledTimes(1);
+    expect(listProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ brandId: 'brand-1' }),
+    );
+  });
+
+  it('never leaves a filter selected that was not applied', async () => {
+    // A navigation that does not land — offline, a failed segment fetch — must
+    // roll the selection back with it. A control showing a filter the list is
+    // not using is worse than a slow one.
+    const user = userEvent.setup();
+    renderListing();
+
+    await user.click(screen.getByRole('radio', { name: /billie eilish/i }));
+
+    // mockSearch is unchanged, so the URL never accepted it.
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /billie eilish/i })).not.toBeChecked(),
+    );
+  });
+
+  it('still reads the selection from the URL on a deep link', () => {
+    // The optimistic layer sits on top of the URL, it does not replace it —
+    // arriving at a filtered address must still show the filter as chosen.
+    mockSearch = 'brandId=brand-2&sort=price_asc';
+    renderListing();
+
+    expect(screen.getByRole('radio', { name: /helia/i })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /price: low to high/i })).toBeChecked();
   });
 });
