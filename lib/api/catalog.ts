@@ -127,6 +127,19 @@ export interface ApiProduct {
    * advertise a discount that checkout refuses.
    */
   collaboratorId?: string | null;
+  /**
+   * Whether a sitewide markdown applies to this product — the SERVER's answer.
+   *
+   * MiniRue owns a product only when neither the product nor its BRAND records
+   * a collaborator, which is the rule the backend prices orders with. The
+   * storefront used to re-derive it from `collaboratorId` alone: a product with
+   * no collaborator of its own, on a brand that has one, was struck through
+   * here and charged in full at checkout (#3).
+   *
+   * Optional because an older API response will not carry it. Callers must
+   * treat a missing value as NOT eligible — see `useDiscountedPrice`.
+   */
+  isMinirueOwned?: boolean;
   fragranceFamily?: string | null;
   gender?: 'men' | 'women' | 'unisex' | null;
   description?: string;

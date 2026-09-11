@@ -219,7 +219,15 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
    */
   const shownPrice = useDiscountedPrice(
     selectedVariant?.priceAmount ?? '0',
-    !product.collaboratorId,
+    // The server's answer, not `!product.collaboratorId`.
+    //
+    // Ownership is the product AND its brand; the local check saw only the
+    // product, so a product on a partner's brand was struck through here and
+    // charged in full at checkout (#3). `?? false` because an older API
+    // response may not carry the field, and the safe answer to "unknown" is
+    // "no discount" — a discount shown but not honoured is worse than one
+    // missed.
+    product.isMinirueOwned ?? false,
   );
 
   return (
@@ -700,7 +708,15 @@ export default function ApiProductDetail({
    */
   const shownPrice = useDiscountedPrice(
     selectedVariant?.priceAmount ?? '0',
-    !product.collaboratorId,
+    // The server's answer, not `!product.collaboratorId`.
+    //
+    // Ownership is the product AND its brand; the local check saw only the
+    // product, so a product on a partner's brand was struck through here and
+    // charged in full at checkout (#3). `?? false` because an older API
+    // response may not carry the field, and the safe answer to "unknown" is
+    // "no discount" — a discount shown but not honoured is worse than one
+    // missed.
+    product.isMinirueOwned ?? false,
   );
 
   // The crossfade label follows what is actually shown — animating from the
