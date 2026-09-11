@@ -1,3 +1,15 @@
+/* eslint-disable react-hooks/refs -- False positive on `useScrollReveal`.
+ *
+ * The hook returns `{ ref, style }` (lib/motion/hooks.ts). Handing that `ref`
+ * to a DOM element — `ref={head.ref}` — is the documented way to use a ref
+ * object, and spreading `style` next to it reads a plain CSSProperties value.
+ * The rule cannot tell a property NAMED `ref` from a `.current` dereference, so
+ * it reports every reveal-animated element in this file.
+ *
+ * Disabled for the file rather than the rule, because the same rule caught a
+ * real bug elsewhere in this repo: ChatButton derived its drag cursor from
+ * `dragStart.current` during render, which is not reactive.
+ */
 'use client';
 
 import React from 'react';

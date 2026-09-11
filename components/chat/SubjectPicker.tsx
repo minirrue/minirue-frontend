@@ -32,7 +32,7 @@ export default function SubjectPicker({ pageSubject, value, onChange }: SubjectP
   return (
     <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--mr-hairline)', background: 'var(--mr-cream-100)' }}>
       <label htmlFor="mr-support-subject" style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 10, color: 'var(--mr-ink-400)', marginBottom: 4, display: 'block' }}>
-        What's this about?
+        What&apos;s this about?
       </label>
       <select
         id="mr-support-subject"

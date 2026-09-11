@@ -44,3 +44,6 @@ next-env.d.ts
 ruvector.db
 ruvector.db.lock
 *.log
+
+# Installed Claude Code skill libraries (vendored, per-project)
+.claude/

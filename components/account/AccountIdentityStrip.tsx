@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@/lib/hooks/use-auth';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
-import { Role } from '@/lib/auth/role';
 
 function AccountIdentitySkeleton() {
   return (
@@ -37,7 +36,6 @@ export default function AccountIdentityStrip() {
     authUser?.email?.split('@')[0] ||
     'Member';
   const email = authUser?.email ?? '';
-  const role = authUser?.role ?? Role.CUSTOMER;
 
   return (
     <header

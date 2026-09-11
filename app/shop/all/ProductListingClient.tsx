@@ -89,11 +89,14 @@ export default function ProductListingClient({
    * every change they make. Merging it under the URL-derived filters keeps the
    * page's own scope intact while letting the shopper narrow inside it.
    */
-  const baseFilters = React.useRef(initialFilters);
+  // useState's initializer, not a ref: the value is captured once and never
+  // written, which is exactly what lazy initial state gives — and unlike a ref
+  // it is safe to read while rendering, which the memo below does.
+  const [baseFilters] = React.useState(initialFilters);
 
   const apiFilters = React.useMemo(
-    () => ({ ...baseFilters.current, ...toApiFilters(state) }),
-    [state],
+    () => ({ ...baseFilters, ...toApiFilters(state) }),
+    [baseFilters, state],
   );
 
   /**

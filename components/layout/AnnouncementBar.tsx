@@ -83,8 +83,6 @@ export default function AnnouncementBar({
   const textFontSize = isMobile ? 10 : 11;
   const marqueeDuration = isMobile ? '45s' : '90s';
 
-  if (!enabled || messages.length === 0) return null;
-
   // PATCH announcement-bar-collapse-on-first-scroll
   // The first scroll gesture (wheel OR downward touch swipe) collapses the bar
   // and is consumed — the page does not scroll on that gesture. Subsequent
@@ -143,6 +141,20 @@ export default function AnnouncementBar({
     // setHidden is now stable across renders via useCallback.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Bail out AFTER every hook, never before one.
+  //
+  // This `return null` used to sit above the scroll-collapse useEffect below,
+  // so the component called a different number of hooks depending on whether
+  // the shop had any announcements configured. The moment an admin turned the
+  // bar on or off — or saved a settings change that emptied `messages` — React
+  // hit "Rendered fewer hooks than expected" and the tree went down with it.
+  // Nothing about the bar looked wrong in isolation, which is why it read as
+  // "the announcement bar doesn't follow the dashboard storefront".
+  //
+  // Hooks must run in the same order on every render (rules-of-hooks), so the
+  // early exit belongs here, below all of them and above the JSX.
+  if (!enabled || messages.length === 0) return null;
 
   const doubled = [...messages, ...messages, ...messages];
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import { CartProvider } from '@/components/storefront/cart/CartContext';

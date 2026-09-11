@@ -66,7 +66,13 @@ export function DiscountCodeField({
   );
 
   const linesRef = React.useRef(lines);
-  linesRef.current = lines;
+  // After commit, not during render: a discarded render must not leave this
+  // holding lines the shopper never saw. `runPreview` reads it from a submit
+  // handler, which cannot fire before the commit that follows, so it still sees
+  // the current basket.
+  React.useEffect(() => {
+    linesRef.current = lines;
+  });
 
   const runPreview = React.useCallback(
     async (code: string, opts?: { silent?: boolean }) => {

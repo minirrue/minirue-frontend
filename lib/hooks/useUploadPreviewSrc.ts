@@ -114,23 +114,6 @@ export function useUploadPreviewSrc(
     }
   }, [remoteReady, localUrl]);
 
-  function handleRemoteError() {
-    if (!src) return;
-    const attempt = attemptsRef.current + 1;
-    attemptsRef.current = attempt;
-    if (attempt >= RETRY_MAX_ATTEMPTS) {
-      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
-      setRemoteFailed(true);
-      return;
-    }
-    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
-    const delay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
-    retryTimeoutRef.current = setTimeout(() => {
-      const sep = src.includes('?') ? '&' : '?';
-      setRemoteRenderedSrc(`${src}${sep}retry=${attempt}`);
-    }, delay);
-  }
-
   function retryRemote() {
     attemptsRef.current = 0;
     setRemoteFailed(false);
@@ -149,10 +132,9 @@ export function useUploadPreviewSrc(
     remoteFailed: false,
     retryRemote,
   };
-  // handleRemoteError is intentionally not returned — plain <img>/<video>
-  // consumers of this hook need it wired to onError, which differs per
-  // element type, so callers that need it should call the sibling
-  // `useUploadPreviewSrcOnError` pairing below instead of re-deriving it.
+  // No onError handler here: callers wire `useUploadPreviewSrcOnError` below,
+  // which owns the retry/backoff state for the same `src` key. This hook used
+  // to also carry a private copy of that logic that nothing ever called.
 }
 
 /**

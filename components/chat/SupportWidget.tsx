@@ -744,9 +744,14 @@ export default function SupportWidget() {
   const guestBlocked = chatAccess === 'blocked';
   /** The single gate for every writable surface: composer, subject picker, send. */
   const canMessage = chatAccess === 'allowed';
-  // Assigned during render, so it is already correct by the time any handler
-  // declared above can possibly fire.
-  canMessageRef.current = canMessage;
+  // Assigned after commit, not during render. The guarantee this needs is
+  // unchanged — the handlers that read it (the composer's send, and the upload
+  // path at 626) fire from user interaction, which cannot happen before the
+  // commit — while a render that React discards no longer leaves the gate
+  // holding a value that was never shown.
+  React.useEffect(() => {
+    canMessageRef.current = canMessage;
+  });
 
   const panelBody = guestBlocked ? (
     <SignInToChat />

@@ -197,7 +197,14 @@ export default function ChatPanel({
   // can revoke whatever object URLs are still outstanding without closing
   // over a stale empty array from mount.
   const pendingAttachmentsRef = React.useRef<PendingAttachment[]>(pendingAttachments);
-  pendingAttachmentsRef.current = pendingAttachments;
+  // Mirrored in an effect rather than assigned during render. A render can be
+  // thrown away (StrictMode double-renders, and any interrupted concurrent
+  // render), so a value written during one may never have been committed — and
+  // this ref exists to tell the unmount cleanup which object URLs are REALLY
+  // outstanding. Writing after commit is what makes that true.
+  React.useEffect(() => {
+    pendingAttachmentsRef.current = pendingAttachments;
+  });
   React.useEffect(() => {
     return () => {
       pendingAttachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.localUrl));
