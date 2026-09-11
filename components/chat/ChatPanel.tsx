@@ -400,6 +400,10 @@ export default function ChatPanel({
     if (pinnedToBottomRef.current) scrollToBottom('instant');
   }, [scrollToBottom]);
 
+  /** Hover is on the 36px picture, not the 44px target — see the composer. */
+  const [sendHover, setSendHover] = React.useState(false);
+  const sendReady = Boolean(input.trim() || pendingAttachments.length > 0);
+
   const send = () => {
     const txt = input.trim();
     const ready = pendingAttachments.filter((a) => a.status === 'ready');
@@ -802,15 +806,23 @@ export default function ChatPanel({
                   aria-hidden="true"
                   tabIndex={-1}
                 />
+                {/* 44x44 tap target, 32px circle (#9). The button is the
+                    target and the span is the picture: growing the visible
+                    circle to 44 would have reshaped a composer row that is
+                    only 36px tall, so the hit area grows INVISIBLY around the
+                    same control instead. Apple's and Google's floor is 44/48
+                    and this was 32 — a miss on a phone is a lost message. */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   aria-label="Attach image"
                   disabled={inputDisabled || uploading}
-                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', border: '1px solid var(--mr-hairline)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  style={{ width: 44, height: 44, borderRadius: '50%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                 >
-                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--mr-ink-400)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-                  </svg>
+                  <span style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--mr-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--mr-ink-400)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+                    </svg>
+                  </span>
                 </button>
               </>
             )}
@@ -843,17 +855,24 @@ export default function ChatPanel({
               onFocus={(e) => (e.target.style.borderColor = 'var(--mr-gold-400)')}
               onBlur={(e) => (e.target.style.borderColor = 'var(--mr-hairline)')}
             />
+            {/* Same 44x44 target / 36px circle split as Attach above (#9).
+                The scale-on-ready and scale-on-hover move to the SPAN, so the
+                tap area stays a constant 44 while the picture still reacts —
+                animating the button itself would have shrunk the target at
+                exactly the moment there is nothing to send. */}
             <button
               onClick={send}
               aria-label="Send message"
               disabled={inputDisabled || sending || uploading}
-              style={{ width: 36, height: 36, borderRadius: '50%', background: (input.trim() || pendingAttachments.length > 0) ? 'var(--mr-ink-900)' : 'var(--mr-cream-300)', border: 0, cursor: (input.trim() || pendingAttachments.length > 0) ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 200ms cubic-bezier(0.16,1,0.3,1), transform 160ms', transform: (input.trim() || pendingAttachments.length > 0) ? 'scale(1)' : 'scale(0.9)', flexShrink: 0 }}
-              onMouseEnter={(e) => { if (input.trim() || pendingAttachments.length > 0) e.currentTarget.style.transform = 'scale(1.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = (input.trim() || pendingAttachments.length > 0) ? 'scale(1)' : 'scale(0.9)'; }}
+              style={{ width: 44, height: 44, borderRadius: '50%', background: 'transparent', border: 0, padding: 0, cursor: sendReady ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+              onMouseEnter={() => setSendHover(true)}
+              onMouseLeave={() => setSendHover(false)}
             >
-              <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={(input.trim() || pendingAttachments.length > 0) ? 'var(--mr-cream-100)' : 'var(--mr-ink-400)'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-              </svg>
+              <span style={{ width: 36, height: 36, borderRadius: '50%', background: sendReady ? 'var(--mr-ink-900)' : 'var(--mr-cream-300)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 200ms cubic-bezier(0.16,1,0.3,1), transform 160ms', transform: sendReady ? (sendHover ? 'scale(1.1)' : 'scale(1)') : 'scale(0.9)' }}>
+                <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={sendReady ? 'var(--mr-cream-100)' : 'var(--mr-ink-400)'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
+              </span>
             </button>
           </div>
         </div>
