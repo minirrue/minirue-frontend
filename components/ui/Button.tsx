@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { MR_TX } from '@/lib/motion/presets';
 
 type Variant = 'primary' | 'gold' | 'outline' | 'outlineLight' | 'ghost';
@@ -24,6 +25,24 @@ interface ButtonProps {
   sweepColor?: string;
   sweepInk?: string;
   type?: 'button' | 'submit' | 'reset';
+  /**
+   * Render as a LINK that looks like this button, rather than a `<button>`.
+   *
+   * A navigation is a link — it has to middle-click, open in a new tab and
+   * show its destination on hover, none of which an `onClick` that calls
+   * `router.push` can do. And a `<button>` nested inside an `<a>` is invalid
+   * HTML, so wrapping is not the answer either.
+   *
+   * This exists because the chat's sign-in prompt was styled with
+   * `className="mr-btn mr-btn--primary"` — class names that are not defined in
+   * any stylesheet in this repo, so the control rendered as bare text with no
+   * affordance at all (#9). The fix for that is to make the shared component
+   * cover the case, not to hand-style one more call site.
+   */
+  href?: string;
+  /** Link only — forwarded to next/link. */
+  prefetch?: boolean;
+  ariaLabel?: string;
   /** RULEBOOK §27 — full data-trace-id for this button, e.g.
    * "PG-STOREFRONT-IAM-001::EL-BTN-submit-login". Caller-supplied because this component is
    * reused across every screen, each with its own PG-* id. */
@@ -94,6 +113,9 @@ function Button({
   sweepInk,
   type = 'button',
   traceId,
+  href,
+  prefetch,
+  ariaLabel,
 }: ButtonProps) {
   const [h, setH] = React.useState(false);
   const [p, setP] = React.useState(false);
@@ -144,29 +166,58 @@ function Button({
     ? ({ '--sweep-color': sweepColor ?? SWEEP_FILL[variant] } as React.CSSProperties)
     : {};
 
+  const visualStyle: React.CSSProperties = {
+    ...base,
+    ...VARIANTS[variant],
+    ...(h && !disabled ? hoverStyle : {}),
+    ...sweepVars,
+    transform: scale,
+    transition: p
+      ? MR_TX.press
+      : 'transform var(--mp-dur-hover) var(--mr-ease-spring), background-color var(--mr-dur-fast) var(--mr-ease-snappy), color var(--mr-dur-fast) var(--mr-ease-snappy), box-shadow var(--mr-dur-fast) var(--mr-ease-out)',
+  };
+
+  const pointerProps = {
+    onMouseEnter: handleMouseEnter,
+    onMouseLeave: handleMouseLeave,
+    onMouseDown: handleMouseDown,
+    onMouseUp: handleMouseUp,
+  };
+
+  // The sweep panel is a positioned ::before, and CSS paints positioned
+  // descendants ABOVE an element's own inline content — so the label has to be
+  // wrapped or the fill glides over the words. Same reason EditorialBlock and
+  // SlideContent wrap theirs.
+  const label = swept ? <span style={{ position: 'relative', zIndex: 1 }}>{children}</span> : children;
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        prefetch={prefetch}
+        aria-label={ariaLabel}
+        data-trace-id={traceId}
+        className={swept ? 'mr-btn-sweep' : undefined}
+        {...pointerProps}
+        style={{ ...visualStyle, textDecoration: 'none' }}
+      >
+        {label}
+      </Link>
+    );
+  }
+
   return (
     <button
       type={type}
+      aria-label={ariaLabel}
       data-trace-id={traceId}
       className={swept ? 'mr-btn-sweep' : undefined}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      style={{
-        ...base,
-        ...VARIANTS[variant],
-        ...(h && !disabled ? hoverStyle : {}),
-        ...sweepVars,
-        transform: scale,
-        transition: p
-          ? MR_TX.press
-          : 'transform var(--mp-dur-hover) var(--mr-ease-spring), background-color var(--mr-dur-fast) var(--mr-ease-snappy), color var(--mr-dur-fast) var(--mr-ease-snappy), box-shadow var(--mr-dur-fast) var(--mr-ease-out)',
-      }}
+      {...pointerProps}
+      style={visualStyle}
     >
-      {swept ? <span style={{ position: 'relative', zIndex: 1 }}>{children}</span> : children}
+      {label}
     </button>
   );
 }

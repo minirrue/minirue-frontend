@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Button from '@/components/ui/Button';
 
 /**
  * What a guest sees instead of the chat.
@@ -17,6 +17,13 @@ import { usePathname } from 'next/navigation';
  *
  * Returns them here afterwards, so signing in does not cost them the page they
  * were reading.
+ *
+ * Both actions are the shared `Button` (#9). They were a `<Link>` carrying
+ * `className="mr-btn mr-btn--primary"` and a bare text link — and `.mr-btn` is
+ * not defined in any stylesheet in this repo, so BOTH rendered as plain text
+ * with no fill, border or elevation. The class names read as correct at the
+ * call site and did nothing, which is why this looked like a styling choice
+ * rather than a missing one.
  */
 export default function SignInToChat() {
   const pathname = usePathname();
@@ -25,9 +32,15 @@ export default function SignInToChat() {
   return (
     <div
       style={{
+        // Fills the panel and centres in it. The prompt used to sit at the top
+        // of a full-height box with a large empty expanse under it, which read
+        // as still loading rather than as a finished screen.
+        flex: 1,
+        minHeight: 0,
         padding: '28px 24px',
         display: 'flex',
         flexDirection: 'column',
+        justifyContent: 'center',
         gap: 'var(--mr-sp-4)',
         alignItems: 'flex-start',
       }}
@@ -47,24 +60,40 @@ export default function SignInToChat() {
         Your conversation stays with your account, so you can pick it up again
         from any device — and we know who we&apos;re replying to.
       </p>
-      <div style={{ display: 'flex', gap: 'var(--mr-sp-3)', flexWrap: 'wrap' }}>
-        <Link
+      {/*
+        One primary, one secondary — signing in is the expected action and
+        creating an account is the way out for someone who cannot.
+
+        They wrap rather than shrink: the panel is `min(360px, 100vw - 48px)`
+        wide, so on a narrow phone two pills side by side would squeeze both
+        below a comfortable target.
+      */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--mr-sp-3)',
+          flexWrap: 'wrap',
+          width: '100%',
+        }}
+      >
+        <Button
           href={`/login?next=${next}&reason=sign-in-required`}
-          className="mr-btn mr-btn--primary"
-          style={{ textDecoration: 'none' }}
+          variant="primary"
+          // 44px is the floor for a touch target; the shared button's `md`
+          // padding lands at 40.
+          style={{ minHeight: 44 }}
+          traceId="PG-STOREFRONT-SUPPORT-001::EL-BTN-sign-in-to-chat"
         >
           Sign in
-        </Link>
-        <Link
+        </Button>
+        <Button
           href={`/signup?next=${next}`}
-          style={{
-            alignSelf: 'center',
-            color: 'var(--mr-fg-2)',
-            fontSize: 14,
-          }}
+          variant="outline"
+          style={{ minHeight: 44 }}
+          traceId="PG-STOREFRONT-SUPPORT-001::EL-BTN-create-account-from-chat"
         >
           Create an account
-        </Link>
+        </Button>
       </div>
     </div>
   );
