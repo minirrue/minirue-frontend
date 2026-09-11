@@ -42,7 +42,25 @@ describe('OrderHistoryClient — refunded amount', () => {
     render(<OrderHistoryClient />);
 
     await waitFor(() => expect(screen.getByText('#47')).toBeInTheDocument());
-    expect(screen.getByText(/EGP 450\.00 refunded/)).toBeInTheDocument();
+    // "EGP 450", not "EGP 450.00" — one money rule for the whole site now
+    // (#1, lib/format/money.ts). A card priced "EGP 450" and a refund line
+    // reading "EGP 450.00" for the same order read as two different numbers.
+    expect(screen.getByText(/EGP 450 refunded/)).toBeInTheDocument();
+  });
+
+  it('keeps the piastres on a part refund', async () => {
+    // The other half of the same rule: decimals are dropped only when they are
+    // zero. A refund of 450.50 must not be reported as 450 or as 451.
+    mockApiListOrders.mockResolvedValue({
+      data: [order({ refundedAmountCents: 45050 })],
+      total: 1,
+      page: 1,
+      limit: 10,
+    });
+    render(<OrderHistoryClient />);
+
+    await waitFor(() => expect(screen.getByText('#47')).toBeInTheDocument());
+    expect(screen.getByText(/EGP 450\.50 refunded/)).toBeInTheDocument();
   });
 
   it('renders no refund text for an order that was never refunded', async () => {

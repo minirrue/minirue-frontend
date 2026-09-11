@@ -1,3 +1,5 @@
+import { formatMoney } from '@/lib/format/money';
+
 /**
  * PriceDisplay — formats price_amount + currency code to a display string.
  * price_amount is ALWAYS a string (Dinero.js) and is never parsed as float for display.
@@ -18,21 +20,7 @@ interface PriceDisplayProps {
  * options instead of a second, drifting copy.
  */
 export function formatPrice(amount: string, currency: string): string {
-  // Use Intl.NumberFormat for proper locale-aware formatting.
-  // Parse amount as number for formatting only — never stored as float.
-  const num = parseFloat(amount);
-  if (isNaN(num)) return `${currency} ${amount}`;
-  try {
-    return new Intl.NumberFormat('en-EG', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(num);
-  } catch {
-    // Fallback if currency code is unrecognised by Intl
-    return `${currency} ${Math.round(num).toLocaleString('en-EG')}`;
-  }
+  return formatMoney(amount, currency);
 }
 
 export default function PriceDisplay({
