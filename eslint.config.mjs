@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+
+    // Installed Claude Code skill libraries — vendored third-party scripts,
+    // untracked by git, and not this project's code to hold to its rules. They
+    // were contributing 36 of 113 lint errors (a CommonJS helper server, a
+    // browser-driver script), none of which ship to a user.
+    ".claude/**",
   ]),
   {
     rules: {

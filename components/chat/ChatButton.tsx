@@ -13,11 +13,6 @@ import {
   type ChatButtonEdge,
 } from '@/lib/hooks/useChatButtonPosition';
 
-/** The avatar circle inside the launcher, same size the panel header uses
- *  for the identical shop-logo slot (see ChatPanel.tsx). Smaller than the
- *  52px button itself so the launcher keeps a visible ring around it. */
-const LAUNCHER_AVATAR_SIZE = 36;
-
 interface ChatButtonProps {
   onClick: () => void;
   hasUnread?: boolean;
@@ -59,8 +54,15 @@ export default function ChatButton({
   onClick,
   hasUnread = false,
   open = false,
-  shopAvatarUrl = null,
-  shopName = 'MiniRue Support',
+  // Accepted and deliberately ignored. The launcher shows the chat glyph, not
+  // the shop logo — reversed 2026-08-03 at the owner's request (see the glyph's
+  // comment below). The props stay on the interface because
+  // __tests__/chat/chat-button-avatar.test.tsx guards that decision by SUPPLYING
+  // a logo and asserting none reaches the launcher; it cannot make that point
+  // about a prop that does not exist. Underscored per this repo's convention
+  // for a binding that is unused on purpose.
+  shopAvatarUrl: _shopAvatarUrl = null,
+  shopName: _shopName = 'MiniRue Support',
 }: ChatButtonProps) {
   const [hovered, setHovered] = React.useState(false);
   const [pressed, setPressed] = React.useState(false);
@@ -205,7 +207,7 @@ export default function ChatButton({
     }
   };
 
-  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const onPointerUp = (_e: React.PointerEvent<HTMLButtonElement>) => {
     setPressed(false);
     if (!dragStart.current) return;
     dragStart.current = null;
@@ -302,7 +304,12 @@ export default function ChatButton({
           ? '0 8px 32px rgba(11,11,11,0.4), 0 0 0 8px rgba(11,11,11,0.08)'
           : '0 4px 20px rgba(11,11,11,0.28)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: dragStart.current ? 'grabbing' : 'grab',
+        // `pressed`, not `dragStart.current`: a ref read during render is not
+        // reactive, so the cursor only ever showed whatever the ref held at the
+        // last render that happened for some other reason. Both are set on
+        // pointerdown and cleared on pointerup (lines 127/130 and 211/213), so
+        // this is the same signal in a form React can actually re-render on.
+        cursor: pressed ? 'grabbing' : 'grab',
         touchAction: 'none',
         // A drag that selects text as it goes looks broken even when the button
         // moves correctly.
