@@ -37,9 +37,12 @@ function withCollectionLabel(href: string | null, title: string): string | null 
 export default function SectionRenderer({
   section,
   onScrollToProducts,
+  belowOffset = 0,
 }: {
   section: ResolvedSection;
   onScrollToProducts: () => void;
+  /** Forwarded to the hero — see HeroProps.belowOffset. */
+  belowOffset?: number;
 }) {
   switch (section.type) {
     case 'hero':
@@ -53,6 +56,7 @@ export default function SectionRenderer({
           ariaLabel={section.ariaLabel}
           scrollCueLabel={section.scrollCueLabel}
           onShop={onScrollToProducts}
+          belowOffset={belowOffset}
         />
       );
 

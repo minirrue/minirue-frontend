@@ -11,6 +11,15 @@ interface HeroProps {
   ariaLabel?: string;
   scrollCueLabel?: string | null;
   onShop?: () => void;
+  /**
+   * Pixels of the first screen taken by whatever sits directly below the hero
+   * and belongs to it — today the ribbon that so often follows it.
+   *
+   * The hero gives up exactly this many so the PAIR fills one viewport. Without
+   * it the hero is a viewport tall and the ribbon pushes the fold down, which
+   * is the "I can see the website under the hero" report.
+   */
+  belowOffset?: number;
 }
 
 export default function Hero({
@@ -19,6 +28,7 @@ export default function Hero({
   ariaLabel = 'Featured products carousel',
   scrollCueLabel,
   onShop,
+  belowOffset = 0,
 }: HeroProps) {
   const { mobile } = useBreakpoint();
   const [current, setCurrent] = React.useState(0);
@@ -120,7 +130,25 @@ export default function Hero({
          * search sheets) — those must fit the visible area and contribute no
          * page height. Do not sweep those to svh.
          */
-        height: mobile ? '80svh' : 'min(100svh, 980px)',
+        /*
+         * A full viewport on both, and the ribbon counts as part of it.
+         *
+         * Mobile was 80svh, so a strip of the page below showed under the hero
+         * on first load — the owner's report was seeing "the website under the
+         * hero". Desktop was capped at 980px, so on a tall screen the hero
+         * stopped short of the fold for the same reason.
+         *
+         * `belowOffset` is the height of whatever sits directly beneath the
+         * hero and belongs to the same first screen — today the ribbon. The
+         * hero gives up exactly that many pixels so the PAIR is one viewport
+         * rather than the hero being one viewport and the ribbon pushing the
+         * fold down.
+         *
+         * svh throughout, per the note above: it is the only unit that is both
+         * stable and small, so the hero neither reflows as the URL bar
+         * collapses nor hides behind chrome that is still on screen.
+         */
+        height: `calc(100svh - ${belowOffset}px)`,
         minHeight: mobile ? 520 : 680,
         background: '#0B0B0B',
         color: 'var(--mr-cream-100)',
