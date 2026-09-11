@@ -323,7 +323,28 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
  * needed to "reveal" it, so the shadow is dropped rather than patched.
  */
 .mr-page-sheet {
-  position: relative; z-index: 1;
+  /* NO z-index here, deliberately, and it must not come back.
+   *
+   * This wrapper carried `z-index: 1` from the initial import. One line, and
+   * every overlay the page owns was sealed under every overlay the root layout
+   * owns — because a positioned element with a z-index creates a STACKING
+   * CONTEXT, and a child's z-index is then only meaningful inside it. The page
+   * sheet sat at 1; `MobileBottomNav`, `CartDrawer` and `SupportWidget` are
+   * mounted at the root, outside it, at 20, 80 and 201.
+   *
+   * So the mobile menu (z-index 60, rendered by Header, inside here) resolved
+   * to "1" against the bottom nav's 20 and lost — the reported symptom: the
+   * Account entry at the bottom of the drawer was behind the nav and could not
+   * be tapped at all. The search sheet's 120 lost to the same 20, and to the
+   * cart drawer. Three numbers that all looked right at their call sites.
+   *
+   * Without a z-index this is still `position: relative` — descendants still
+   * anchor to it and it still paints over the body background — but it no
+   * longer creates a context, so those 60s and 120s mean what they say.
+   *
+   * Covered by __tests__/layout/page-sheet-stacking.test.ts.
+   */
+  position: relative;
   background: var(--mr-cream-200);
   /* svh, not dvh. `dvh` is the DYNAMIC unit: it re-resolves as iOS Safari's address bar
      collapses on scroll, so on a wrapper that mounts on every page it made the whole page
