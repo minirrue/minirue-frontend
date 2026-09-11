@@ -12,7 +12,6 @@ import {
   useChatButtonPosition,
   type ChatButtonEdge,
 } from '@/lib/hooks/useChatButtonPosition';
-import { MessageAvatar } from '@/components/chat/ChatPanel';
 
 /** The avatar circle inside the launcher, same size the panel header uses
  *  for the identical shop-logo slot (see ChatPanel.tsx). Smaller than the
