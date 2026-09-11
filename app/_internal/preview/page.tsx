@@ -5,12 +5,8 @@ import {
   Button,
   IconButton,
   Badge,
-  Icon,
   Input,
   Wordmark,
-  WordReveal,
-  Marquee,
-  BottleSVG,
 } from '@/components/ui';
 import { MR_SPRING } from '@/lib/motion/presets';
 

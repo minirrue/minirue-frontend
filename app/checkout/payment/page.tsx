@@ -6,7 +6,6 @@ import { useCart } from '@/components/storefront/cart/CartContext';
 import { loadCheckoutSession, saveCheckoutSession } from '@/lib/checkout/checkout-session';
 import {
   COD_MAX_ORDER_MINOR,
-  isCodAvailable,
   orderTotalMinor,
   SHIPPING_AMOUNT_MINOR,
 } from '@/lib/checkout/checkout-schemas';

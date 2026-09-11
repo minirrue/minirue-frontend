@@ -10,7 +10,6 @@ import {
   apiSetDefaultAddress,
   type CustomerProfile,
   type ProfileUpdateInput,
-  type Address,
   type AddressInput,
 } from '@/lib/api/customers';
 

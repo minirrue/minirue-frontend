@@ -8,7 +8,7 @@ import IconButton from '@/components/ui/IconButton';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { useScrollDirection } from '@/lib/hooks/useScrollDirection';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
-import { useMobileChrome, closeMobileMenu, closeMobileSearch, openMobileMenu, openMobileSearch } from '@/lib/hooks/useMobileChrome';
+import { useMobileChrome, closeMobileMenu, closeMobileSearch, openMobileSearch } from '@/lib/hooks/useMobileChrome';
 import { getSession, type Session } from '@/lib/session';
 import { useUser, useLogout } from '@/lib/hooks/use-auth';
 import { useSessionState } from '@/lib/hooks/use-session-state';
