@@ -170,13 +170,32 @@
 
 /* ── Keyframes ── */
 
-/* Ken Burns hero drift */
+/* Ken Burns hero drift.
+ *
+ * Starts at 1.00 and peaks at 1.018, down from 1.035, over 34s rather than 26s.
+ *
+ * The photo is already being upscaled by `object-fit: cover` on a large screen —
+ * the hero is full-bleed, so a 1600px original is stretched well past its native
+ * width before any animation runs. The drift then multiplied that, and the
+ * moment it peaked was the moment the pixels showed (owner: "pixels of the photo
+ * can be seen [...] make photos start smaller and enlarge bigger more
+ * sensitivity").
+ *
+ * Halving the peak halves the worst-case upscale, and the longer cycle makes the
+ * movement gentler rather than merely smaller — the same slow breath, without
+ * the frame that gives the resolution away.
+ */
 @keyframes mr-hero-drift {
-  0%   { transform: scale(1.00) translate3d(0,0,0); }
-  50%  { transform: scale(1.035) translate3d(-0.5%,-0.7%,0); }
-  100% { transform: scale(1.00) translate3d(0,0,0); }
+  0%   { transform: scale(1.000) translate3d(0,0,0); }
+  50%  { transform: scale(1.018) translate3d(-0.35%,-0.45%,0); }
+  100% { transform: scale(1.000) translate3d(0,0,0); }
 }
-.mr-hero-drift { animation: mr-hero-drift 26s var(--mr-ease-ios) infinite; }
+.mr-hero-drift { animation: mr-hero-drift 34s var(--mr-ease-ios) infinite; }
+
+/* Anything that cannot gain from the motion should not pay for it. */
+@media (prefers-reduced-motion: reduce) {
+  .mr-hero-drift { animation: none; }
+}
 
 /* Sparkle breath */
 @keyframes mr-breath {

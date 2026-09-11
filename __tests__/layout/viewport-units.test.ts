@@ -50,10 +50,35 @@ describe('viewport units on in-flow layout', () => {
   );
 
   it('the hero uses svh so it cannot resize as mobile chrome collapses', () => {
+    // Asserts the RULE, not the expression.
+    //
+    // This used to pin the literal `mobile ? '80svh' : 'min(100svh, 980px)'`,
+    // so changing the hero to fill the viewport — the same svh, different
+    // arithmetic — failed a test whose name is about the unit. A guard that
+    // breaks on any edit to the line it guards stops being read as a warning.
     const hero = readFileSync(
       join(ROOT, 'components/storefront/Hero.tsx'),
       'utf8',
     );
-    expect(hero).toMatch(/height: mobile \? '80svh' : 'min\(100svh, 980px\)'/);
+    const code = hero
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+
+    expect(code).toMatch(/height: .*svh/);
+    expect(code).not.toMatch(/\ddvh/);
+  });
+
+  it('the hero fills the viewport, minus whatever shares the first screen', () => {
+    // The owner's report was seeing "the website under the hero" on first load:
+    // the hero was 80svh on mobile and capped at 980px on desktop, so the next
+    // section showed above the fold. It now takes the whole viewport less
+    // `belowOffset` — the ribbon's height when one follows it, zero otherwise —
+    // so the first screen is the hero, or the hero and its ribbon.
+    const hero = readFileSync(
+      join(ROOT, 'components/storefront/Hero.tsx'),
+      'utf8',
+    );
+
+    expect(hero).toMatch(/calc\(100svh - \$\{belowOffset\}px\)/);
   });
 });
