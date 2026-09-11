@@ -5,8 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { mediaImageUrl, primaryMedia, lowestPrice, productByline, productInStock } from '@/lib/api/catalog';
-import PriceDisplay from './PriceDisplay';
-import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
+import CardPrice from './CardPrice';
 import { productPath } from '@/lib/routes';
 import { usePrefetchOnIntent } from '@/lib/hooks/usePrefetchOnIntent';
 
@@ -200,32 +199,5 @@ export default function CatalogProductCard({ product, index = 0, traceIdPrefix }
         </div>
       </article>
     </Link>
-  );
-}
-
-/**
- * Split out because a hook cannot be called inside the `price &&` branch above.
- * Renders exactly as before when no markdown is running: `useDiscountedPrice`
- * returns `wasAmount: undefined`, which is what an ordinary price already is.
- */
-function CardPrice({
-  price,
-  product,
-}: {
-  price: { amount: string; currency: string };
-  product: ApiProduct;
-}) {
-  // The server's answer, not `!product.collaboratorId`. Ownership is the
-  // product AND its brand, and only the API sees both — this local check
-  // struck through prices on partner-brand products that checkout charged in
-  // full (#3). `?? false` so an older response without the field shows the
-  // real price rather than a discount that will not be honoured.
-  const shown = useDiscountedPrice(price.amount, product.isMinirueOwned ?? false);
-  return (
-    <PriceDisplay
-      amount={shown.amount}
-      wasAmount={shown.wasAmount}
-      currency={price.currency}
-    />
   );
 }

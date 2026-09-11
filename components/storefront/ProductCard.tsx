@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { primaryMedia, mediaImageUrl, lowestPrice, productByline, productInStock } from '@/lib/api/catalog';
 import { useImageRetry } from '@/lib/hooks/useImageRetry';
+import CardPrice from './CardPrice';
 import WishlistHeart from './WishlistHeart';
 import { MR_TX } from '@/lib/motion/presets';
 import { useIsTouch } from '@/lib/hooks/useIsTouch';
@@ -276,9 +277,19 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
               {meta}
             </div>
           )}
+          {/* Was `{price.currency} {price.amount}` — a raw NUMERIC(*,4) string
+              straight to the DOM, so the home page read "EGP 799.0000" while
+              /shop/all read "EGP 799  EGP 719" for the same product. The
+              interpolation skipped the sitewide-discount hook as well, which is
+              why the markdown never showed here (#1). Shared component now, so
+              there is no second renderer left to drift. */}
           {price && (
-            <div style={{ marginTop: 9, fontFamily: 'Cormorant Garamond, serif', fontWeight: 500, fontSize: 17, color: 'var(--mr-ink-900)', fontVariantNumeric: 'oldstyle-nums tabular-nums' }}>
-              {price.currency} {price.amount}
+            <div style={{ marginTop: 9 }}>
+              <CardPrice
+                price={price}
+                product={product}
+                style={{ color: 'var(--mr-ink-900)' }}
+              />
             </div>
           )}
         </div>
