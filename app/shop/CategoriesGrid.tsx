@@ -238,7 +238,13 @@ export default function CategoriesGrid({
         data-trace-id="PG-STOREFRONT-CATIDX-001::EL-REGION-categories-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+          // Matched to the product grid on /shop/all
+          // (CatalogProductGrid.tsx) so a category tile and a product card read at
+          // the same scale. At 140px these were half the size of the products they
+          // lead to, which made the shop landing page feel sparse beside the rest of
+          // the storefront. The min(100%, …) guard keeps a single column from
+          // overflowing on the narrowest phones.
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
           gap: 'var(--mr-sp-4)',
         }}
       >
