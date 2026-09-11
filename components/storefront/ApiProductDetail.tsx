@@ -144,7 +144,10 @@ const SkuCopyButton = React.memo(function SkuCopyButton({ sku }: { sku: string }
         minHeight: 40,
         padding: '0 14px',
         borderRadius: 'var(--mr-radius-pill)',
-        border: '1px solid var(--mr-border)',
+        // --mr-hairline, not --mr-border: this control is documented above as
+        // deliberately quieter than Share, but carried the heavier of the two
+        // border tokens, which read as the louder of the pair.
+        border: '1px solid var(--mr-hairline)',
         background: 'transparent',
         cursor: 'pointer',
         fontFamily: 'var(--mr-font-mono, ui-monospace, monospace)',
@@ -152,7 +155,10 @@ const SkuCopyButton = React.memo(function SkuCopyButton({ sku }: { sku: string }
         letterSpacing: '0.04em',
         color: copied ? 'var(--mr-fg)' : 'var(--mr-fg-3)',
         transition: 'color var(--mr-dur-fast) var(--mr-ease-out)',
-        maxWidth: '100%',
+        // A full SKU runs ~42 characters and stretched this pill several times
+        // wider than Share. The label already truncates with an ellipsis; this
+        // bounds how far it can grow. The full code is still what gets copied.
+        maxWidth: 'min(100%, 260px)',
       }}
     >
       <Icon name={copied ? 'check' : 'copy'} size={13} />
