@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import Link from 'next/link';
-import AnnouncementBar from '@/components/layout/AnnouncementBar';
+import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
@@ -43,7 +43,7 @@ export default async function BundlesIndexPage() {
   return (
     <>
       <div className="mr-page-sheet">
-        <AnnouncementBar />
+        <AnnouncementBarServer />
         <HeaderWrapper />
         <main
           style={{

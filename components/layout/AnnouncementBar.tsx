@@ -10,11 +10,17 @@ interface AnnouncementBarProps {
   background?: string | null;
 }
 
-const FALLBACK_MESSAGES = [
-  '✦ FREE WORLDWIDE SHIPPING ON ORDERS OVER €200',
-  '✦ LIMITED EDITION — OUD NOCTURNE RELEASED TODAY',
-  '✦ 10% OFF YOUR FIRST ORDER · CODE MINIRUE10',
-];
+/**
+ * No placeholder copy. This used to hold three lines of invented marketing —
+ * including a price in euros on a shop that sells in EGP, and a discount code
+ * the system never issued — which nine of fifteen call sites rendered silently
+ * because `messages` is optional.
+ *
+ * An unconfigured bar now renders nothing (see the `messages.length === 0`
+ * guard below). A missing bar is invisible; a bar advertising the wrong
+ * currency is a support ticket.
+ */
+const NO_MESSAGES: string[] = [];
 
 const DEFAULT_BACKGROUND =
   'linear-gradient(90deg, var(--mr-gold-500) 0%, var(--mr-gold-400) 30%, var(--mr-crimson-700) 70%, var(--mr-gold-500) 100%)';
@@ -53,7 +59,7 @@ export function AnnouncementBarProvider({ children }: { children: React.ReactNod
 }
 
 export default function AnnouncementBar({
-  messages = FALLBACK_MESSAGES,
+  messages = NO_MESSAGES,
   enabled = true,
   linkUrl = null,
   background = null,

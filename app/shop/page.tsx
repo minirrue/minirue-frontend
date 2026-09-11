@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { catalog } from '@/lib/api/catalog';
-import AnnouncementBar from '@/components/layout/AnnouncementBar';
+import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import { fetchHouseSpace } from '@/lib/api/storefront';
@@ -103,7 +103,7 @@ export default async function CategoriesIndexPage() {
   return (
     <>
       <div className="mr-page-sheet">
-        <AnnouncementBar />
+        <AnnouncementBarServer />
         <HeaderWrapper />
         <CategoriesGrid
           categories={topLevel}
