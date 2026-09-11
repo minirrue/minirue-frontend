@@ -4,7 +4,7 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { catalog } from '@/lib/api/catalog';
 import type { ProductListFilters } from '@/lib/api/catalog';
 import { getQueryClient } from '@/lib/hooks/query-client';
-import AnnouncementBar from '@/components/layout/AnnouncementBar';
+import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import CollectionSchema from '@/components/seo/CollectionSchema';
@@ -332,7 +332,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
         items={{ kind: 'products', products: initialProducts }}
       />
       <div className="mr-page-sheet">
-        <AnnouncementBar />
+        <AnnouncementBarServer />
         <HeaderWrapper />
 
         <main

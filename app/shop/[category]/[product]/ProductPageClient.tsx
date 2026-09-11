@@ -6,7 +6,6 @@ import type { ApiProduct, ProductVariant } from '@/lib/api/catalog';
 import { primaryMedia, mediaImageUrl, productBrand, variantLabel } from '@/lib/api/catalog';
 import ApiProductDetail from '@/components/storefront/ApiProductDetail';
 import Header from '@/components/layout/Header';
-import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
@@ -14,13 +13,20 @@ import type { ProductSectionConfig } from '@/lib/api/storefront';
 import { useSupportContext } from '@/lib/support/support-context';
 
 interface Props {
+  /**
+   * The announcement bar, rendered on the server by the parent. This is a
+   * client component, so it cannot fetch the storefront settings itself —
+   * and rendering the bar bare here is what made this route show hardcoded
+   * placeholder copy.
+   */
+  announcement: React.ReactNode;
   slug: string;
   apiProductJson: string;
   /** Resolved server-side so they render in the initial HTML. */
   perks: ProductSectionConfig['perks'];
 }
 
-export default function ProductPageClient({ slug, apiProductJson, perks }: Props) {
+export default function ProductPageClient({ slug, apiProductJson, perks, announcement }: Props) {
   const router = useRouter();
   const { itemCount, openDrawer, addItem } = useCart();
   const { data: chrome } = useStorefrontChrome();
@@ -64,7 +70,7 @@ export default function ProductPageClient({ slug, apiProductJson, perks }: Props
   return (
     <>
       <div className="mr-page-sheet">
-        <AnnouncementBar />
+        {announcement}
         <Header
           navbar={chrome?.navbar ?? FALLBACK_CHROME.navbar}
           onOpenCart={openDrawer}

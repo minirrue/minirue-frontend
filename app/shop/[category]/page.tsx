@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
-import AnnouncementBar from '@/components/layout/AnnouncementBar';
+import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import CollectionSchema from '@/components/seo/CollectionSchema';
@@ -112,7 +112,7 @@ export default async function CategoryPage({ params }: PageProps) {
         items={{ kind: 'products', products: initialProducts }}
       />
       <div className="mr-page-sheet">
-        <AnnouncementBar />
+        <AnnouncementBarServer />
         <HeaderWrapper />
 
         <main

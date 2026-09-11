@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
-import AnnouncementBar from '@/components/layout/AnnouncementBar';
+import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 
 export default function ProductNotFound() {
   return (
     <>
       <div className="mr-page-sheet">
-        <AnnouncementBar />
+        <AnnouncementBarServer />
         <HeaderWrapper />
         <main
           style={{

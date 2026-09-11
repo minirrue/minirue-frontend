@@ -1,4 +1,4 @@
-import AnnouncementBar from '@/components/layout/AnnouncementBar';
+import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import Markdown from '@/components/storefront/Markdown';
@@ -18,7 +18,7 @@ export default function StorefrontPageView({
   return (
     <>
       <div className="mr-page-sheet">
-        <AnnouncementBar />
+        <AnnouncementBarServer />
         <HeaderWrapper />
 
         <main

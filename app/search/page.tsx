@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { getQueryClient } from '@/lib/hooks/query-client';
-import AnnouncementBar from '@/components/layout/AnnouncementBar';
+import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import SearchResultsSchema from '@/components/seo/SearchResultsSchema';
@@ -127,7 +127,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
             <SearchResultsSchema query={query} products={initialProducts} />
           </>
         )}
-        <AnnouncementBar />
+        <AnnouncementBarServer />
         <HeaderWrapper />
 
         <main

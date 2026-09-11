@@ -4,6 +4,7 @@ import { connection } from 'next/server';
 import { catalog, primaryMedia, mediaImageUrl, productBrand } from '@/lib/api/catalog';
 import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
 import ProductPageClient from './ProductPageClient';
+import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
@@ -147,7 +148,12 @@ export default async function ProductPage({ params }: PageProps) {
           { name: p!.name, path: canonical.slice(1) },
         ]}
       />
-      <ProductPageClient slug={slug} apiProductJson={apiProductJson} perks={perks} />
+      <ProductPageClient
+        slug={slug}
+        apiProductJson={apiProductJson}
+        perks={perks}
+        announcement={<AnnouncementBarServer />}
+      />
       <FooterWithSettings />
     </>
   );
