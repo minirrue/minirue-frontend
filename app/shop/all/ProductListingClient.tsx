@@ -69,10 +69,28 @@ export default function ProductListingClient({
   const searchParams = useSearchParams();
   const { mobile } = useBreakpoint();
 
-  const state = React.useMemo(
+  const urlState = React.useMemo(
     () => parseFilters(new URLSearchParams(searchParams.toString())),
     [searchParams],
   );
+
+  /**
+   * The selection a tap produces, shown before the URL agrees.
+   *
+   * The filters live in the URL (see the note above), which is right — but it
+   * meant a tap could not move the radio button until `router.push` had
+   * completed a route transition and `searchParams` came back changed. That is
+   * a server round trip, and it was measured in seconds: the control sat dead
+   * the whole time, so shoppers tapped again and changed the filter twice (#5).
+   *
+   * `useOptimistic` shows `next` immediately and reverts to the URL's own
+   * answer when the transition that set it finishes — by which time the two
+   * are the same value, so there is no flash. Crucially it reverts on a FAILED
+   * navigation too, so the control can never be left showing a filter that is
+   * not applied.
+   */
+  const [state, showSelectionNow] = React.useOptimistic(urlState);
+  const [navigating, startNavigation] = React.useTransition();
 
   const [products, setProducts] = React.useState<ApiProduct[]>(initialProducts);
   const [hasMore, setHasMore] = React.useState(initialHasMore);
@@ -98,6 +116,16 @@ export default function ProductListingClient({
     () => ({ ...baseFilters, ...toApiFilters(state) }),
     [baseFilters, state],
   );
+
+  /**
+   * The refetch keys on this string, not on `apiFilters`.
+   *
+   * `state` changes identity twice per tap now — once for the optimistic value
+   * and once when the URL lands with the same filters — and a memo keyed on an
+   * object identity would fire the same request both times. Comparing the
+   * VALUE collapses that back to one.
+   */
+  const filterKey = JSON.stringify(apiFilters);
 
   /**
    * Refetch when the filters change — but never on the first render.
@@ -133,7 +161,9 @@ export default function ProductListingClient({
     return () => {
       cancelled = true;
     };
-  }, [apiFilters]);
+    // Keyed on the filters' VALUE, not `apiFilters`' identity — see filterKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
 
   function apply(next: ShopFilterState) {
     const params = toSearchParams(next);
@@ -144,9 +174,18 @@ export default function ProductListingClient({
       if (!params.has(key) && !FACET_KEYS.has(key)) params.set(key, value);
     }
     const qs = params.toString();
+    const href = qs ? `${pathname}?${qs}` : pathname;
+    // Both inside the transition: the optimistic selection is tied to THIS
+    // navigation, so it lasts exactly as long as the navigation does and is
+    // rolled back with it. `startTransition` is also what keeps `navigating`
+    // true for the whole route change, which is what the results dim on.
+    //
     // `scroll: false` — changing a filter must not fling the shopper to the
     // top of a list they are part-way down.
-    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    startNavigation(() => {
+      showSelectionNow(next);
+      router.push(href, { scroll: false });
+    });
   }
 
   const loadMore = async () => {
@@ -166,6 +205,16 @@ export default function ProductListingClient({
       setLoadingMore(false);
     }
   };
+
+  /**
+   * Busy is the RESULTS, never the control.
+   *
+   * Two things can be in flight: the route change carrying the new filters in
+   * the URL, and this component's own refetch. Either one means the grid below
+   * is out of date, and neither should stop the filter above from responding
+   * to the next tap.
+   */
+  const busy = refreshing || navigating;
 
   const count = activeFilterCount(state);
   const sortLabel =
@@ -275,10 +324,10 @@ export default function ProductListingClient({
           // place means the page does not collapse and reflow on every filter
           // change, and the shopper can still see what they had.
           style={{
-            opacity: refreshing ? 0.55 : 1,
+            opacity: busy ? 0.55 : 1,
             transition: 'opacity var(--mr-dur-fast) var(--mr-ease-out)',
           }}
-          aria-busy={refreshing || undefined}
+          aria-busy={busy || undefined}
         >
           <CatalogProductGrid
             products={products}
