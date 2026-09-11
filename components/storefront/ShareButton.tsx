@@ -74,7 +74,11 @@ export default function ShareButton({ url, title, text, traceId }: ShareButtonPr
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
-        padding: '6px 12px',
+        // Height and inset match SkuCopyButton (ApiProductDetail.tsx) so the
+        // two read as one row of controls rather than two adjacent pills of
+        // different sizes.
+        minHeight: 40,
+        padding: '0 14px',
         borderRadius: 'var(--mr-radius-pill)',
         border: '1px solid var(--mr-hairline)',
         background: 'transparent',
