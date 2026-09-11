@@ -176,3 +176,50 @@ html {
     opacity: 0;
   }
 }
+
+/* ── Interaction polish ──────────────────────────────────────────────────────
+   Two separate problems, deliberately solved separately.
+
+   1. Mobile browsers paint a grey/blue flash over anything tappable, and a long
+      press raises the iOS callout menu. On a storefront both read as a rendering
+      fault rather than as feedback, so they are suppressed. Press feedback is
+      each control's own :active state, which is designed.
+
+   2. Text selection is disabled on CONTROLS ONLY — never on prose, prices or the
+      SKU, which exists to be copied. Dragging across a button should not paint a
+      selection; dragging across a product description must still work.
+
+   Keyboard focus is NOT suppressed. The naive `* { outline: none }` version of
+   this fix removes the only cue a keyboard user has, so :focus-visible keeps a
+   real ring while pointer focus gets none.
+
+   :where() keeps all of this at zero specificity, so no component has to fight
+   it with !important.
+   ------------------------------------------------------------------------- */
+
+:where(a, button, [role='button'], input, select, textarea, summary, label, [tabindex]) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(a, button, [role='button'], summary, [role='tab'], [role='option'], [role='menuitem']) {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Fields stay selectable — a customer must be able to select and correct what
+   they typed, and on iOS `user-select: none` on a field can break the caret. */
+:where(input, textarea, [contenteditable]) {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+:where(a, button, [role='button'], input, select, textarea, summary, [tabindex]):focus:not(:focus-visible) {
+  outline: none;
+}
+
+:where(a, button, [role='button'], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--mr-gold-500);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
