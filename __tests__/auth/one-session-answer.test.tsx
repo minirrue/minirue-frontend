@@ -99,7 +99,6 @@ function renderBottomNav() {
  * test is the href the tab CARRIES, which is decided at render and is wrong
  * long before the shopper can see it.
  */
-const accountLink = () => screen.getByLabelText('Account');
 
 beforeEach(() => {
   localStorage.clear();

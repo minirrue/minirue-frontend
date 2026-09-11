@@ -50,6 +50,21 @@ export default function SearchResultsClient({
 
   /** The term the current `products` belong to, so we never show a stale list. */
   const settledTerm = React.useRef(query);
+  /**
+   * The same value, as state, for the three places the JSX reads it.
+   *
+   * A ref read during render is not reactive: the result count, the empty
+   * state and the "Nothing matches X" line were all derived from
+   * `settledTerm.current`, so they only ever showed what the ref held at the
+   * last render some OTHER state change happened to trigger. It looked right
+   * because `products`/`searching` usually change in the same tick — but a
+   * render caused by anything else showed the previous term.
+   *
+   * The ref stays: the async paths (`runSearch`'s guard, `loadMore`'s cursor
+   * fetch) need the live value without closing over a stale copy. Both are
+   * written together, next to the setProducts they belong with.
+   */
+  const [settledTermView, setSettledTermView] = React.useState(query);
   /** Rising id: only the newest request may commit its results. */
   const requestId = React.useRef(0);
 
@@ -59,6 +74,7 @@ export default function SearchResultsClient({
 
     if (!q) {
       settledTerm.current = '';
+      setSettledTermView('');
       setProducts([]);
       setHasMore(false);
       setCursor(null);
@@ -74,6 +90,7 @@ export default function SearchResultsClient({
       // A slower earlier request must never overwrite a newer one's results.
       if (id !== requestId.current) return;
       settledTerm.current = q;
+      setSettledTermView(q);
       setProducts(res.data);
       setHasMore(res.meta.hasMore);
       setCursor(res.meta.cursor);
@@ -183,7 +200,7 @@ export default function SearchResultsClient({
       >
         {searching
           ? 'Searching…'
-          : settledTerm.current.trim()
+          : settledTermView.trim()
             ? `${products.length} result${products.length === 1 ? '' : 's'}`
             : ''}
       </div>
@@ -201,7 +218,7 @@ export default function SearchResultsClient({
     );
   }
 
-  if (!settledTerm.current.trim() && !searching) {
+  if (!settledTermView.trim() && !searching) {
     return (
       <>
         {searchField}
@@ -256,7 +273,7 @@ export default function SearchResultsClient({
         cardTraceIdPrefix={`${TRACE}::EL-CARD-product-card`}
         loadMoreTraceId={`${TRACE}::EL-BTN-load-more-search-results`}
         emptyMessage={
-          searching ? 'Searching…' : `Nothing matches “${settledTerm.current.trim()}”`
+          searching ? 'Searching…' : `Nothing matches “${settledTermView.trim()}”`
         }
         emptyAction={
           <button

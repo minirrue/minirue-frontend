@@ -35,6 +35,67 @@ function Harness({ showBar }: { showBar: boolean }) {
   );
 }
 
+describe('AnnouncementBar — hook order survives the bar being configured on and off', () => {
+  /**
+   * The early `return null` for an unconfigured bar used to sit ABOVE the
+   * scroll-collapse useEffect, so the component called a different number of
+   * hooks depending on whether the shop had any announcements. Toggling the bar
+   * in the dashboard — or saving settings that emptied `messages` — changed the
+   * hook count between renders and React tore the tree down with "Rendered
+   * fewer hooks than expected".
+   *
+   * Rendering the same element with and then without messages is exactly that
+   * transition.
+   */
+  it('re-renders from configured to empty and back without a hook-order error', () => {
+    const { rerender } = render(
+      <AnnouncementBarProvider>
+        <AnnouncementBar messages={['Free shipping over 1500 EGP']} />
+      </AnnouncementBarProvider>,
+    );
+    expect(screen.getByLabelText('Announcements')).toBeInTheDocument();
+
+    // Admin clears the announcements.
+    rerender(
+      <AnnouncementBarProvider>
+        <AnnouncementBar messages={[]} />
+      </AnnouncementBarProvider>,
+    );
+    expect(screen.queryByLabelText('Announcements')).not.toBeInTheDocument();
+
+    // And turns them back on.
+    rerender(
+      <AnnouncementBarProvider>
+        <AnnouncementBar messages={['Back on']} />
+      </AnnouncementBarProvider>,
+    );
+    expect(screen.getByLabelText('Announcements')).toBeInTheDocument();
+  });
+
+  it('survives the enabled flag being switched off and on', () => {
+    const { rerender } = render(
+      <AnnouncementBarProvider>
+        <AnnouncementBar messages={['Free shipping']} enabled />
+      </AnnouncementBarProvider>,
+    );
+    expect(screen.getByLabelText('Announcements')).toBeInTheDocument();
+
+    rerender(
+      <AnnouncementBarProvider>
+        <AnnouncementBar messages={['Free shipping']} enabled={false} />
+      </AnnouncementBarProvider>,
+    );
+    expect(screen.queryByLabelText('Announcements')).not.toBeInTheDocument();
+
+    rerender(
+      <AnnouncementBarProvider>
+        <AnnouncementBar messages={['Free shipping']} enabled />
+      </AnnouncementBarProvider>,
+    );
+    expect(screen.getByLabelText('Announcements')).toBeInTheDocument();
+  });
+});
+
 function collapseBar() {
   act(() => {
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: 10, cancelable: true }));
