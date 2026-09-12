@@ -21,6 +21,7 @@ import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import PageLoader from "@/components/layout/PageLoader";
 import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
+import { buildIcons } from "@/lib/seo/icons";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -136,18 +137,12 @@ export async function generateMetadata(): Promise<Metadata> {
       // No `images` override — falls back to app/opengraph-image.tsx, same as
       // openGraph above (there is no separate twitter-image.tsx).
     },
-    icons: {
-      icon: "/favicon.ico",
-      apple: "/apple-touch-icon.png",
-    },
+    icons: buildIcons(),
   };
 
   try {
     const settings = await apiGetPublicSettings();
-    const favicon = settings.storefront.faviconUrl;
-    if (favicon) {
-      metadata.icons = { icon: favicon, apple: "/apple-touch-icon.png" };
-    }
+    metadata.icons = buildIcons(settings.storefront.faviconUrl);
   } catch {
     // default icons
   }
