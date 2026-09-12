@@ -44,6 +44,15 @@ const ProductGallery = dynamic(() => import('./ProductGallery'));
  */
 const ProductReviews = dynamic(() => import('./reviews/ProductReviews'));
 
+/**
+ * Split for the third time, and for the sharpest reason of the three: this
+ * section exists ONLY for the minority of products that belong to a set, and
+ * it renders nothing at all for the rest. Folding it into the route's first
+ * load would make every product page carry a component most of them never
+ * show. Its own chunk, fetched when the shopper reaches the end of the page.
+ */
+const BundleCrossSell = dynamic(() => import('./BundleCrossSell'));
+
 interface ApiProductDetailProps {
   product: ApiProduct;
   /** Service promises from Storefront -> Product section. */
@@ -988,7 +997,18 @@ export default function ApiProductDetail({
           be, so the desktop layout — <aside> order-1, this column order-2 —
           is byte-for-byte the same as before; reviews were already below the
           info panel there. */}
-      <div className="contents lg:order-2 lg:flex lg:min-h-screen lg:flex-1 lg:flex-col">
+      {/* `lg:min-w-0` is load-bearing, not tidying. As a `lg:flex-1` item this
+          column's `min-width` resolves to `auto`, i.e. its min-content width —
+          so a horizontally scrollable child (the bundle rail below) sized the
+          COLUMN to the full width of its cards instead of scrolling inside it,
+          pushing the last card and the rail's arrows off the right of the
+          window. It only matters at `lg:`: on a phone this wrapper is
+          `display: contents`, so its children are items of a COLUMN flex
+          container, where `min-width: auto` is not the main axis and never
+          inflated anything. Nothing else in here has ever wanted more width
+          than the 54% this column is given, so this cannot change the existing
+          layout — it can only stop a child from growing it. */}
+      <div className="contents lg:order-2 lg:flex lg:min-h-screen lg:min-w-0 lg:flex-1 lg:flex-col">
         {/* FIRST on a phone / top of the right column on a laptop: the
             photographs. */}
         <main className="order-2">
@@ -1012,6 +1032,24 @@ export default function ApiProductDetail({
             initialAverage={product.reviewsAverage ?? null}
             initialCount={product.reviewsCount ?? 0}
           />
+
+          {/* BETWEEN the reviews and the closing photograph, deliberately —
+              not appended.
+
+              The closing image is the page's full stop (see the note below:
+              "the page ends on a photograph"), so a commercial rail placed
+              AFTER it would be something printed past the last page. Reviews
+              → sets → photograph reads as proof, then the offer, then the
+              sign-off, and it still satisfies the ask: after the product
+              content, before the footer.
+
+              It is inside this column rather than a third top-level flex item
+              for the reason the wrapper's own comment gives — a third item
+              would break the two-column desktop layout. So it spans the
+              photograph column on a laptop and the full width on a phone,
+              which is exactly the measure the gallery, the editorial block and
+              the reviews already occupy. */}
+          <BundleCrossSell productId={product.id} />
 
           {/* The page ends on a photograph. What used to be here was an
               "Available sizes" panel repeating the size the shopper had already
