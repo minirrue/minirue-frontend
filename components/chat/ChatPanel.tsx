@@ -3,6 +3,7 @@
 import React from 'react';
 import { CHAT_BUTTON_SIZE, useChatButtonPosition } from '@/lib/hooks/useChatButtonPosition';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import RemoteImage from '@/components/ui/RemoteImage';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 
 /** Breathing room between the chat button and the panel it opens. Small on
@@ -77,19 +78,26 @@ export function MessageAvatar({
   // hard-coded id, a query for "the message avatar fallback" silently matched
   // the header's too and every such assertion became ambiguous.
   fallbackTestId = 'msg-avatar-initial',
+  // The slot this fills: 36px in the panel header, 20px on a message row.
+  // Only the image REQUEST cares — the rendered size is still 100% of
+  // whatever box the caller draws — but asking for a 2560px-wide brand logo
+  // to paint a 20px circle is exactly the waste #11 is about.
+  size = 36,
 }: {
   url?: string | null;
   name: string;
   fallbackTestId?: string;
+  size?: number;
 }) {
   const [errored, setErrored] = React.useState(false);
   React.useEffect(() => setErrored(false), [url]);
   if (url && !errored) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <RemoteImage
         src={url}
         alt={name}
+        width={size}
+        height={size}
         onError={() => setErrored(true)}
         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
       />
@@ -670,7 +678,7 @@ export default function ChatPanel({
                     GenericAvatarIcon silhouette via MessageAvatar — never an
                     initial letter, a broken image, or an empty gap. */}
                 <div style={{ width: 20, height: 20, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'var(--mr-cream-300)' }}>
-                  <MessageAvatar url={msg.senderAvatarUrl} name={msg.name} />
+                  <MessageAvatar url={msg.senderAvatarUrl} name={msg.name} size={20} />
                 </div>
                 <div style={{ minWidth: 0, padding: '10px 14px', borderRadius: isAgent ? '4px 14px 14px 14px' : '14px 4px 14px 14px', background: isAgent ? 'var(--mr-cream-200)' : 'var(--mr-ink-900)', color: isAgent ? 'var(--mr-ink-900)' : 'var(--mr-cream-100)', fontFamily: 'Inter Tight, sans-serif', fontSize: 13, lineHeight: 1.5 }}>
                   {msg.text && <div>{msg.text}</div>}

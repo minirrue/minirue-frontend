@@ -12,28 +12,43 @@ import type { PaymentBadge } from '@/lib/api/storefront';
  * fake in-flow height is deleted outright (see Footer.tsx). These are the
  * highest-value tests in this task per the brief.
  *
- * Superseded in part: `sticky` is gone too, and the footer is now unpositioned.
- * `sticky` turned out to overlap the page exactly as `fixed` did — it pinned a
- * 697px footer across an 851px viewport with the page still scrolling
- * underneath. The reasoning, and the `z-index: -1` attempt that made every
- * footer link unclickable, are in __tests__/layout/footer-stacking.test.ts.
+ * Superseded in part: the positioning does not live on `<footer>` at all any
+ * more. `fixed` and `sticky` both overlapped the page — `sticky` pinned a 697px
+ * footer across an 851px viewport with the page still scrolling underneath —
+ * and `z-index: -1`, the attempted fix, made every footer link unclickable. The
+ * reveal is back, but it is the curtain WRAPPER that is positioned and it is
+ * ordered under the page sheet by document order rather than by a z-index; the
+ * whole argument is in __tests__/layout/footer-stacking.test.ts.
  *
  * What survives here unchanged is the deleted measuring effect, which is the
- * part of W4a.1 that was right.
+ * part of W4a.1 that was right: the curtain's height is still measured, but it
+ * travels as a CSS custom property instead of an inline body style.
  */
 describe('Footer position (W4a.1)', () => {
-  it('is not positioned, so it cannot overlap the page', () => {
+  it('leaves <footer> itself unpositioned, so it cannot overlap the page', () => {
     /*
-     * All three positioned values have now been tried in production and all
-     * three overlapped: `fixed` clipped the footer's own top edge once it grew
-     * taller than the viewport, and `sticky` pinned it over the page sheet.
-     * An unpositioned footer is simply the last block on the page.
+     * All three positioned values were tried on this element in production and
+     * all three overlapped: `fixed` clipped the footer's own top edge once it
+     * grew taller than the viewport, `sticky` pinned it over the page sheet,
+     * and the z-index that was supposed to settle that put its links behind
+     * the page for pointer events. The wrapper is positioned instead.
      */
     render(<Footer config={FALLBACK_CHROME.footer} />);
     const footer = screen.getByRole('contentinfo');
     expect(footer.style.position).toBe('');
     expect(footer.style.bottom).toBe('');
     expect(footer.style.zIndex).toBe('');
+  });
+
+  it('renders the curtain wrapper around the whole footer band', () => {
+    // The revealed layer is the signature + <footer> together, as one box, so
+    // the curtain measures and moves them as one.
+    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
+    const curtain = container.querySelector('.mr-footer-curtain');
+    expect(curtain).not.toBeNull();
+    expect(curtain).toContainElement(screen.getByRole('contentinfo'));
+    // `pinned` (the reveal) or `flow` (the taller-than-the-viewport fallback).
+    expect(curtain?.getAttribute('data-curtain')).toMatch(/^(pinned|flow)$/);
   });
 
   it('never writes document.body.style.paddingBottom (the measuring effect is gone)', () => {
@@ -85,19 +100,34 @@ describe('Ebneely signature placement', () => {
 
 /**
  * Structural audit: every module that renders `.mr-page-sheet` and a
- * `<Footer>`/`<FooterWithSettings>` must render the footer OUTSIDE the sheet.
- * A full RSC render isn't available in jest (several of these are async
- * Server Components hitting real fetchers), so this follows the same
- * static-source-scan convention `chrome-coverage.test.ts` already uses for
- * "every <Header> usage passes a navbar prop": walk the div nesting in the
- * SOURCE TEXT to find where `.mr-page-sheet`'s own `<div>` closes, and assert
- * the footer render appears after that point, not before it.
+ * `<Footer>`/`<FooterWithSettings>` must render the footer BEFORE the sheet —
+ * outside it, and as the EARLIER sibling.
+ *
+ * This flipped (it used to demand the footer come after the sheet) and the flip
+ * is the fix, not a detail. The curtain is `position: fixed`, `.mr-page-sheet`
+ * is `position: relative`, and neither declares a z-index — so the only thing
+ * deciding which paints on top is DOCUMENT ORDER, in which the later sibling
+ * wins. Rendered after the sheet, the footer paints OVER the page: that is the
+ * bug the owner reported twice ("footer is broken its not reveled under the
+ * webpage"), once with `fixed` and once with `sticky`. Rendered before it, the
+ * sheet covers the footer and uncovers it on scroll, which is the effect.
+ *
+ * Ordering them with a z-index instead would work and is deliberately not done:
+ * a positioned element with a z-index creates a stacking context, and the last
+ * time `.mr-page-sheet` had one it sealed the mobile menu and the search sheet
+ * under the bottom nav (see page-sheet-stacking.test.ts).
+ *
+ * A full RSC render isn't available in jest (several of these are async Server
+ * Components hitting real fetchers), so this follows the same static-source-scan
+ * convention `chrome-coverage.test.ts` already uses for "every <Header> usage
+ * passes a navbar prop": find where `.mr-page-sheet`'s own `<div>` OPENS in the
+ * source text and assert the footer render appears before that point.
  *
  * This scans the whole `app/` and `components/` tree — not a fixed list of
- * files — so a NEW page that reintroduces the inside-the-sheet mistake fails
- * this test too, which is the whole point of making it structural.
+ * files — so a NEW page that renders its footer on the wrong side of the sheet
+ * fails this test too, which is the whole point of making it structural.
  */
-describe('Footer placement — outside .mr-page-sheet (W4a.1)', () => {
+describe('Footer placement — before .mr-page-sheet, outside it', () => {
   const ROOT = path.resolve(__dirname, '../..');
   const SEARCH_DIRS = ['app', 'components'];
 
@@ -115,11 +145,6 @@ describe('Footer placement — outside .mr-page-sheet (W4a.1)', () => {
     return files;
   }
 
-  /** Index just past the closing `</div>` of the FIRST div found to contain
-   *  `mr-page-sheet` in its opening tag, tracking nesting depth so an inner
-   *  `<div>...</div>` inside the sheet (there are many) doesn't fool it into
-   *  stopping early. Returns null if the source doesn't balance (treated as
-   *  "couldn't verify" — the caller skips rather than false-fails). */
   /** Matches an actual `className="mr-page-sheet"` (or `'...'`) attribute —
    *  not just the bare substring, which also shows up in prose comments
    *  (this test file's own subject, Footer.tsx, documents the sticky fix in
@@ -128,29 +153,14 @@ describe('Footer placement — outside .mr-page-sheet (W4a.1)', () => {
    *  usage of the component). */
   const PAGE_SHEET_CLASS_RE = /className=(["'])[^"']*\bmr-page-sheet\b[^"']*\1/;
 
-  function mrPageSheetCloseIndex(src: string): number | null {
+  /** Index of the `<div` that OPENS `.mr-page-sheet`. Returns null if the
+   *  source doesn't look the way we expect (treated as "couldn't verify" — the
+   *  assertion below fails loudly rather than passing vacuously). */
+  function mrPageSheetOpenIndex(src: string): number | null {
     const classMatch = PAGE_SHEET_CLASS_RE.exec(src);
     if (!classMatch) return null;
     const tagStart = src.lastIndexOf('<div', classMatch.index);
-    if (tagStart === -1) return null;
-
-    const tagRe = /<div\b|<\/div>/g;
-    tagRe.lastIndex = tagStart;
-    let depth = 0;
-    let match: RegExpExecArray | null;
-    while ((match = tagRe.exec(src))) {
-      if (match[0] === '<div' || match[0].startsWith('<div')) {
-        // `<div\b` can match `<div` followed by a space or `>`; either way
-        // it's an opening tag here since we already excluded `</div>`.
-      }
-      if (match[0] === '</div>') {
-        depth -= 1;
-      } else {
-        depth += 1;
-      }
-      if (depth === 0) return tagRe.lastIndex;
-    }
-    return null;
+    return tagStart === -1 ? null : tagStart;
   }
 
   const files = SEARCH_DIRS.flatMap((d) => listTsxFiles(path.join(ROOT, d)));
@@ -167,16 +177,18 @@ describe('Footer placement — outside .mr-page-sheet (W4a.1)', () => {
   });
 
   it.each(relevant.map((f) => [path.relative(ROOT, f), f] as const))(
-    '%s renders its footer after .mr-page-sheet closes, not inside it',
+    '%s renders its footer before .mr-page-sheet opens, not inside or after it',
     (_label, file) => {
       const src = readFileSync(file, 'utf8');
-      const closeIdx = mrPageSheetCloseIndex(src);
-      expect(closeIdx).not.toBeNull();
+      const openIdx = mrPageSheetOpenIndex(src);
+      expect(openIdx).not.toBeNull();
 
       const footerMatch = /<Footer(?:WithSettings)?[\s/>]/.exec(src);
       expect(footerMatch).not.toBeNull();
 
-      expect(footerMatch!.index).toBeGreaterThan(closeIdx as number);
+      // Strictly earlier in the source, which for sibling JSX is strictly
+      // earlier in the DOM, which is what makes the sheet paint on top.
+      expect(footerMatch!.index).toBeLessThan(openIdx as number);
     },
   );
 });

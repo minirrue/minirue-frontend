@@ -14,16 +14,17 @@ body {
      background, so nothing depends on this being dark.
 
      Briefly moved to `html` alone, to let the footer sit at `z-index: -1` beneath it.
-     That approach is gone (the footer is static now — see Footer.tsx), so this is back
-     where it was and on both elements. */
+     That approach is gone — the footer reveal is won on document order now, with no
+     z-index anywhere (see Footer.tsx) — so this is back where it was and on both
+     elements. */
   background: var(--mr-cream-200);
   /* No horizontal scroll, ever.
    *
    * `clip`, NOT `hidden`, and the difference is load-bearing: `overflow:hidden`
    * makes this element a scroll container, which silently kills `position:
-   * sticky` on every descendant — and the footer is sticky (Footer.tsx). `clip`
-   * paints nothing outside the box and creates no scroll container, so sticky,
-   * Lenis and vertical scrolling all keep working exactly as before.
+   * sticky` on every descendant — and the header is sticky, on every route.
+   * `clip` paints nothing outside the box and creates no scroll container, so
+   * sticky, Lenis and vertical scrolling all keep working exactly as before.
    *
    * Why it is needed: the support chat button DOCKS 20% of itself past the
    * edge on purpose (CHAT_BUTTON_TUCK_PX, useChatButtonPosition.ts) so it reads
@@ -42,6 +43,37 @@ body {
    */
   overflow-x: clip;
 }
+
+/* The footer curtain's two jobs, both on `body`, both one line.
+ *
+ * `padding-bottom` is the reserved band the footer is revealed in. It is the
+ * scroll room that lets `.mr-page-sheet`'s bottom edge travel up the viewport —
+ * without it the sheet's bottom edge IS the bottom of the document, there is
+ * nothing to scroll past it, and a `position: fixed` footer behind it is never
+ * uncovered. `--mr-footer-h` is the curtain's real measured height, written by
+ * Footer.tsx; it is `0px` (mr-tokens.css) on any route with no footer, so this
+ * reserves nothing there.
+ *
+ * Padding, on `body`, and not margin on the sheet: a bottom margin on the last
+ * in-flow child collapses straight out through `body`'s auto height, so the
+ * document would not actually grow and `bottom: 0` would not actually be the
+ * bottom. Padding cannot collapse. This is also NOT the deleted
+ * `document.body.style.paddingBottom` effect coming back — that wrote an inline
+ * style from JS on every resize; this is one declaration in a stylesheet fed by
+ * one custom property.
+ *
+ * `position: relative` makes `body` the containing block for the curtain's
+ * taller-than-the-viewport fallback (`position: absolute; bottom: 0` — see
+ * Footer.tsx), so "the bottom" means the bottom of the DOCUMENT, padding
+ * included, rather than the bottom of the viewport. Every full-screen overlay
+ * in the app is `position: fixed`, which ignores this entirely, so nothing
+ * else re-anchors.
+ */
+body {
+  position: relative;
+  padding-bottom: var(--mr-footer-h, 0px);
+}
+
 html {
   scroll-behavior: auto; /* Lenis handles smooth scroll; native smooth interferes */
   /* Light-only design. Without this, a dark-mode OS makes the browser paint a dark canvas

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import RemoteImage from '@/components/ui/RemoteImage';
 import { apiListOrders, type OrderSummary } from '@/lib/checkout/checkout-api';
 import { apiListMyRefunds, type RefundStatus } from '@/lib/api/refunds';
 import {
@@ -124,8 +125,10 @@ function OrderCard({ order, refundStatus }: { order: OrderSummary; refundStatus?
         <div style={{ display: 'flex', flexShrink: 0 }}>
           {thumbs.length > 0 ? (
             thumbs.map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              // Optimized (#11). An order card stacks up to three of these
+              // and the page lists every order the customer has ever placed,
+              // so this is the most image-dense screen in the account area.
+              <RemoteImage
                 key={`${url}-${i}`}
                 src={url}
                 alt=""

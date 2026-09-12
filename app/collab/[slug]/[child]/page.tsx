@@ -125,6 +125,11 @@ export default async function SpaceChildPage({ params }: PageProps) {
       path={`/${slug}/${child}`}
       items={{ kind: 'products', products: initialProducts }}
     />
+    {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+        `z-index: auto`, so document order alone decides which paints on top.
+        See components/layout/Footer.tsx. */}
+    <FooterWithSettings />
+
     <div className="mr-page-sheet">
       <AnnouncementBar
         messages={storefrontAnnouncement?.announcementMessages}
@@ -138,7 +143,7 @@ export default async function SpaceChildPage({ params }: PageProps) {
         style={{
           maxWidth: 'var(--mr-content-max)',
           margin: '0 auto',
-          padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+          padding: 'clamp(24px,3vw,40px) var(--mr-gutter) clamp(48px,8vw,96px)',
         }}
       >
         {/* Home / Helia / Jewellery (or / Chanel) — every step real, and true
@@ -195,10 +200,6 @@ export default async function SpaceChildPage({ params }: PageProps) {
         />
       </main>
     </div>
-
-    {/* W4a.1: moved outside `.mr-page-sheet` — see StorefrontPageView.tsx for
-        why a sticky footer needs this everywhere it renders. */}
-    <FooterWithSettings />
     </>
   );
 }

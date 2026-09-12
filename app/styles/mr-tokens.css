@@ -110,6 +110,15 @@
      instead of being covered by it. Default here covers the moment before
      that effect has run (SSR, first paint). */
   --mr-bottom-nav-offset: 0px;
+  /* Real, measured height of the footer curtain — the Ebneely signature plus
+     the <footer> itself, as one band. Written by Footer.tsx (ResizeObserver);
+     consumed by `body`'s padding-bottom in app/globals.css, which reserves
+     exactly that much scroll room BELOW the page sheet so the sheet's bottom
+     edge has somewhere to travel and something to uncover. 0 here is the
+     honest default: it is the state before the effect has run (SSR, first
+     paint) and the state on any route that renders no footer at all — and a
+     0px band reserves nothing, which is right in both cases. */
+  --mr-footer-h: 0px;
 
   /* ── Motion personality defaults (luxury) ── */
   --mp-dur-hover: 300ms;
@@ -342,6 +351,17 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
    * anchor to it and it still paints over the body background — but it no
    * longer creates a context, so those 60s and 120s mean what they say.
    *
+   * THE CURTAIN DOES NOT NEED ONE EITHER, and that is the whole reason the
+   * footer reveal could come back. `.mr-footer-curtain` (below) is positioned
+   * too, and also `z-index: auto`, so the two are ordered by the one rule that
+   * costs nothing: two positioned boxes with `z-index: auto` paint in DOCUMENT
+   * ORDER. The curtain is rendered BEFORE this sheet at every call site, so
+   * this sheet paints over it — a reveal, with no number to invert and no
+   * stacking context to seal anything into. Adding `z-index: 1` here would
+   * also have produced the reveal, and would have re-sealed not just the two
+   * overlays above but `MobileSheet` (the filter/review sheets, 60) and the
+   * review lightbox (70) under the bottom nav as well.
+   *
    * Covered by __tests__/layout/page-sheet-stacking.test.ts.
    */
   position: relative;
@@ -353,6 +373,42 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
      clipped. Plain vh kept first so engines without svh still get a valid declaration. */
   min-height: 100vh;
   min-height: 100svh;
+}
+
+/* The footer curtain — the layer the page sheet above is lifted off.
+ *
+ * Rendered by Footer.tsx as the sibling immediately BEFORE `.mr-page-sheet`,
+ * which is the entire stacking argument: both boxes are positioned, both are
+ * `z-index: auto`, so they paint in document order and the sheet — the later
+ * sibling — paints over this one. No z-index on either, so no stacking context
+ * on either, so nothing anywhere in the app changes rank. See the note above
+ * and the one on `useFooterCurtain` in components/layout/Footer.tsx for the
+ * three attempts that tried to win this with a number instead.
+ *
+ * There is no z-index here for the same reason there is none on the sheet, and
+ * it must not gain one: `-1` is how attempt three made every link in the footer
+ * unclickable, and any positive value re-creates the bug where the footer
+ * covers the page.
+ */
+.mr-footer-curtain {
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* The reveal. Parked against the bottom of the viewport, behind the sheet; the
+   `body` padding-bottom in app/globals.css is the scroll room that lets the
+   sheet's bottom edge rise off it. */
+.mr-footer-curtain[data-curtain='pinned'] {
+  position: fixed;
+}
+
+/* The fallback, for a footer taller than the viewport — see Footer.tsx. Same
+   reserved band, but at the true bottom of the DOCUMENT (absolute against
+   `body`, which app/globals.css makes a containing block), so the whole of it
+   can be scrolled to instead of having its top pinned off screen. */
+.mr-footer-curtain[data-curtain='flow'] {
+  position: absolute;
 }
 
 /* Tabular numbers utility */

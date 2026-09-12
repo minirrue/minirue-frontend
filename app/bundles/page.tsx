@@ -42,6 +42,11 @@ export default async function BundlesIndexPage() {
 
   return (
     <>
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <FooterWithSettings />
+
       <div className="mr-page-sheet">
         <AnnouncementBarServer />
         <HeaderWrapper />
@@ -49,7 +54,7 @@ export default async function BundlesIndexPage() {
           style={{
             maxWidth: 'var(--mr-content-max)',
             margin: '0 auto',
-            padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+            padding: 'clamp(24px,3vw,40px) var(--mr-gutter) clamp(48px,8vw,96px)',
             minHeight: '60vh',
           }}
         >
@@ -174,7 +179,6 @@ export default async function BundlesIndexPage() {
           )}
         </main>
       </div>
-      <FooterWithSettings />
     </>
   );
 }

@@ -17,6 +17,7 @@ import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 import Button from '@/components/ui/Button';
+import RemoteImage from '@/components/ui/RemoteImage';
 import { track } from '@/lib/analytics';
 
 export default function CheckoutConfirmationPage() {
@@ -255,8 +256,8 @@ export default function CheckoutConfirmationPage() {
                     }}
                   >
                     {item.productSnapshot?.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      // Optimized (#11) — one per line on the receipt.
+                      <RemoteImage
                         src={item.productSnapshot.imageUrl}
                         alt=""
                         width={56}

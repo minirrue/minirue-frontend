@@ -72,6 +72,35 @@ export interface ResolvedHeroSlide {
   ctaTarget: CtaTarget;
   /** Pre-resolved href for a product/category/brand target. */
   ctaHref: string | null;
+
+  /*
+   * Admin-chosen hero colours — one per copy area, plus the CTA pair.
+   *
+   * OPTIONAL for the same reason as `imageSrcSet` above: the storefront
+   * payload is cached server-side under an unversioned key, so a deploy that
+   * adds a field serves entries WITHOUT it until the cache turns over, and an
+   * older backend never sends it at all. That is also the state of every slide
+   * on day one, before any admin has opened a picker. Absent (and null) must
+   * therefore mean "leave the theme styling exactly as it was" — not "fall
+   * back to a token that looks similar" — which is how `SlideContent` reads
+   * them.
+   *
+   * The backend validates these as hex, but a stale cached layout or an older
+   * backend can carry anything, so the storefront re-validates before letting
+   * a value near a CSS property. See `safeHexColor` in SlideContent.tsx.
+   */
+  /** Colour for the small uppercase eyebrow line. */
+  eyebrowColor?: string | null;
+  /** Colour for the `h1` headline. */
+  headlineColor?: string | null;
+  /** Colour for the italic `h2` sub-headline. */
+  subColor?: string | null;
+  /** Colour for the small italic tagline paragraph. */
+  taglineColor?: string | null;
+  /** CTA pill fill (and its hairline border). Applied only alongside `ctaTextColor`. */
+  ctaBgColor?: string | null;
+  /** CTA label colour. Applied only alongside `ctaBgColor`. */
+  ctaTextColor?: string | null;
 }
 
 export interface ResolvedBrandCard {

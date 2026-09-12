@@ -6,6 +6,11 @@ import FooterWithSettings from '@/components/layout/FooterWithSettings';
 export default function ProductNotFound() {
   return (
     <>
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <FooterWithSettings />
+
       <div className="mr-page-sheet">
         <AnnouncementBarServer />
         <HeaderWrapper />
@@ -59,7 +64,6 @@ export default function ProductNotFound() {
           </Link>
         </main>
       </div>
-      <FooterWithSettings />
     </>
   );
 }
