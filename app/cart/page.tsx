@@ -13,10 +13,10 @@ import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 import Button from '@/components/ui/Button';
 import Toast from '@/components/ui/Toast';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
-import { shippingMinorFor } from '@/lib/checkout/checkout-money';
+import { shippingSummary } from '@/lib/checkout/shipping-summary';
 import {
   useAutomaticDiscount,
-  useShippingPolicy,
+  useEffectiveShipping,
 } from '@/components/storefront/cart/use-bag-pricing';
 import DiscountCodeField from '@/components/checkout/DiscountCodeField';
 import { loadAppliedCode, type DiscountPreview } from '@/lib/api/discounts';
@@ -127,9 +127,20 @@ export default function CartPage() {
    * on the live backend. The plumbing is what changed — the figure follows the
    * dashboard the day the endpoint carries it.
    */
-  const shippingPolicy = useShippingPolicy();
-  const shippingMinor = shippingMinorFor(subtotalMinor, shippingPolicy);
-  const shippingIsFree = shippingMinor === 0;
+  const effective = useEffectiveShipping();
+  /**
+   * No governorate is passed, because at the bag there is not one — and that
+   * absence is the whole of DECISION 2 of #83.
+   *
+   * With no rate table (which is what the live shop returns today) this is the
+   * global rate and a firm total, exactly as before. With a table it is
+   * `minFeeCents`, the shop's own published floor, and `fromOnly` comes back
+   * true so both the delivery row and the total are rendered as "from" rather
+   * than as a promise the address step would then have to break.
+   */
+  const summary = shippingSummary({ effective, subtotalMinor, discountMinor });
+  const shippingMinor = summary.feeMinor;
+  const shippingIsFree = summary.free;
 
   // Floored, exactly as the server floors it. A summary that can show a
   // negative total is a summary nobody trusts again.
@@ -145,9 +156,7 @@ export default function CartPage() {
    * Still "estimated" because the server recomputes everything at Place order —
    * it is the authority, this is display.
    */
-  const estimatedTotal = minorToAmount(
-    Math.max(0, subtotalMinor - discountMinor) + shippingMinor,
-  );
+  const estimatedTotal = minorToAmount(summary.totalMinor);
 
   // No auth gate. A guest has a cart — it is keyed by the mr-cart-session
   // cookie and the backend accepts it — so bouncing them here threw a shopper
@@ -371,11 +380,32 @@ export default function CartPage() {
                       */
                       <span style={quietSummaryValueStyle}>Free</span>
                     ) : (
-                      <PriceDisplay
-                        amount={minorToAmount(shippingMinor)}
-                        currency={currency}
-                        style={quietSummaryValueStyle}
-                      />
+                      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+                        {/*
+                          "from", and only when it is true (#83).
+
+                          The bag has no address, so with a per-governorate
+                          table it cannot know the fee — `minFeeCents` is the
+                          floor. Printing that floor as a settled price is a
+                          bait number: the address step could only ever raise
+                          it. Printing the GLOBAL rate instead would be the same
+                          lie pointing the other way for anyone whose
+                          governorate is cheaper.
+
+                          With no table — the live shop today — `fromOnly` is
+                          false and this row is the plain figure it has always
+                          been. The word appears when the shop grows a table,
+                          and not before.
+                        */}
+                        {summary.fromOnly && (
+                          <span style={quietSummaryValueStyle}>from</span>
+                        )}
+                        <PriceDisplay
+                          amount={minorToAmount(shippingMinor)}
+                          currency={currency}
+                          style={quietSummaryValueStyle}
+                        />
+                      </span>
                     )
                   }
                 />
@@ -416,12 +446,36 @@ export default function CartPage() {
                   <span style={{ ...summaryTitleStyle, marginBottom: 0, fontSize: 'var(--mr-text-sm)' }}>
                     Estimated total
                   </span>
-                  <PriceDisplay
-                    amount={estimatedTotal}
-                    currency={currency}
-                    style={{ fontSize: 'var(--mr-text-lg)', color: 'var(--mr-fg)' }}
-                  />
+                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, minWidth: 0 }}>
+                    {summary.fromOnly && (
+                      <span style={quietSummaryValueStyle}>from</span>
+                    )}
+                    <PriceDisplay
+                      amount={estimatedTotal}
+                      currency={currency}
+                      style={{ fontSize: 'var(--mr-text-lg)', color: 'var(--mr-fg)' }}
+                    />
+                  </span>
                 </div>
+                {/*
+                  The sentence that keeps the bag and the address step from
+                  contradicting each other. "Estimated" alone never said WHAT
+                  was estimated; with per-governorate rates the answer is
+                  specific, and a shopper who reads this is not surprised when
+                  the next screen shows a bigger delivery fee.
+                */}
+                {summary.fromOnly && (
+                  <p
+                    style={{
+                      ...quietSummaryValueStyle,
+                      margin: 'var(--mr-sp-1) 0 0',
+                      fontStyle: 'normal',
+                    }}
+                  >
+                    Delivery is set by your governorate — choose it at checkout for
+                    the exact fee.
+                  </p>
+                )}
               </div>
 
               {/* The owner's ask: somewhere in checkout to type the code the

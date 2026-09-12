@@ -22,7 +22,7 @@ import { groupBagLines } from '@/components/storefront/cart/bag-lines';
  */
 
 const previewDiscount = jest.fn();
-const loadShippingPolicy = jest.fn();
+const loadEffectiveShipping = jest.fn();
 let appliedCode: string | null = null;
 
 jest.mock('@/lib/api/discounts', () => ({
@@ -34,8 +34,40 @@ jest.mock('@/lib/api/discounts', () => ({
 }));
 
 jest.mock('@/lib/api/settings', () => ({
-  loadShippingPolicy: (...args: unknown[]) => loadShippingPolicy(...args),
+  loadEffectiveShipping: (...args: unknown[]) => loadEffectiveShipping(...args),
+  loadCodMaxOrderMinor: async () => 50_000,
 }));
+
+/**
+ * The shop's delivery settings, as `/settings/public` resolves them.
+ *
+ * #83 turned the bag's one read into a superset that also carries the
+ * per-governorate table. These cases are about the flat rate and the threshold,
+ * so they pass an EMPTY table — which is both what the live shop returns today
+ * and the configuration in which the bag still promises a firm total rather
+ * than a "from" figure. The table-present case is pinned separately below.
+ */
+function shopShipping(over: {
+  flatMinor: number;
+  freeOverMinor: number;
+  rates?: Array<{
+    key: string;
+    label: string;
+    feeCents: number;
+    enabled: boolean;
+    aliases: string[];
+  }>;
+  minFeeCents?: number;
+}) {
+  return {
+    flatRateCents: over.flatMinor,
+    freeOverCents: over.freeOverMinor,
+    currency: 'EGP',
+    freeShippingBasis: 'BEFORE_DISCOUNT' as const,
+    rates: over.rates ?? [],
+    minFeeCents: over.minFeeCents ?? over.flatMinor,
+  };
+}
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), prefetch: jest.fn(), replace: jest.fn() }),
@@ -124,8 +156,10 @@ beforeEach(() => {
   jest.useFakeTimers();
   appliedCode = null;
   previewDiscount.mockReset();
-  loadShippingPolicy.mockReset();
-  loadShippingPolicy.mockResolvedValue({ flatMinor: 5_000, freeOverMinor: 0 });
+  loadEffectiveShipping.mockReset();
+  loadEffectiveShipping.mockResolvedValue(
+    shopShipping({ flatMinor: 5_000, freeOverMinor: 0 }),
+  );
   resetBagPricingCaches();
   cart.items = [];
   cart.subtotalAmount = '0.00';
@@ -230,7 +264,9 @@ describe('the cart summary (#36 — the sitewide discount)', () => {
 
 describe('the cart summary (#38 — the admin-configured delivery fee)', () => {
   it('shows the flat rate the dashboard saved, not the old constant', async () => {
-    loadShippingPolicy.mockResolvedValue({ flatMinor: 8_000, freeOverMinor: 0 });
+    loadEffectiveShipping.mockResolvedValue(
+      shopShipping({ flatMinor: 8_000, freeOverMinor: 0 }),
+    );
     cart.items = bagOf('799.00');
     cart.subtotalAmount = '799.00';
     cart.itemCount = 1;
@@ -244,7 +280,9 @@ describe('the cart summary (#38 — the admin-configured delivery fee)', () => {
   });
 
   it('says Free above the threshold, in the words the product page uses', async () => {
-    loadShippingPolicy.mockResolvedValue({ flatMinor: 5_000, freeOverMinor: 300_000 });
+    loadEffectiveShipping.mockResolvedValue(
+      shopShipping({ flatMinor: 5_000, freeOverMinor: 300_000 }),
+    );
     cart.items = bagOf('3000.00');
     cart.subtotalAmount = '3000.00';
     cart.itemCount = 1;
@@ -261,7 +299,9 @@ describe('the cart summary (#38 — the admin-configured delivery fee)', () => {
   it('keeps free delivery once a discount takes the bag under the threshold', async () => {
     // The backend's default freeShippingBasis is BEFORE_DISCOUNT. Taking free
     // delivery back the instant a markdown applies reads as a bug.
-    loadShippingPolicy.mockResolvedValue({ flatMinor: 5_000, freeOverMinor: 300_000 });
+    loadEffectiveShipping.mockResolvedValue(
+      shopShipping({ flatMinor: 5_000, freeOverMinor: 300_000 }),
+    );
     cart.items = bagOf('3000.00');
     cart.subtotalAmount = '3000.00';
     cart.itemCount = 1;
@@ -273,5 +313,86 @@ describe('the cart summary (#38 — the admin-configured delivery fee)', () => {
 
     expect(rowText('Shipping')).toMatch(/Free/);
     expect(rowText('Estimated total')).toMatch(/2,700/);
+  });
+});
+
+describe('the cart summary (#83 — before a governorate is known)', () => {
+  const GOVERNORATES = [
+    { key: 'cairo', label: 'Cairo', feeCents: 6_000, enabled: true, aliases: [] },
+    { key: 'aswan', label: 'Aswan', feeCents: 12_000, enabled: true, aliases: [] },
+  ];
+
+  it('stops promising a total, and says "from" instead', async () => {
+    /*
+     * The bag has no address, so with a per-governorate table it cannot know
+     * the delivery fee. It used to promise a total anyway, and that promise is
+     * now breakable in a way it never was: a shopper in Aswan would read
+     * EGP 849 here and be shown EGP 909 one screen later.
+     *
+     * `minFeeCents` — the shop's own published floor — with the word that
+     * makes it honest. Quoting the GLOBAL rate instead would be the same lie
+     * pointing the other way for everyone whose governorate is cheaper.
+     */
+    loadEffectiveShipping.mockResolvedValue(
+      shopShipping({
+        flatMinor: 10_000,
+        freeOverMinor: 0,
+        rates: GOVERNORATES,
+        minFeeCents: 6_000,
+      }),
+    );
+    cart.items = bagOf('799.00');
+    cart.subtotalAmount = '799.00';
+    cart.itemCount = 1;
+    previewDiscount.mockResolvedValue(preview());
+
+    await renderSettled();
+
+    expect(rowText('Shipping')).toMatch(/from/i);
+    expect(rowText('Shipping')).toMatch(/60/);
+    expect(rowText('Estimated total')).toMatch(/from/i);
+    expect(rowText('Estimated total')).toMatch(/859/);
+  });
+
+  it('says Free with no hedge once the threshold is met', async () => {
+    // FREE_SHIPPING_BEATS_GOVERNORATE_RATE is the backend's default, so a bag
+    // over the threshold ships free from EVERY governorate there is. That is
+    // exact, and hedging it would take back the promise the PDP already made.
+    loadEffectiveShipping.mockResolvedValue(
+      shopShipping({
+        flatMinor: 10_000,
+        freeOverMinor: 300_000,
+        rates: GOVERNORATES,
+        minFeeCents: 6_000,
+      }),
+    );
+    cart.items = bagOf('3000.00');
+    cart.subtotalAmount = '3000.00';
+    cart.itemCount = 1;
+    previewDiscount.mockResolvedValue(preview());
+
+    await renderSettled();
+
+    expect(rowText('Shipping')).toMatch(/Free/);
+    expect(rowText('Estimated total')).not.toMatch(/from/i);
+    expect(rowText('Estimated total')).toMatch(/3,000/);
+  });
+
+  it('keeps the firm total when the shop has no table at all', async () => {
+    // The live shop, and the whole back-compat guarantee of #83: an empty
+    // `rates` means "no table", and this screen is byte-for-byte what it was.
+    loadEffectiveShipping.mockResolvedValue(
+      shopShipping({ flatMinor: 10_000, freeOverMinor: 0 }),
+    );
+    cart.items = bagOf('799.00');
+    cart.subtotalAmount = '799.00';
+    cart.itemCount = 1;
+    previewDiscount.mockResolvedValue(preview());
+
+    await renderSettled();
+
+    expect(rowText('Shipping')).not.toMatch(/from/i);
+    expect(rowText('Estimated total')).not.toMatch(/from/i);
+    expect(rowText('Estimated total')).toMatch(/899/);
   });
 });
