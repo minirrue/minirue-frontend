@@ -103,8 +103,99 @@ const FOOTER_SECTION_GAP = 'clamp(24px, 4vw, 40px)';
  *
  * Covered by __tests__/layout/footer-stacking.test.ts and the placement audit
  * in __tests__/layout/footer.test.tsx.
+ *
+ * THE MODE MUST NOT CHANGE MID-SCROLL (#50)
+ * =========================================
+ * The two modes above are both correct. What was not correct is that the
+ * CHOICE between them was recomputed from `window.innerHeight` on every resize
+ * event — and on a phone `window.innerHeight` is not a constant. iOS Safari and
+ * Chrome Android collapse and expand their toolbars while you scroll, moving it
+ * by 60-100px. This footer measures ~749px on a 393px-wide phone, and a Pixel 5
+ * in Chrome runs between 727px (toolbar visible) and ~807px (toolbar collapsed)
+ * — so the comparison `749 <= innerHeight` genuinely has a DIFFERENT ANSWER
+ * depending on where the toolbar happens to be, and the element jumped between
+ * `fixed` and `absolute` under the reader's finger. Measured on the production
+ * build: six mode changes over three toolbar cycles, one per movement. That is
+ * the owner's "sometimes reveals correctly and sometimes opens as if its under
+ * the webpage… snaps to change its position", and it is not random.
+ *
+ * Two changes, because the reference and the decision were both unstable:
+ *
+ *   THE REFERENCE is now the SMALL viewport — `100svh`, the height with the
+ *   browser chrome VISIBLE — read through a throwaway probe element, and capped
+ *   by the live `innerHeight` so a browser without `svh` support degrades to
+ *   the old reading rather than to nonsense. `svh` is constant across a toolbar
+ *   collapse by definition, which is the entire point.
+ *
+ *   Not `100lvh`, which #50 floated as the smallest change: `lvh` is the LARGE
+ *   viewport, the toolbar-collapsed height. Comparing against it would call a
+ *   749px footer "fits" on a phone whose viewport is 727px whenever the toolbar
+ *   is showing — which is failure (1) above, the pinned footer whose own top
+ *   edge is off screen, reintroduced for the whole time the toolbar is visible.
+ *   The small viewport is the worst case, so a footer that fits it fits always.
+ *
+ *   THE DECISION is now asymmetric, with a dead band wider than any toolbar.
+ *   Demotion to `flow` is immediate, because a footer that does not fit is
+ *   unreachable and that is a correctness bug, not a taste one. Promotion back
+ *   to `pinned` requires `TOOLBAR_DEAD_BAND_PX` of genuine headroom, so no
+ *   plausible viewport wobble — or a late-loading font nudging the footer's own
+ *   height — can walk the mode back and forth. The measurement may be noisy;
+ *   the mode is sticky.
+ *
+ *   Direction (3) from #50, "remove the switch entirely", was weighed and
+ *   rejected on the mechanics rather than on nerve. `flow` is `absolute` inside
+ *   the `--mr-footer-h` band at the true bottom of the document, which is BELOW
+ *   `.mr-page-sheet` rather than behind it; the sheet never covers it, so there
+ *   is nothing to uncover. Always-`flow` would not be a curtain with a
+ *   different implementation, it would be no curtain at all — the static footer
+ *   that shipped before #48. The switch stays; only its stability changed.
+ *
+ * Reproduced and verified by e2e/storefront/mobile-scroll-stability.spec.ts,
+ * which resizes the viewport by a toolbar's worth mid-scroll and counts
+ * `data-curtain` changes. A fixed-height headless viewport cannot see any of
+ * this, which is exactly why #48 passed its own verification and shipped it.
  */
 const FOOTER_HEIGHT_VAR = '--mr-footer-h';
+
+/**
+ * The headroom `flow` must gain before it is allowed back to `pinned`. Wider
+ * than any mobile browser's toolbar (Chrome Android's is 56dp, Safari's bottom
+ * bar comparable; the issues quote a 60-100px band), so nothing a toolbar does
+ * can push the measurement across it in either direction.
+ */
+const TOOLBAR_DEAD_BAND_PX = 120;
+
+/**
+ * The height of the SMALL viewport — the scrollport with the browser's chrome
+ * showing — in CSS pixels.
+ *
+ * There is no JS property for this (`innerHeight` is the LIVE height, which is
+ * the whole problem), so it is read the only way it can be: by asking the
+ * engine to resolve `100svh` on a throwaway element. Zero-width, hidden and
+ * `position: fixed`, so it neither paints, nor takes a hit test, nor
+ * contributes to the document's scrollable area — it exists for exactly the
+ * duration of one `getBoundingClientRect`.
+ *
+ * `Math.min` with `innerHeight` is the degradation path, and it degrades the
+ * safe way: an engine that doesn't understand `svh` resolves the height to 0
+ * and we fall through to `innerHeight` (the old behaviour), while an engine
+ * that does can never report a small viewport LARGER than the live one.
+ */
+function readSmallViewportHeight(): number {
+  if (typeof window === 'undefined') return 0;
+  const live = window.innerHeight;
+  if (typeof document === 'undefined' || !document.body) return live;
+  const probe = document.createElement('div');
+  probe.setAttribute('aria-hidden', 'true');
+  probe.style.cssText =
+    'position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none;';
+  document.body.appendChild(probe);
+  const measured = Math.floor(probe.getBoundingClientRect().height);
+  probe.remove();
+  // jsdom has no layout engine, so `measured` is 0 there and every unit test
+  // keeps comparing against `innerHeight` exactly as it did before.
+  return measured > 0 ? Math.min(measured, live) : live;
+}
 
 function useFooterCurtain() {
   const ref = useRef<HTMLDivElement>(null);
@@ -115,19 +206,64 @@ function useFooterCurtain() {
    * the bottom of the page to see it.
    */
   const [pinned, setPinned] = useState(true);
+  /**
+   * The small-viewport height, and the viewport it was measured at.
+   *
+   * The cache is the second line of defence, and it is what makes this fix hold
+   * even in an engine with no `svh` support at all (where `readSmallViewport
+   * Height` falls through to the live `innerHeight`). A toolbar collapse
+   * changes the viewport's HEIGHT ONLY and by less than `TOOLBAR_DEAD_BAND_PX`,
+   * so it re-uses the cached reading and reaches the same verdict. A genuine
+   * layout change — a rotation, a desktop window drag, a tablet split-screen —
+   * changes the width, or the height by more than any toolbar could, and
+   * re-probes.
+   *
+   * It is also a performance guard: appending the probe forces a synchronous
+   * layout, and Chrome Android fires a `resize` storm for the whole duration of
+   * the toolbar animation.
+   */
+  const smallViewportH = useRef(0);
+  const measuredAtWidth = useRef(-1);
+  const measuredAtHeight = useRef(-1);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const root = document.documentElement;
 
+    const stableViewportHeight = () => {
+      const width = window.innerWidth;
+      const live = window.innerHeight;
+      if (
+        smallViewportH.current <= 0 ||
+        width !== measuredAtWidth.current ||
+        Math.abs(live - measuredAtHeight.current) > TOOLBAR_DEAD_BAND_PX
+      ) {
+        measuredAtWidth.current = width;
+        measuredAtHeight.current = live;
+        smallViewportH.current = readSmallViewportHeight();
+      }
+      return smallViewportH.current;
+    };
+
     const measure = () => {
       const height = Math.ceil(el.getBoundingClientRect().height);
       // The scroll room the sheet needs in order to have something to uncover.
       root.style.setProperty(FOOTER_HEIGHT_VAR, `${height}px`);
-      // `innerHeight`, not svh/dvh: this is a comparison against the real
-      // scrollport as it is right now, re-run on resize and orientation change.
-      setPinned(height <= window.innerHeight);
+
+      /*
+       * Asymmetric on purpose — see the long note above `FOOTER_HEIGHT_VAR`.
+       * Demote the instant the footer stops fitting (a pinned footer taller
+       * than the scrollport has its own top edge off screen and cannot be
+       * scrolled to: a correctness failure). Promote only with a toolbar's
+       * worth of headroom to spare, so the mode cannot oscillate around the
+       * boundary. Both compare against the SMALL viewport, which a toolbar
+       * cannot move.
+       */
+      const viewport = stableViewportHeight();
+      setPinned((wasPinned) =>
+        wasPinned ? height <= viewport : height <= viewport - TOOLBAR_DEAD_BAND_PX,
+      );
     };
 
     measure();

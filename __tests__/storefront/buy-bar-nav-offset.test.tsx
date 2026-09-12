@@ -60,7 +60,29 @@ function setViewportWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
 }
 
+/**
+ * One deliberate scroll gesture.
+ *
+ * The clock moves with it because `useScrollDirection` will not change
+ * direction twice inside its flip cooldown (#51 — the bars must not be asked
+ * to reverse while their own transition is still running). Every gesture in
+ * this file happens inside one synchronous tick, so without advancing a clock
+ * the second one would be deferred and this test would be measuring the
+ * cooldown instead of the offset.
+ */
+let clockMs = 0;
+let nowSpy: jest.SpyInstance<number, []>;
+beforeAll(() => {
+  nowSpy = jest.spyOn(performance, 'now').mockImplementation(() => clockMs);
+});
+afterAll(() => nowSpy.mockRestore());
+beforeEach(() => {
+  clockMs = 0;
+  Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+});
+
 function scrollTo(y: number) {
+  clockMs += 500;
   Object.defineProperty(window, 'scrollY', { configurable: true, value: y });
   act(() => {
     window.dispatchEvent(new Event('scroll'));
@@ -122,16 +144,21 @@ describe('mobile bottom nav offset — the buy bar stacking fix (Bug 1)', () => 
         document.documentElement.style.getPropertyValue('--mr-bottom-nav-offset'),
       ).toBe('0px');
 
-      // Scroll down past the threshold — the nav slides on screen.
+      // Scroll down past the threshold — the nav slides on screen. 100px, not
+      // the 40px this used to use: hiding the top bar now demands a decisive
+      // 56px downward move (#51), because anything smaller is inside the noise
+      // of a slow thumb drag.
       scrollTo(100);
-      scrollTo(140);
+      scrollTo(200);
       expect(
         document.documentElement.style.getPropertyValue('--mr-bottom-nav-offset'),
       ).toBe('74px');
 
       // Scroll back up — the nav hides again, offset must collapse back to 0
-      // so the buy bar returns to the true bottom edge.
-      scrollTo(80);
+      // so the buy bar returns to the true bottom edge. Revealing is eager
+      // (24px), so a 30px flick is enough and the shopper is not made to undo
+      // the whole scroll to get the top bar back.
+      scrollTo(170);
       expect(
         document.documentElement.style.getPropertyValue('--mr-bottom-nav-offset'),
       ).toBe('0px');
