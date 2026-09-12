@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/Icon';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import RemoteImage from '@/components/ui/RemoteImage';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import type { Category } from '@/lib/api/catalog';
 import { categoryPath } from '@/lib/routes';
@@ -35,8 +36,12 @@ function ShopLogo({ logoUrl, shopName }: { logoUrl: string | null; shopName: str
 
   if (logoUrl && !errored) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      // Optimized (#11). A brand logo master is the widest file in the
+      // gallery and this slot is 96px; going through the optimizer is the
+      // difference between a full-size JPEG and a 96/192px AVIF. The
+      // never-a-broken-frame rule below is unchanged — `RemoteImage` only
+      // calls `onError` once the plain tag has failed too.
+      <RemoteImage
         src={logoUrl}
         alt={shopName}
         width={96}
