@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import BottleSVG from '@/components/ui/BottleSVG';
+import { heroImageLoader } from '@/lib/images/hero-loader';
 import type { ResolvedHeroSlide } from '@/lib/api/storefront';
 
 interface SlideContentProps {
@@ -34,6 +35,22 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
   const usingMobileCrop =
     slide.mode === 'image' && mobile && Boolean(slide.mobileImageUrl);
 
+  /**
+   * The widths the server rendered for whichever crop is on screen.
+   *
+   * Absent for an older payload (the storefront cache key carries no version,
+   * so a deploy serves entries without the field until it turns over) and for a
+   * slide with no image. In that case the hero falls back to exactly what it
+   * did before: one file, unoptimized.
+   */
+  const heroSrcSet =
+    slide.mode === 'image'
+      ? usingMobileCrop
+        ? slide.mobileImageSrcSet
+        : slide.imageSrcSet
+      : null;
+  const hasSrcSet = Boolean(heroSrcSet && Object.keys(heroSrcSet).length > 0);
+
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       {/* Background */}
@@ -46,7 +63,18 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
             fill
             priority
             sizes="100vw"
-            unoptimized
+            /*
+             * A loader when the server sent widths, `unoptimized` when it did
+             * not — never both, because a loader is ignored while unoptimized
+             * is set and the hero would silently keep serving one file.
+             *
+             * The loader is what produces a real `srcset` without Next
+             * proxying anything, which is how this avoids depending on the
+             * deployed imgproxy host being in `remotePatterns` (#11).
+             */
+            {...(hasSrcSet
+              ? { loader: heroImageLoader(heroSrcSet) }
+              : { unoptimized: true })}
             className="mr-hero-drift"
             style={{
               objectFit: 'cover',
