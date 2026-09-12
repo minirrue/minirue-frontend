@@ -121,6 +121,113 @@ export function MessageAvatar({
   );
 }
 
+/**
+ * An icon control in the panel — back, close, attach, send.
+ *
+ * Deliberately NOT the shared `components/ui/Button` (#44). That component is
+ * an uppercase letter-spaced PILL with a label; these are wordless glyphs
+ * sitting in a 68px header bar and a 36px composer row, and a pill in either
+ * place would break the layout rather than match the shop. So each one is
+ * given its affordance EXPLICITLY instead of inheriting it by accident, which
+ * is the actual complaint in #44:
+ *
+ *  - a visible resting surface, so it reads as a control before it is hovered
+ *  - a hover state (React state, the same way `Button` tracks its own — this
+ *    repo styles inline, and the previous close button mutated
+ *    `e.currentTarget.style` from a DOM handler, which React then fought)
+ *  - `cursor: pointer`
+ *  - a 44x44 hit target with the picture drawn smaller inside it, the pattern
+ *    already used by the composer's attach/send controls, with negative
+ *    margins so growing the TARGET never grows the row
+ *  - the global gold `:focus-visible` ring from globals.css, made circular
+ *    here by giving the hit box `borderRadius: 50%`. The ring traces the real
+ *    44px target rather than the 32-36px picture, which is honest about where
+ *    a finger actually lands.
+ */
+function PanelIconButton({
+  onClick,
+  label,
+  title,
+  disabled = false,
+  children,
+  /** Diameter of the VISIBLE circle. The hit target is always 44. */
+  circle = 36,
+  /** `ink` = sits on the dark header bar; `cream` = sits on the panel body. */
+  tone = 'ink',
+  style,
+}: {
+  onClick: () => void;
+  label: string;
+  title?: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+  circle?: number;
+  tone?: 'ink' | 'cream';
+  style?: React.CSSProperties;
+}) {
+  const [hovered, setHovered] = React.useState(false);
+  // Keeps the 44px target from reshaping a header or composer row built
+  // around a smaller picture — see the note above.
+  const bleed = (circle - 44) / 2;
+  const onInk = tone === 'ink';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={title}
+      disabled={disabled}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: 44,
+        height: 44,
+        margin: bleed,
+        padding: 0,
+        border: 0,
+        borderRadius: '50%',
+        background: 'transparent',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+        ...style,
+      }}
+    >
+      <span
+        style={{
+          width: circle,
+          height: circle,
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: onInk ? 'var(--mr-cream-100)' : 'var(--mr-ink-900)',
+          background: onInk
+            ? hovered && !disabled
+              ? 'rgba(238,230,209,0.22)'
+              : 'rgba(238,230,209,0.12)'
+            : hovered && !disabled
+              ? 'var(--mr-cream-300)'
+              : 'var(--mr-cream-200)',
+          border: onInk ? 0 : '1px solid var(--mr-hairline)',
+          transition:
+            'background var(--mr-dur-fast) var(--mr-ease-out), transform var(--mr-dur-fast) var(--mr-ease-out)',
+          transform: hovered && !disabled ? 'scale(1.06)' : 'scale(1)',
+        }}
+      >
+        {children}
+      </span>
+    </button>
+  );
+}
+
+/** Everything the focus trap below considers reachable by Tab. */
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 interface ChatPanelProps {
   open: boolean;
   onClose: () => void;
@@ -193,6 +300,7 @@ export default function ChatPanel({
     );
   }, [referenceId]);
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [pendingAttachments, setPendingAttachments] = React.useState<PendingAttachment[]>([]);
@@ -285,10 +393,62 @@ export default function ChatPanel({
   }, [buttonPos]);
 
   React.useEffect(() => {
-    if (open && !bottomSlot && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 380);
+    if (!open) return;
+    if (!bottomSlot && inputRef.current) {
+      const t = window.setTimeout(() => inputRef.current?.focus(), 380);
+      return () => window.clearTimeout(t);
     }
-  }, [open, bottomSlot]);
+    // No composer on screen — the conversation list, the new-chat form, the
+    // guest slot. Focus lands on the dialog itself instead of being left
+    // behind on the launcher, which is what makes Escape and the Tab loop
+    // below actually reachable in those views (#44). Skipped if something
+    // inside has already claimed focus (NewChatComposer's search field
+    // autoFocuses), so this never steals it back.
+    const t = window.setTimeout(() => {
+      const node = panelRef.current;
+      if (node && !node.contains(document.activeElement)) node.focus();
+    }, 380);
+    return () => window.clearTimeout(t);
+  }, [open, bottomSlot, body]);
+
+  /**
+   * The panel calls itself `role="dialog" aria-modal="true"` and, until #44,
+   * behaved like neither.
+   *
+   * Escape did nothing, and Tab walked straight out of the panel into the page
+   * behind it — which for `aria-modal="true"` is a promise the markup was not
+   * keeping. Both are fixed here, scoped to the panel node so nothing is
+   * listened for while the chat is shut.
+   */
+  React.useEffect(() => {
+    if (!open) return;
+    const node = panelRef.current;
+    if (!node) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(
+        node.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((el) => el.getAttribute('aria-hidden') !== 'true' && el.tabIndex !== -1);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === node)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    node.addEventListener('keydown', onKeyDown);
+    return () => node.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
 
   // The panel's height with no keyboard involved — shrunk further (see the
   // `height` style below) rather than translated when the on-screen keyboard
@@ -535,10 +695,27 @@ export default function ChatPanel({
 
   return (
     <div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-label="Live support chat"
       aria-live="polite"
+      // Focusable as a container, never in the Tab order — the open effect
+      // above puts focus here when the view has no field of its own.
+      tabIndex={-1}
+      /*
+       * The closed panel was still in the TAB ORDER (#44).
+       *
+       * It is always mounted and merely faded out (`opacity: 0` +
+       * `pointerEvents: none`), which hides it from the eye and from the mouse
+       * and from nothing else: a keyboard user tabbing down the page fell into
+       * an invisible dialog and typed into a message box they could not see.
+       * `inert` is the one property that takes the whole subtree out of the
+       * tab order and the accessibility tree at once, and unlike
+       * `visibility: hidden` it does not interrupt the open/close transition,
+       * which is transform + opacity only.
+       */
+      inert={!open}
       onFocusCapture={(e) => { if (isFormField(e.target)) setFieldFocused(true); }}
       onBlurCapture={(e) => { if (isFormField(e.target)) setFieldFocused(false); }}
       style={{
@@ -580,12 +757,19 @@ export default function ChatPanel({
         // `height`), so this snaps instantly with the keyboard itself rather
         // than visibly resizing.
         height: keyboardLift ? `calc(${baseHeightExpr} - 4.5vh)` : baseHeightExpr,
-        background: 'rgba(253,251,245,0.97)',
+        // Surface on tokens, not one-off values (#44). This was a literal
+        // `rgba(253,251,245,0.97)` — cream-100 at 97%, written out by hand, so
+        // a palette change would have moved every other raised surface in the
+        // shop and left the chat behind — a hard-coded `16` radius that
+        // matches no step on the scale, and a bespoke two-layer shadow.
+        // `color-mix` keeps the near-opacity the backdrop blur needs while
+        // still deriving the colour from the token.
+        background: 'color-mix(in srgb, var(--mr-bg-raised) 97%, transparent)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         border: '1px solid var(--mr-hairline)',
-        borderRadius: 16,
-        boxShadow: '0 24px 60px rgba(11,11,11,0.22), 0 4px 16px rgba(11,11,11,0.08)',
+        borderRadius: 'var(--mr-radius-lg)',
+        boxShadow: 'var(--mr-shadow-lg)',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
         transform: open ? 'translateY(0) scale(1)' : 'translateY(24px) scale(0.94)',
@@ -600,13 +784,13 @@ export default function ChatPanel({
         {/* Back replaces the monogram rather than sitting beside it: with both, the
             header on a small phone had no room left for the title. */}
         {onBack ? (
-          <button
-            onClick={onBack}
-            aria-label="Back to conversations"
-            style={{ background: 'rgba(238,230,209,0.1)', border: 0, borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--mr-cream-100)', flexShrink: 0 }}
-          >
+          // 36px picture, 44px target, hover, pointer, circular focus ring —
+          // all of it from `PanelIconButton` (#44). It previously had a
+          // 36px target and no hover at all, so the only control in the
+          // header that could take you anywhere never answered a pointer.
+          <PanelIconButton onClick={onBack} label="Back to conversations" circle={36} tone="ink">
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-          </button>
+          </PanelIconButton>
         ) : (
           // The shop's own uploaded logo — never the "MR" monogram this
           // replaced, and never an initial letter when there is no logo
@@ -629,17 +813,19 @@ export default function ChatPanel({
             )}
           </div>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="Close chat"
-          style={{ background: 'rgba(238,230,209,0.1)', border: 0, borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--mr-cream-100)', transition: 'background 180ms' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(238,230,209,0.18)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(238,230,209,0.1)')}
-        >
+        {/* The close ✕ is the case #44 names as genuinely not a pill: a
+            wordless dismissal on a dark bar, where a labelled house button
+            would be louder than the conversation it sits above. Given the
+            deliberate affordance instead — 32px picture inside a 44px target,
+            a real hover, `cursor: pointer`, and the circular gold focus ring.
+            Its hover used to be two DOM mutations of `currentTarget.style`
+            from mouse handlers, which React neither knows about nor restores
+            on the next render; `PanelIconButton` holds it in state. */}
+        <PanelIconButton onClick={onClose} label="Close chat" circle={32} tone="ink">
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
             <path d="M5 5l14 14M19 5L5 19" />
           </svg>
-        </button>
+        </PanelIconButton>
       </div>
 
       {body ? (
@@ -696,7 +882,7 @@ export default function ChatPanel({
                             localFile={att.localFile}
                             alt="Attachment"
                             onLoad={handleAttachmentSettled}
-                            style={{ maxWidth: 200, maxHeight: 200, borderRadius: 10, display: 'block', objectFit: 'cover' }}
+                            style={{ maxWidth: 200, maxHeight: 200, borderRadius: 'var(--mr-radius-md)', display: 'block', objectFit: 'cover' }}
                           />
                         </a>
                       ))}
@@ -712,9 +898,29 @@ export default function ChatPanel({
                 {!isAgent && msg.status === 'failed' && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#C0392B' }}>
                     Failed ·
+                    {/* Deliberately a small pill and NOT the shared `Button`
+                        (#44): this sits INSIDE a 10px metadata line under a
+                        message bubble, and an uppercase 45px house pill there
+                        would be taller than the message it is apologising
+                        for. It gets the affordance anyway — a border, a
+                        radius, a pointer and padding — so it stops reading as
+                        an underlined word. 26px, not 44: WCAG 2.5.8's 24px
+                        minimum applies, with its own exception for a target
+                        inline in a sentence, which this is. */}
                     <button
+                      type="button"
                       onClick={() => msg.tempId && onRetry?.(msg.tempId)}
-                      style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer', color: '#C0392B', textDecoration: 'underline', font: 'inherit' }}
+                      style={{
+                        minHeight: 26,
+                        padding: '0 10px',
+                        border: '1px solid currentColor',
+                        borderRadius: 'var(--mr-radius-pill)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        color: '#C0392B',
+                        font: 'inherit',
+                        letterSpacing: '0.06em',
+                      }}
                     >
                       Retry
                     </button>
@@ -741,13 +947,13 @@ export default function ChatPanel({
                     <img
                       src={att.localUrl}
                       alt={att.status === 'failed' ? 'Attachment failed to upload' : 'Attachment ready to send'}
-                      style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', display: 'block', opacity: att.status === 'failed' ? 0.4 : 1 }}
+                      style={{ width: 48, height: 48, borderRadius: 'var(--mr-radius-md)', objectFit: 'cover', display: 'block', opacity: att.status === 'failed' ? 0.4 : 1 }}
                     />
                     {att.status === 'uploading' && (
                       <span
                         aria-label="Uploading"
                         style={{
-                          position: 'absolute', inset: 0, borderRadius: 8,
+                          position: 'absolute', inset: 0, borderRadius: 'var(--mr-radius-md)',
                           background: 'rgba(11,11,11,0.35)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}
@@ -761,26 +967,50 @@ export default function ChatPanel({
                       </span>
                     )}
                     {att.status === 'failed' && (
+                      // Covers the whole 48px thumbnail, so the target is the
+                      // picture it is talking about — already past the 44px
+                      // floor, and the dashed red edge is its own affordance.
                       <button
+                        type="button"
                         onClick={() => retryAttachment(att)}
                         aria-label="Retry upload"
                         title="Failed — tap to retry"
                         style={{
-                          position: 'absolute', inset: 0, borderRadius: 8, border: '1px dashed #C0392B',
+                          position: 'absolute', inset: 0, borderRadius: 'var(--mr-radius-md)', border: '1px dashed #C0392B',
                           background: 'transparent', cursor: 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           color: '#C0392B', fontSize: 9, fontWeight: 700, fontFamily: 'Inter Tight, sans-serif',
+                          outlineOffset: -2,
                         }}
                       >
                         Retry
                       </button>
                     )}
+                    {/*
+                      Remove — a corner ✕ on a 48px thumbnail, not a pill.
+
+                      The TARGET was 18x18 (#44): under WCAG 2.5.8's 24px
+                      minimum and well under the 44px comfort floor, on the one
+                      control whose misfire deletes the shopper's picture. It
+                      is now a 28px transparent hit box around the same 18px
+                      dot. 28 and not 44 for a stated reason: the thumbnails
+                      are 48px with a 6px gutter, so a 44px target centred on
+                      the corner would reach 16px into the NEXT thumbnail's
+                      own remove target and the two would overlap. 28 is the
+                      largest that cannot, and it clears 2.5.8.
+                    */}
                     <button
+                      type="button"
                       onClick={() => removeAttachment(att)}
                       aria-label="Remove attachment"
-                      style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: 'var(--mr-ink-900)', color: 'var(--mr-cream-100)', border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, lineHeight: 1, zIndex: 1 }}
+                      style={{ position: 'absolute', top: -11, right: -11, width: 28, height: 28, borderRadius: '50%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
                     >
-                      ×
+                      <span
+                        aria-hidden="true"
+                        style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--mr-ink-900)', color: 'var(--mr-cream-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, lineHeight: 1 }}
+                      >
+                        ×
+                      </span>
                     </button>
                   </div>
                 ))}
@@ -819,19 +1049,27 @@ export default function ChatPanel({
                     circle to 44 would have reshaped a composer row that is
                     only 36px tall, so the hit area grows INVISIBLY around the
                     same control instead. Apple's and Google's floor is 44/48
-                    and this was 32 — a miss on a phone is a lost message. */}
-                <button
+                    and this was 32 — a miss on a phone is a lost message.
+
+                    Now via `PanelIconButton` (#44), so it gains the hover and
+                    the filled resting surface every other control in this
+                    panel has, and its glyph is `--mr-ink-700` rather than
+                    `--mr-ink-400`, which on cream was below 3:1 and read as a
+                    disabled control at rest. `margin: 0` cancels the
+                    helper's header bleed — the composer row wants the full
+                    44px box. */}
+                <PanelIconButton
                   onClick={() => fileInputRef.current?.click()}
-                  aria-label="Attach image"
+                  label="Attach image"
                   disabled={inputDisabled || uploading}
-                  style={{ width: 44, height: 44, borderRadius: '50%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  circle={32}
+                  tone="cream"
+                  style={{ margin: 0 }}
                 >
-                  <span style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--mr-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--mr-ink-400)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-                    </svg>
-                  </span>
-                </button>
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--mr-ink-700)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+                  </svg>
+                </PanelIconButton>
               </>
             )}
             <textarea
@@ -859,7 +1097,7 @@ export default function ChatPanel({
               autoCapitalize="sentences"
               spellCheck={false}
               enterKeyHint="send"
-              style={{ flex: 1, height: 36, resize: 'none', overflow: 'hidden', border: '1px solid var(--mr-hairline)', borderRadius: 8, padding: '9px 12px', outline: 'none', fontFamily: 'Inter Tight, sans-serif', fontSize: 13, lineHeight: '18px', color: 'var(--mr-ink-900)', background: 'var(--mr-cream-200)', transition: 'border-color 200ms' }}
+              style={{ flex: 1, height: 36, resize: 'none', overflow: 'hidden', border: '1px solid var(--mr-hairline)', borderRadius: 'var(--mr-radius-md)', padding: '9px 12px', outline: 'none', fontFamily: 'Inter Tight, sans-serif', fontSize: 13, lineHeight: '18px', color: 'var(--mr-ink-900)', background: 'var(--mr-cream-200)', transition: 'border-color 200ms' }}
               onFocus={(e) => (e.target.style.borderColor = 'var(--mr-gold-400)')}
               onBlur={(e) => (e.target.style.borderColor = 'var(--mr-hairline)')}
             />
@@ -867,8 +1105,20 @@ export default function ChatPanel({
                 The scale-on-ready and scale-on-hover move to the SPAN, so the
                 tap area stays a constant 44 while the picture still reacts —
                 animating the button itself would have shrunk the target at
-                exactly the moment there is nothing to send. */}
+                exactly the moment there is nothing to send.
+
+                Send is THE primary action of the thread view, and it is still
+                deliberately not a `<Button variant="primary">` pill (#44):
+                it already IS the primary variant's surface — `--mr-ink-900`
+                fill, cream glyph — just drawn round instead of as a pill,
+                because a labelled pill cannot sit in a 36px row beside a
+                flexing text field without taking the field's width. What it
+                kept from the house button is the thing that matters: the one
+                filled ink control on the screen is the one action the panel
+                wants. `borderRadius: 50%` is on the hit box so the global
+                gold focus ring traces the real target as a circle. */}
             <button
+              type="button"
               onClick={send}
               aria-label="Send message"
               disabled={inputDisabled || sending || uploading}
@@ -893,14 +1143,30 @@ export default function ChatPanel({
           {headerSubtitle ?? 'We usually reply soon'} · {headerTitle}
           {referenceId && (
             <div style={{ marginTop: 3 }}>
+              {/* Copy-the-reference. Not a pill either (#44) — it is a
+                  footnote under a footnote, and a house button here would be
+                  the loudest thing on the panel for the least important
+                  action. Given a stated affordance instead: a dotted
+                  underline that says "this word does something", a pointer,
+                  padding, and a 24px target — WCAG 2.5.8's minimum, taken via
+                  its inline-in-a-sentence allowance rather than blowing the
+                  10px footer up to 44. It had NONE of that: same colour and
+                  weight as the caption beside it, zero padding, 0.7 opacity —
+                  the "indistinguishable from body text" complaint verbatim. */}
               <button
+                type="button"
                 onClick={copyReferenceId}
                 aria-label="Copy chat reference id"
                 title="Click to copy"
                 style={{
-                  background: 'transparent', border: 0, cursor: 'pointer', padding: 0,
-                  fontFamily: 'Inter Tight, sans-serif', fontSize: 9.5, color: 'var(--mr-ink-400)',
-                  opacity: 0.7, letterSpacing: 0.2,
+                  background: 'transparent', border: 0, cursor: 'pointer',
+                  padding: '4px 6px', minHeight: 24,
+                  fontFamily: 'Inter Tight, sans-serif', fontSize: 9.5,
+                  color: refCopied ? 'var(--mr-gold-700)' : 'var(--mr-ink-700)',
+                  letterSpacing: 0.2,
+                  textDecoration: refCopied ? 'none' : 'underline dotted',
+                  textUnderlineOffset: 2,
+                  borderRadius: 'var(--mr-radius-sm)',
                 }}
               >
                 {refCopied ? 'Copied' : `Ref: ${referenceId}`}

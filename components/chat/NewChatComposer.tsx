@@ -4,6 +4,7 @@ import React from 'react';
 import { catalog, mediaImageUrl, productBrand, type ApiProduct } from '@/lib/api/catalog';
 import type { SupportSubject } from '@/lib/support/support-context';
 import RemoteImage from '@/components/ui/RemoteImage';
+import Button from '@/components/ui/Button';
 
 /**
  * Starting a conversation: which product it is about, and the first message.
@@ -42,19 +43,42 @@ function productSubject(product: ApiProduct): SupportSubject {
   };
 }
 
+/**
+ * `--mr-line` DID NOT EXIST (#44).
+ *
+ * It is used nowhere else in this repo and is defined nowhere in
+ * `mr-tokens.css`. `border: 1px solid var(--mr-line)` with no fallback is
+ * invalid at computed-value time, so the whole shorthand unsets and the
+ * border-style falls back to `none` — these fields and buttons rendered with
+ * NO BORDER AT ALL. Exactly the `.mr-btn` class bug from #9, one file over:
+ * the call site reads as styled and paints nothing, which is most of "no
+ * pointing on what is element as a button". `--mr-hairline` is the real
+ * token and is what every other chat surface already uses.
+ */
 const fieldStyle: React.CSSProperties = {
   font: 'inherit',
   // 16px stops iOS zooming the whole page when the field takes focus.
   fontSize: 16,
   padding: '11px 12px',
-  borderRadius: 10,
-  border: '1px solid var(--mr-line)',
-  background: 'var(--mr-bg)',
+  borderRadius: 'var(--mr-radius-md)',
+  border: '1px solid var(--mr-hairline)',
+  background: 'var(--mr-bg-raised)',
   color: 'var(--mr-fg)',
   width: '100%',
   minWidth: 0,
 };
 
+/**
+ * A product search result is a ROW, not a pill.
+ *
+ * Deliberately NOT routed through the shared `Button` (#44): a 56px-tall
+ * record with a thumbnail, a name, a brand and a SKU is not a call to action,
+ * and wrapping it in an uppercase letter-spaced pill would make the picker
+ * look worse, not more on-theme. So it gets a *stated* affordance instead of
+ * an inherited one — a hairline border and a hover fill, both below, plus the
+ * global `:focus-visible` gold ring from globals.css, pulled inside the row
+ * with `outlineOffset: -2` so it is not clipped by the scroll container.
+ */
 const resultRowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -63,13 +87,17 @@ const resultRowStyle: React.CSSProperties = {
   // The thumbnail sets the target height, well past the 44px tap floor.
   minHeight: 56,
   padding: '8px 10px',
-  border: '1px solid transparent',
-  borderRadius: 10,
-  background: 'transparent',
+  // Resting border, not a transparent one: a row with nothing drawn round it
+  // is indistinguishable from the search results text above it.
+  border: '1px solid var(--mr-hairline)',
+  borderRadius: 'var(--mr-radius-md)',
+  background: 'var(--mr-bg-raised)',
   textAlign: 'left',
   cursor: 'pointer',
   font: 'inherit',
   color: 'inherit',
+  outlineOffset: -2,
+  transition: 'background var(--mr-dur-fast) var(--mr-ease-out), border-color var(--mr-dur-fast) var(--mr-ease-out)',
 };
 
 export default function NewChatComposer({
@@ -87,6 +115,11 @@ export default function NewChatComposer({
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<ApiProduct[]>([]);
   const [searching, setSearching] = React.useState(false);
+  /** Which result row the pointer is over — the row's deliberate hover
+   *  affordance (#44). State rather than a `:hover` rule because this repo
+   *  styles inline; `components/ui/Button.tsx` tracks its own hover the same
+   *  way. Keyboard users get the global `:focus-visible` ring instead. */
+  const [hoveredResultId, setHoveredResultId] = React.useState<string | null>(null);
 
   // Debounced so typing does not fire a request per keystroke.
   React.useEffect(() => {
@@ -198,7 +231,17 @@ export default function NewChatComposer({
                   <button
                     key={p.id}
                     type="button"
-                    style={resultRowStyle}
+                    style={
+                      hoveredResultId === p.id
+                        ? {
+                            ...resultRowStyle,
+                            background: 'var(--mr-cream-200)',
+                            borderColor: 'var(--mr-gold-400)',
+                          }
+                        : resultRowStyle
+                    }
+                    onMouseEnter={() => setHoveredResultId(p.id)}
+                    onMouseLeave={() => setHoveredResultId(null)}
                     onClick={() => pick(p)}
                     data-trace-id={`${TRACE}::EL-BTN-pick-product@${p.id}`}
                   >
@@ -210,7 +253,7 @@ export default function NewChatComposer({
                         flexShrink: 0,
                         borderRadius: 8,
                         overflow: 'hidden',
-                        background: 'var(--mr-bg-2, #f4f1ec)',
+                        background: 'var(--mr-bg-sunken)',
                       }}
                     >
                       {image ? (
@@ -267,26 +310,22 @@ export default function NewChatComposer({
           )}
 
           {/* The escape hatch. Someone whose question is not about a product
-              should not have to search for one to get past this step. */}
-          <button
-            type="button"
+              should not have to search for one to get past this step.
+
+              The house button, `outline` — the sign-out precedent (#44). It
+              used to be a hand-rolled box whose only border was
+              `var(--mr-line)`, an undefined token, so it painted as bare text
+              on cream. `size="sm"` matches AccountLayoutClient's sign out
+              exactly ("buttons must be same as signout button theme"). */}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setGeneral(true)}
-            style={{
-              alignSelf: 'flex-start',
-              font: 'inherit',
-              fontSize: 13,
-              minHeight: 44,
-              padding: '0 14px',
-              borderRadius: 10,
-              border: '1px solid var(--mr-line)',
-              background: 'transparent',
-              color: 'var(--mr-fg-2)',
-              cursor: 'pointer',
-            }}
-            data-trace-id={`${TRACE}::EL-BTN-general-question`}
+            style={{ alignSelf: 'flex-start', minHeight: 44 }}
+            traceId={`${TRACE}::EL-BTN-general-question`}
           >
             Just a general question
-          </button>
+          </Button>
         </>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -314,28 +353,23 @@ export default function NewChatComposer({
               'A general question'
             )}
           </span>
-          <button
-            type="button"
+          {/* Secondary action → `outline`, same as sign out (#44). It was a
+              borderless, background-less span of grey text sitting beside
+              body copy: the literal complaint the sign-out button's own
+              comment records ("indistinguishable from body text"). */}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => {
               setPicked(null);
               setSubject(null);
               setGeneral(false);
             }}
-            style={{
-              font: 'inherit',
-              fontSize: 13,
-              minHeight: 44,
-              padding: '0 10px',
-              border: 0,
-              background: 'none',
-              color: 'var(--mr-fg-3)',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-            data-trace-id={`${TRACE}::EL-BTN-change-subject`}
+            style={{ minHeight: 44, flexShrink: 0 }}
+            traceId={`${TRACE}::EL-BTN-change-subject`}
           >
             Change
-          </button>
+          </Button>
         </div>
       )}
 
@@ -351,45 +385,37 @@ export default function NewChatComposer({
         />
       </label>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button
+      {/*
+        The one action this form wants, and the way out — `primary` and
+        `outline`, the same pair `SignInToChat` uses (#44).
+
+        They WRAP rather than shrink, for the reason that file documents: the
+        panel is `min(360px, 100vw - 48px)` wide, so two pills forced onto one
+        row on a narrow phone would squeeze both below a comfortable target.
+      */}
+      <div style={{ display: 'flex', gap: 'var(--mr-sp-3)', flexWrap: 'wrap' }}>
+        <Button
           type="submit"
+          variant="primary"
+          size="sm"
           disabled={!canSend}
-          style={{
-            font: 'inherit',
-            fontSize: 13,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            minHeight: 48,
-            padding: '0 20px',
-            borderRadius: 10,
-            border: 0,
-            background: canSend ? 'var(--mr-fg)' : 'var(--mr-fg-4, #9a938a)',
-            color: 'var(--mr-bg, #fff)',
-            cursor: canSend ? 'pointer' : 'not-allowed',
-            flex: '1 1 auto',
-          }}
-          data-trace-id={`${TRACE}::EL-BTN-start-conversation`}
+          // `sm` padding already lands at 45, but the floor is stated
+          // explicitly so a change to the shared padding cannot quietly drop
+          // this control under 44 — same reasoning as SignInToChat.
+          style={{ minHeight: 44, flex: '1 1 auto' }}
+          traceId={`${TRACE}::EL-BTN-start-conversation`}
         >
           {submitting ? 'Sending…' : 'Start conversation'}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={onCancel}
-          style={{
-            font: 'inherit',
-            fontSize: 13,
-            minHeight: 48,
-            padding: '0 16px',
-            borderRadius: 10,
-            border: '1px solid var(--mr-line)',
-            background: 'transparent',
-            color: 'var(--mr-fg-2)',
-            cursor: 'pointer',
-          }}
+          style={{ minHeight: 44 }}
+          traceId={`${TRACE}::EL-BTN-cancel-new-chat`}
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

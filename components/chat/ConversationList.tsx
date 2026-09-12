@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { SupportConversationDto } from '@/lib/api/support';
+import Button from '@/components/ui/Button';
 
 /**
  * The shopper's own conversations.
@@ -58,6 +59,22 @@ export default function ConversationList({
   loading,
   shopName,
 }: Props) {
+  /**
+   * The row the pointer is over.
+   *
+   * A conversation row is a ROW, not a pill, and is deliberately NOT routed
+   * through `components/ui/Button` (#44) — a stack of these as uppercase
+   * letter-spaced pills would look worse than the problem it fixed, and would
+   * destroy the list's scannability. It gets a *stated* affordance instead of
+   * an inherited one: a hover fill, a chevron that says the row opens
+   * something, a 56px minimum target, a pointer cursor, and the global
+   * `:focus-visible` gold ring drawn inside the row. All four are set
+   * explicitly below rather than left to chance.
+   *
+   * Hover is state rather than a `:hover` rule because this repo styles
+   * inline; `components/ui/Button.tsx` tracks its own hover exactly this way.
+   */
+  const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
@@ -76,21 +93,37 @@ export default function ConversationList({
                 key={c.id}
                 type="button"
                 onClick={() => onOpen(c.id)}
+                onMouseEnter={() => setHoveredId(c.id)}
+                onMouseLeave={() => setHoveredId(null)}
                 style={{
-                  display: 'block',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
                   width: '100%',
                   textAlign: 'left',
+                  // 44px is the tap floor; two lines of 11.5/12.5px type plus
+                  // 24px of padding already clears it, and this states it so a
+                  // one-line preview cannot drop the row under the floor.
+                  minHeight: 56,
                   padding: '12px 14px',
                   border: 'none',
                   borderBottom: '1px solid var(--mr-hairline)',
                   // A gold spine for unread, so a glance is enough.
                   boxShadow: unread ? 'inset 3px 0 0 0 var(--mr-gold-500)' : 'none',
-                  background: 'transparent',
+                  background:
+                    hoveredId === c.id ? 'var(--mr-cream-200)' : 'transparent',
                   cursor: 'pointer',
                   opacity: closed ? 0.6 : 1,
                   fontFamily: 'Inter Tight, sans-serif',
+                  // The global :focus-visible ring (globals.css) draws INSIDE
+                  // the row rather than 2px outside it — the list is a scroll
+                  // container with no horizontal overflow, so an outset ring
+                  // on a full-width row would be clipped on both edges.
+                  outlineOffset: -2,
+                  transition: 'background var(--mr-dur-fast) var(--mr-ease-out)',
                 }}
               >
+                <span style={{ minWidth: 0, flex: 1 }}>
                 <span
                   style={{
                     display: 'flex',
@@ -139,39 +172,77 @@ export default function ConversationList({
                       textTransform: 'uppercase',
                       color: 'var(--mr-ink-400)',
                       border: '1px solid var(--mr-hairline)',
-                      borderRadius: 4,
+                      borderRadius: 'var(--mr-radius-sm)',
                       padding: '1px 5px',
                     }}
                   >
                     Closed
                   </span>
                 )}
+                </span>
+                {/* The one thing that says "this row opens something".
+                    Without it a thread summary and a static message preview
+                    are the same object — "no pointing on what is element as a
+                    button" (#44). It slides on hover so the row answers a
+                    pointer, and it is aria-hidden because the row's own text
+                    is already the accessible name. */}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: hoveredId === c.id ? 'var(--mr-gold-700)' : 'var(--mr-ink-400)',
+                    transform: hoveredId === c.id ? 'translateX(2px)' : 'translateX(0)',
+                    transition:
+                      'transform var(--mr-dur-fast) var(--mr-ease-out), color var(--mr-dur-fast) var(--mr-ease-out)',
+                  }}
+                >
+                  <svg
+                    width={14}
+                    height={14}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </span>
               </button>
             );
           })
         )}
       </div>
 
-      <div style={{ padding: 12, borderTop: '1px solid var(--mr-hairline)' }}>
-        <button
-          type="button"
+      <div
+        style={{
+          padding: 'var(--mr-sp-3)',
+          borderTop: '1px solid var(--mr-hairline)',
+          background: 'var(--mr-bg-raised)',
+        }}
+      >
+        {/*
+          The one action this view wants → the house `primary` button (#44).
+
+          It was a hand-rolled ink rectangle that had drifted from the shared
+          one in every measurable way: radius 8 not `--mr-radius-pill`,
+          tracking 0.16em not 0.22em, and no hover, no press, no sweep, no
+          disabled treatment at all. Full width because it is the only control
+          in this footer strip and a centred pill in an otherwise empty bar
+          reads as an afterthought.
+        */}
+        <Button
+          variant="primary"
+          size="sm"
           onClick={onNew}
-          style={{
-            width: '100%',
-            padding: '10px 14px',
-            border: 'none',
-            borderRadius: 8,
-            background: 'var(--mr-ink-900)',
-            color: 'var(--mr-cream-100)',
-            fontFamily: 'Jost, sans-serif',
-            fontSize: 11,
-            letterSpacing: '0.16em',
-            textTransform: 'uppercase',
-            cursor: 'pointer',
-          }}
+          style={{ width: '100%', minHeight: 44 }}
+          traceId="PG-STOREFRONT-SUPPORT-001::EL-BTN-new-conversation"
         >
           New conversation
-        </button>
+        </Button>
       </div>
     </div>
   );
