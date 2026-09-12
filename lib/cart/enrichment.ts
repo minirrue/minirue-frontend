@@ -7,6 +7,24 @@ import type { CartDto, CartItemDto } from '@/lib/api/cart';
 
 const STORAGE_KEY = 'mr-cart-enrich-v1';
 
+/**
+ * localStorage, not sessionStorage — the cart outlives the tab.
+ *
+ * `mr-cart-session` is a 30-day cookie, so a bag survives closing the browser.
+ * This cache did not: it lived in sessionStorage, so the shopper who added
+ * something on Monday and came back on Tuesday found a bag where NOTHING had
+ * a name or a picture, because the only place a cart line's display copy ever
+ * existed was a store that had just been wiped. That is half of #56 — the raw
+ * `Variant #<uuid>` was the fallback firing, and it fired every new tab.
+ *
+ * The cost of the longer life is staleness: a product renamed in the dashboard
+ * keeps its old label in one shopper's bag until they add it again. That is a
+ * much smaller harm than a database identifier where the product name goes,
+ * and it disappears entirely the day `GET /v1/cart` returns a name of its own
+ * (see lib/api/cart.ts).
+ */
+const LEGACY_SESSION_KEY = STORAGE_KEY;
+
 export interface VariantEnrichment {
   name?: string;
   brand?: string;
@@ -30,13 +48,26 @@ export interface VariantEnrichment {
   productId?: string;
 }
 
+function parse(raw: string | null): Record<string, VariantEnrichment> {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as Record<string, VariantEnrichment>;
+  } catch {
+    return {};
+  }
+}
+
 function readMap(): Record<string, VariantEnrichment> {
   if (typeof window === 'undefined') return {};
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as Record<string, VariantEnrichment>;
+    // The session copy is read too so a bag filled before this change keeps
+    // its names for the rest of that visit, rather than going blank at the
+    // moment of the deploy. It is never written to again.
+    return { ...parse(sessionStorage.getItem(LEGACY_SESSION_KEY)), ...parse(localStorage.getItem(STORAGE_KEY)) };
   } catch {
+    // Private browsing, or storage disabled entirely.
     return {};
   }
 }
@@ -44,7 +75,7 @@ function readMap(): Record<string, VariantEnrichment> {
 function writeMap(map: Record<string, VariantEnrichment>): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
     // quota exceeded — non-fatal
   }

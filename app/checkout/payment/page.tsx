@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
+import { toPricingLines } from '@/components/storefront/cart/bag-lines';
 import { loadCheckoutSession, saveCheckoutSession } from '@/lib/checkout/checkout-session';
 import {
   COD_MAX_ORDER_MINOR,
@@ -29,7 +30,7 @@ function minorToAmount(minor: number): string {
 
 export default function CheckoutPaymentPage() {
   const router = useRouter();
-  const { cartId, items, subtotalAmount, currency } = useCart();
+  const { cartId, lines, bundleIndex, subtotalAmount, currency } = useCart();
   const [method, setMethod] = useState<'COD' | 'INSTAPAY'>('COD');
   const [discount, setDiscount] = useState<DiscountPreview | null>(null);
 
@@ -44,12 +45,14 @@ export default function CheckoutPaymentPage() {
       // that takes payment. If the cart context is ever mid-load, or a caller
       // supplies a partial one, a discount box must not white-screen the
       // payment step. It renders empty and the shopper still pays.
-      (items ?? []).map((i) => ({
-        variantId: i.variantId,
-        qty: i.qty,
-        unitPriceMinor: Math.round(parseFloat(i.unitPriceAmount) * 100),
-      })),
-    [items],
+      // Through `toPricingLines` so each line's `bundleId`/`bundleLineKey`
+      // travel with it. Without them every member of a set arrives at
+      // `priceBag()` looking like an ordinary line and is counted as
+      // discountable, against the bundle page's own "Discount codes do not
+      // apply to sets" (#56) — and this is the LAST-chance code field, one
+      // screen before the shopper pays.
+      toPricingLines(lines ?? [], bundleIndex ?? new Map()),
+    [lines, bundleIndex],
   );
 
   useEffect(() => {

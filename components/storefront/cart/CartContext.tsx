@@ -24,10 +24,13 @@ import { isAuthenticated } from '@/lib/auth/tokens';
 import { applyEnrichmentToCart, cacheVariantEnrichment, type VariantEnrichment } from '@/lib/cart/enrichment';
 import { track } from '@/lib/analytics';
 import { subtotalToMinor } from '@/lib/checkout/checkout-money';
+import { groupBagLines, planSetQty, type BagLine, type BundleIndex } from './bag-lines';
+import { primeBundleIndex, useBundleIndex } from './use-bundle-catalog';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
 export type CartItem = CartItemDto;
+export type { BagLine };
 
 /** Where an add-to-cart action originated — carried on `add_to_cart` so the
  * source funnel (PDP main button vs. sticky bar vs. a list quick-add vs. the
@@ -46,7 +49,18 @@ type EnrichedItem = CartItem & { productId?: string };
 
 export interface CartContextValue {
   cartId: string;
+  /** The raw API rows — one per variant, sets expanded. */
   items: CartItem[];
+  /**
+   * The bag as a customer reads it: one entry per product or per whole set.
+   *
+   * Every screen that SHOWS the bag renders this; `items` is for the callers
+   * that genuinely want variant rows (checkout, analytics). See bag-lines.ts
+   * for why the two differ.
+   */
+  lines: BagLine[];
+  /** The sets in the bag, by id — needed to price a bag honestly (#56). */
+  bundleIndex: BundleIndex;
   subtotalAmount: string;
   currency: string;
   itemCount: number;
@@ -63,8 +77,18 @@ export interface CartContextValue {
   ) => Promise<void>;
   /** Add a whole set. Throws on failure so the page can say what went wrong. */
   addBundle: (slug: string) => Promise<void>;
-  updateQty: (itemId: string, qty: number) => Promise<void>;
-  removeItem: (itemId: string) => Promise<void>;
+  /**
+   * Change the quantity of one bag line.
+   *
+   * Takes a LINE, not an item id, because for a set the quantity is not a
+   * property of any single row: it is "how many of these sets", and applying
+   * it means writing `qty × unitsPerSet` to every member. Handing this an
+   * item id was how a shopper could put one half of a set to 3 and leave the
+   * other at 1.
+   */
+  setLineQty: (line: BagLine, qty: number) => Promise<void>;
+  /** Remove a whole line — for a set, every member of it. */
+  removeLine: (line: BagLine) => Promise<void>;
   clearCart: () => Promise<void>;
   clearError: () => void;
 }
@@ -80,6 +104,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  /**
+   * Only asked for when the bag actually holds a set — an ordinary bag of
+   * products never pays for the request.
+   */
+  const hasBundle = cart.items.some((i) => !!i.bundleId);
+  const bundleIndex = useBundleIndex(hasBundle);
+  const lines = React.useMemo(
+    () => groupBagLines(cart.items, bundleIndex),
+    [cart.items, bundleIndex],
+  );
 
   React.useEffect(() => {
     void hydrateCart();
@@ -152,6 +187,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   async function addBundle(slug: string): Promise<void> {
     setLoading(true);
     setError(null);
+    // Raced against the add, not queued behind it: the drawer opens the moment
+    // this resolves, and it needs the set's NAME, which lives in a different
+    // endpoint (see use-bundle-catalog.ts).
+    primeBundleIndex();
     try {
       const data = await apiAddBundle(slug);
       setCartFromApi(data);
@@ -165,50 +204,78 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function updateQty(itemId: string, qty: number): Promise<void> {
-    // Read before the mutation — this is the last point the previous
-    // quantity (for `delta`) and the cached productId are certainly still in
-    // state.
-    const previous = cart.items.find((i) => i.id === itemId) as EnrichedItem | undefined;
+  /**
+   * Apply a plan of row writes, then adopt the LAST cart the server returned.
+   *
+   * Sequential rather than parallel: every one of these endpoints returns the
+   * whole cart, and firing them at once would leave which response lands last
+   * — and therefore what the bag shows — up to the network.
+   */
+  async function applyWrites(
+    writes: ReturnType<typeof planSetQty>,
+    failureMessage: string,
+  ): Promise<boolean> {
+    if (!writes.length) return true;
     setLoading(true);
     setError(null);
     try {
-      setCartFromApi(await apiUpdateItem(itemId, qty));
-      if (previous?.productId) {
-        track('cart_qty_change', {
-          productId: previous.productId,
-          variantId: previous.variantId,
-          qty,
-          delta: qty - previous.qty,
-        });
+      let data: CartDto | null = null;
+      for (const write of writes) {
+        data =
+          write.op === 'patch'
+            ? await apiUpdateItem(write.itemId, write.qty)
+            : await apiRemoveItem(write.itemId);
       }
+      if (data) setCartFromApi(data);
+      return true;
     } catch (e) {
-      setError(extractErrorMessage(e, 'Failed to update quantity'));
+      setError(extractErrorMessage(e, failureMessage));
+      // A plan can be several calls; a failure part-way through means what is
+      // on screen no longer describes what the server holds. Re-read rather
+      // than leave a half-applied bag standing.
+      void hydrateCart();
+      return false;
     } finally {
       setLoading(false);
     }
   }
 
-  async function removeItem(itemId: string): Promise<void> {
-    const previous = cart.items.find((i) => i.id === itemId) as EnrichedItem | undefined;
-    setLoading(true);
-    setError(null);
-    try {
-      setCartFromApi(await apiRemoveItem(itemId));
-      if (previous?.productId) {
-        track('remove_from_cart', {
-          productId: previous.productId,
-          variantId: previous.variantId,
-          qty: previous.qty,
-          priceMinor: subtotalToMinor(previous.unitPriceAmount),
-        });
-      }
-    } catch (e) {
-      setError(extractErrorMessage(e, 'Failed to remove item'));
-      void hydrateCart();
-    } finally {
-      setLoading(false);
+  async function setLineQty(line: BagLine, qty: number): Promise<void> {
+    // Read before the mutation — this is the last point the previous
+    // quantity (for `delta`) and the cached productId are certainly still in
+    // state.
+    const previous = line.items[0] as EnrichedItem | undefined;
+    const ok = await applyWrites(
+      planSetQty(line, qty),
+      qty === 0 ? 'Failed to remove item' : 'Failed to update quantity',
+    );
+    if (!ok) return;
+
+    /**
+     * A set has no single productId, so it fires no per-product event — the
+     * same rule this file already follows for a line with nothing cached, and
+     * better than nominating one of its members as "the" product.
+     */
+    if (line.kind !== 'item' || !previous?.productId) return;
+    if (qty === 0) {
+      track('remove_from_cart', {
+        productId: previous.productId,
+        variantId: previous.variantId,
+        qty: previous.qty,
+        priceMinor: subtotalToMinor(previous.unitPriceAmount),
+      });
+    } else {
+      track('cart_qty_change', {
+        productId: previous.productId,
+        variantId: previous.variantId,
+        qty,
+        delta: qty - line.qty,
+      });
     }
+  }
+
+  async function removeLine(line: BagLine): Promise<void> {
+    await setLineQty(line, 0);
   }
 
   async function clearCart(): Promise<void> {
@@ -227,9 +294,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const value: CartContextValue = {
     cartId: cart.id,
     items: cart.items,
+    lines,
+    bundleIndex,
     subtotalAmount: cart.totals.subtotalAmount,
     currency: cart.currency,
-    itemCount: cart.totals.itemCount,
+    /**
+     * Things in the bag, not cart rows.
+     *
+     * `totals.itemCount` is the server's sum of every row's qty, and a set is
+     * stored as one row per member — so adding one two-piece set made the
+     * header badge say 2 and the bag say "YOUR BAG · 2" for a single thing the
+     * shop sells as a single thing (#56, verbatim from the report). Counting
+     * bag lines is what the shopper would count, and it is still 0 exactly
+     * when the bag is empty, which is what every `itemCount === 0` guard
+     * actually asks.
+     */
+    itemCount: lines.reduce((n, l) => n + l.qty, 0),
     loading,
     error,
     drawerOpen,
@@ -240,8 +320,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     closeDrawer: () => setDrawerOpen(false),
     addItem,
     addBundle,
-    updateQty,
-    removeItem,
+    setLineQty,
+    removeLine,
     clearCart,
     clearError: () => setError(null),
   };

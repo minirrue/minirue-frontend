@@ -1,49 +1,59 @@
 'use client';
 
 /**
- * CartItemRow — a single line item in the cart.
+ * CartItemRow — one line in the bag, as a customer reads it.
  *
- * Displays: product image (Cloudinary), name, brand, size_ml, bottle_type,
- * qty selector (−/+, capped at min(10, availableQuantity) — W1.3), unit
- * price, line total, remove button. Shows a loading overlay during qty
- * update.
+ * It renders a `BagLine`, not a cart API row. For an ordinary product the two
+ * are the same thing; for a set, one line stands for every member row the
+ * server is holding (see bag-lines.ts). That is the whole of #56: the bag used
+ * to render rows, so a two-piece set arrived as two separately removable
+ * half-sets — each labelled with a raw variant UUID, because the cart API
+ * carries no display copy.
+ *
+ * Displays: photo, name, meta (brand · size · bottle, or the set's contents),
+ * one qty stepper, unit price, line total, remove. Shows a loading overlay
+ * during a write.
  */
 
 import React from 'react';
 import Image from 'next/image';
-import type { CartItem } from './CartContext';
+import Link from 'next/link';
+import type { BagLine } from './bag-lines';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 
-// Flat policy cap. Never the whole ceiling by itself — see effectiveMax below.
+// Flat policy cap. Never the whole ceiling by itself — `line.maxQty` already
+// folds in real stock, and for a set, how many units of each member it takes.
 const POLICY_MAX = 10;
 
 interface CartItemRowProps {
-  item: CartItem;
-  onUpdateQty: (itemId: string, qty: number) => Promise<void>;
-  onRemove: (itemId: string) => Promise<void>;
+  line: BagLine;
+  onUpdateQty: (line: BagLine, qty: number) => Promise<void>;
+  onRemove: (line: BagLine) => Promise<void>;
 }
 
-export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRowProps) {
+export default function CartItemRow({ line, onUpdateQty, onRemove }: CartItemRowProps) {
   const [busy, setBusy] = React.useState(false);
 
-  // W1.3: cap the stepper at real stock, not just the flat policy limit.
-  // `availableQuantity` undefined (a stale API response) falls back to the
-  // policy max rather than 0 — a stale deploy must not make every line look
-  // sold out (mirrors `variantInStock()` in lib/api/catalog.ts).
-  const availableQuantity =
-    typeof item.availableQuantity === 'number' ? item.availableQuantity : POLICY_MAX;
-  const effectiveMax = Math.min(POLICY_MAX, availableQuantity);
-  // Only a real scarcity signal — availableQuantity >= 10 means the flat cap
-  // is the reason for the ceiling, not stock, so saying "Only 10 left" when
-  // there are 400 would be a lie.
-  const scarceNote = effectiveMax < POLICY_MAX ? `Only ${effectiveMax} left` : null;
+  const isSet = line.kind === 'bundle';
+  const effectiveMax = Math.max(1, Math.min(POLICY_MAX, line.maxQty));
+  /**
+   * Only a real scarcity signal. `maxQty >= 10` means the flat cap is the
+   * reason for the ceiling, not stock, and "Only 10 left" when there are 400
+   * is a lie. For a set the number counts SETS, which is the only unit the
+   * shopper can act on here.
+   */
+  const scarceNote = line.scarce
+    ? isSet
+      ? `Only ${effectiveMax} ${effectiveMax === 1 ? 'set' : 'sets'} left`
+      : `Only ${effectiveMax} left`
+    : null;
 
   async function handleQty(delta: number) {
-    const next = item.qty + delta;
+    const next = line.qty + delta;
     if (next < 1 || next > effectiveMax) return;
     setBusy(true);
     try {
-      await onUpdateQty(item.id, next);
+      await onUpdateQty(line, next);
     } finally {
       setBusy(false);
     }
@@ -52,24 +62,38 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
   async function handleRemove() {
     setBusy(true);
     try {
-      await onRemove(item.id);
+      await onRemove(line);
     } finally {
       setBusy(false);
     }
   }
 
-  const imgSrc = item.imageUrl
-    ? item.imageUrl
-    : item.cloudinaryPublicId
-      ? `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/w_160,h_200,c_fill,q_auto,f_auto/${item.cloudinaryPublicId}`
+  const imgSrc = line.imageUrl
+    ? line.imageUrl
+    : line.cloudinaryPublicId
+      ? `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/w_160,h_200,c_fill,q_auto,f_auto/${line.cloudinaryPublicId}`
       : null;
 
-  const meta = [item.brand, item.sizeMl ? `${item.sizeMl} ml` : null, item.bottleType]
-    .filter(Boolean)
-    .join(' · ');
+  const nameNode = line.href ? (
+    <Link
+      href={line.href}
+      style={{ color: 'inherit', textDecoration: 'none' }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none';
+      }}
+    >
+      {line.name}
+    </Link>
+  ) : (
+    line.name
+  );
 
   return (
     <div
+      data-line-kind={line.kind}
       style={{
         display: 'flex',
         gap: 'var(--mr-sp-4)',
@@ -93,7 +117,9 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
         />
       )}
 
-      {/* Product image */}
+      {/* Photo — the set's own, for a set. The dashboard's bundle form has a
+          dedicated PHOTO field precisely so a set is not represented by one of
+          its members. */}
       <div
         style={{
           width: 76,
@@ -109,7 +135,7 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
         {imgSrc ? (
           <Image
             src={imgSrc}
-            alt={item.altText ?? item.name ?? 'Product'}
+            alt={line.altText}
             fill
             sizes="76px"
             style={{ objectFit: 'cover' }}
@@ -131,7 +157,7 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
               padding: 'var(--mr-sp-2)',
             }}
           >
-            {item.name ?? '—'}
+            {line.name}
           </div>
         )}
       </div>
@@ -175,26 +201,52 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
             // so the name has to be allowed to wrap inside it rather than
             // sitting on one unbreakable line.
             overflowWrap: 'anywhere',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--mr-sp-2)',
+            flexWrap: 'wrap',
           }}
         >
-          {item.name ?? `Variant #${item.variantId}`}
+          {nameNode}
+          {isSet && (
+            /* Says why this line cannot be taken apart, and why no code will
+               touch it — both rules the bundle page already states. */
+            <span
+              style={{
+                fontFamily: 'var(--mr-font-label)',
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--mr-gold-500)',
+                border: '1px solid var(--mr-hairline)',
+                borderRadius: 'var(--mr-radius-pill)',
+                padding: '2px 8px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Set
+            </span>
+          )}
         </div>
 
-        {/* Meta: brand · size · bottle_type */}
-        {meta && (
+        {/* Meta: brand · size · bottle_type, or what is in the set */}
+        {line.meta && (
           <div
             style={{
               fontFamily: 'var(--mr-font-ui)',
               fontSize: 'var(--mr-text-xs)',
               color: 'var(--mr-fg-4)',
               letterSpacing: '0.02em',
+              overflowWrap: 'anywhere',
             }}
           >
-            {meta}
+            {line.meta}
           </div>
         )}
 
-        {/* Qty selector */}
+        {/* Qty selector — ONE for the whole set. Stepping it writes
+            qty × unitsPerSet to every member row, so a set at 2 reserves 2 of
+            each component rather than one line of one. */}
         <div
           style={{
             display: 'flex',
@@ -205,9 +257,9 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
         >
           <button
             aria-label="Decrease quantity"
-            disabled={busy || item.qty <= 1}
+            disabled={busy || line.qty <= 1}
             onClick={() => void handleQty(-1)}
-            style={qtyBtnStyle(busy || item.qty <= 1)}
+            style={qtyBtnStyle(busy || line.qty <= 1)}
           >
             −
           </button>
@@ -221,22 +273,22 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
               textAlign: 'center',
             }}
           >
-            {item.qty}
+            {line.qty}
           </span>
           <button
             aria-label="Increase quantity"
-            disabled={busy || item.qty >= effectiveMax}
+            disabled={busy || line.qty >= effectiveMax}
             onClick={() => void handleQty(1)}
-            style={qtyBtnStyle(busy || item.qty >= effectiveMax)}
+            style={qtyBtnStyle(busy || line.qty >= effectiveMax)}
           >
             +
           </button>
         </div>
 
-        {/* Scarcity note — only a real signal (availableQuantity < 10), never
-            shown for a policy-only ceiling. Also covers the case where stock
-            dropped below the qty already in the bag: we show the note and let
-            the shopper reduce it rather than silently mutating their cart. */}
+        {/* Scarcity note — only a real signal, never shown for a policy-only
+            ceiling. Also covers the case where stock dropped below the qty
+            already in the bag: we show the note and let the shopper reduce it
+            rather than silently mutating their cart. */}
         {scarceNote && (
           <div
             style={{
@@ -258,13 +310,14 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
             marginTop: 'var(--mr-sp-1)',
           }}
         >
-          {/* Unit price */}
+          {/* Unit price — for a set, the set's own price, never the sum of the
+              parts bought separately. */}
           <PriceDisplay
-            amount={item.unitPriceAmount}
-            currency={item.unitPriceCurrency}
+            amount={line.unitPriceAmount}
+            currency={line.currency}
             style={{ fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}
           />
-          {item.qty > 1 && (
+          {line.qty > 1 && (
             <>
               <span
                 style={{
@@ -273,12 +326,12 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
                   color: 'var(--mr-fg-4)',
                 }}
               >
-                ×{item.qty}
+                ×{line.qty}
               </span>
               {/* Line total */}
               <PriceDisplay
-                amount={item.lineTotalAmount}
-                currency={item.unitPriceCurrency}
+                amount={line.lineTotalAmount}
+                currency={line.currency}
                 style={{ fontSize: 'var(--mr-text-md)', color: 'var(--mr-fg)' }}
               />
             </>
@@ -286,9 +339,9 @@ export default function CartItemRow({ item, onUpdateQty, onRemove }: CartItemRow
         </div>
       </div>
 
-      {/* Remove button */}
+      {/* Remove — the whole set, never one member of it. */}
       <button
-        aria-label={`Remove ${item.name ?? 'item'} from cart`}
+        aria-label={`Remove ${line.name} from cart`}
         disabled={busy}
         onClick={() => void handleRemove()}
         style={{

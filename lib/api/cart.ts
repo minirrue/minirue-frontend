@@ -22,6 +22,34 @@ export interface CartItemDto {
    * `lib/api/catalog.ts` `variantInStock()`.
    */
   availableQuantity?: number;
+  /**
+   * Set when this line came from a set the shopper added.
+   *
+   * The server does NOT collapse a set into one row — it writes every member
+   * as a real cart line so stock, fulfilment and refunds keep working on
+   * actual products — and marks each of them with the set it came from.
+   * See the backend's `src/cart/interfaces/cart.interfaces.ts`.
+   */
+  bundleId?: string | null;
+  /**
+   * Shared by every member of ONE add-to-bag of a set; `''` for a standalone
+   * line. This is the grouping key the bag renders by: two adds of the same
+   * set produce two keys, and a member variant that is ALSO in the bag on its
+   * own is a separate row with `bundleLineKey: ''`.
+   */
+  bundleLineKey?: string;
+  /**
+   * The set's own name / photo / slug.
+   *
+   * Not sent by the backend today (`CartItemDto` there carries no display
+   * copy at all, for sets or for variants) — declared here so the bag reads
+   * the server's answer the day it exists, in preference to the
+   * `GET /v1/bundles` lookup it falls back to. See
+   * `components/storefront/cart/bag-lines.ts`.
+   */
+  bundleName?: string;
+  bundleSlug?: string;
+  bundleImageUrl?: string;
   // Optional enrichment fields (resolved by frontend from catalog)
   name?: string;
   brand?: string;
