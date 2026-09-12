@@ -171,16 +171,48 @@ describe('the curtain wrapper — the pre-September positioning, restored', () =
     expect(read('app/layout.tsx')).toMatch(/className="mr-app-layer"/);
   });
 
-  it('keeps a non-sticky fallback for a footer taller than the viewport', () => {
-    // A bottom-pinned box taller than the scrollport can never show its own
-    // top — that is failure (1), and it is reached again by `sticky; bottom: 0`
-    // on a phone shorter than the ~745px footer. Dropping the stickiness leaves
-    // the footer exactly where it already is in flow, where every pixel of it
-    // can be scrolled to. Both states are in flow, so the switch moves no page
-    // content (#50).
-    expect(curtainRules).toMatch(/position:\s*static/);
-    expect(footer).toMatch(/data-curtain=\{stuck \? 'stuck' : 'flow'\}/);
-    expect(footer).toMatch(/window\.innerHeight/);
+  it('is sticky UNCONDITIONALLY — there is no taller-than-viewport fallback', () => {
+    /*
+     * The test that used to live here asserted the opposite, and asserting it
+     * is what let the bug ship.
+     *
+     * A `[data-curtain='flow'] { position: static }` rule, driven by JS that
+     * measured the footer against the viewport, dropped the stickiness whenever
+     * the footer was taller. The footer is ~748px, so that answered YES on a
+     * Pixel 5 (727px), an iPhone 12 (664px) and a 1440x720 laptop — every phone
+     * and any short laptop lost the reveal and got a block sitting vertically
+     * underneath the page instead. Which is exactly what the owner reported,
+     * twice.
+     *
+     * The guard was real CSS behaviour — a sticky box pinned by `bottom: 0`
+     * that is taller than the scrollport holds its own top above the viewport
+     * WHILE PINNED — but it un-sticks at its flow position at the end of the
+     * document, which is where the reveal finishes, so the top is reachable
+     * regardless. The pre-September footer had no such guard and worked.
+     *
+     * If the footer ever genuinely must fit, shorten the FOOTER. Do not
+     * reintroduce a mechanism that decides per viewport.
+     */
+    expect(curtainRules).toMatch(/position:\s*sticky/);
+    expect(curtainRules).not.toMatch(/position:\s*static/);
+    expect(tokens).not.toMatch(/data-curtain/);
+  });
+
+  it('needs no JavaScript at all', () => {
+    /*
+     * The reveal is three CSS declarations. This file briefly carried a
+     * ResizeObserver, a `100svh` probe element, a `document.fonts.ready` wait
+     * and a state swap — all to answer "is the footer taller than the
+     * viewport?", a question that turned out not to need answering.
+     *
+     * A footer that re-decides its own positioning at runtime is how this
+     * component acquired a font-loading race that permanently demoted a
+     * 1440x720 laptop on a measurement taken before the webfonts landed.
+     */
+    // Comments stripped first — the prose above names the machinery it
+    // describes removing, and matching that would be matching the explanation.
+    const code = footer.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
+    expect(code).not.toMatch(/useState|useEffect|ResizeObserver/);
   });
 
   it('reserves no band and writes nothing to `body`', () => {

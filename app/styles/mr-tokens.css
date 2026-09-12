@@ -425,19 +425,6 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
   z-index: -1;
 }
 
-/* The one guard the pre-September footer lacked. A sticky box pinned by
-   `bottom: 0` that is TALLER than the scrollport keeps its own top edge above
-   the viewport for the whole scroll, the end of the document included — the
-   footer is ~745px on a 390px-wide phone, and plenty of phones are shorter.
-   Dropping the stickiness changes nothing else: the footer stays exactly where
-   it already is in flow, as an ordinary last block, and every pixel of it can
-   be scrolled to. Both states are in flow, so the document height and the
-   footer's flow position are identical in each and the switch cannot move the
-   page under the reader (#50). See components/layout/Footer.tsx. */
-.mr-footer-curtain[data-curtain='flow'] {
-  position: static;
-}
-
 /* Tabular numbers utility */
 .mr-num {
   font-variant-numeric: tabular-nums;

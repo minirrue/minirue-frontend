@@ -45,8 +45,18 @@ describe('Footer position (W4a.1 / #57)', () => {
     const curtain = container.querySelector('.mr-footer-curtain');
     expect(curtain).not.toBeNull();
     expect(curtain).toContainElement(screen.getByRole('contentinfo'));
-    // `stuck` (the reveal) or `flow` (the taller-than-the-viewport fallback).
-    expect(curtain?.getAttribute('data-curtain')).toMatch(/^(stuck|flow)$/);
+    /*
+     * No `data-curtain` attribute, and that is the assertion.
+     *
+     * It used to read `stuck` or `flow`, set by JS that measured the footer
+     * against the viewport and dropped the stickiness when it did not fit. The
+     * footer is ~748px, so `flow` fired on every phone and on a 1440x720
+     * laptop — leaving a block sitting vertically under the page instead of
+     * one revealed from beneath it. The reveal now comes from three CSS
+     * declarations with no state at all, so there is nothing to stamp on the
+     * element and no second mode to fall into.
+     */
+    expect(curtain?.getAttribute('data-curtain')).toBeNull();
   });
 
   it('never writes document.body.style.paddingBottom (the measuring effect is gone)', () => {
@@ -371,162 +381,34 @@ describe('Footer section rhythm — single shared gap (Owner request 2026-07-31)
  * e2e/storefront/mobile-scroll-stability.spec.ts, which counts `data-curtain`
  * changes while resizing a real viewport mid-scroll.
  */
-describe('Footer curtain — the mode must not change mid-scroll (#50)', () => {
-  const PHONE_SMALL_VH = 727; // Pixel 5, Chrome toolbar VISIBLE
-  const PHONE_LARGE_VH = 807; // the same phone, toolbar collapsed
-  let originalRect: typeof HTMLElement.prototype.getBoundingClientRect;
+/**
+ * The mode-switching this block used to test NO LONGER EXISTS, deliberately.
+ *
+ * It covered a `data-curtain` state that swapped the wrapper between `sticky`
+ * and `static` depending on whether the footer was taller than the viewport,
+ * plus the toolbar dead band and the `document.fonts.ready` wait that had to be
+ * bolted on to stop that decision thrashing.
+ *
+ * All of it was machinery around one answer, and the answer was wrong. The
+ * footer is ~748px, so "taller than the viewport" is TRUE on a Pixel 5 (727px),
+ * an iPhone 12 (664px) and a 1440x720 laptop — the fallback fired for every
+ * phone and any short laptop, dropping the stickiness and leaving a block
+ * sitting vertically under the page. That is the bug the owner reported twice:
+ * "revealed under the webpage, not vertical under it".
+ *
+ * The guard was defending a real property of `position: sticky` — a box pinned
+ * by `bottom: 0` that is taller than the scrollport holds its top above the
+ * viewport WHILE PINNED — but it un-sticks at its flow position at the end of
+ * the document, which is exactly where the reveal ends, so the top is reachable
+ * anyway. The pre-September footer carried no such guard and worked.
+ *
+ * What replaced these tests is one assertion in
+ * __tests__/layout/footer-stacking.test.ts: the curtain is `position: sticky`
+ * unconditionally, there is no `static` fallback, and the component contains no
+ * JavaScript. Fewer tests because there is less to be wrong.
+ *
+ * The #50 guarantee they were named for — the curtain must not change position
+ * mid-scroll — now holds by construction: there is no second state to change
+ * into.
+ */
 
-  /** Make the curtain report a fixed height; everything else keeps jsdom's zero rect. */
-  function stubCurtainHeight(height: number) {
-    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
-      const rect = originalRect.call(this);
-      if (this.classList?.contains('mr-footer-curtain')) {
-        return { ...rect, height } as DOMRect;
-      }
-      return rect;
-    };
-  }
-
-  function setViewportHeight(height: number) {
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
-    act(() => {
-      window.dispatchEvent(new Event('resize'));
-    });
-  }
-
-  function mode(container: HTMLElement): string | null {
-    return container.querySelector('.mr-footer-curtain')!.getAttribute('data-curtain');
-  }
-
-  beforeEach(() => {
-    originalRect = HTMLElement.prototype.getBoundingClientRect;
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 393 });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: PHONE_SMALL_VH });
-  });
-
-  afterEach(() => {
-    HTMLElement.prototype.getBoundingClientRect = originalRect;
-  });
-
-  it('falls back to flow for a footer taller than the viewport, as it always did', () => {
-    stubCurtainHeight(749);
-    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
-    // 749 > 727: stuck, its own top edge would be off screen and unreachable —
-    // failure (1) in the Footer.tsx history. Demotion is immediate for exactly
-    // that reason; it is a correctness rule, not a preference.
-    expect(mode(container)).toBe('flow');
-  });
-
-  it('does not flip back to stuck when the toolbar collapses', () => {
-    stubCurtainHeight(749);
-    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
-    expect(mode(container)).toBe('flow');
-
-    // THE BUG. 749 <= 807 is true, so the old code promoted to `stuck` here —
-    // and demoted again the moment the toolbar came back. One flip per toolbar
-    // movement, under the reader's finger.
-    setViewportHeight(PHONE_LARGE_VH);
-    expect(mode(container)).toBe('flow');
-
-    setViewportHeight(PHONE_SMALL_VH);
-    expect(mode(container)).toBe('flow');
-
-    setViewportHeight(PHONE_LARGE_VH);
-    expect(mode(container)).toBe('flow');
-  });
-
-  it('stays stuck across a toolbar cycle when the footer genuinely fits', () => {
-    stubCurtainHeight(420);
-    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
-    expect(mode(container)).toBe('stuck');
-
-    setViewportHeight(PHONE_LARGE_VH);
-    expect(mode(container)).toBe('stuck');
-    setViewportHeight(PHONE_SMALL_VH);
-    expect(mode(container)).toBe('stuck');
-  });
-
-  it('promotes back to stuck only on a viewport with real headroom to spare', () => {
-    stubCurtainHeight(749);
-    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
-    expect(mode(container)).toBe('flow');
-
-    // A genuine resize that clears the footer by less than a toolbar's worth is
-    // still refused — that margin is what stops the mode oscillating around the
-    // boundary when the measurement itself is noisy.
-    setViewportHeight(800);
-    expect(mode(container)).toBe('flow');
-
-    // Clear headroom (749 + the 120px dead band = 869): the reveal comes back.
-    setViewportHeight(900);
-    expect(mode(container)).toBe('stuck');
-  });
-
-  /**
-   * The other half of "sometimes reveals correctly and sometimes opens as if
-   * its under the webpage", and it is not a toolbar at all.
-   *
-   * The dead band is asymmetric so a noisy VIEWPORT cannot walk the mode back
-   * and forth. But the FOOTER's own height is noisy exactly once, at the start,
-   * and in one direction: measured on the production build at 1440x720, this
-   * footer reads 840px at 154ms on the fallback fonts and 667px at 385ms once
-   * the webfonts swap in. 840 > 720 demotes; 667 can then never promote back,
-   * because the band demands 600. That laptop lost the reveal permanently, with
-   * 53px of headroom to spare, on the strength of a reading taken before the
-   * page had its fonts.
-   *
-   * Until `document.fonts.ready` resolves the decision is symmetric — what is
-   * changing is the footer settling, not the viewport moving. Demotion stays
-   * immediate throughout, so the unreachable-footer case is never entered.
-   */
-  it('a height measured before the webfonts land cannot demote it for good', async () => {
-    const original = Object.getOwnPropertyDescriptor(document, 'fonts');
-    let landFonts: () => void = () => {};
-    Object.defineProperty(document, 'fonts', {
-      configurable: true,
-      value: { ready: new Promise<void>((resolve) => { landFonts = resolve; }) },
-    });
-
-    try {
-      // First paint, fallback fonts: the footer measures far taller than it
-      // will end up. Demotion is still immediate — that part is correctness.
-      stubCurtainHeight(840);
-      const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
-      expect(mode(container)).toBe('flow');
-
-      // The webfonts land and the footer is its real height, which fits the
-      // 727px viewport with room to spare — but NOT by the 120px the toolbar
-      // dead band would demand (667 > 727 - 120). Before this fix it stayed in
-      // `flow` for the life of the page.
-      stubCurtainHeight(667);
-      await act(async () => {
-        landFonts();
-        // The component registered its own `.then` on this same promise before
-        // we resolved it, so awaiting it here lets that callback run first;
-        // the extra tick flushes the state update it schedules.
-        await (document.fonts as unknown as { ready: Promise<void> }).ready;
-        await Promise.resolve();
-      });
-      expect(mode(container)).toBe('stuck');
-
-      // And from here nothing has changed about #50. A toolbar-sized move is
-      // inside the dead band, so it re-uses the cached small-viewport reading
-      // and does not touch the mode...
-      setViewportHeight(660);
-      expect(mode(container)).toBe('stuck');
-      setViewportHeight(727);
-      expect(mode(container)).toBe('stuck');
-
-      // ...while a genuine viewport change still demotes immediately, and the
-      // band still refuses to promote back on less than a toolbar's headroom
-      // (667 needs 787 to return, and 727 is not it).
-      setViewportHeight(600);
-      expect(mode(container)).toBe('flow');
-      setViewportHeight(727);
-      expect(mode(container)).toBe('flow');
-    } finally {
-      if (original) Object.defineProperty(document, 'fonts', original);
-      else delete (document as unknown as { fonts?: unknown }).fonts;
-    }
-  });
-});
