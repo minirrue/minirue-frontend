@@ -39,8 +39,23 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 
-/** Libraries that must never be reachable from the root layout. */
-const BANNED = ['zod', 'gsap'];
+/**
+ * Libraries that must never be reachable from the root layout.
+ *
+ * `motion` is here because of how it got in last time, which this guard would
+ * have caught at the moment the import was written. `Footer` is in the root
+ * layout and imported `TextEffect`, which imported `motion/react` to animate
+ * one line of small print — so a ~56KB animation library shipped on the cart,
+ * the shop index and every other route to fade in "Powered by Ebneely" (#74).
+ *
+ * It is uninstalled now, so a static import would also fail the build. The
+ * entry stays because the failure mode is someone reaching for an animation,
+ * running `npm install motion`, and putting it in a layout component — which
+ * is exactly the sequence that happened. A red test naming the import chain is
+ * a better answer at that moment than a build error about a missing package,
+ * because the build error is fixed by installing it.
+ */
+const BANNED = ['zod', 'gsap', 'motion'];
 
 /**
  * Modules allowed to appear in the graph despite matching a banned name —
@@ -145,7 +160,7 @@ describe('the root layout import graph', () => {
     expect(seen.size).toBeGreaterThan(30);
   });
 
-  it('does not reach zod or gsap', () => {
+  it('does not reach zod, gsap or motion', () => {
     const offenders = findBanned(entry);
 
     // The message is the point: it names the chain, so whoever broke it knows
