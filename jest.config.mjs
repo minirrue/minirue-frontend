@@ -27,6 +27,27 @@ const config = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   testMatch: ['**/__tests__/**/*.test.{ts,tsx}'],
+  /*
+   * A nested checkout inside the repo must not be collected.
+   *
+   * `testMatch` is a bare `**` glob with no floor, so anything containing a
+   * `__tests__` directory anywhere under rootDir is a test root — including a
+   * git worktree created inside the repo. `.claude/worktrees/` is where agent
+   * worktrees land, and with three of them present a run went from 108 suites
+   * to 540, reporting 16 failures that belonged to other branches entirely.
+   *
+   * That is worse than noisy: the gate keeps passing or failing for reasons
+   * that have nothing to do with the diff under test, and the suite count is
+   * large enough that nobody reads it. `.next` is here for the same reason —
+   * `output: standalone` copies package.json files into `.next/standalone`,
+   * which also produces haste-map collision warnings.
+   */
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '<rootDir>/.claude/',
+    '<rootDir>/.next/',
+  ],
+  modulePathIgnorePatterns: ['<rootDir>/.claude/', '<rootDir>/.next/'],
   collectCoverageFrom: [
     'lib/**/*.{ts,tsx}',
     'app/**/*.{ts,tsx}',
