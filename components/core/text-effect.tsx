@@ -1,22 +1,41 @@
 'use client';
 /**
- * motion-primitives TextEffect — https://motion-primitives.com/docs/text-effect
+ * A per-segment reveal for a short line of text.
  *
- * Copied in narrowly, not vendored whole: only the `per='char'` / `preset='fade'`
- * path this codebase actually uses (the Ebneely footer signature). See
- * `components/core/carousel.tsx` for the same "copy the primitive, brand the
- * caller" convention this follows.
+ * Was a narrow copy of motion-primitives' TextEffect driving a `motion/react`
+ * stagger. It is now CSS keyframes with a per-segment `animation-delay`, which
+ * produces the same reveal and lets the last `motion/react` import in the
+ * codebase go with it.
  *
- * One deliberate departure from upstream: `prefers-reduced-motion` is checked
- * here, not left to the caller. `mr-tokens.css` caps every CSS
- * `transition-duration` under that media query, but `motion/react` drives this
- * per-character stagger through its own animation engine, not a CSS
- * transition — the stylesheet rule cannot reach it. Reduced motion renders the
- * plain string with no per-character split and no animation at all.
+ * ## Why that mattered enough to rewrite
+ *
+ * This component renders the Ebneely footer signature, and the footer is on
+ * EVERY page. So `motion` (~56KB) was not a product-page cost that happened to
+ * be shared — it was a sitewide cost, paid on the cart and the shop index too,
+ * for one line of animated small print.
+ *
+ * `next/dynamic` does not solve this and it was measured: with `ssr: true` the
+ * chunk splits out of the entry (verified — it stops being preloaded in the
+ * HTML) but React still fetches it immediately to hydrate the server-rendered
+ * markup, so the bytes arrive during exactly the window that matters. Deleting
+ * the dependency is the only thing that removes it. See minirue-frontend#7,
+ * where the product page's LCP image is measured taking 1806ms to transfer
+ * 78KB because it shares a 1.6 Mbps pipe with ~283KB of concurrent JavaScript.
+ *
+ * ## Why CSS reaches this and could not before
+ *
+ * The old file's header noted a real constraint: `mr-tokens.css` caps every CSS
+ * `transition-duration` under `prefers-reduced-motion`, but that rule could not
+ * reach a `motion/react` animation because it is not a CSS transition. That
+ * asymmetry is gone — this is a CSS animation now, and it is ALSO still handled
+ * explicitly below, because the tokens file caps transitions rather than
+ * animations and an unanimated fallback is clearer than a 0.01s one.
+ *
+ * The reduced-motion branch renders the plain string with no per-character
+ * split and no animation, exactly as before.
  */
 
 import React from 'react';
-import { motion, type Variants } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 
@@ -37,36 +56,48 @@ export interface TextEffectProps {
   onAnimationComplete?: () => void;
 }
 
-const defaultContainer: Variants = {
-  hidden: { opacity: 0 },
-  visible: (speedReveal: number) => ({
-    opacity: 1,
-    transition: { staggerChildren: speedReveal },
-  }),
+/**
+ * The five presets, as the FROM half of each keyframe pair. Every one animates
+ * to the element's natural state, so the TO half is identical for all of them
+ * and lives in the stylesheet below rather than being repeated per preset.
+ */
+const PRESET_FROM: Record<TextEffectPreset, string> = {
+  fade: 'opacity:0',
+  blur: 'opacity:0;filter:blur(6px)',
+  'fade-in-blur': 'opacity:0;filter:blur(10px);transform:translateY(4px)',
+  scale: 'opacity:0;transform:scale(0.6)',
+  slide: 'opacity:0;transform:translateY(0.3em)',
 };
 
-const PRESET_ITEM: Record<TextEffectPreset, Variants> = {
-  fade: {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1 },
-  },
-  blur: {
-    hidden: { opacity: 0, filter: 'blur(6px)' },
-    visible: { opacity: 1, filter: 'blur(0px)' },
-  },
-  'fade-in-blur': {
-    hidden: { opacity: 0, filter: 'blur(10px)', y: 4 },
-    visible: { opacity: 1, filter: 'blur(0px)', y: 0 },
-  },
-  scale: {
-    hidden: { opacity: 0, scale: 0.6 },
-    visible: { opacity: 1, scale: 1 },
-  },
-  slide: {
-    hidden: { opacity: 0, y: '0.3em' },
-    visible: { opacity: 1, y: 0 },
-  },
-};
+/**
+ * One stylesheet for every preset, emitted once.
+ *
+ * Inline rather than in `globals.css` because the keyframes and the component
+ * are a single unit — a preset added here without its keyframe is a silent
+ * no-animation, and the two drifting apart across files is how that happens.
+ * Next de-duplicates identical <style> content, and the footer is the only
+ * consumer, so this is one small block in the document regardless of how many
+ * segments it renders.
+ */
+const STYLES = `
+${(Object.keys(PRESET_FROM) as TextEffectPreset[])
+  .map(
+    (preset) => `@keyframes mr-te-${preset}{from{${PRESET_FROM[preset]}}to{opacity:1;filter:none;transform:none}}`,
+  )
+  .join('\n')}
+.mr-te-seg{
+  display:inline-block;
+  white-space:pre;
+  /* The element's resting state IS the animation's end state, so a segment
+     whose animation has not started yet must be held invisible explicitly.
+     animation-fill-mode: backwards applies the from-frame during the delay;
+     without it every character paints first and then re-fades, which reads
+     as a flicker. */
+  animation-duration:var(--mr-te-dur,.5s);
+  animation-timing-function:var(--mr-ease-out,cubic-bezier(.22,1,.36,1));
+  animation-fill-mode:backwards;
+}
+`;
 
 function splitSegments(text: string, per: TextEffectPer): string[] {
   if (per === 'line') return text.split('\n');
@@ -115,6 +146,23 @@ export function TextEffect({
 }: TextEffectProps) {
   const reducedMotion = usePrefersReducedMotion();
 
+  /*
+   * `onAnimationComplete` fired off motion's own lifecycle. Reproduced with a
+   * timer rather than an `animationend` listener because the caller means "the
+   * whole reveal is done", and `animationend` fires once PER SEGMENT — for the
+   * footer signature that is 44 events, and the last one to fire is not
+   * necessarily the last one to finish.
+   */
+  const total = React.useMemo(
+    () => delay + splitSegments(children, per).length * speedReveal + 0.5,
+    [children, per, delay, speedReveal],
+  );
+  React.useEffect(() => {
+    if (!onAnimationComplete || reducedMotion) return;
+    const t = window.setTimeout(onAnimationComplete, total * 1000);
+    return () => window.clearTimeout(t);
+  }, [onAnimationComplete, reducedMotion, total]);
+
   if (reducedMotion) {
     return (
       <StaticText as={as} className={className} style={style}>
@@ -124,38 +172,29 @@ export function TextEffect({
   }
 
   const segments = splitSegments(children, per);
-  const itemVariants = PRESET_ITEM[preset];
 
-  // The animated wrapper is always a <span> — `as` only decides the
-  // reduced-motion / SSR-fallback tag above. A footer signature line and
-  // similar inline maker's-marks never need the animated wrapper itself to
-  // be a block element, and keeping this to one concrete `motion.span`
-  // avoids indexing the `motion` proxy with an arbitrary string, which
-  // `motion/react`'s types don't support cleanly.
+  // `as` only decides the reduced-motion fallback tag above; the animated
+  // wrapper is always a <span>. A footer signature and similar inline
+  // maker's-marks never need it to be a block element.
   return (
-    <motion.span
-      className={cn('inline-block', className)}
-      style={style}
-      initial="hidden"
-      animate="visible"
-      custom={speedReveal}
-      variants={defaultContainer}
-      transition={{ delay }}
-      onAnimationComplete={onAnimationComplete}
-    >
+    <span className={cn('inline-block', className)} style={style}>
+      <style>{STYLES}</style>
       <span className="sr-only">{children}</span>
       <span aria-hidden="true">
         {segments.map((segment, i) => (
-          <motion.span
+          <span
             key={`${per}-${i}-${segment}`}
-            variants={itemVariants}
-            className="inline-block whitespace-pre"
+            className="mr-te-seg"
+            style={{
+              animationName: `mr-te-${preset}`,
+              animationDelay: `${delay + i * speedReveal}s`,
+            }}
           >
             {segment}
-          </motion.span>
+          </span>
         ))}
       </span>
-    </motion.span>
+    </span>
   );
 }
 
