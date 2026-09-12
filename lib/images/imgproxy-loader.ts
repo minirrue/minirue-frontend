@@ -3,6 +3,11 @@ import type { ImageLoaderProps } from 'next/image';
 /**
  * A `next/image` loader that picks from widths the SERVER already rendered.
  *
+ * Named for what it does rather than where it started. It was
+ * `heroImageLoader` in `hero-loader.ts` until the product gallery needed the
+ * same thing — and a name describing one caller sends the next reader looking
+ * for a hero-specific rule that is not here. Nothing in it is about heroes.
+ *
  * The hero shipped `unoptimized`, which means one file for every viewport: a
  * 390px phone downloaded the same up-to-3200px image as a 2560px desktop. It is
  * the largest thing on the page and the first thing a shopper waits for
@@ -24,7 +29,7 @@ import type { ImageLoaderProps } from 'next/image';
  * this exists to remove. Past the top rung it returns the largest there is,
  * which is the same file the page gets today.
  */
-export function heroImageLoader(
+export function imgproxyLoader(
   srcSet: Record<string, string> | null | undefined,
 ) {
   return ({ src, width }: ImageLoaderProps): string => {
