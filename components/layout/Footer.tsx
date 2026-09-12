@@ -105,7 +105,35 @@ export default function Footer({
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 0,
+          // NEGATIVE, and the sign is the whole fix.
+          //
+          // `sticky` is a POSITIONED value, so the footer paints in the
+          // positioned phase — above every in-flow, non-positioned box on the
+          // page, regardless of DOM order. At `zIndex: 0` it also tied with
+          // `.mr-page-sheet` (positioned, z-index auto) and won the tie on
+          // tree order, being the later sibling.
+          //
+          // So the curtain ran backwards. The sheet is supposed to scroll up
+          // OVER the footer and reveal it; instead the footer sat on top of
+          // the sheet. Measured on the live site, Pixel 5, homepage: the
+          // footer pinned at top:30 with height:697 — covering 697px of an
+          // 851px viewport — while 2465px of page content was still scrolled
+          // underneath it. Anything in that band without a z-index of its own
+          // was behind it and unclickable. The header survived only because it
+          // carries its own higher z-index.
+          //
+          // -1 puts it in the negative phase, below the sheet's background and
+          // below in-flow content, while still above the canvas — so it is
+          // hidden exactly while the sheet covers it and revealed exactly when
+          // the sheet's bottom edge clears it. Which is the effect this was
+          // always describing.
+          //
+          // This REQUIRES `body` to have no background of its own: an in-flow
+          // box background paints above a negative-z-index child and would
+          // hide the footer completely. globals.css keeps the colour on `html`
+          // (which paints the canvas) for that reason — the two changes only
+          // work together. Covered by __tests__/layout/footer-stacking.test.ts.
+          zIndex: -1,
           background: 'var(--mr-ink-900)',
           color: 'var(--mr-cream-100)',
           // Fluid padding: generous on desktop, compact on phones so the whole

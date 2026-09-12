@@ -8,11 +8,6 @@ html,
 body {
   margin: 0;
   padding: 0;
-  /* Must match .mr-page-sheet's background. The sheet unmounts/remounts across a route
-     change, and whatever the body is shows through in that gap — an ink body here is what
-     produced the sub-second black flash between pages. The footer paints its own ink
-     background, so nothing depends on this being dark. */
-  background: var(--mr-cream-200);
   /* No horizontal scroll, ever.
    *
    * `clip`, NOT `hidden`, and the difference is load-bearing: `overflow:hidden`
@@ -38,6 +33,28 @@ body {
    */
   overflow-x: clip;
 }
+/* The page ground colour lives on `html` ONLY, never on `body`.
+ *
+ * Must match .mr-page-sheet's background. The sheet unmounts/remounts across a
+ * route change, and whatever is behind it shows through in that gap — an ink
+ * colour here is what produced the sub-second black flash between pages. A
+ * background on the ROOT element is propagated to the canvas and painted over
+ * the whole viewport, so it covers that gap exactly as `body` did.
+ *
+ * Why it must not also be on `body`: the footer is `position: sticky;
+ * z-index: -1` (Footer.tsx), and a negative-z-index box paints BELOW the
+ * backgrounds of in-flow, non-positioned boxes — which is what `body` is. An
+ * opaque body background would therefore hide the footer completely, at every
+ * scroll position, on every page. The canvas is the one background that paints
+ * below it.
+ *
+ * So this pair is load-bearing in both directions: the colour has to be here,
+ * and it has to be only here.
+ */
+html {
+  background: var(--mr-cream-200);
+}
+
 html {
   scroll-behavior: auto; /* Lenis handles smooth scroll; native smooth interferes */
   /* Light-only design. Without this, a dark-mode OS makes the browser paint a dark canvas
