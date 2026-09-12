@@ -50,16 +50,25 @@ const HIDE_TRANSITION_MS = 280;
 const HIDE_FLIP_COOLDOWN_MS = HIDE_TRANSITION_MS + 40;
 
 /**
- * The two destinations the desktop bar always offers.
+ * The destination the desktop bar always offers.
  *
- * `prefetch` on both: every shop route is dynamic, so the default prefetch
- * stops at the loading boundary and a tap would still pay a full round trip
- * (see ShopRouteSkeleton). Two links is a bounded cost for the two things
- * people click most.
+ * `prefetch`: every shop route is dynamic, so the default prefetch stops at
+ * the loading boundary and a tap would still pay a full round trip (see
+ * ShopRouteSkeleton). One link is a bounded cost for the thing people click
+ * most.
+ *
+ * #59 — Collab was the second entry here and is not any more (owner: "remove
+ * collab in desktop navbar and mobile navbar… but leave shop"). It is a
+ * merchandising surface, not the shop's structure, so it does not earn one of
+ * very few permanent slots the way Shop does. THE ROUTES ARE UNTOUCHED:
+ * `/collab`, `/collab/[slug]` and `/collab/[slug]/[child]` all still resolve,
+ * so shared links keep working — this is a navigation change, not a removal.
+ * An admin who still wants it in the bar can add it back as an ordinary
+ * `navbar.items` link (kind `link`, href `/collab`), which the loop below
+ * renders after this array.
  */
 const FIXED_NAV_LINKS: ReadonlyArray<{ label: string; href: string }> = [
   { label: 'Shop', href: SHOP_ROOT },
-  { label: 'Collab', href: '/collab' },
 ];
 
 export default function Header({ navbar, onOpenCart, cartCount = 0, transparent = false }: HeaderProps) {
@@ -268,16 +277,12 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 textTransform: 'uppercase',
               }}
             >
-              {/* Shop and Collab, always, ahead of whatever the admin has
-                  configured.
-                  The phone's bottom bar has carried both since it was built;
-                  the desktop bar only ever showed the storefront-appearance
-                  items, so the two most-used destinations were present on one
-                  breakpoint and absent on the other (owner, 2026-08-21). Fixed
-                  rather than admin-editable for the same reason the bottom bar
-                  fixes them: they are the shop's structure, not merchandising,
-                  and a store that removed them by accident would have no way
-                  back to its own catalogue.
+              {/* Shop, always, ahead of whatever the admin has configured.
+                  Fixed rather than admin-editable because it is the shop's
+                  structure, not merchandising: a store that removed it by
+                  accident would have no way back to its own catalogue.
+                  Collab used to sit beside it and no longer does (#59) — see
+                  FIXED_NAV_LINKS above.
                   Skipped when the admin has already configured a link to the
                   same place, so nobody ends up with Shop twice. */}
               {FIXED_NAV_LINKS.filter(

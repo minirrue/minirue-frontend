@@ -241,29 +241,39 @@ describe('MobileBottomNav (W4a.2)', () => {
     expect(cartButton.textContent).not.toMatch(/\d/);
   });
 
-  it('has no Home item, and shows a Collab item linking to /collab', () => {
+  it('has no Home item and no Collab item, and keeps Shop linking to /shop', () => {
     setViewportWidth(600);
     renderNav();
     scrollTo(100);
     scrollTo(160); // scroll down so the bar is visible/in the a11y tree
     expect(screen.queryByRole('link', { name: /^Home$/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^Collab$/ })).toHaveAttribute('href', '/collab');
+    // #59 — Collab is out of this bar. The ROUTE is untouched; only the tab is
+    // gone, so this asserts the absence of the tab, not of /collab.
+    expect(screen.queryByRole('link', { name: /^Collab$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Shop$/ })).toHaveAttribute('href', '/shop');
   });
 
-  it('places Collab in the middle of the bar, between Search and Shop', () => {
+  it('is a deliberate four-tab bar: Search, Shop, Cart, account', () => {
     setViewportWidth(600);
     renderNav();
     const labels = screen
-      .getAllByText(/^(Menu|Search|Collab|Shop|Cart|Account)$/)
+      .getAllByText(/^(Home|Menu|Search|Collab|Shop|Cart|Account)$/)
       .map((el) => el.textContent);
     // No Menu tab since 2026-08-21 — the header's account avatar opens the menu
-    // sheet, so a second door labelled Menu did the same job twice. Collab is
-    // still the middle of what remains.
+    // sheet, so a second door labelled Menu did the same job twice. No Home tab
+    // since 2026-07-30 — the logo already goes there. No Collab tab since #59.
     //
-    // No 'Account' caption either: that tab is a photograph of the shopper, and
-    // a face needs no word under it the way an outline of a bag does. Its
-    // accessible name lives on the control, asserted below.
-    expect(labels).toEqual(['Search', 'Collab', 'Shop', 'Cart']);
+    // Four captions, not five with a hole: nothing was promoted into the slot
+    // Collab vacated, because the only candidates are the two tabs the owner
+    // had already asked to remove. This assertion is the guard against one of
+    // them quietly coming back to "fill" it.
+    //
+    // Three captions for four tabs: the fourth is the account tab, which is a
+    // photograph of the shopper and carries no word under it the way an outline
+    // of a bag does. Its accessible name lives on the control — asserted in
+    // 'makes the account tab a menu button' below, which scrolls the bar into
+    // the a11y tree first.
+    expect(labels).toEqual(['Search', 'Shop', 'Cart']);
   });
 
   it('makes the account tab a menu button, not a link to /account', () => {

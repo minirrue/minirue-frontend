@@ -30,6 +30,22 @@ class MockResizeObserver {
 (global as unknown as { ResizeObserver: typeof MockResizeObserver }).ResizeObserver =
   MockResizeObserver;
 
+/**
+ * The href of a link with this exact text INSIDE a nav landmark, or undefined.
+ *
+ * Scoped to <nav> because the Header also renders search suggestions that can
+ * share a label with a nav item ("Perfume" -> /search?q=perfume); those are not
+ * navigation and must not be what these assertions read.
+ */
+function navHref(label: string): string | undefined {
+  return (
+    Array.from(document.querySelectorAll('nav'))
+      .flatMap((n) => Array.from(n.querySelectorAll('a')))
+      .find((a) => a.textContent?.trim() === label)
+      ?.getAttribute('href') ?? undefined
+  );
+}
+
 describe('Header', () => {
   it('renders exactly the nav items it is given', () => {
     render(
@@ -55,21 +71,46 @@ describe('Header', () => {
     expect(href('Atelier X')).toBe('/brands/atelier-x');
   });
 
-  it('still offers Shop and Collab when the admin has listed no nav items', () => {
+  it('still offers Shop when the admin has listed no nav items', () => {
     /**
-     * These two are FIXED, not merchandising.
-     *
-     * The phone's bottom bar has always carried both; the desktop bar only ever
-     * rendered the storefront-appearance items, so the two most-used
-     * destinations existed on one breakpoint and not the other (owner,
-     * 2026-08-21). Fixing them here also means a store that empties its nav by
+     * Shop is FIXED, not merchandising. A store that empties its nav by
      * accident still has a way back to its own catalogue — which is why this
-     * test now asserts their presence rather than an empty bar.
+     * test asserts its presence rather than an empty bar.
      */
     render(<Header navbar={FALLBACK_CHROME.navbar} />);
 
     expect(screen.getByRole('link', { name: /^Shop$/ })).toHaveAttribute('href', '/shop');
-    expect(screen.getByRole('link', { name: /^Collab$/ })).toHaveAttribute('href', '/collab');
+  });
+
+  it('no longer pins Collab to the desktop bar (#59), and Shop is unaffected', () => {
+    /**
+     * Owner: "remove collab in desktop navbar and mobile navbar… but leave
+     * shop". Collab is merchandising — a surface worth showing when there is
+     * something in it — not the shop's structure, so it does not hold one of
+     * very few permanent slots.
+     *
+     * This asserts the absence of the FIXED entry only. `/collab` and its
+     * children still resolve (shared links have to keep working), and an admin
+     * can still put it in the bar as an ordinary configured link — the case
+     * immediately below.
+     */
+    render(<Header navbar={FALLBACK_CHROME.navbar} />);
+
+    expect(navHref('Collab')).toBeUndefined();
+    expect(navHref('Shop')).toBe('/shop');
+  });
+
+  it('an admin-configured Collab link still renders', () => {
+    render(
+      <Header
+        navbar={{
+          ...FALLBACK_CHROME.navbar,
+          items: [{ id: 'collab', label: 'Collab', href: '/collab' }],
+        }}
+      />,
+    );
+
+    expect(navHref('Collab')).toBe('/collab');
   });
 });
 
