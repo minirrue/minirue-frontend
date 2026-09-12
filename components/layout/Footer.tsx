@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Wordmark from '@/components/ui/Wordmark';
 import PaymentBadge from '@/components/ui/PaymentBadge';
 import SocialIcon from '@/components/ui/SocialIcon';
@@ -17,10 +17,10 @@ import type { FooterConfig } from '@/lib/api/storefront';
  * reasoning that put the sticky-vs-fixed fix in this file instead of at
  * each call site.
  *
- * Placement layer: this sits AFTER `.mr-page-sheet` in the DOM (same as
- * `<footer>`), so it belongs to the revealed layer, not the scrolling page
- * layer — it is uncovered by the same curtain motion as the footer and
- * always appears immediately above it, never scrolling independently of it.
+ * Placement layer: this sits inside the curtain wrapper (same as `<footer>`),
+ * so it belongs to the revealed layer, not the scrolling page layer — it is
+ * uncovered by the same curtain motion as the footer and always appears
+ * immediately above it, never scrolling independently of it.
  * It shares the footer's ink background so the two read as one band; the
  * line itself stays deliberately quiet (small, low-contrast, generous
  * tracking, the same label typography the nav links use) so it never
@@ -37,6 +37,118 @@ import type { FooterConfig } from '@/lib/api/storefront';
  * so a future edit can't quietly fork it back into four values.
  */
 const FOOTER_SECTION_GAP = 'clamp(24px, 4vw, 40px)';
+
+/**
+ * The curtain.
+ * ============
+ * The owner's effect, verbatim: "we want the outer reveal under the webpage" —
+ * the footer sits BEHIND the page, and the page slides up and off it.
+ *
+ * Mechanically that means exactly one thing: the footer has to be PAINTED
+ * somewhere other than where it sits in flow, which only `fixed` / `sticky` can
+ * do. An unpositioned box cannot overlap anything, so it cannot be revealed
+ * from under anything either — that is why the static footer that shipped last
+ * has no reveal at all, rather than a broken one.
+ *
+ * Once the footer is positioned it is competing with `.mr-page-sheet`
+ * (`position: relative`) for paint order, and THAT is what the previous three
+ * attempts each lost:
+ *
+ *   1. `fixed; bottom: 0` — right idea, but the footer was rendered AFTER the
+ *      sheet, so it painted on top of it; and it needed a `ResizeObserver`
+ *      writing `document.body.style.paddingBottom` to fake in-flow height. Once
+ *      the footer grew taller than the viewport its own top edge was pinned off
+ *      screen and the wordmark on it was unreachable.
+ *   2. `sticky; bottom: 0; z-index: 0` — same paint bug, measured: a 697px
+ *      footer pinned across an 851px viewport with 2465px of page still
+ *      scrolling underneath it. `sticky` is a POSITIONED value, so it painted
+ *      above every in-flow box whatever the DOM order, and at `z-index: 0` it
+ *      tied with the sheet and won the tie on tree order, being the later
+ *      sibling. The curtain ran backwards.
+ *   3. `sticky; z-index: -1` — corrected the painting and broke hit testing. A
+ *      negative-z-index box is behind in-flow content for POINTER EVENTS too,
+ *      so every footer link rendered perfectly and did nothing.
+ *
+ * The fix is tree order, not z-index. Two positioned boxes that both have
+ * `z-index: auto` paint in DOCUMENT ORDER, so this curtain is rendered BEFORE
+ * `.mr-page-sheet` at every call site: the sheet is the later sibling, so the
+ * sheet paints over it, and there is no z-index — and therefore no stacking
+ * context, and therefore no overlay sealed inside one (see the long note on
+ * `.mr-page-sheet` in app/styles/mr-tokens.css) — anywhere in the chain.
+ * Nothing is negative, so hit testing is ordinary: where the sheet covers the
+ * curtain the sheet takes the clicks, and where the sheet has scrolled past it
+ * the footer takes its own.
+ *
+ * Two states, one measurement:
+ *
+ *   data-curtain="pinned"  (`position: fixed; bottom: 0`)
+ *     The reveal. The footer is parked against the bottom of the viewport,
+ *     behind the sheet. `--mr-footer-h` becomes `body`'s padding-bottom
+ *     (app/globals.css) — the scroll room that lets the sheet's bottom edge
+ *     travel up the viewport and uncover it. A CSS custom property, not
+ *     `document.body.style.paddingBottom`: the effect that wrote that inline
+ *     was deleted for good reason and is not coming back.
+ *
+ *   data-curtain="flow"  (`position: absolute; bottom: 0`)
+ *     The fallback, for a footer TALLER than the viewport. A bottom-anchored
+ *     box taller than the scrollport can never show its own top: pinned, its
+ *     top is above the viewport; released, you are at the end of the document
+ *     looking at its bottom. That is failure (1) exactly, and no amount of
+ *     extra scroll room fixes it, because the shortfall is the viewport. So the
+ *     curtain stops pretending: absolute against `body` (hence `body {
+ *     position: relative }`) puts it in the same reserved band at the true
+ *     bottom of the document, where it scrolls like any last block and every
+ *     pixel of it is reachable. Same variable, same band; only `position`
+ *     differs.
+ *
+ * Covered by __tests__/layout/footer-stacking.test.ts and the placement audit
+ * in __tests__/layout/footer.test.tsx.
+ */
+const FOOTER_HEIGHT_VAR = '--mr-footer-h';
+
+function useFooterCurtain() {
+  const ref = useRef<HTMLDivElement>(null);
+  /**
+   * Optimistic: the reveal is the point, and it is correct on every viewport
+   * the footer fits in. The measurement below demotes it inside the first
+   * effect if it does not fit — long before a shopper could have scrolled to
+   * the bottom of the page to see it.
+   */
+  const [pinned, setPinned] = useState(true);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+
+    const measure = () => {
+      const height = Math.ceil(el.getBoundingClientRect().height);
+      // The scroll room the sheet needs in order to have something to uncover.
+      root.style.setProperty(FOOTER_HEIGHT_VAR, `${height}px`);
+      // `innerHeight`, not svh/dvh: this is a comparison against the real
+      // scrollport as it is right now, re-run on resize and orientation change.
+      setPinned(height <= window.innerHeight);
+    };
+
+    measure();
+
+    const observer =
+      typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    observer?.observe(el);
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
+      // A route that renders no footer must not keep the band reserved.
+      root.style.removeProperty(FOOTER_HEIGHT_VAR);
+    };
+  }, []);
+
+  return { ref, pinned };
+}
 
 function EbneelySignature() {
   const year = new Date().getFullYear();
@@ -81,50 +193,46 @@ export default function Footer({
   shopName?: string;
 }) {
   const { mobile } = useBreakpoint();
+  const { ref: curtainRef, pinned } = useFooterCurtain();
 
   return (
-    <>
+    /*
+      The curtain wrapper — the thing that is positioned, so that `<footer>`
+      itself stays an ordinary box (no position, no z-index, no insets: see
+      __tests__/layout/footer-stacking.test.ts, which still enforces that).
+      The Ebneely signature has to be inside it: it is the band immediately
+      above the wordmark and shares the footer's ink ground, so the two are
+      revealed as one piece. Left outside, it would stay in the scrolling page
+      layer and the curtain would slide up over it.
+
+      `--mr-footer-h` is measured from THIS element for the same reason: the
+      reserved band has to be the height of everything being revealed, not just
+      of `<footer>`.
+    */
+    <div
+      ref={curtainRef}
+      className="mr-footer-curtain"
+      data-curtain={pinned ? 'pinned' : 'flow'}
+    >
       <EbneelySignature />
       <footer
         data-mr-surface="ink"
         style={{
-          // `fixed` pinned the footer's top edge above the viewport the
-          // moment its own content grew taller than the screen — nothing
-          // could scroll to it, which is why the wordmark at its top was
-          // clipped off. `sticky` behaves identically while the footer
-          // fits (pinned to the bottom edge, revealed as the page sheet
-          // above it scrolls up over it), but the instant it is taller
-          // than the viewport, sticky simply cannot pin something bigger
-          // than the scrollport — the browser lets you scroll straight
-          // through it instead. The footer now also occupies its own
-          // height in normal flow, so the page is naturally that much
-          // taller; the old `ResizeObserver` + `document.body.style.
-          // paddingBottom` effect existed only to fake that, and it is
-          // deleted rather than patched.
-          // NOT sticky, and not positioned at all.
+          // DELIBERATELY UNPOSITIONED, and it must stay that way: no
+          // `position`, no `zIndex`, no `top`/`bottom`/`left`/`right`.
           //
-          // `sticky` pinned the footer over the page: measured on the live
-          // site, Pixel 5, homepage, it sat at top:30 with height:697 — 697px
-          // of an 851px viewport — with 2465px of page still scrolled
-          // underneath it. `sticky` is a POSITIONED value, so the footer
-          // painted above every in-flow box regardless of DOM order, and at
-          // z-index 0 it also beat `.mr-page-sheet` on tree order. The curtain
-          // ran backwards: the sheet is meant to scroll up OVER the footer, and
-          // instead the footer covered the sheet.
-          //
-          // `z-index: -1` was tried and is WORSE. It fixes the painting and
-          // breaks hit testing with it — the footer rendered perfectly and
-          // every link in it was dead, because a negative-z-index box sits
-          // behind in-flow content for pointer events too. Verified by clicking
-          // "About" at its own coordinates: no navigation.
-          //
-          // Static flow needs neither trick. The footer is the last block on
-          // the page, it occupies its own height, it is reached by scrolling to
-          // it, and it overlaps nothing — so there is no stacking question left
-          // to get wrong. What is lost is the reveal effect, which was never
-          // working: what shipped was a footer lying on top of the page.
-          //
-          // Covered by __tests__/layout/footer-stacking.test.ts.
+          // Every one of the three failed attempts put the positioning HERE,
+          // on the <footer> itself, and then had to pick a z-index to settle
+          // the fight with `.mr-page-sheet` — `0` put the footer over the page
+          // (it wins a tie on tree order, being the later sibling) and `-1`
+          // made every link in it unclickable (a negative-z-index box is behind
+          // in-flow content for hit testing too, so "About" rendered and did
+          // nothing). The reveal is real again, but it is the curtain WRAPPER
+          // around this element that is positioned, and it wins its ordering by
+          // being rendered before the sheet rather than by a number. See
+          // `useFooterCurtain` above for the whole argument, and
+          // __tests__/layout/footer-stacking.test.ts, which fails if any of
+          // those properties reappear on this style object.
           background: 'var(--mr-ink-900)',
           color: 'var(--mr-cream-100)',
           // Fluid padding: generous on desktop, compact on phones so the whole
@@ -391,6 +499,6 @@ export default function Footer({
         </div>
       </div>
       </footer>
-    </>
+    </div>
   );
 }

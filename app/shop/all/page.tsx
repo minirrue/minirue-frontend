@@ -331,6 +331,11 @@ export default async function ProductsPage({ searchParams }: PageProps) {
         path={canonicalPath}
         items={{ kind: 'products', products: initialProducts }}
       />
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <FooterWithSettings />
+
       <div className="mr-page-sheet">
         <AnnouncementBarServer />
         <HeaderWrapper />
@@ -445,7 +450,6 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           />
         </main>
       </div>
-      <FooterWithSettings />
     </HydrationBoundary>
   );
 }
