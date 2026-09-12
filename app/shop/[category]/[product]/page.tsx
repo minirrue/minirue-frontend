@@ -148,13 +148,19 @@ export default async function ProductPage({ params }: PageProps) {
           { name: p!.name, path: canonical.slice(1) },
         ]}
       />
+      {/* Curtain layer — BEFORE `ProductPageClient`, which is what renders
+          `.mr-page-sheet` on this route. Both are positioned with `z-index:
+          auto`, so document order alone decides which paints on top; the sheet
+          has to be the later sibling for the footer to be revealed from under
+          it. See components/layout/Footer.tsx. */}
+      <FooterWithSettings />
+
       <ProductPageClient
         slug={slug}
         apiProductJson={apiProductJson}
         perks={perks}
         announcement={<AnnouncementBarServer />}
       />
-      <FooterWithSettings />
     </>
   );
 }

@@ -102,6 +102,11 @@ export default async function CategoriesIndexPage() {
 
   return (
     <>
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <FooterWithSettings />
+
       <div className="mr-page-sheet">
         <AnnouncementBarServer />
         <HeaderWrapper />
@@ -114,7 +119,6 @@ export default async function CategoriesIndexPage() {
           bundlesImageUrl={bundlesImageUrl}
         />
       </div>
-      <FooterWithSettings />
     </>
   );
 }

@@ -19,6 +19,11 @@ export default function CheckoutShell({ children }: Props) {
 
   return (
     <>
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} shopName={chrome?.shopName} />
+
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={storefront?.announcementMessages}
@@ -29,7 +34,6 @@ export default function CheckoutShell({ children }: Props) {
         <Header navbar={chrome?.navbar ?? FALLBACK_CHROME.navbar} onOpenCart={openDrawer} cartCount={itemCount} />
         {children}
       </div>
-      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} shopName={chrome?.shopName} />
     </>
   );
 }

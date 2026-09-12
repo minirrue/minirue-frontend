@@ -61,6 +61,32 @@ describe('.mr-page-sheet must not create a stacking context', () => {
   });
 });
 
+/**
+ * The footer reveal was restored WITHOUT touching any of the above, and this is
+ * the test that says so.
+ *
+ * The obvious way to make `.mr-page-sheet` paint over the footer curtain is
+ * `z-index: 1` on the sheet. That is precisely the line this file exists to keep
+ * out: it would have re-sealed not only the mobile menu (60) and the search
+ * sheet (120) but `MobileSheet` — the filter and review sheets, 60 — and the
+ * review lightbox (70) under the bottom nav's 20, the same class of bug as the
+ * untappable Account entry. Instead the curtain is rendered BEFORE the sheet, so
+ * two `z-index: auto` boxes are ordered by document order and no stacking
+ * context is created anywhere. See __tests__/layout/footer-stacking.test.ts.
+ */
+describe('the footer reveal adds no stacking context of its own', () => {
+  const css = fs.readFileSync(TOKENS, 'utf8');
+
+  it('.mr-footer-curtain declares no z-index', () => {
+    // Comments stripped from the whole sheet first, for the same reason as
+    // `pageSheetRule()` above: the prose explaining the absence names it.
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...stripped.matchAll(/\.mr-footer-curtain[^{]*\{[^}]*\}/g)].map((m) => m[0]);
+    expect(rules.length).toBeGreaterThan(0);
+    expect(rules.join('\n')).not.toMatch(/z-index/);
+  });
+});
+
 describe('the overlays that depend on it', () => {
   const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), 'utf8');
 
