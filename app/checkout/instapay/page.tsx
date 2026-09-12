@@ -22,6 +22,7 @@ import {
   CheckoutSection,
 } from '@/components/checkout/checkout-ui';
 import { track } from '@/lib/analytics';
+import { RECEIPT_ACCEPT, RECEIPT_HINT } from '@/lib/checkout/receipt-formats';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
@@ -153,10 +154,10 @@ export default function InstapayCheckoutPage() {
       >
         <CheckoutSection title="Payment proof">
           <CheckoutFileDrop
-            accept="image/png,image/jpeg,image/webp"
+            accept={RECEIPT_ACCEPT}
             onFile={onFile}
             preview={preview}
-            hint="PNG, JPG, or WebP · max 10 MB · drag and drop supported"
+            hint={RECEIPT_HINT}
           />
         </CheckoutSection>
 

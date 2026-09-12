@@ -47,3 +47,10 @@ ruvector.db.lock
 
 # Installed Claude Code skill libraries (vendored, per-project)
 .claude/
+
+# Agent worktrees. `isolation: "worktree"` creates a full git checkout inside
+# the repo, so a `git add -A` sweeps it in as an EMBEDDED REPOSITORY — the
+# commit carries a gitlink to a path that exists on one machine and nowhere
+# else, and a clone silently gets an empty directory. git prints a hint, not
+# an error, so it lands quietly.
+.claude/worktrees/
