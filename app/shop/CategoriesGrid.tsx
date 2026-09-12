@@ -180,7 +180,27 @@ export default function CategoriesGrid({
       style={{
         maxWidth: 'var(--mr-content-max)',
         margin: '0 auto',
-        padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+        /*
+          Top and bottom are no longer the same number, and that is the point.
+
+          Both were `clamp(48px,8vw,96px)`, so the gap between the navbar and
+          the breadcrumb measured 96px on desktop and 48px on a phone — a full
+          screen-inch of nothing above the first thing on the page, which read
+          as the page having failed to load its top section (owner, on /shop).
+
+          The bottom keeps the generous value: that one separates content from
+          the footer and was never the complaint. Only the top shrinks, to a
+          margin that reads as deliberate spacing under the nav rather than as
+          a gap.
+
+          The same pair is repeated across the eight other storefront index
+          pages (shop/all, shop/[category], search, bundles, collab, …) because
+          they each own their `<main>`. They were changed together — a shopper
+          moving from /shop to /shop/perfumes would otherwise meet two different
+          rhythms. It wants to be one token; it is not one yet because
+          `mr-tokens.css` is being edited elsewhere.
+        */
+        padding: 'clamp(24px,3vw,40px) var(--mr-gutter) clamp(48px,8vw,96px)',
         minHeight: '60vh',
       }}
     >

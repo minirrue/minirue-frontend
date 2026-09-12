@@ -47,7 +47,7 @@ export default function BundleDetail({ bundle }: { bundle: Bundle }) {
       style={{
         maxWidth: 'var(--mr-content-max)',
         margin: '0 auto',
-        padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+        padding: 'clamp(24px,3vw,40px) var(--mr-gutter) clamp(48px,8vw,96px)',
         minHeight: '60vh',
       }}
     >
