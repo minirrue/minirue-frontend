@@ -101,39 +101,30 @@ export default function Footer({
           // taller; the old `ResizeObserver` + `document.body.style.
           // paddingBottom` effect existed only to fake that, and it is
           // deleted rather than patched.
-          position: 'sticky',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          // NEGATIVE, and the sign is the whole fix.
+          // NOT sticky, and not positioned at all.
           //
-          // `sticky` is a POSITIONED value, so the footer paints in the
-          // positioned phase — above every in-flow, non-positioned box on the
-          // page, regardless of DOM order. At `zIndex: 0` it also tied with
-          // `.mr-page-sheet` (positioned, z-index auto) and won the tie on
-          // tree order, being the later sibling.
+          // `sticky` pinned the footer over the page: measured on the live
+          // site, Pixel 5, homepage, it sat at top:30 with height:697 — 697px
+          // of an 851px viewport — with 2465px of page still scrolled
+          // underneath it. `sticky` is a POSITIONED value, so the footer
+          // painted above every in-flow box regardless of DOM order, and at
+          // z-index 0 it also beat `.mr-page-sheet` on tree order. The curtain
+          // ran backwards: the sheet is meant to scroll up OVER the footer, and
+          // instead the footer covered the sheet.
           //
-          // So the curtain ran backwards. The sheet is supposed to scroll up
-          // OVER the footer and reveal it; instead the footer sat on top of
-          // the sheet. Measured on the live site, Pixel 5, homepage: the
-          // footer pinned at top:30 with height:697 — covering 697px of an
-          // 851px viewport — while 2465px of page content was still scrolled
-          // underneath it. Anything in that band without a z-index of its own
-          // was behind it and unclickable. The header survived only because it
-          // carries its own higher z-index.
+          // `z-index: -1` was tried and is WORSE. It fixes the painting and
+          // breaks hit testing with it — the footer rendered perfectly and
+          // every link in it was dead, because a negative-z-index box sits
+          // behind in-flow content for pointer events too. Verified by clicking
+          // "About" at its own coordinates: no navigation.
           //
-          // -1 puts it in the negative phase, below the sheet's background and
-          // below in-flow content, while still above the canvas — so it is
-          // hidden exactly while the sheet covers it and revealed exactly when
-          // the sheet's bottom edge clears it. Which is the effect this was
-          // always describing.
+          // Static flow needs neither trick. The footer is the last block on
+          // the page, it occupies its own height, it is reached by scrolling to
+          // it, and it overlaps nothing — so there is no stacking question left
+          // to get wrong. What is lost is the reveal effect, which was never
+          // working: what shipped was a footer lying on top of the page.
           //
-          // This REQUIRES `body` to have no background of its own: an in-flow
-          // box background paints above a negative-z-index child and would
-          // hide the footer completely. globals.css keeps the colour on `html`
-          // (which paints the canvas) for that reason — the two changes only
-          // work together. Covered by __tests__/layout/footer-stacking.test.ts.
-          zIndex: -1,
+          // Covered by __tests__/layout/footer-stacking.test.ts.
           background: 'var(--mr-ink-900)',
           color: 'var(--mr-cream-100)',
           // Fluid padding: generous on desktop, compact on phones so the whole
