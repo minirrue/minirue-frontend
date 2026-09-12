@@ -12,7 +12,7 @@ import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 import Button from '@/components/ui/Button';
 import Toast from '@/components/ui/Toast';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
-import { SHIPPING_AMOUNT_MINOR } from '@/lib/checkout/checkout-schemas';
+import { SHIPPING_AMOUNT_MINOR } from '@/lib/checkout/checkout-money';
 import DiscountCodeField from '@/components/checkout/DiscountCodeField';
 import type { DiscountPreview } from '@/lib/api/discounts';
 

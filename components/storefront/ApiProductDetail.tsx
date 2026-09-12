@@ -23,7 +23,7 @@ import ShareButton from './ShareButton';
 import WordReveal from '@/components/ui/WordReveal';
 import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
 import { track } from '@/lib/analytics';
-import { subtotalToMinor } from '@/lib/checkout/checkout-schemas';
+import { subtotalToMinor } from '@/lib/checkout/checkout-money';
 
 /**
  * Split out on purpose. The carousel is the only thing on the shop that pulls

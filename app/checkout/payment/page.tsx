@@ -8,7 +8,7 @@ import {
   COD_MAX_ORDER_MINOR,
   orderTotalMinor,
   SHIPPING_AMOUNT_MINOR,
-} from '@/lib/checkout/checkout-schemas';
+} from '@/lib/checkout/checkout-money';
 import { track } from '@/lib/analytics';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';

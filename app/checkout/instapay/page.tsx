@@ -12,7 +12,7 @@ import {
   checkoutIdempotencyKey,
   saveCheckoutSession,
 } from '@/lib/checkout/checkout-session';
-import { orderTotalMinor } from '@/lib/checkout/checkout-schemas';
+import { orderTotalMinor } from '@/lib/checkout/checkout-money';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import {

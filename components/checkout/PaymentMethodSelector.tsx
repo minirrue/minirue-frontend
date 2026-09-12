@@ -8,7 +8,7 @@ import {
 import {
   COD_MAX_ORDER_MINOR,
   isCodAvailable,
-} from '@/lib/checkout/checkout-schemas';
+} from '@/lib/checkout/checkout-money';
 
 export interface PaymentMethodSelectorProps {
   method: 'COD' | 'INSTAPAY';
