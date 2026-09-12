@@ -113,6 +113,35 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                     alt={m.altText ?? product.name}
                     fill
                     priority={i === 0}
+                    /*
+                     * `priority` alone is not enough, and the difference is the
+                     * whole of this change.
+                     *
+                     * `priority` emits the `<link rel=preload>` and switches off
+                     * lazy loading — it decides WHEN the browser discovers the
+                     * image. Verified in the live DOM: the preload is there and
+                     * `loading` is correctly absent, but neither the link nor the
+                     * `<img>` carries `fetchpriority`, so the request is
+                     * discovered early and then queued at default priority.
+                     *
+                     * Discovery was never the problem. Decomposing the LCP
+                     * request on production (Pixel 5, 4x CPU, Slow 4G, median of
+                     * 3) puts the time here:
+                     *
+                     *     WAITING (proxy hop + origin work)    66 ms    4%
+                     *     download                           1806 ms   96%
+                     *
+                     * and 78 KB at 1.6 Mbps is ~390ms, not 1806. The gap is
+                     * contention: 21 other requests totalling 483 KB are on the
+                     * wire during that window — roughly 6x the image's own weight
+                     * in JavaScript and fonts. `fetchpriority` is the one thing
+                     * that changes bandwidth SHARE under exactly that pressure,
+                     * which a preload does not.
+                     *
+                     * Only the first slide. Marking several high is the same as
+                     * marking none.
+                     */
+                    fetchPriority={i === 0 ? 'high' : undefined}
                     sizes="(min-width: 1024px) 58vw, 100vw"
                     style={{ objectFit: 'cover' }}
                     // Dragging an image drags the browser's own ghost preview
