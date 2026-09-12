@@ -112,7 +112,14 @@ describe('MobileBottomNav — account tab avatar', () => {
     makeVisible();
 
     const img = screen.getByTestId('mobile-nav-avatar-photo') as HTMLImageElement;
-    expect(img.src).toBe('https://cdn.example/avatars/cust-1.webp');
+    // Through Next's optimizer, not at the raw URL (#11). The avatar is one
+    // fixed imgproxy render at `dpr:2/q:95`; `/_next/image` is what turns it
+    // into an AVIF sized for this 30px circle. Both halves are pinned: the
+    // original URL is still the thing being asked for, and the width and
+    // quality are the deliberate ones.
+    expect(img.src).toContain('/_next/image');
+    expect(img.src).toContain(encodeURIComponent('https://cdn.example/avatars/cust-1.webp'));
+    expect(img.src).toContain('q=75');
     expect(screen.queryByTestId('avatar-generic')).toBeNull();
   });
 
@@ -156,8 +163,20 @@ describe('MobileBottomNav — account tab avatar', () => {
     renderNav();
     makeVisible();
 
-    const img = screen.getByTestId('mobile-nav-avatar-photo');
-    fireEvent.error(img);
+    // Two failures, not one, and the order matters (#11). The first is the
+    // OPTIMIZER failing — which is not the same thing as the photo being
+    // unavailable, since `/_next/image` also 400s on a host that has drifted
+    // out of `remotePatterns`. That must not cost the customer their photo,
+    // so `RemoteImage` retries the original URL on a plain tag first...
+    fireEvent.error(screen.getByTestId('mobile-nav-avatar-photo'));
+
+    const direct = screen.getByTestId('mobile-nav-avatar-photo') as HTMLImageElement;
+    expect(direct.src).toBe('https://cdn.example/broken.webp');
+    expect(screen.queryByTestId('avatar-generic')).toBeNull();
+
+    // ...and only when THAT fails too is the photo genuinely unavailable and
+    // the silhouette correct.
+    fireEvent.error(direct);
 
     expect(screen.getByTestId('avatar-generic')).toBeInTheDocument();
     expect(screen.queryByTestId('mobile-nav-avatar-photo')).toBeNull();

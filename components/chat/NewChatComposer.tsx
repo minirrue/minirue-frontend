@@ -3,6 +3,7 @@
 import React from 'react';
 import { catalog, mediaImageUrl, productBrand, type ApiProduct } from '@/lib/api/catalog';
 import type { SupportSubject } from '@/lib/support/support-context';
+import RemoteImage from '@/components/ui/RemoteImage';
 
 /**
  * Starting a conversation: which product it is about, and the first message.
@@ -213,10 +214,14 @@ export default function NewChatComposer({
                       }}
                     >
                       {image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        // Optimized (#11). The row draws a 56px square and
+                        // `mediaImageUrl` already asks imgproxy for the 2x
+                        // render (112), so the two numbers stay in step.
+                        <RemoteImage
                           src={image}
                           alt=""
+                          width={56}
+                          height={56}
                           style={{
                             width: '100%',
                             height: '100%',

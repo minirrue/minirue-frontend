@@ -34,9 +34,13 @@ describe('ChatPanel — per-message sender avatar', () => {
 
     render(<ChatPanel open messages={messages} onClose={noop} onSend={noop} />);
 
-    const img = screen.getByAltText('MiniRue Support');
+    const img = screen.getByAltText('MiniRue Support') as HTMLImageElement;
     expect(img.tagName).toBe('IMG');
-    expect(img).toHaveAttribute('src', 'https://example.com/avatar.jpg');
+    // Through Next's optimizer (#11), carrying the original URL. A message
+    // avatar is a 20px circle; without this it downloaded the shop's
+    // full-size logo render to paint it.
+    expect(img.src).toContain('/_next/image');
+    expect(img.src).toContain(encodeURIComponent('https://example.com/avatar.jpg'));
     expect(screen.queryByTestId('msg-avatar-initial')).not.toBeInTheDocument();
   });
 
@@ -79,9 +83,10 @@ describe('ChatPanel — per-message sender avatar', () => {
       />,
     );
 
-    const logo = screen.getByAltText('MiniRue Support');
+    const logo = screen.getByAltText('MiniRue Support') as HTMLImageElement;
     expect(logo.tagName).toBe('IMG');
-    expect(logo).toHaveAttribute('src', 'https://example.com/shop-logo.png');
+    expect(logo.src).toContain('/_next/image');
+    expect(logo.src).toContain(encodeURIComponent('https://example.com/shop-logo.png'));
     expect(screen.queryByTestId('header-avatar-generic')).not.toBeInTheDocument();
     // Never the monogram it replaced.
     expect(screen.queryByText('MR')).not.toBeInTheDocument();

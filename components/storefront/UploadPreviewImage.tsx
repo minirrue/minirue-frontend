@@ -36,6 +36,28 @@ import React from 'react';
  * closure over an earlier render (see WriteReviewSheet.tsx's history: an
  * effect registered with `[]` deps closed over the FIRST render's empty
  * attachment list forever and revoked nothing on every file after that).
+ *
+ * ## Why this is still a raw `<img>` after #11
+ *
+ * The LOCAL branch has to be: its `src` is a `blob:` object URL for bytes that
+ * exist only in this browser tab. `/_next/image` would have to fetch that from
+ * the server, and the server has never seen it. There is no version of this
+ * that goes through the optimizer.
+ *
+ * The REMOTE branch is a different matter and is the single biggest remaining
+ * win in #11 — it backs `EditorialBlock`, `CollabShowcase`, the shop category
+ * tiles, the bundle and collab grids and `SpaceView`, i.e. most of the large
+ * imagery on the storefront, and every one of those is a full imgproxy render
+ * at `q:95` today. It is deliberately NOT converted here, because unlike the
+ * nine thumbnails that moved to `components/ui/RemoteImage.tsx`, none of these
+ * call sites has a pixel size: they all pass
+ * `style={{ width: '100%', height: '100%', objectFit: 'cover' }}` into a fluid
+ * box. `next/image` needs either intrinsic `width`/`height` or `fill` plus a
+ * `sizes` that describes that box, so converting this means deciding a `sizes`
+ * per call site — ten layout judgements, on the pages where LCP is measured.
+ * #34 is the record of what shipping an image change to the home page without
+ * measuring the deployed result costs. That work wants its own PR with a
+ * before/after on the live site, not a ride along with the thumbnails.
  */
 
 const RETRY_BASE_DELAY_MS = 600;

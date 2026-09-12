@@ -6,6 +6,7 @@ import { useClientQuery } from '@/lib/hooks/use-client-query';
 import { useUser } from '@/lib/hooks/use-auth';
 import MobileSheet from '@/components/ui/MobileSheet';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import RemoteImage from '@/components/ui/RemoteImage';
 import StarRating from '@/components/storefront/StarRating';
 import ReviewMediaStrip from './ReviewMediaStrip';
 import WriteReviewSheet from './WriteReviewSheet';
@@ -65,12 +66,16 @@ const reviewButtonBaseStyle: React.CSSProperties = {
  * none on file it centers the shared `GenericAvatarIcon` silhouette — never
  * a blank circle, never an initial letter.
  */
+/** The circle's rendered size, shared with the image request so the two
+ *  cannot drift apart. */
+const AVATAR_SIZE = 40;
+
 function ReviewerAvatar({ review }: { review: PublicReview }) {
   return (
     <div
       style={{
-        width: 40,
-        height: 40,
+        width: AVATAR_SIZE,
+        height: AVATAR_SIZE,
         borderRadius: '50%',
         overflow: 'hidden',
         border: '1px solid var(--mr-border)',
@@ -83,10 +88,14 @@ function ReviewerAvatar({ review }: { review: PublicReview }) {
       }}
     >
       {review.reviewerAvatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        // Optimized (#11). A product page renders one of these per review, so
+        // a full-size avatar render per row is the single densest image cost
+        // on the page after the gallery itself.
+        <RemoteImage
           src={review.reviewerAvatarUrl}
           alt=""
+          width={AVATAR_SIZE}
+          height={AVATAR_SIZE}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
