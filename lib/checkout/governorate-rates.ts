@@ -254,7 +254,22 @@ export type GovernorateMatchStatus =
   | 'NO_RATES'
   /** Matched an enabled rate; its fee applies. */
   | 'MATCHED'
-  /** Matched a rate flagged `enabled: false`. Charged anyway. */
+  /**
+   * Matched a rate flagged `enabled: false`. The global flat rate is charged,
+   * NOT this row's fee.
+   *
+   * It used to be charged anyway, and that was wrong in a way that only shows
+   * up as money: a disabled row is deliberately excluded from `minFeeCents`
+   * (the "from EGP X" the bag advertises), so billing it bills a number the
+   * admin switched off AND one the shopper was never quoted. Aswan disabled at
+   * EGP 10 against a EGP 100 global rate advertised "from EGP 100" and charged
+   * 10. minirue-backend#94 settled it: `enabled: false` means this row's fee is
+   * not charged.
+   *
+   * Still not enforcement. The row still MATCHES and is still reported, so a
+   * disabled governorate is visible rather than silently indistinguishable from
+   * one that was never configured — nothing refuses the order.
+   */
   | 'DISABLED'
   /** A table exists but the address carried nothing usable. Billed the global rate. VISIBLE. */
   | 'NO_GOVERNORATE'
@@ -318,13 +333,24 @@ export function resolveGovernorateRate(
         (field) => normaliseGovernorate(field) === needle,
       );
       if (!hit) continue;
+      /*
+       * A disabled row still MATCHES — the shopper's governorate is known and
+       * worth reporting — but it does not price. Its fee falls back to the
+       * global flat rate, mirroring `shipping-policy.ts` on the server.
+       *
+       * The two must agree exactly. This file is a hand-copy of that module,
+       * so a change on one side that does not land on the other shows up as the
+       * cart quoting one number and the invoice charging another — which is the
+       * whole of minirue-backend#79, rebuilt.
+       */
+      const enabled = rate.enabled;
       return {
-        status: rate.enabled ? 'MATCHED' : 'DISABLED',
+        status: enabled ? 'MATCHED' : 'DISABLED',
         key: rate.key,
         label: rate.label,
         matchedOn,
         governorate: verbatim,
-        baseFeeCents: rate.feeCents,
+        baseFeeCents: enabled ? rate.feeCents : effective.flatRateCents,
       };
     }
   }
@@ -367,9 +393,14 @@ export function quoteShipping(
   if (thresholdMet) {
     // DECISION 1. Flipping FREE_SHIPPING_BEATS_GOVERNORATE_RATE is the entire
     // reversal, on this side exactly as on the backend's.
+    /*
+     * MATCHED only. A DISABLED row is charging the GLOBAL rate now, not its
+     * own, so there is no governorate fee left for it to out-rank — including
+     * it here would let a switched-off row override free shipping using a fee
+     * that is not being applied.
+     */
     const governorateRateWins =
-      !FREE_SHIPPING_BEATS_GOVERNORATE_RATE &&
-      (rate.status === 'MATCHED' || rate.status === 'DISABLED');
+      !FREE_SHIPPING_BEATS_GOVERNORATE_RATE && rate.status === 'MATCHED';
 
     if (!governorateRateWins) {
       return { feeCents: 0, freeShippingApplied: true, rate };

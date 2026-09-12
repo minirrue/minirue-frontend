@@ -185,16 +185,48 @@ describe('resolveGovernorateRate — precedence and visibility', () => {
     expect(resolved.baseFeeCents).toBe(10_000);
   });
 
-  it('still MATCHES a disabled row and still charges its fee', () => {
-    // DECISION 3: modelled, not enforced. A saved address naming a disabled
-    // governorate is charged that row — so the storefront must show that fee,
-    // not the global one, however it chooses to populate its select.
+  it('MATCHES a disabled row but charges the GLOBAL rate, not its fee', () => {
+    /*
+     * This assertion is inverted from what it used to say, and the inversion is
+     * the fix (minirue-backend#94).
+     *
+     * It read "still charges its fee", on DECISION 3's reasoning — modelled,
+     * not enforced. But a disabled row is deliberately excluded from
+     * `minFeeCents`, the "from EGP X" the bag advertises. So charging it billed
+     * a number the admin had switched off AND one the shopper was never quoted:
+     * Sinai disabled at EGP 150 against a EGP 100 global rate would advertise
+     * "from EGP 100" and charge 150.
+     *
+     * `enabled: false` now means this row's fee is not charged. Still not
+     * enforcement — it still MATCHES and is still reported, so a disabled
+     * governorate stays visible rather than looking like one that was never
+     * configured. Nothing refuses the order.
+     *
+     * The server does the same thing in `shipping-policy.ts`. This module is a
+     * hand-copy of it, so the two agreeing is the only thing keeping the cart's
+     * quote and the invoice's charge in step.
+     */
     const withDisabled = effectiveWith({
       rates: [rate({ key: 'sinai', label: 'Sinai', feeCents: 15_000, enabled: false })],
     });
     const resolved = resolveGovernorateRate(withDisabled, 'Sinai');
     expect(resolved.status).toBe('DISABLED');
-    expect(resolved.baseFeeCents).toBe(15_000);
+    expect(resolved.baseFeeCents).toBe(10_000);
+  });
+
+  it('does not let a disabled row out-rank free shipping', () => {
+    /*
+     * It is charging the global rate now, so there is no governorate fee left
+     * for it to out-rank. Including DISABLED in that override would let a
+     * switched-off row beat free shipping with a fee that is not being applied.
+     */
+    const withDisabled = effectiveWith({
+      freeOverCents: 50_000,
+      rates: [rate({ key: 'sinai', label: 'Sinai', feeCents: 15_000, enabled: false })],
+    });
+    const quote = quoteShipping(withDisabled, 60_000, 'Sinai');
+    expect(quote.feeCents).toBe(0);
+    expect(quote.freeShippingApplied).toBe(true);
   });
 
   it('matches through an alias an admin added for a historical spelling', () => {
