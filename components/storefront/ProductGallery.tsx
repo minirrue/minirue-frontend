@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { useReducedMotion } from 'motion/react';
 import type { ApiProduct, MediaAsset } from '@/lib/api/catalog';
 import { mediaImageUrl } from '@/lib/api/catalog';
-import { imgproxyLoader } from '@/lib/images/imgproxy-loader';
 import {
   Carousel,
   CarouselContent,
@@ -61,27 +60,6 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
           {items.map((m, i) => {
             const src = mediaImageUrl(m, { w: 1400, h: 1750 });
             if (!src) return null;
-            /*
-             * Straight to imgproxy when the server sent widths; otherwise leave
-             * Next's own optimizer exactly where it is.
-             *
-             * This image is the LCP element — measured at 3744ms on a throttled
-             * Pixel 5 while text painted at 2680ms — and every millisecond past
-             * the text was a browser waiting on browser -> Next -> imgproxy ->
-             * Garage, plus a re-encode at q=75 of a q=95 render (#7). A loader
-             * removes that middle hop: with one, Next proxies nothing and asks
-             * this function for a URL per width instead.
-             *
-             * The fallback is NOT `unoptimized`, which is where the hero's rule
-             * (#11) and this one part company. `unoptimized` was already the
-             * hero's behaviour, so falling back to it there changes nothing.
-             * Here the status quo is `/_next/image`, which does at least
-             * produce a real srcset — so `unoptimized` would trade one slow
-             * hop for a 390px phone downloading the full 1400x1750 render.
-             * That is a regression for every client of a backend too old to
-             * send `srcSet`, in exchange for nothing.
-             */
-            const hasSrcSet = Boolean(m.srcSet && Object.keys(m.srcSet).length > 0);
             return (
               <CarouselItem key={m.id} className="p-0">
                 <div
@@ -94,7 +72,6 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                     fill
                     priority={i === 0}
                     sizes="(min-width: 1024px) 58vw, 100vw"
-                    {...(hasSrcSet ? { loader: imgproxyLoader(m.srcSet) } : {})}
                     style={{ objectFit: 'cover' }}
                     // Dragging an image drags the browser's own ghost preview
                     // instead of the carousel.

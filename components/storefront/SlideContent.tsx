@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import BottleSVG from '@/components/ui/BottleSVG';
-import { imgproxyLoader } from '@/lib/images/imgproxy-loader';
+import { heroImageLoader } from '@/lib/images/hero-loader';
 import type { ResolvedHeroSlide } from '@/lib/api/storefront';
 
 interface SlideContentProps {
@@ -73,7 +73,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
              * deployed imgproxy host being in `remotePatterns` (#11).
              */
             {...(hasSrcSet
-              ? { loader: imgproxyLoader(heroSrcSet) }
+              ? { loader: heroImageLoader(heroSrcSet) }
               : { unoptimized: true })}
             className="mr-hero-drift"
             style={{

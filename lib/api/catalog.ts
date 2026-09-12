@@ -97,22 +97,6 @@ export interface MediaAsset {
   // never a raw storage key. Use mediaImageUrl() below, not cloudinaryUrl()
   // directly, so both media sources render correctly.
   url?: string | null;
-  /**
-   * Pre-signed imgproxy renders at the widths a client can choose from.
-   *
-   * `url` is ONE fixed render, so `next/image` had to proxy every product image
-   * through `/_next/image` to get a srcset — browser -> Next -> imgproxy ->
-   * Garage, plus a re-encode at q=75 of a q=95 render. Measured at 3744ms on a
-   * throttled Pixel 5, and it IS the LCP element (#7).
-   *
-   * A map rather than a pattern because an imgproxy URL is signed: only the
-   * backend can produce a width. Same shape as the hero's `imageSrcSet`.
-   *
-   * Absent on a response from a backend older than the field, on a legacy
-   * Cloudinary row, and on anything that is not an image — every one of which
-   * falls back to `url`.
-   */
-  srcSet?: Record<string, string> | null;
   width: number;
   height: number;
   altText: string;
