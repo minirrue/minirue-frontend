@@ -111,11 +111,6 @@ export default async function CategoryPage({ params }: PageProps) {
         path={categoryPath(slug)}
         items={{ kind: 'products', products: initialProducts }}
       />
-      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
-          `z-index: auto`, so document order alone decides which paints on top.
-          See components/layout/Footer.tsx. */}
-      <FooterWithSettings />
-
       <div className="mr-page-sheet">
         <AnnouncementBarServer />
         <HeaderWrapper />
@@ -175,6 +170,14 @@ export default async function CategoryPage({ params }: PageProps) {
           />
         </main>
       </div>
+
+      {/* The footer band — AFTER the page sheet, which is where it was before
+          September and where the DOM should read it: the page first, its
+          footer last. It is ordered UNDER the page by `z-index: -1` resolved
+          inside `.mr-app-layer` (app/layout.tsx), not by being moved ahead of
+          the page in document order the way #48 did. See
+          components/layout/Footer.tsx. */}
+      <FooterWithSettings />
     </>
   );
 }

@@ -183,7 +183,10 @@ export default function RootLayout({
         }
       >
         {/*
-          <body> child order is a permanent invariant — do not reorder:
+          This order is a permanent invariant — do not reorder. (These are the
+          children of `.mr-app-layer` below rather than of <body> directly
+          since #57; the layer is a plain wrapper and changes none of the
+          reasoning here.)
           1. OrganizationSchema — never inside any Suspense. It is the
              site-identity JSON-LD; it must be present in the initial server
              HTML on every route, unconditionally.
@@ -196,6 +199,43 @@ export default function RootLayout({
              so nothing indexable ever sits behind it. Anything added here
              must keep that property.
         */}
+        {/*
+          THE APP LAYER — one stacking context around the whole application,
+          and the reason the pre-September footer could come back (#57).
+
+          History, because this looks like a stray wrapper and is not:
+
+          The footer that shipped before September was `position: sticky;
+          bottom: 0; z-index: 0`, rendered AFTER `.mr-page-sheet`, with no
+          JavaScript and nothing written to `body`. It worked because
+          `.mr-page-sheet` carried `position: relative; z-index: 1`: the page
+          out-ranked the footer, so the footer sat behind it and was uncovered
+          as the page scrolled up off it. `00cd9ec` (#25) removed that one
+          line — correctly, because a stacking context on the page sheet seals
+          the mobile nav sheet (60), the search sheet (120), `MobileSheet` (60)
+          and the review lightbox (70) beneath the root-mounted bottom nav (20);
+          that is #6, and `__tests__/layout/page-sheet-stacking.test.ts` exists
+          to keep it fixed. But removing it also removed the only thing holding
+          the footer down, and five footer rewrites followed, each fixing a
+          symptom in the wrong file.
+
+          This wrapper is where that `z-index` belongs. It contains BOTH the
+          page and every root-mounted overlay — the cart drawer, the support
+          widget, the bottom nav, the page loader — so every existing z-index in
+          the app is still resolved against every other one exactly as it was:
+          nothing is sealed, and #6 stays fixed. What it changes is only what is
+          OUTSIDE it: `body`'s own painted box. That is what lets the footer sit
+          at `z-index: -1` INSIDE this layer and still take its own clicks —
+          the earlier `z-index: -1` attempt died because it was scoped to the
+          root stacking context, where `body`'s background box paints above a
+          negative-z-index box and swallowed every footer link. Here the whole
+          layer paints above `body`, so the footer does too.
+
+          Do not remove the z-index, and do not move the footer out of this
+          layer. See components/layout/Footer.tsx and
+          __tests__/layout/footer-stacking.test.ts.
+        */}
+        <div className="mr-app-layer">
         <OrganizationSchema />
         <RootQueryProvider>
           <HydrationBoundary state={dehydrate(queryClient)}>
@@ -251,6 +291,7 @@ export default function RootLayout({
           <AnalyticsProvider />
           <SpeedInsights />
         </Suspense>
+        </div>
       </body>
     </html>
   );

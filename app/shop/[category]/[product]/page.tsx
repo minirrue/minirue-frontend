@@ -148,19 +148,22 @@ export default async function ProductPage({ params }: PageProps) {
           { name: p!.name, path: canonical.slice(1) },
         ]}
       />
-      {/* Curtain layer — BEFORE `ProductPageClient`, which is what renders
-          `.mr-page-sheet` on this route. Both are positioned with `z-index:
-          auto`, so document order alone decides which paints on top; the sheet
-          has to be the later sibling for the footer to be revealed from under
-          it. See components/layout/Footer.tsx. */}
-      <FooterWithSettings />
-
       <ProductPageClient
         slug={slug}
         apiProductJson={apiProductJson}
         perks={perks}
         announcement={<AnnouncementBarServer />}
       />
+
+      {/* The footer band — AFTER `ProductPageClient`, which is what renders
+          `.mr-page-sheet` on this route. That is where it sat before September
+          and where the DOM should read it: the product page first, its footer
+          last. It is ordered UNDER the page by `z-index: -1` resolved inside
+          `.mr-app-layer` (app/layout.tsx), not by being moved ahead of the page
+          in document order the way #48 did — which is also what stops it
+          reaching into this page's left column. See
+          components/layout/Footer.tsx. */}
+      <FooterWithSettings />
     </>
   );
 }

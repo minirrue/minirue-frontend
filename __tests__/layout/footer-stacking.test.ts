@@ -2,8 +2,9 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * The footer reveal ("the outer reveal under the webpage"), and the three ways
- * it was got wrong before this.
+ * The footer reveal ("the outer reveal under the webpage"), the four ways it
+ * was got wrong, and the reason it is now back to what shipped before
+ * September (#57).
  *
  * ## What the effect needs
  *
@@ -12,12 +13,22 @@ import path from 'path';
  * can do that — and it must paint UNDER `.mr-page-sheet`, which is itself
  * `position: relative`. Two positioned boxes, so something has to order them.
  *
- * ## The three attempts, all of which ordered them with a number
+ * ## The line that did that, and the day it was deleted
  *
- * **`fixed; bottom: 0`** — the original. Rendered after the sheet, so it
- * painted over the page; and once the footer's own content grew taller than the
- * viewport its top edge was pinned off screen, the wordmark was clipped, and
- * nothing could scroll to it. It also needed a `ResizeObserver` writing
+ * `.mr-page-sheet { position: relative; z-index: 1 }`. The page out-ranked the
+ * footer, the footer sat behind it, and it was uncovered as the page scrolled
+ * up off it. `00cd9ec` (#25) removed it to fix #6 — a stacking context on the
+ * page sheet seals the mobile nav sheet (60), the search sheet (120),
+ * `MobileSheet` (60) and the review lightbox (70) under the root-mounted bottom
+ * nav (20) — and every footer rewrite after that was fixing a symptom of a
+ * change in a different file.
+ *
+ * ## The four attempts, all of which ordered them in the ROOT stacking context
+ *
+ * **`fixed; bottom: 0`** — rendered after the sheet, so it painted over the
+ * page; and once the footer's own content grew taller than the viewport its top
+ * edge was pinned off screen, the wordmark was clipped, and nothing could
+ * scroll to it. It needed a `ResizeObserver` writing
  * `document.body.style.paddingBottom` to fake in-flow height.
  *
  * **`sticky; bottom: 0; z-index: 0`** — measured on the live site, Pixel 5,
@@ -27,31 +38,42 @@ import path from 'path';
  *     sheet    position: relative  zIndex: auto            bottom: 2465
  *
  * A 697px footer pinned across an 851px viewport with 2465px of page still
- * scrolling underneath it. `sticky` is a POSITIONED value, so the footer
- * painted above every in-flow box whatever the DOM order, and at `z-index: 0`
- * it tied with the sheet and won the tie on tree order, being the later
- * sibling. The curtain ran backwards.
+ * scrolling underneath it. Without the sheet's `z-index: 1` the two tied at 0
+ * and the footer won the tie on tree order, being the later sibling.
  *
  * **`sticky; z-index: -1`** — corrected the painting and broke hit testing with
- * it: a negative-z-index box sits behind in-flow content for POINTER EVENTS
- * too. The footer rendered perfectly and every link in it was dead. Caught by
- * clicking "About" at its own coordinates on the deployed site and watching the
- * URL not change.
+ * it. In the ROOT stacking context `body`'s own background box paints at the
+ * in-flow step, which is ABOVE a negative-z-index box, so it swallowed every
+ * pointer event: the footer rendered perfectly and every link in it was dead.
+ * Caught by clicking "About" at its own coordinates on the deployed site and
+ * watching the URL not change.
+ *
+ * **the `fixed`/`absolute` curtain rendered BEFORE the sheet (#48/#54)** — the
+ * reveal worked and the links worked, ordered by document order with no z-index
+ * anywhere. The costs were the footer coming ahead of the entire page in the
+ * DOM (keyboard and screen-reader order hit it first), a band reserved by
+ * writing a measured `--mr-footer-h` into `body`'s padding on every resize, and
+ * a choice between two positions made from a viewport measurement that a mobile
+ * browser toolbar moves (#50).
  *
  * ## The invariant this file now enforces
  *
- * The ordering is won on DOCUMENT ORDER, not on a z-index. The curtain wrapper
- * (`.mr-footer-curtain`, which holds the Ebneely signature and `<footer>`) is
- * the positioned box, it is rendered BEFORE `.mr-page-sheet` at every call site
- * (audited in footer.test.tsx), and neither box declares a z-index — so neither
- * creates a stacking context, nothing anywhere else in the app changes rank,
- * and nothing is negative, so hit testing is ordinary.
+ * The footer is the pre-September one: `position: sticky; bottom: 0`, in normal
+ * flow, rendered AFTER `.mr-page-sheet` (audited in footer.test.tsx). The
+ * z-index that used to sit on the page sheet now sits one level out, on
+ * `.mr-app-layer` in app/layout.tsx — a single stacking context around the page
+ * AND the root-mounted overlays, so every z-index in the app still resolves
+ * against every other one and #6 stays fixed.
  *
- * So: `<footer>` itself stays an unpositioned box with no z-index and no
- * insets — every failure above put those properties there — and the two
- * positions the curtain is allowed are `fixed` (the reveal) and `absolute`
- * (the fallback for a footer taller than the viewport, which is reached by
- * scrolling rather than pinned).
+ * Inside that layer the curtain is `z-index: -1`, and that is the whole reason
+ * the third attempt's value is safe here and was fatal there: the layer paints
+ * above `body`, the layer's own box is transparent and paints below its
+ * negative child, so hit testing is ordinary. The two halves are ONE mechanism
+ * and both are asserted below — `z-index: -1` without `.mr-app-layer` is the
+ * dead-links bug, exactly.
+ *
+ * `<footer>` itself stays an unpositioned box with no z-index and no insets;
+ * every failure above put those properties there.
  */
 
 const read = (rel: string) =>
@@ -76,15 +98,11 @@ describe('footer stacking', () => {
   it('does not position the <footer> element itself', () => {
     // The curtain WRAPPER is what is positioned. Every attempt that put
     // `position` here then had to pick a z-index to settle the fight with the
-    // page sheet, and both possible answers were bugs.
+    // page sheet in the root stacking context, and both answers were bugs.
     expect(footerStyle).not.toMatch(/position:\s*['"](sticky|fixed|absolute)['"]/);
   });
 
   it('declares no z-index at all', () => {
-    /*
-     * Not "no positive z-index" — none. 0 put the footer above the page and -1
-     * made its links unclickable. Document order needs neither.
-     */
     expect(footerStyle).not.toMatch(/zIndex/);
   });
 
@@ -93,14 +111,14 @@ describe('footer stacking', () => {
   });
 
   it('records why, so the reveal is not re-attempted the same way', () => {
-    // All three failures are named in the file. A future edit needs to know
-    // that these exact approaches were measured and what each one broke.
+    // All four failures are named in the file. A future edit needs to know that
+    // these exact approaches were measured and what each one broke.
     expect(footer).toMatch(/sticky/);
     expect(footer).toMatch(/hit test|hit testing|dead/i);
   });
 });
 
-describe('the curtain wrapper', () => {
+describe('the curtain wrapper — the pre-September positioning, restored', () => {
   const footer = read('components/layout/Footer.tsx');
   const tokens = read('app/styles/mr-tokens.css');
   const globals = read('app/globals.css');
@@ -116,43 +134,78 @@ describe('the curtain wrapper', () => {
     return rules.join('\n');
   })();
 
+  const appLayerRule = (() => {
+    const css = tokens.replace(/\/\*[\s\S]*?\*\//g, '');
+    const m = /\.mr-app-layer[^{]*\{[^}]*\}/.exec(css);
+    expect(m).not.toBeNull();
+    return m![0];
+  })();
+
   it('wraps the footer in a positioned element, so the reveal exists at all', () => {
     // An unpositioned box overlaps nothing, so it can be revealed from under
     // nothing. This is the property the static-flow footer traded the effect
     // away for, and it is what the owner reported missing.
     expect(footer).toMatch(/className="mr-footer-curtain"/);
-    expect(curtainRules).toMatch(/position:\s*fixed/);
+    expect(curtainRules).toMatch(/position:\s*sticky/);
+    expect(curtainRules).toMatch(/bottom:\s*0/);
   });
 
-  it('has no z-index either — the sheet is ordered above it by document order', () => {
-    // The whole point. A z-index here (or on `.mr-page-sheet`) creates a
-    // stacking context and seals every overlay mounted inside it; see
-    // page-sheet-stacking.test.ts for the bug that caused last time.
-    expect(curtainRules).not.toMatch(/z-index/);
+  it('is `sticky`, not `fixed` — it is a real box in normal flow', () => {
+    // `fixed` is out of flow, which is why it needed a reserved band measured
+    // into `body`'s padding on every resize. A sticky footer carries its own
+    // height, so the document is naturally that much taller and there is
+    // nothing to reserve.
+    expect(curtainRules).not.toMatch(/position:\s*fixed/);
+    expect(curtainRules).not.toMatch(/position:\s*absolute/);
   });
 
-  it('offers a non-pinned fallback for a footer taller than the viewport', () => {
+  it('is ordered under the page by a z-index scoped to .mr-app-layer', () => {
+    // BOTH halves, together, are the mechanism. `z-index: -1` on its own is
+    // the version that shipped with every footer link dead: in the root
+    // stacking context `body`'s background box paints above a negative box and
+    // takes its pointer events. Inside `.mr-app-layer` the whole layer paints
+    // above `body`, so ordinary hit testing applies.
+    expect(curtainRules).toMatch(/z-index:\s*-1/);
+    expect(appLayerRule).toMatch(/position:\s*relative/);
+    expect(appLayerRule).toMatch(/z-index:\s*1\b/);
+    expect(read('app/layout.tsx')).toMatch(/className="mr-app-layer"/);
+  });
+
+  it('keeps a non-sticky fallback for a footer taller than the viewport', () => {
     // A bottom-pinned box taller than the scrollport can never show its own
-    // top — that is failure (1), and extra scroll room does not fix it. The
-    // fallback puts the curtain at the true bottom of the document instead,
-    // where every pixel of it can be scrolled to.
-    expect(curtainRules).toMatch(/position:\s*absolute/);
-    expect(footer).toMatch(/data-curtain=\{pinned \? 'pinned' : 'flow'\}/);
+    // top — that is failure (1), and it is reached again by `sticky; bottom: 0`
+    // on a phone shorter than the ~745px footer. Dropping the stickiness leaves
+    // the footer exactly where it already is in flow, where every pixel of it
+    // can be scrolled to. Both states are in flow, so the switch moves no page
+    // content (#50).
+    expect(curtainRules).toMatch(/position:\s*static/);
+    expect(footer).toMatch(/data-curtain=\{stuck \? 'stuck' : 'flow'\}/);
     expect(footer).toMatch(/window\.innerHeight/);
   });
 
-  it('reserves its scroll room through a CSS variable, not an inline body style', () => {
-    // The deleted effect wrote `document.body.style.paddingBottom` directly on
-    // every resize. The measurement is still needed — without reserved room
-    // below the sheet there is nothing for the sheet's bottom edge to travel
-    // into and nothing gets revealed — but it travels as one custom property.
-    expect(footer).toMatch(/--mr-footer-h/);
-    // An assignment, not the mention of it — Footer.tsx names the deleted
-    // effect in prose precisely so it is not reinvented.
+  it('reserves no band and writes nothing to `body`', () => {
+    // The three things the September machinery needed, all gone with it: the
+    // inline body style the first attempt wrote, the custom property the last
+    // one replaced it with, and the `position: relative` that anchored the
+    // `absolute` fallback.
+    // An assignment, not the mention of it — Footer.tsx names both deleted
+    // mechanisms in prose precisely so neither is reinvented.
     expect(footer).not.toMatch(/body\.style\.paddingBottom\s*=/);
-    expect(globals).toMatch(/padding-bottom:\s*var\(--mr-footer-h/);
-    // The fallback is absolute against `body`, so `body` has to be its
-    // containing block or "the bottom" means the viewport, not the document.
-    expect(globals).toMatch(/position:\s*relative/);
+    expect(footer).not.toMatch(/setProperty\([^)]*--mr-footer-h/);
+    expect(footer).not.toMatch(/FOOTER_HEIGHT_VAR/);
+    // Comments stripped first, here and below: the prose that records why each
+    // of these was removed necessarily spells the declaration out, and matching
+    // that would be matching the explanation rather than the CSS.
+    const globalsCss = globals.replace(/\/\*[\s\S]*?\*\//g, '');
+    const tokensCss = tokens.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(globalsCss).not.toMatch(/padding-bottom:\s*var\(--mr-footer-h/);
+    expect(tokensCss).not.toMatch(/^\s*--mr-footer-h:/m);
+
+    // `body` must declare no footer-driven layout at all.
+    const bodyRules = [...globalsCss.matchAll(/(^|\n)\s*body\s*\{[^}]*\}/g)]
+      .map((m) => m[0])
+      .join('\n');
+    expect(bodyRules).not.toMatch(/padding-bottom/);
+    expect(bodyRules).not.toMatch(/position:\s*relative/);
   });
 });
