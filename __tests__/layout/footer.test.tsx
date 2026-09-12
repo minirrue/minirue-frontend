@@ -11,14 +11,29 @@ import type { PaymentBadge } from '@/lib/api/storefront';
  * `ResizeObserver` / `document.body.style.paddingBottom` effect that used to
  * fake in-flow height is deleted outright (see Footer.tsx). These are the
  * highest-value tests in this task per the brief.
+ *
+ * Superseded in part: `sticky` is gone too, and the footer is now unpositioned.
+ * `sticky` turned out to overlap the page exactly as `fixed` did — it pinned a
+ * 697px footer across an 851px viewport with the page still scrolling
+ * underneath. The reasoning, and the `z-index: -1` attempt that made every
+ * footer link unclickable, are in __tests__/layout/footer-stacking.test.ts.
+ *
+ * What survives here unchanged is the deleted measuring effect, which is the
+ * part of W4a.1 that was right.
  */
 describe('Footer position (W4a.1)', () => {
-  it('renders with position: sticky, not fixed', () => {
+  it('is not positioned, so it cannot overlap the page', () => {
+    /*
+     * All three positioned values have now been tried in production and all
+     * three overlapped: `fixed` clipped the footer's own top edge once it grew
+     * taller than the viewport, and `sticky` pinned it over the page sheet.
+     * An unpositioned footer is simply the last block on the page.
+     */
     render(<Footer config={FALLBACK_CHROME.footer} />);
     const footer = screen.getByRole('contentinfo');
-    expect(footer.style.position).toBe('sticky');
-    expect(footer.style.position).not.toBe('fixed');
-    expect(footer.style.bottom).toBe('0px');
+    expect(footer.style.position).toBe('');
+    expect(footer.style.bottom).toBe('');
+    expect(footer.style.zIndex).toBe('');
   });
 
   it('never writes document.body.style.paddingBottom (the measuring effect is gone)', () => {
