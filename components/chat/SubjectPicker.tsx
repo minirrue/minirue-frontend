@@ -20,7 +20,7 @@ export default function SubjectPicker({ pageSubject, value, onChange }: SubjectP
   const selectStyle: React.CSSProperties = {
     width: '100%',
     border: '1px solid var(--mr-hairline)',
-    borderRadius: 8,
+    borderRadius: 'var(--mr-radius-md)',
     padding: '8px 10px',
     outline: 'none',
     fontFamily: 'Inter Tight, sans-serif',

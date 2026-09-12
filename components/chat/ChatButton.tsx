@@ -269,7 +269,22 @@ export default function ChatButton({
       : 0;
 
   return (
+    /*
+     * The launcher stays a raw `<button>` and is NOT routed through
+     * `components/ui/Button` (#44), for reasons that are not style at all: it
+     * needs a forwarded ref (`buttonRef`, for `getBoundingClientRect` and
+     * `setPointerCapture`), the full pointerdown/move/up/cancel set, and
+     * `draggable={false}` — none of which the shared component accepts, and
+     * it is a 52px circle rather than a pill in any case.
+     *
+     * Its affordances are therefore all stated here rather than inherited:
+     * the ink fill and elevation below, `cursor: grab`/`grabbing`, the
+     * hover lift, and the gold `:focus-visible` ring from globals.css, which
+     * traces this as a circle because `borderRadius: '50%'` is set below.
+     * 52px, comfortably past the 44px touch floor.
+     */
     <button
+      type="button"
       ref={buttonRef}
       data-testid="chat-button"
       aria-label="Open live support chat"
