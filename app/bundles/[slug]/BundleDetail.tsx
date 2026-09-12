@@ -94,13 +94,36 @@ export default function BundleDetail({ bundle }: { bundle: Bundle }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            // `fill` below is absolutely positioned and needs a positioned
+            // ancestor, the same as any `next/image fill`.
+            position: 'relative',
           }}
         >
           {bundle.imageUrl ? (
             <UploadPreviewImage
               src={bundle.imageUrl}
               alt={bundle.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              fill
+              /*
+                The LCP candidate on this page — one square photograph beside
+                the copy. Geometry: `<main>` is max 1280px of content inside
+                `var(--mr-gutter)` = clamp(20px, 4vw, 48px); the grid is
+                `auto-fit, minmax(280px, 1fr)` with a clamp(24px, 5vw, 64px)
+                gap, so it is two equal columns as soon as 2·280 + gap fits and
+                one full-width column below that.
+
+                  390px viewport → gutter 20 → row 350, 560+24 does not fit
+                                 → one column →                      350px
+                 1440px viewport → gutter 48 → row 1280, gap 64
+                                 → (1280 − 64) / 2 =                  608px
+
+                The flip happens at ≈646px of viewport. Above it the column is
+                (0.92·vw − 0.05·vw) / 2 = 0.435·vw while the row is fluid, and
+                a flat 608px once the row pins at 1280 (viewport ≥ 1376). 45vw
+                bounds the fluid stretch from above at every width in between.
+              */
+              sizes="(max-width: 645px) calc(100vw - 40px), (max-width: 1376px) 45vw, 610px"
+              style={{ objectFit: 'cover' }}
             />
           ) : (
             <Icon name="grid" size={40} color="var(--mr-fg-4)" />

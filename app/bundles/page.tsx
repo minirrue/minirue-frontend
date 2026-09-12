@@ -125,6 +125,9 @@ export default async function BundlesIndexPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      // `fill` below is absolutely positioned and needs a
+                      // positioned ancestor, as any `next/image fill` does.
+                      position: 'relative',
                     }}
                   >
                     {bundle.imageUrl ? (
@@ -135,7 +138,26 @@ export default async function BundlesIndexPage() {
                       <UploadPreviewImage
                         src={bundle.imageUrl}
                         alt=""
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        fill
+                        /*
+                          Geometry: `<main>` is max 1280px of content inside
+                          `var(--mr-gutter)` = clamp(20px, 4vw, 48px); the grid
+                          is `auto-fill, minmax(220px, 1fr)` with a 24px gap
+                          (`--mr-sp-5`), so the column count is
+                          floor((row + 24) / 244) and the card is
+                          (row − 24·(n−1)) / n.
+
+                            390px viewport → gutter 20 → row 350 → 1 column → 350px
+                           1440px viewport → gutter 48 → row 1280 → 5 columns → 237px
+
+                          A card is widest just before a column is added, at
+                          220 + 244/n — 464px at one column, 342px at two,
+                          301px at three. Each stop is the upper bound of its
+                          band, so nothing is ever fetched narrower than it
+                          renders.
+                        */
+                        sizes="(max-width: 500px) calc(100vw - 40px), (max-width: 520px) 92vw, (max-width: 1035px) 50vw, (max-width: 1376px) 33vw, 240px"
+                        style={{ objectFit: 'cover' }}
                       />
                     ) : (
                       <Icon name="grid" size={28} color="var(--mr-fg-4)" />

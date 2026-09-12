@@ -179,6 +179,12 @@ export default function CollabShowcase({
           <UploadPreviewImage
             src={tab.logoUrl}
             alt=""
+            // A fixed 56px box at every viewport, so no `sizes` judgement is
+            // involved — Next builds the 1x/2x ladder from the pixel count and
+            // a retina screen gets the 128px rung instead of a full imgproxy
+            // render (#11).
+            width={56}
+            height={56}
             style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 4 }}
           />
         ) : (

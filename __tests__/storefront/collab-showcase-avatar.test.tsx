@@ -54,7 +54,15 @@ describe('CollabShowcase collaborator avatar', () => {
       <CollabShowcase section={section('https://cdn.example/logo.png')} />,
     );
 
-    expect(container.querySelector('img[src="https://cdn.example/logo.png"]')).not.toBeNull();
+    // Matched on the URL rather than on `src` exactly: since #11 this 56px
+    // logo is requested through `/_next/image`, which encodes the original
+    // into the query string. What this test is about is that the partner's own
+    // picture is the thing on screen — not which hop fetches it.
+    const img = container.querySelector('img') as HTMLImageElement | null;
+    expect(img).not.toBeNull();
+    expect(decodeURIComponent(img!.getAttribute('src') ?? '')).toContain(
+      'https://cdn.example/logo.png',
+    );
     expect(screen.queryByTestId('avatar-generic')).toBeNull();
   });
 });

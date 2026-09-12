@@ -141,6 +141,11 @@ export default function ProfileForm({ profile }: Props) {
             src={avatarSrc}
             localFile={pendingAvatarFile}
             alt=""
+            // The button above is a hard 72x72 circle, so the remote branch has
+            // an exact pixel count and needs no `sizes` (#11). The local branch
+            // is untouched by this: `blob:` bytes never go near the optimizer.
+            width={72}
+            height={72}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (
