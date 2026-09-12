@@ -65,9 +65,12 @@ describe('CategoriesGrid', () => {
           shopLogoUrl="https://cdn.example.com/house-logo.png"
         />,
       );
-      const logo = screen.getByAltText('MiniRue');
+      const logo = screen.getByAltText('MiniRue') as HTMLImageElement;
       expect(logo.tagName).toBe('IMG');
-      expect(logo).toHaveAttribute('src', 'https://cdn.example.com/house-logo.png');
+      // Through Next's optimizer (#11), carrying the original URL. A brand
+      // logo master is the widest file in the gallery and this slot is 96px.
+      expect(logo.src).toContain('/_next/image');
+      expect(logo.src).toContain(encodeURIComponent('https://cdn.example.com/house-logo.png'));
       expect(screen.queryByTestId('shop-panel-logo-generic')).not.toBeInTheDocument();
     });
 

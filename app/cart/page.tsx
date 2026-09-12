@@ -12,9 +12,13 @@ import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 import Button from '@/components/ui/Button';
 import Toast from '@/components/ui/Toast';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
-import { SHIPPING_AMOUNT_MINOR } from '@/lib/checkout/checkout-money';
+import { shippingMinorFor } from '@/lib/checkout/checkout-money';
+import {
+  useAutomaticDiscount,
+  useShippingPolicy,
+} from '@/components/storefront/cart/use-bag-pricing';
 import DiscountCodeField from '@/components/checkout/DiscountCodeField';
-import type { DiscountPreview } from '@/lib/api/discounts';
+import { loadAppliedCode, type DiscountPreview } from '@/lib/api/discounts';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -28,9 +32,37 @@ export default function CartPage() {
   const [toast, setToast] = React.useState<string | null>(null);
   const [authChecked, setAuthChecked] = React.useState(false);
 
-  const shippingDisplay = minorToAmount(SHIPPING_AMOUNT_MINOR);
-
   const [discount, setDiscount] = React.useState<DiscountPreview | null>(null);
+
+  /**
+   * Whether a typed code owns the summary — and, until the saved one has been
+   * re-checked, whether we know.
+   *
+   * `DiscountCodeField` re-previews any code kept in localStorage on mount, so
+   * `discount === null` on the first render means "not yet" as often as it
+   * means "none". Firing the automatic preview into that ambiguity spends one
+   * of ten requests per ten minutes to learn something the coded preview is
+   * about to tell us anyway: `priceBag` returns `max(code, automatic)`, so an
+   * applied code's `discountMinor` already includes the markdown.
+   *
+   * Resolved in an effect rather than in the initial state so the server render
+   * and the first client render agree — localStorage does not exist during SSR.
+   */
+  const [codeStatus, setCodeStatus] = React.useState<
+    'unknown' | 'none' | 'applied'
+  >('unknown');
+
+  React.useEffect(() => {
+    setCodeStatus(loadAppliedCode() ? 'unknown' : 'none');
+  }, []);
+
+  const handleDiscountChange = React.useCallback(
+    (preview: DiscountPreview | null) => {
+      setDiscount(preview);
+      setCodeStatus(preview ? 'applied' : 'none');
+    },
+    [],
+  );
 
   /**
    * The bag, in the shape the discount endpoint wants.
@@ -50,8 +82,51 @@ export default function CartPage() {
     [items],
   );
 
+  /**
+   * The sitewide markdown, priced by the server for THIS bag.
+   *
+   * #36: the product page struck EGP 799 through to EGP 719.10 and the bag
+   * charged 799 with no discount row at all, because nothing here asked for the
+   * automatic offer unless the shopper typed a code. The preview endpoint runs
+   * the same `priceBag()` checkout runs and accepts a null code, so asking it
+   * is the whole fix — and the figure is the server's, not a second copy of the
+   * discount rules living in the browser.
+   */
+  const automatic = useAutomaticDiscount(
+    discountLines,
+    codeStatus === 'none' && items.length > 0,
+  );
+
+  /**
+   * The code wins when there is one, because the server already compared them.
+   * A coded preview's `discountMinor` is `max(code, automatic)` with a
+   * `winner` — adding the automatic on top would give the same saving twice.
+   */
+  const appliedDiscount = discount ?? automatic;
+
   const subtotalMinor = Math.round(parseFloat(subtotalAmount || '0') * 100);
-  const discountMinor = discount?.discountMinor ?? 0;
+  const discountMinor = appliedDiscount?.discountMinor ?? 0;
+
+  /**
+   * Delivery, from the shop's settings rather than from a constant.
+   *
+   * #38: this was `SHIPPING_AMOUNT_MINOR = 5_000`, described in its own comment
+   * as mirroring the backend — which it did, until the backend made the value
+   * an admin setting and the mirror had no way to notice.
+   *
+   * Judged on the subtotal BEFORE the discount, matching the backend's default
+   * `freeShippingBasis`: a bag that earned free delivery does not lose it the
+   * moment a code is applied.
+   *
+   * Caveat worth knowing while reading this: `GET /v1/settings/public` does not
+   * expose `shipping` yet, so `loadShippingPolicy()` still falls back to 5 000
+   * on the live backend. The plumbing is what changed — the figure follows the
+   * dashboard the day the endpoint carries it.
+   */
+  const shippingPolicy = useShippingPolicy();
+  const shippingMinor = shippingMinorFor(subtotalMinor, shippingPolicy);
+  const shippingIsFree = shippingMinor === 0;
+
   // Floored, exactly as the server floors it. A summary that can show a
   // negative total is a summary nobody trusts again.
   /**
@@ -63,13 +138,11 @@ export default function CartPage() {
    * than no summary: the shopper reads the smaller number as the price and
    * meets the real one at the point they are asked to pay.
    *
-   * SHIPPING_AMOUNT_MINOR is the same flat constant checkout charges, so the
-   * two screens now agree by construction. Still "estimated" because the
-   * server recomputes everything at Place order — it is the authority, this is
-   * display.
+   * Still "estimated" because the server recomputes everything at Place order —
+   * it is the authority, this is display.
    */
   const estimatedTotal = minorToAmount(
-    Math.max(0, subtotalMinor - discountMinor) + SHIPPING_AMOUNT_MINOR,
+    Math.max(0, subtotalMinor - discountMinor) + shippingMinor,
   );
 
   // No auth gate. A guest has a cart — it is keyed by the mr-cart-session
@@ -266,17 +339,44 @@ export default function CartPage() {
                   label="Subtotal"
                   value={<PriceDisplay amount={subtotalAmount} currency={currency} />}
                 />
+                {/*
+                  PriceDisplay, not `{amount} {currency}`.
+
+                  Subtotal and Estimated total go through it; Shipping and the
+                  discount row were interpolating raw, so one summary block
+                  showed `EGP 799` on two rows and `50.00 EGP` on the others —
+                  the symbol changing sides and the decimals appearing and
+                  disappearing between lines a shopper reads in one glance.
+
+                  formatMoney already owns this: prefix, grouping, and no
+                  trailing `.00` on a whole amount. The styling that made this
+                  row quiet is kept as a `style` override rather than as a
+                  reason to re-spell the price.
+                */}
                 <SummaryRow
                   label="Shipping"
                   value={
-                    <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-4)', fontStyle: 'italic' }}>
-                      {shippingDisplay} {currency}
-                    </span>
+                    shippingIsFree ? (
+                      /*
+                        A zero here is the free-delivery threshold being met, and
+                        "EGP 0" is a worse way to say so than the word. The PDP
+                        already promises "Complimentary shipping over EGP 3,000";
+                        the bag has to keep that promise in the same language, or
+                        it reads as the threshold having failed to apply.
+                      */
+                      <span style={quietSummaryValueStyle}>Free</span>
+                    ) : (
+                      <PriceDisplay
+                        amount={minorToAmount(shippingMinor)}
+                        currency={currency}
+                        style={quietSummaryValueStyle}
+                      />
+                    )
                   }
                 />
                 {discountMinor > 0 && (
                   <SummaryRow
-                    label={discount?.code ?? 'Discount'}
+                    label={appliedDiscount?.code ?? 'Discount'}
                     value={
                       <span
                         style={{
@@ -285,7 +385,23 @@ export default function CartPage() {
                           color: 'var(--mr-fg-2)',
                         }}
                       >
-                        −{minorToAmount(discountMinor)} {currency}
+                        {/*
+                          The minus stays outside PriceDisplay: it is not part of
+                          the amount, and formatMoney would otherwise be asked to
+                          format a negative number and place the sign relative to
+                          the currency prefix itself.
+                        */}
+                        −
+                        <PriceDisplay
+                          amount={minorToAmount(discountMinor)}
+                          currency={currency}
+                          style={{
+                            fontFamily: 'inherit',
+                            fontSize: 'inherit',
+                            color: 'inherit',
+                            fontWeight: 'inherit',
+                          }}
+                        />
                       </span>
                     }
                   />
@@ -308,7 +424,7 @@ export default function CartPage() {
                   Payment as a last chance before paying. */}
               {items.length > 0 && (
                 <div style={{ marginTop: 'var(--mr-sp-5)', paddingTop: 'var(--mr-sp-4)', borderTop: '1px solid var(--mr-hairline)' }}>
-                  <DiscountCodeField lines={discountLines} onChange={setDiscount} />
+                  <DiscountCodeField lines={discountLines} onChange={handleDiscountChange} />
                 </div>
               )}
 
@@ -354,6 +470,14 @@ const summaryTitleStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   color: 'var(--mr-fg)',
   marginBottom: 'var(--mr-sp-5)',
+};
+
+/** The Shipping row's understatement, shared by the fee and by "Free". */
+const quietSummaryValueStyle: React.CSSProperties = {
+  fontFamily: 'var(--mr-font-ui)',
+  fontSize: 'var(--mr-text-sm)',
+  color: 'var(--mr-fg-4)',
+  fontStyle: 'italic',
 };
 
 const continueLinkStyle: React.CSSProperties = {
