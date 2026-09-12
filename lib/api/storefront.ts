@@ -50,8 +50,19 @@ export interface ResolvedHeroSlide {
   tagline: string;
   /** Loadable URL for an image slide; null when unset or the item vanished. */
   imageUrl: string | null;
+  /**
+   * The same picture at several widths, keyed by width in CSS pixels.
+   *
+   * OPTIONAL on purpose. The storefront payload is cached server-side under an
+   * unversioned key, so a deploy that adds a field serves entries without it
+   * until the cache turns over — and an older backend never sends it at all.
+   * Absent means "one file, as before", which is what `imageUrl` already is.
+   */
+  imageSrcSet?: Record<string, string> | null;
   /** Portrait crop for mobile; null falls back to imageUrl on every screen. */
   mobileImageUrl: string | null;
+  /** As `imageSrcSet`, for the portrait crop. */
+  mobileImageSrcSet?: Record<string, string> | null;
   /** Admin-authored alt text for the rendered image. */
   imageAlt: string;
   background: string;
