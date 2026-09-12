@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import RemoteImage from '@/components/ui/RemoteImage';
 import {
   formatOrderStatus,
   formatOrderTotal,
@@ -134,8 +135,8 @@ export default function OrderDetailClient() {
               }}
             >
               {snap?.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                // Optimized (#11) — one per line item on the order.
+                <RemoteImage
                   src={snap.imageUrl}
                   alt=""
                   width={64}

@@ -130,7 +130,17 @@ describe('ProductReviews — reviewer byline (owner request 2026-07-30)', () => 
       document.querySelectorAll('img'),
     ) as HTMLImageElement[];
     expect(images.length).toBeGreaterThan(0);
-    expect(images.every((img) => img.src === 'https://cdn.test/avatars/aisha.jpg')).toBe(true);
+    // Through Next's optimizer (#11), carrying the reviewer's own URL — a
+    // product page renders one of these per review, so a full-size avatar
+    // render per row was the densest image cost on the page after the
+    // gallery.
+    expect(
+      images.every(
+        (img) =>
+          img.src.includes('/_next/image') &&
+          img.src.includes(encodeURIComponent('https://cdn.test/avatars/aisha.jpg')),
+      ),
+    ).toBe(true);
   });
 });
 

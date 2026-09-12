@@ -2,45 +2,40 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * The footer paints BELOW the page sheet, and that depends on two files
- * agreeing.
+ * The footer is a plain block in normal flow. It must not be positioned, and it
+ * must not carry a z-index.
  *
- * ## What went wrong
+ * ## Two ways this was got wrong, in one afternoon
  *
- * `position: sticky` is a POSITIONED value, so the footer painted in the
- * positioned phase — above every in-flow, non-positioned box on the page,
- * whatever the DOM order. At `z-index: 0` it also tied with `.mr-page-sheet`
- * (positioned, `z-index: auto`) and won the tie on tree order, being the later
- * sibling.
+ * **`position: sticky; z-index: 0`** — what shipped originally. `sticky` is a
+ * POSITIONED value, so the footer painted in the positioned phase, above every
+ * in-flow non-positioned box whatever the DOM order; at `z-index: 0` it also
+ * tied with `.mr-page-sheet` (positioned, `z-index: auto`) and won on tree
+ * order, being the later sibling. Measured on the live site, Pixel 5, homepage:
  *
- * So the curtain ran backwards: the sheet is meant to scroll up OVER the footer
- * and reveal it, and instead the footer sat on top of the sheet. Measured on the
- * live site with Playwright, Pixel 5, homepage:
- *
- *     footer   position: sticky   zIndex: 0   top: 30   height: 697
- *     sheet    position: relative zIndex: auto          bottom: 2465
+ *     footer   position: sticky    zIndex: 0     top: 30   height: 697
+ *     sheet    position: relative  zIndex: auto            bottom: 2465
  *
  * A 697px footer pinned across an 851px viewport with 2465px of page still
- * scrolled underneath it. Anything in that band without a z-index of its own was
- * behind the footer and could not be clicked. The header survived only because
- * it carries a higher z-index of its own, which is why this read as "the footer
- * is above the whole site" rather than as a broken header.
+ * scrolled underneath it. The curtain ran backwards — the sheet is meant to
+ * scroll up OVER the footer, and instead the footer covered the sheet.
  *
- * ## Why the two files are one change
+ * **`position: sticky; z-index: -1`** — the attempted fix, and worse. It
+ * corrected the painting and broke hit testing with it: a negative-z-index box
+ * sits behind in-flow content for pointer events too. The footer rendered
+ * perfectly and every link in it was dead. Caught by clicking "About" at its own
+ * coordinates on the deployed site and watching the URL not change.
  *
- * Moving the footer to `z-index: -1` alone does not work. A negative-z-index box
- * paints below the backgrounds of in-flow, non-positioned boxes — and `body` is
- * exactly that. An opaque `body` background would hide the footer completely, at
- * every scroll position, on every page: the same bug with the opposite symptom.
+ * ## Why static flow is the answer and not a third guess
  *
- * The ground colour therefore lives on `html`, which is propagated to the canvas
- * and painted below everything, including negative z-indexes. It still covers
- * the route-change gap that the colour was put there for in the first place.
+ * Both bugs are the same bug: the footer was asking to overlap the page, and
+ * then the two of them had to be ordered. Unpositioned, it is the last block on
+ * the page, it occupies its own height, and it overlaps nothing — so there is no
+ * ordering question left to get wrong, and no z-index anywhere that a later edit
+ * can invert.
  *
- * Either half alone is broken, and each half looks arbitrary on its own. That is
- * what this file is for: a later tidy-up that "restores" the body background, or
- * that normalises a negative z-index to 0, has to fail here rather than in
- * somebody's browser.
+ * What is lost is the reveal effect. It was never working: what shipped was a
+ * footer lying on top of the page.
  */
 
 const read = (rel: string) =>
@@ -48,52 +43,38 @@ const read = (rel: string) =>
 
 describe('footer stacking', () => {
   const footer = read('components/layout/Footer.tsx');
-  const globals = read('app/globals.css');
 
-  it('gives the footer a negative z-index', () => {
-    expect(footer).toMatch(/zIndex:\s*-1/);
+  /** The inline style object on the `<footer>` element, not the whole file. */
+  const footerStyle = (() => {
+    const anchor = footer.indexOf('data-mr-surface="ink"');
+    expect(anchor).toBeGreaterThan(-1);
+    return footer.slice(anchor, footer.indexOf('>', footer.indexOf('}}', anchor)));
+  })();
+
+  it('does not position the footer', () => {
+    // `sticky` and `fixed` have both been tried and both made the footer
+    // overlap the page. Only an unpositioned box overlaps nothing.
+    expect(footerStyle).not.toMatch(/position:\s*['"](sticky|fixed|absolute)['"]/);
   });
 
-  it('does not leave a zero or positive z-index on the footer', () => {
-    // The exact value that caused the bug. `sticky` + any non-negative z-index
-    // puts the footer above the sheet again.
-    expect(footer).not.toMatch(/zIndex:\s*(0|[1-9]\d*)\s*,/);
-  });
-
-  it('keeps the footer sticky, because the reveal depends on it', () => {
+  it('declares no z-index at all', () => {
     /*
-     * Not a tidy-up guard — this is the other half of the effect. `fixed` was
-     * tried and pinned the footer's top edge above the viewport once its own
-     * content grew taller than the screen, so the wordmark was clipped and
-     * nothing could scroll to it. See the comment in Footer.tsx.
+     * Not "no positive z-index" — none. 0 put the footer above the page and -1
+     * made its links unclickable. An unpositioned box needs neither, and any
+     * value here means somebody has re-introduced positioning.
      */
-    expect(footer).toMatch(/position:\s*'sticky'/);
+    expect(footerStyle).not.toMatch(/zIndex/);
   });
 
-  it('puts the ground colour on html', () => {
-    expect(globals).toMatch(/html\s*\{[^}]*background:\s*var\(--mr-cream-200\)/);
+  it('sets no inset properties, which only mean something when positioned', () => {
+    expect(footerStyle).not.toMatch(/\b(top|bottom|left|right):\s*0/);
   });
 
-  it('does NOT put a background on body', () => {
-    /*
-     * The half that is easy to "helpfully" restore. An opaque body background
-     * paints above a negative-z-index child and hides the footer entirely.
-     *
-     * Matches the `html, body { ... }` block specifically, since `body` also
-     * appears in comments and in unrelated selectors.
-     */
-    // Line endings are CRLF in this checkout, so match on the selector rather
-    // than on an exact newline.
-    const start = globals.search(/html,\s*body\s*\{/);
-    expect(start).toBeGreaterThan(-1);
-    const block = globals.slice(start, globals.indexOf('}', start));
-    expect(block).not.toMatch(/background/);
-  });
-
-  it('explains why the pair is load-bearing, in both files', () => {
-    // Each half is meaningless alone, so each half has to say so where someone
-    // editing it will look.
-    expect(footer).toMatch(/body/);
-    expect(globals).toMatch(/z-index:\s*-1|negative-z-index/);
+  it('records why, so the reveal is not re-attempted the same way', () => {
+    // Both failures are named in the file. A future attempt at the curtain
+    // effect needs to know that these two exact approaches were measured and
+    // what each one broke.
+    expect(footer).toMatch(/sticky/);
+    expect(footer).toMatch(/hit test|hit testing|dead/i);
   });
 });
