@@ -19,8 +19,16 @@ interface VariantPickerProps {
    * cannot, so the caller has to say. Defaults to `left` — the picker was
    * left-aligned everywhere before the product panel was centred (#42), and a
    * default that silently follows the panel would be a surprise anywhere else.
+   *
+   * `center-until-lg` mirrors the product panel's own `text-center lg:text-left`:
+   * the owner asked for the panel centred on a phone and left-aligned on
+   * desktop, and pills that stayed centred while the type beside them moved
+   * would read as a mistake. It is a class rather than a computed style
+   * because a breakpoint cannot live in an inline `style`, and branching on a
+   * client-side breakpoint hook would make the first paint of a
+   * server-rendered page depend on a measurement.
    */
-  align?: 'left' | 'center';
+  align?: 'left' | 'center' | 'center-until-lg';
 }
 
 export default function VariantPicker({ variants, selectedId, onChange, traceIdPrefix, align = 'left' }: VariantPickerProps) {
@@ -69,10 +77,15 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
           : 'Options'}
       </div>
       <div
+        className={
+          align === 'center-until-lg' ? 'justify-center lg:justify-start' : undefined
+        }
         style={{
           display: 'flex',
           flexWrap: 'wrap',
-          justifyContent: align === 'center' ? 'center' : 'flex-start',
+          ...(align === 'center-until-lg'
+            ? {}
+            : { justifyContent: align === 'center' ? 'center' : 'flex-start' }),
           gap: 'var(--mr-sp-2)',
         }}
       >

@@ -271,7 +271,26 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
        * `center` would shrink-wrap every child and cost the buy button its
        * full width.
        */
-      style={{ flex: 1, display: 'flex', flexDirection: 'column', textAlign: 'center' }}
+      /*
+        Centred on a PHONE, left-aligned from `lg` up — the owner's follow-up
+        after #42 shipped it centred everywhere: "on mobile focus on center
+        text and everything inside product single page but on desktop keep old
+        same".
+
+        Both readings are right for their own width, which is why one value
+        could not serve. On a 390px column the measure is so narrow that almost
+        every line fills it, so the rag is invisible and centring reads as
+        composed. At 1440 the panel is a 605px column beside a full-height
+        photograph, and centred type there fights the photograph's own edge
+        instead of settling against it.
+
+        A class rather than the inline `textAlign` it replaces: an inline style
+        cannot carry a breakpoint, and the alternative — branching on
+        `useBreakpoint()` — would make the first paint depend on a client-side
+        measurement on a server-rendered page.
+      */
+      className="text-center lg:text-left"
+      style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
     >
       <div
         style={{
@@ -361,9 +380,11 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
             variants={activeVariants}
             selectedId={selectedVariant?.id ?? null}
             onChange={onSelectVariant}
-            // The label inherits the panel's `textAlign`, but the pills are a
-            // flex row and have to be told.
-            align="center"
+            // The label inherits the panel's alignment, but the pills are a
+            // flex row and have to be told. Same breakpoint as the panel
+            // (`text-center lg:text-left`) — pills that stayed centred while
+            // the type beside them moved would read as a mistake.
+            align="center-until-lg"
             traceIdPrefix="PG-STOREFRONT-CAT-005::EL-TOGGLE-variant-option"
           />
         </div>
