@@ -34,6 +34,7 @@ import React from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/Icon';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import RemoteImage from '@/components/ui/RemoteImage';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { useScrollDirection } from '@/lib/hooks/useScrollDirection';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
@@ -234,11 +235,15 @@ export default function MobileBottomNav() {
         // silhouette otherwise — never `item.icon`'s plain user glyph and
         // never an initial letter (owner rule, enforced storefront-wide).
         const iconNode = isAccount ? (
-          showAvatarPhoto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl ?? undefined}
+          showAvatarPhoto && avatarUrl ? (
+            // Optimized (#11). This one is the phone's copy of the same
+            // avatar the header shows, so it is also the one paid for on the
+            // slowest connections.
+            <RemoteImage
+              src={avatarUrl}
               alt=""
+              width={ACCOUNT_AVATAR_SIZE}
+              height={ACCOUNT_AVATAR_SIZE}
               data-testid="mobile-nav-avatar-photo"
               onError={() => setAvatarErrored(true)}
               style={{

@@ -124,7 +124,7 @@ export default async function CategoryPage({ params }: PageProps) {
           style={{
             maxWidth: 'var(--mr-content-max)',
             margin: '0 auto',
-            padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+            padding: 'clamp(24px,3vw,40px) var(--mr-gutter) clamp(48px,8vw,96px)',
           }}
         >
           {/* Breadcrumb — built from the route and the category's own

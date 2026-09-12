@@ -2,6 +2,7 @@
 
 import React from 'react';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import RemoteImage from '@/components/ui/RemoteImage';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
 import { useUser } from '@/lib/hooks/use-auth';
 import { openMobileMenu } from '@/lib/hooks/useMobileChrome';
@@ -90,11 +91,17 @@ export default function AccountAvatarButton({
           'background-color var(--mr-dur-fast) var(--mr-ease-snappy), transform var(--mr-dur-fast) var(--mr-ease-spring)',
       }}
     >
-      {showPhoto ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatarUrl ?? undefined}
+      {showPhoto && avatarUrl ? (
+        // Through Next's optimizer (#11): the avatar URL is one fixed
+        // imgproxy render at `dpr:2/q:95`, so a raw tag downloaded a
+        // several-hundred-KB JPEG to paint a 40px circle on every page of the
+        // site. `RemoteImage` asks for a 2x ladder of THIS size in AVIF, and
+        // still falls back to the plain tag before it gives up on the photo.
+        <RemoteImage
+          src={avatarUrl}
           alt=""
+          width={size}
+          height={size}
           data-testid="account-avatar-photo"
           onError={() => setErrored(true)}
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
