@@ -111,6 +111,11 @@ export default async function CategoryPage({ params }: PageProps) {
         path={categoryPath(slug)}
         items={{ kind: 'products', products: initialProducts }}
       />
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <FooterWithSettings />
+
       <div className="mr-page-sheet">
         <AnnouncementBarServer />
         <HeaderWrapper />
@@ -119,7 +124,7 @@ export default async function CategoryPage({ params }: PageProps) {
           style={{
             maxWidth: 'var(--mr-content-max)',
             margin: '0 auto',
-            padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+            padding: 'clamp(24px,3vw,40px) var(--mr-gutter) clamp(48px,8vw,96px)',
           }}
         >
           {/* Breadcrumb — built from the route and the category's own
@@ -170,7 +175,6 @@ export default async function CategoryPage({ params }: PageProps) {
           />
         </main>
       </div>
-      <FooterWithSettings />
     </>
   );
 }

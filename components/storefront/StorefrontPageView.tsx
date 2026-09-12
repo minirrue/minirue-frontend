@@ -17,6 +17,18 @@ export default function StorefrontPageView({
 }) {
   return (
     <>
+      {/* The curtain, BEFORE the sheet on purpose, and this is the canonical
+          copy of the reason the other call sites point at.
+
+          Both boxes are positioned and both are `z-index: auto`, so they paint
+          in DOCUMENT ORDER: the later sibling wins. The sheet has to be the
+          later sibling, or the footer paints over the page instead of being
+          revealed from under it — which is exactly what shipped twice (see
+          components/layout/Footer.tsx for the three measured failures). No
+          z-index settles this, deliberately: giving either box one creates a
+          stacking context and seals every overlay inside it. */}
+      <FooterWithSettings />
+
       <div className="mr-page-sheet">
         <AnnouncementBarServer />
         <HeaderWrapper />
@@ -47,12 +59,6 @@ export default function StorefrontPageView({
           </article>
         </main>
       </div>
-
-      {/* W4a.1: outside `.mr-page-sheet` — under `position: sticky` (see
-          Footer.tsx) a footer rendered INSIDE the sheet would scroll as part
-          of it instead of being revealed from beneath it, which is exactly
-          the inconsistency `fixed` used to paper over. */}
-      <FooterWithSettings />
     </>
   );
 }

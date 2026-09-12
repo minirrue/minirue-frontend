@@ -64,6 +64,11 @@ export default async function CollabPage() {
           })),
         }}
       />
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <FooterWithSettings />
+
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={storefrontAnnouncement?.announcementMessages}
@@ -74,10 +79,6 @@ export default async function CollabPage() {
         <HeaderWrapper />
         <CollabGrid brands={brands} />
       </div>
-
-      {/* Outside `.mr-page-sheet`, same as every other storefront page — a
-          sticky footer needs this (see StorefrontPageView.tsx). */}
-      <FooterWithSettings />
     </>
   );
 }

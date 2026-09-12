@@ -55,6 +55,11 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
 
   return (
     <>
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} shopName={chrome?.shopName} />
+
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={storefront?.announcementMessages}
@@ -242,7 +247,6 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
           </main>
         </div>
       </div>
-      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} shopName={chrome?.shopName} />
     </>
   );
 }

@@ -105,6 +105,11 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
+      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
+          `z-index: auto`, so document order alone decides which paints on top.
+          See components/layout/Footer.tsx. */}
+      <FooterWithSettings />
+
       <div className="mr-page-sheet">
         {query && (
           <>
@@ -134,7 +139,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           style={{
             maxWidth: 'var(--mr-content-max)',
             margin: '0 auto',
-            padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+            padding: 'clamp(24px,3vw,40px) var(--mr-gutter) clamp(48px,8vw,96px)',
           }}
         >
           {/* Breadcrumb */}
@@ -220,7 +225,6 @@ export default async function SearchPage({ searchParams }: PageProps) {
           />
         </main>
       </div>
-      <FooterWithSettings />
     </HydrationBoundary>
   );
 }
