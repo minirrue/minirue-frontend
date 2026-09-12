@@ -2,6 +2,8 @@
 
 import React from 'react';
 import type { GuestCheckoutDetails } from '@/lib/checkout/checkout-session';
+import type { EffectiveShipping } from '@/lib/checkout/governorate-rates';
+import GovernorateSelect from '@/components/checkout/GovernorateSelect';
 
 /**
  * Who a guest is, and where their order goes.
@@ -48,7 +50,20 @@ export type GuestFieldErrors = Partial<Record<keyof GuestCheckoutDetails, string
  * number is short BEFORE watching a request fail. Keep the two in step — if
  * they drift, the client is the one that is wrong.
  */
-export function validateGuest(v: GuestCheckoutDetails): GuestFieldErrors {
+export function validateGuest(
+  v: GuestCheckoutDetails,
+  /**
+   * Whether the shop publishes a governorate table (#83), which decides only
+   * the WORDING of the governorate error — "select" beside a `<select>`,
+   * "enter" beside the free-text box the shop still falls back to.
+   *
+   * The rule itself does not change with it, and deliberately does not become
+   * "must be one of the rates": free text has been valid on every address since
+   * the schema was written, an unmatched value still checks out, and a client
+   * that rejected one would be inventing a constraint the server does not have.
+   */
+  hasRateTable = false,
+): GuestFieldErrors {
   const errors: GuestFieldErrors = {};
   const digits = (v.phone.match(/\d/g) ?? []).length;
 
@@ -61,7 +76,9 @@ export function validateGuest(v: GuestCheckoutDetails): GuestFieldErrors {
   if (v.line1.trim().length < 3) errors.line1 = 'Enter your street address.';
   if (v.city.trim().length < 2) errors.city = 'Enter your city.';
   if (v.governorate.trim().length < 2)
-    errors.governorate = 'Enter your governorate.';
+    errors.governorate = hasRateTable
+      ? 'Select your governorate — it sets the delivery fee.'
+      : 'Enter your governorate.';
 
   return errors;
 }
@@ -209,12 +226,23 @@ export default function GuestDetailsForm({
   onChange,
   errors,
   mobile,
+  effective,
+  governorateHint,
 }: {
   value: GuestCheckoutDetails;
   onChange: (next: GuestCheckoutDetails) => void;
   /** Only populated after a failed submit — see the page for why. */
   errors: GuestFieldErrors;
   mobile: boolean;
+  /**
+   * The shop's delivery policy, so the governorate field can be the enum the
+   * admin owns (#83) rather than a box. With an empty `rates` table —
+   * the live shop today — `GovernorateSelect` renders the same free-text input
+   * this form has always rendered.
+   */
+  effective: EffectiveShipping;
+  /** What this governorate costs, phrased by the page that owns the summary. */
+  governorateHint?: React.ReactNode;
 }) {
   const set = (patch: Partial<GuestCheckoutDetails>) =>
     onChange({ ...value, ...patch });
@@ -298,13 +326,19 @@ export default function GuestDetailsForm({
           error={errors.city}
           autoComplete="address-level2"
         />
-        <Field
-          id="governorate"
-          label="Governorate"
+        {/*
+          The one field on this form whose value costs money. It is a
+          `<select>` sourced from the shop's own table when there is one, and
+          the free-text input it has always been when there is not — see
+          GovernorateSelect for both states and for what happens to an address
+          whose stored text matches nothing.
+        */}
+        <GovernorateSelect
           value={value.governorate}
           onChange={(v) => set({ governorate: v })}
+          effective={effective}
           error={errors.governorate}
-          autoComplete="address-level1"
+          hint={governorateHint}
         />
       </div>
       <Field

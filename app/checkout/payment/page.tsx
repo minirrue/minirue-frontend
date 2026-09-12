@@ -6,10 +6,11 @@ import { useCart } from '@/components/storefront/cart/CartContext';
 import { toPricingLines } from '@/components/storefront/cart/bag-lines';
 import { loadCheckoutSession, saveCheckoutSession } from '@/lib/checkout/checkout-session';
 import {
-  COD_MAX_ORDER_MINOR,
-  orderTotalMinor,
-  SHIPPING_AMOUNT_MINOR,
-} from '@/lib/checkout/checkout-money';
+  useCodMaxOrderMinor,
+  useEffectiveShipping,
+} from '@/components/storefront/cart/use-bag-pricing';
+import { subtotalToMinor } from '@/lib/checkout/checkout-money';
+import { shippingSummary } from '@/lib/checkout/shipping-summary';
 import { track } from '@/lib/analytics';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
@@ -33,6 +34,20 @@ export default function CheckoutPaymentPage() {
   const { cartId, lines, bundleIndex, subtotalAmount, currency } = useCart();
   const [method, setMethod] = useState<'COD' | 'INSTAPAY'>('COD');
   const [discount, setDiscount] = useState<DiscountPreview | null>(null);
+  const effective = useEffectiveShipping();
+  const codMaxMinor = useCodMaxOrderMinor();
+
+  /**
+   * The governorate the delivery step settled on (#83), read once after mount.
+   *
+   * sessionStorage, so it cannot be read during render without the first client
+   * render disagreeing with the server's HTML — the same reason `signedIn` is
+   * resolved in an effect on the step before this one.
+   */
+  const [governorate, setGovernorate] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    setGovernorate(loadCheckoutSession()?.shippingGovernorate);
+  }, []);
 
   /**
    * The last chance to type a code before paying. The field re-checks whatever
@@ -86,9 +101,33 @@ export default function CheckoutPaymentPage() {
    * That is the cash the courier collects, and judging the ceiling on the
    * pre-discount figure would refuse cash on delivery for an order small enough
    * to qualify.
+   *
+   * The delivery half is now the governorate's fee rather than a constant
+   * (#83). This screen used to add `SHIPPING_AMOUNT_MINOR` — EGP 50, against a
+   * shop charging EGP 100 — so the last number a shopper read before paying was
+   * the one furthest from what they were billed.
+   *
+   * `shippingSummary` applies the discount to the goods and the threshold to
+   * whichever figure the shop's `freeShippingBasis` names, so the two are not
+   * reasoned about separately here.
    */
-  const totalMinor = Math.max(0, orderTotalMinor(subtotalAmount) - discountMinor);
-  const codBlocked = totalMinor > COD_MAX_ORDER_MINOR;
+  const summary = shippingSummary({
+    effective,
+    subtotalMinor: subtotalToMinor(subtotalAmount),
+    discountMinor,
+    governorate,
+  });
+  const totalMinor = summary.totalMinor;
+  /**
+   * DECISION 4 of #83 again, as the backstop rather than as the announcement.
+   *
+   * The delivery step already told the shopper when their governorate put the
+   * order over the ceiling, which is where the issue asks for it. This stays
+   * because the total can still move HERE — a discount code typed on this
+   * screen can bring an order back under the limit, and nothing upstream can
+   * know that in advance.
+   */
+  const codBlocked = totalMinor > codMaxMinor;
 
   useEffect(() => {
     if (codBlocked && method === 'COD') {
@@ -132,7 +171,11 @@ export default function CheckoutPaymentPage() {
               color: 'var(--mr-fg-4)',
             }}
           >
-            Includes shipping ({minorToAmount(SHIPPING_AMOUNT_MINOR)} {currency})
+            {summary.free
+              ? 'Includes free delivery'
+              : `Includes shipping${
+                  summary.resolved?.label ? ` to ${summary.resolved.label}` : ''
+                } (${minorToAmount(summary.feeMinor)} ${currency})`}
             {discountMinor > 0 && (
               <>
                 {' · '}
@@ -159,7 +202,7 @@ export default function CheckoutPaymentPage() {
             {codBlocked && (
               <CheckoutAlert variant="warning">
                 Cash on delivery is not available above{' '}
-                {minorToAmount(COD_MAX_ORDER_MINOR)} {currency}. Please use Instapay.
+                {minorToAmount(codMaxMinor)} {currency}. Please use Instapay.
               </CheckoutAlert>
             )}
             <CheckoutOption

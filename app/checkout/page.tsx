@@ -2,8 +2,15 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
+import { toPricingLines } from '@/components/storefront/cart/bag-lines';
+import {
+  useAutomaticDiscount,
+  useCodMaxOrderMinor,
+  useEffectiveShipping,
+} from '@/components/storefront/cart/use-bag-pricing';
+import { shippingSummary } from '@/lib/checkout/shipping-summary';
 import { useCustomerAddresses } from '@/lib/hooks/use-customer';
 import { useUser } from '@/lib/hooks/use-auth';
 import {
@@ -27,7 +34,7 @@ import {
 } from '@/components/checkout/checkout-ui';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import Button from '@/components/ui/Button';
-import { SHIPPING_AMOUNT_MINOR, orderTotalMinor, subtotalToMinor } from '@/lib/checkout/checkout-money';
+import { subtotalToMinor } from '@/lib/checkout/checkout-money';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { track } from '@/lib/analytics';
 
@@ -37,10 +44,19 @@ function minorToAmount(minor: number): string {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cartId, itemCount, subtotalAmount, currency } = useCart();
+  const { cartId, itemCount, lines, bundleIndex, subtotalAmount, currency } = useCart();
   const { data: addresses, isLoading } = useCustomerAddresses();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { mobile } = useBreakpoint();
+
+  /**
+   * The shop's delivery policy, including the per-governorate table (#83).
+   *
+   * Shared promise with the bag (`use-bag-pricing`), so this screen and the one
+   * the shopper just left cannot answer from two different reads that raced.
+   */
+  const effective = useEffectiveShipping();
+  const codMaxMinor = useCodMaxOrderMinor();
 
   /**
    * Signed in, or checking out as a guest.
@@ -126,6 +142,34 @@ export default function CheckoutPage() {
     setSelectedId((prev) => prev ?? savedAddr?.id ?? defaultAddr.id);
   }, [addresses]);
 
+  /**
+   * The same automatic markdown the bag shows, asked for the same bag.
+   *
+   * This screen used to show `subtotal + SHIPPING_AMOUNT_MINOR` and no discount
+   * at all, so a shopper who had just read "Estimated total EGP 769.10" in the
+   * bag arrived here and was told EGP 849. Both numbers were wrong in different
+   * directions — the constant was EGP 50 while the shop charges EGP 100, and
+   * the sitewide markdown was simply missing. A summary that contradicts the
+   * screen before it is worse than no summary.
+   *
+   * Not a second implementation of the discount rules: `previewDiscount` runs
+   * the server's own `priceBag()`. A code TYPED in the bag is still not carried
+   * here — there is nowhere in the checkout session to put it — so a shopper
+   * who typed one sees the automatic figure until the payment step re-applies
+   * theirs. That gap predates this change and is called out in the PR.
+   *
+   * Declared UP HERE, above the empty-bag early return, because these are
+   * hooks. They read as belonging beside the summary they feed, and that is
+   * exactly the instinct that puts a hook after a conditional return and has it
+   * run in some renders and not others.
+   */
+  const discountLines = useMemo(
+    () => toPricingLines(lines ?? [], bundleIndex ?? new Map()),
+    [lines, bundleIndex],
+  );
+  const automatic = useAutomaticDiscount(discountLines, itemCount > 0);
+  const discountMinor = automatic?.discountMinor ?? 0;
+
   if (itemCount === 0) {
     return (
       <CheckoutShell>
@@ -143,7 +187,72 @@ export default function CheckoutPage() {
     );
   }
 
-  const totalMinor = orderTotalMinor(subtotalAmount);
+  const selectedAddress = addresses?.find((a) => a.id === selectedId);
+
+  /**
+   * The free text that will actually reach the server — and `undefined` when
+   * there is not one yet, which is a different thing from an empty one.
+   *
+   * A GUEST with a blank field has not answered: `validateGuest` will not let
+   * them continue, so quoting the global rate at them would be firm about a
+   * value that cannot be submitted. `undefined` makes the summary read "from",
+   * exactly as the bag does.
+   *
+   * A SIGNED-IN shopper's saved address is submittable whatever it holds —
+   * including the literal '—' a manual order writes. That resolves (to
+   * `NO_GOVERNORATE`), is billed the global rate, and is shown as the firm
+   * number it is, with the miss stated below rather than swallowed.
+   */
+  const governorate: string | undefined =
+    signedIn === false
+      ? guest.governorate.trim()
+        ? guest.governorate
+        : undefined
+      : (selectedAddress?.governorate ?? undefined);
+
+  const subtotalMinor = subtotalToMinor(subtotalAmount);
+  const summary = shippingSummary({
+    effective,
+    subtotalMinor,
+    discountMinor,
+    governorate,
+  });
+  const totalMinor = summary.totalMinor;
+
+  /**
+   * DECISION 4 of #83, surfaced where the issue asks for it.
+   *
+   * `codMaxOrderMinor` gates the TOTAL, and the total now moves with the
+   * governorate — so the same bag can allow cash on delivery in one place and
+   * not in another. Saying so here, beside the field that causes it, is the
+   * whole point: the alternative is a shopper filling in every detail and being
+   * refused at the payment step by a number they were never shown.
+   *
+   * Only claimed once the fee is FIRM. While the summary still reads "from",
+   * the total is a floor and a floor cannot tell you that a ceiling is
+   * breached.
+   */
+  const codBlocked = !summary.fromOnly && totalMinor > codMaxMinor;
+
+  const hasRateTable = effective.rates.length > 0;
+  const money = (minor: number) => `${minorToAmount(minor)} ${currency}`;
+
+  /**
+   * The line under the governorate field: what this choice costs, in words,
+   * where the shopper is looking when they make it.
+   *
+   * Deliberately the SAME numbers the summary card draws — read from one
+   * `shippingSummary` call rather than recomputed — because a field that says
+   * EGP 60 beside a card that says EGP 100 is the drift this whole feature is
+   * meant to prevent, reproduced inside one screen.
+   */
+  const governorateHint = !hasRateTable ? undefined : summary.free
+    ? 'Delivery is free on this order, wherever it goes.'
+    : summary.fromOnly
+      ? `Delivery from ${money(effective.minFeeCents)} — choose your governorate for the exact fee.`
+      : summary.resolved?.status === 'NO_MATCH'
+        ? `Not in our delivery list, so the standard rate of ${money(summary.feeMinor)} applies. Pick the closest match to see its own fee.`
+        : `Delivery to ${summary.resolved?.label ?? 'this address'} · ${money(summary.feeMinor)}`;
 
   return (
     <CheckoutShell>
@@ -178,11 +287,13 @@ export default function CheckoutPage() {
                     // way: validating on every keystroke tells someone their
                     // email is invalid while they are still typing the @.
                     if (Object.keys(guestErrors).length) {
-                      setGuestErrors(validateGuest(next));
+                      setGuestErrors(validateGuest(next, hasRateTable));
                     }
                   }}
                   errors={guestErrors}
                   mobile={mobile}
+                  effective={effective}
+                  governorateHint={governorateHint}
                 />
                 <p
                   style={{
@@ -239,6 +350,14 @@ export default function CheckoutPage() {
                       {addr.line2 ? `, ${addr.line2}` : ''}
                       <br />
                       {addr.city}
+                      {/*
+                        The governorate is shown on a saved address now because
+                        it decides the price. It was omitted while every address
+                        cost the same to reach; leaving it out once it does not
+                        would hide the reason one saved address is more
+                        expensive than another.
+                      */}
+                      {addr.governorate ? ` · ${addr.governorate}` : ''}
                       {addr.postalCode ? ` · ${addr.postalCode}` : ''}
                     </>
                   }
@@ -246,6 +365,58 @@ export default function CheckoutPage() {
                 />
                 ))}
             </div>
+
+            {/*
+              A saved address gets NO select.
+
+              The server resolves the fee from the free text stored ON the
+              address, so a picker here that disagreed with it would show one
+              number and charge another — which is the exact defect #83 exists
+              to remove, rebuilt in the name of fixing it. What the shopper gets
+              instead is the resolution stated plainly, and a link to the one
+              place that can actually change it.
+            */}
+            {signedIn === true && hasRateTable && selectedAddress && (
+              <>
+                {summary.resolved?.status === 'NO_MATCH' && (
+                  <CheckoutAlert variant="info">
+                    We could not match <strong>{selectedAddress.governorate}</strong> to one
+                    of our delivery areas, so this order ships at the standard rate of{' '}
+                    {money(summary.feeMinor)}. Your order is not affected. To be charged a
+                    governorate rate instead, update the address in{' '}
+                    <Link href="/account/addresses" style={{ color: 'inherit', fontWeight: 600 }}>
+                      your account
+                    </Link>
+                    .
+                  </CheckoutAlert>
+                )}
+                {summary.resolved?.status === 'NO_GOVERNORATE' && (
+                  <CheckoutAlert variant="info">
+                    This address has no governorate on it, so it ships at the standard rate
+                    of {money(summary.feeMinor)}. Adding one in{' '}
+                    <Link href="/account/addresses" style={{ color: 'inherit', fontWeight: 600 }}>
+                      your account
+                    </Link>{' '}
+                    may change the delivery fee.
+                  </CheckoutAlert>
+                )}
+              </>
+            )}
+
+            {/*
+              DECISION 4 of #83. Raised HERE, at the address step, and not as a
+              payment failure after the shopper has filled everything in.
+            */}
+            {codBlocked && (
+              <CheckoutAlert variant="warning">
+                {summary.resolved?.label
+                  ? `Delivery to ${summary.resolved.label} brings this order to ${money(totalMinor)}`
+                  : `This order comes to ${money(totalMinor)}`}
+                , above the {money(codMaxMinor)} limit for cash on delivery. You can pay by
+                Instapay on the next step — or choose a governorate with a lower delivery
+                fee, if one applies to you.
+              </CheckoutAlert>
+            )}
           </CheckoutSection>
 
           <CheckoutSummaryCard>
@@ -268,12 +439,78 @@ export default function CheckoutPage() {
                 </span>
                 <PriceDisplay amount={subtotalAmount} currency={currency} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}>
+              {/*
+                The row this whole issue is about. It used to read
+                `SHIPPING_AMOUNT_MINOR` — a constant that said EGP 50 while the
+                shop charged EGP 100 — and it now follows the governorate the
+                shopper picks, through the same `shippingSummary` the bag uses.
+              */}
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}
+                data-trace-id="PG-STOREFRONT-CHK-002::EL-ROW-shipping"
+              >
                 <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
                   Shipping
+                  {summary.resolved?.label && (
+                    <span style={{ color: 'var(--mr-fg-4)' }}> · {summary.resolved.label}</span>
+                  )}
                 </span>
-                <PriceDisplay amount={minorToAmount(SHIPPING_AMOUNT_MINOR)} currency={currency} />
+                {summary.free ? (
+                  // "Free", not "EGP 0" — the product page promises
+                  // complimentary delivery in words, and the summary has to
+                  // keep that promise in the same language or it reads as the
+                  // threshold having failed to apply.
+                  <span
+                    style={{
+                      fontFamily: 'var(--mr-font-ui)',
+                      fontSize: 'var(--mr-text-sm)',
+                      color: 'var(--mr-fg-4)',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    Free
+                  </span>
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+                    {summary.fromOnly && (
+                      <span
+                        style={{
+                          fontFamily: 'var(--mr-font-ui)',
+                          fontSize: 'var(--mr-text-xs)',
+                          color: 'var(--mr-fg-4)',
+                        }}
+                      >
+                        from
+                      </span>
+                    )}
+                    <PriceDisplay amount={minorToAmount(summary.feeMinor)} currency={currency} />
+                  </span>
+                )}
               </div>
+              {/*
+                The discount the bag already showed. Its absence here was half
+                the reason the two screens disagreed.
+              */}
+              {discountMinor > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}>
+                  <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
+                    {automatic?.code ?? 'Discount'}
+                  </span>
+                  <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-2)' }}>
+                    −
+                    <PriceDisplay
+                      amount={minorToAmount(discountMinor)}
+                      currency={currency}
+                      style={{
+                        fontFamily: 'inherit',
+                        fontSize: 'inherit',
+                        color: 'inherit',
+                        fontWeight: 'inherit',
+                      }}
+                    />
+                  </span>
+                </div>
+              )}
               <div style={{ height: 1, background: 'var(--mr-hairline)', margin: 'var(--mr-sp-1) 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--mr-sp-3)', minWidth: 0 }}>
                 <span
@@ -287,11 +524,30 @@ export default function CheckoutPage() {
                 >
                   Total
                 </span>
-                <PriceDisplay
-                  amount={minorToAmount(totalMinor)}
-                  currency={currency}
-                  style={{ fontSize: 'var(--mr-text-lg)', color: 'var(--mr-fg)' }}
-                />
+                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, minWidth: 0 }}>
+                  {/*
+                    A total that can still move is labelled as one. Until a
+                    governorate is chosen this figure is built on `minFeeCents`,
+                    so it is a FLOOR — and a floor presented as a price is the
+                    bait the "from" exists to prevent.
+                  */}
+                  {summary.fromOnly && (
+                    <span
+                      style={{
+                        fontFamily: 'var(--mr-font-ui)',
+                        fontSize: 'var(--mr-text-xs)',
+                        color: 'var(--mr-fg-4)',
+                      }}
+                    >
+                      from
+                    </span>
+                  )}
+                  <PriceDisplay
+                    amount={minorToAmount(totalMinor)}
+                    currency={currency}
+                    style={{ fontSize: 'var(--mr-text-lg)', color: 'var(--mr-fg)' }}
+                  />
+                </span>
               </div>
             </div>
             <p
@@ -318,7 +574,7 @@ export default function CheckoutPage() {
           primaryDisabled={signedIn === null || (signedIn && !selectedId)}
           onPrimary={() => {
             if (signedIn === false) {
-              const errors = validateGuest(guest);
+              const errors = validateGuest(guest, hasRateTable);
               if (Object.keys(errors).length) {
                 setGuestErrors(errors);
                 // Send focus to the first problem rather than leaving the
@@ -328,19 +584,36 @@ export default function CheckoutPage() {
                 return;
               }
               setGuestErrors({});
-              saveCheckoutSession({ guest, shippingAddressId: undefined });
+              saveCheckoutSession({
+                guest,
+                shippingAddressId: undefined,
+                // The text, not the resolved key — see checkout-session.ts.
+                shippingGovernorate: guest.governorate,
+              });
               track('checkout_address_entered', { cartId, hasAddress: true });
+              // The resolved governorate key and match status are deliberately
+              // NOT sent with this event. `checkout_shipping_selected` is typed
+              // `{ method, cartId }` in lib/analytics, which this change does
+              // not own, and widening a shared analytics contract belongs in
+              // its own PR. Worth doing: a rate table whose rows nobody ever
+              // matches is invisible today except as an unexplained run of
+              // standard-rate orders — which is the #83 defect, in the data.
               track('checkout_shipping_selected', { method: 'STANDARD', cartId });
               router.push('/checkout/payment');
               return;
             }
 
             if (!selectedId) return;
-            saveCheckoutSession({ shippingAddressId: selectedId, guest: undefined });
+            saveCheckoutSession({
+              shippingAddressId: selectedId,
+              guest: undefined,
+              shippingGovernorate: selectedAddress?.governorate,
+            });
             track('checkout_address_entered', { cartId, hasAddress: true });
-            // This shop has one flat shipping rate — there is no separate
-            // picker screen, so "selected" is recorded here, the moment the
-            // shopper commits to the step that carries it.
+            // One shipping METHOD, still — there is no express option and no
+            // separate picker screen, so "selected" is recorded here, the
+            // moment the shopper commits to the step that carries it. What has
+            // changed is that the method no longer implies the price (#83).
             track('checkout_shipping_selected', { method: 'STANDARD', cartId });
             router.push('/checkout/payment');
           }}

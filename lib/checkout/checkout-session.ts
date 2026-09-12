@@ -24,6 +24,28 @@ export interface CheckoutSession {
    * behind for the next person.
    */
   guest?: GuestCheckoutDetails;
+  /**
+   * The governorate the delivery step settled on, as FREE TEXT (#83).
+   *
+   * Written at the address step so the payment step can quote the same
+   * delivery fee without re-fetching the customer's address list — a signed-in
+   * shopper's governorate lives on an address the payment screen never loads,
+   * and a summary that falls back to the global rate one screen before payment
+   * is the "cart says 50, invoice says 120" failure in miniature.
+   *
+   * The TEXT, deliberately, not the resolved key or the fee:
+   *
+   *   - the text is what the server will match, so re-resolving it here gives
+   *     the server's answer rather than a remembered one. A key would have to
+   *     be trusted; a price would have to be trusted twice.
+   *   - a stored PRICE could survive an admin editing the table mid-checkout
+   *     and be shown against a fee the backend no longer charges.
+   *
+   * Absent for a session that started before this shipped, and absent is
+   * handled: the payment step falls back to the global rate, which is what it
+   * showed before #83.
+   */
+  shippingGovernorate?: string;
   paymentMethod: CheckoutPaymentMethod;
   receiptDataUrl?: string;
   /**

@@ -20,11 +20,15 @@ import {
   type DiscountPreview,
   type DiscountPreviewLine,
 } from '@/lib/api/discounts';
-import { loadShippingPolicy } from '@/lib/api/settings';
+import { loadCodMaxOrderMinor, loadEffectiveShipping } from '@/lib/api/settings';
 import {
-  DEFAULT_SHIPPING_POLICY,
+  COD_MAX_ORDER_MINOR,
   type ShippingPolicy,
 } from '@/lib/checkout/checkout-money';
+import {
+  DEFAULT_EFFECTIVE_SHIPPING,
+  type EffectiveShipping,
+} from '@/lib/checkout/governorate-rates';
 
 /**
  * One request per page load, not one per component.
@@ -33,11 +37,13 @@ import {
  * is approximately never within one visit. Hoisting the promise to the module
  * means the cart drawer and the cart page share the one read.
  */
-let shippingPolicyPromise: Promise<ShippingPolicy> | null = null;
+let effectiveShippingPromise: Promise<EffectiveShipping> | null = null;
+let codMaxPromise: Promise<number> | null = null;
 
 /** Test seam: drops the memoised read so each case starts clean. */
 export function resetBagPricingCaches(): void {
-  shippingPolicyPromise = null;
+  effectiveShippingPromise = null;
+  codMaxPromise = null;
   automaticPreviewCache.clear();
 }
 
@@ -53,22 +59,74 @@ export function resetBagPricingCaches(): void {
  * truth.
  */
 export function useShippingPolicy(): ShippingPolicy {
-  const [policy, setPolicy] = React.useState<ShippingPolicy>(
-    DEFAULT_SHIPPING_POLICY,
+  const effective = useEffectiveShipping();
+  return React.useMemo(
+    () => ({
+      flatMinor: effective.flatRateCents,
+      freeOverMinor: effective.freeOverCents,
+    }),
+    [effective.flatRateCents, effective.freeOverCents],
+  );
+}
+
+/**
+ * The same read, with the per-governorate table attached (#83).
+ *
+ * One promise for both hooks, so the bag drawer, the bag page and the address
+ * step share a single `/settings/public` request per page load — and, more to
+ * the point, cannot end up rendering two different answers from two reads that
+ * raced.
+ *
+ * Starts at the backend's own fallback rather than at "unknown", for the reason
+ * `useShippingPolicy` always has: a summary that renders a blank where the fee
+ * goes and then fills it in is a number changing under the shopper's eyes on
+ * the screen where they are deciding whether to buy. `DEFAULT_EFFECTIVE_SHIPPING`
+ * carries an EMPTY rate table, which is the pre-#83 behaviour exactly — so the
+ * first paint is a plain fee and a text field, and the select appears only once
+ * the shop has actually said it has governorates.
+ */
+export function useEffectiveShipping(): EffectiveShipping {
+  const [effective, setEffective] = React.useState<EffectiveShipping>(
+    DEFAULT_EFFECTIVE_SHIPPING,
   );
 
   React.useEffect(() => {
     let cancelled = false;
-    shippingPolicyPromise ??= loadShippingPolicy();
-    void shippingPolicyPromise.then((next) => {
-      if (!cancelled) setPolicy(next);
+    effectiveShippingPromise ??= loadEffectiveShipping();
+    void effectiveShippingPromise.then((next) => {
+      if (!cancelled) setEffective(next);
     });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return policy;
+  return effective;
+}
+
+/**
+ * The cash-on-delivery ceiling as the shop publishes it.
+ *
+ * Mattered little while the total it gates could not move. It matters now: the
+ * same bag can sit under the ceiling in Cairo and over it in Aswan, so the
+ * address step has to be able to say which — and it should say it using the
+ * shop's own number rather than a constant copied into the bundle.
+ */
+export function useCodMaxOrderMinor(): number {
+  const [max, setMax] = React.useState<number>(COD_MAX_ORDER_MINOR);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    codMaxPromise ??= loadCodMaxOrderMinor();
+    void codMaxPromise.then((next) => {
+      if (!cancelled) setMax(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return max;
 }
 
 /**
