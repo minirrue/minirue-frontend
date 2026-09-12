@@ -169,7 +169,7 @@ export default async function SpaceView({
       style={{
         maxWidth: 'var(--mr-content-max)',
         margin: '0 auto',
-        padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
+        padding: 'clamp(24px,3vw,40px) var(--mr-gutter) clamp(48px,8vw,96px)',
         /* A space with no categories and no brands yet has almost nothing to
            render, and without a floor the footer rode straight up under the
            navbar — the page read as broken rather than as new. 60vh keeps a
