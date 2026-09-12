@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import CartItemRow from '@/components/storefront/cart/CartItemRow';
+import { toPricingLines, type BagLine } from '@/components/storefront/cart/bag-lines';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
@@ -27,7 +28,7 @@ function minorToAmount(minor: number): string {
 export default function CartPage() {
   const router = useRouter();
   const { mobile } = useBreakpoint();
-  const { items, subtotalAmount, currency, itemCount, loading, error, updateQty, removeItem, clearError } =
+  const { lines, bundleIndex, subtotalAmount, currency, itemCount, loading, error, setLineQty, removeLine, clearError } =
     useCart();
   const [toast, setToast] = React.useState<string | null>(null);
   const [authChecked, setAuthChecked] = React.useState(false);
@@ -71,15 +72,18 @@ export default function CartPage() {
    * again, so the figure the shopper sees is derived from the same numbers the
    * rest of this summary uses. The server recomputes all of it at Place order
    * regardless — this is display only.
+   *
+   * It goes through `toPricingLines` so the bundle markers travel with it.
+   * This used to map `items` to `{variantId, qty, unitPriceMinor}` and drop
+   * `bundleId`/`bundleLineKey` on the floor — so every member of a set arrived
+   * at `priceBag()` looking like an ordinary line and was counted as
+   * discountable, against the bundle page's own promise that "Discount codes
+   * do not apply to sets". The preview offered a saving checkout would then
+   * refuse to give.
    */
   const discountLines = React.useMemo(
-    () =>
-      items.map((i) => ({
-        variantId: i.variantId,
-        qty: i.qty,
-        unitPriceMinor: Math.round(parseFloat(i.unitPriceAmount) * 100),
-      })),
-    [items],
+    () => toPricingLines(lines, bundleIndex),
+    [lines, bundleIndex],
   );
 
   /**
@@ -94,7 +98,7 @@ export default function CartPage() {
    */
   const automatic = useAutomaticDiscount(
     discountLines,
-    codeStatus === 'none' && items.length > 0,
+    codeStatus === 'none' && lines.length > 0,
   );
 
   /**
@@ -153,10 +157,11 @@ export default function CartPage() {
     setAuthChecked(true);
   }, []);
 
-  const handleRemove = async (itemId: string) => {
-    const item = items.find((row) => row.id === itemId);
-    await removeItem(itemId);
-    const label = item?.name ?? 'Item';
+  const handleRemove = async (line: BagLine) => {
+    // The label is read BEFORE the removal: once the line is gone it is gone
+    // from `lines` too, and the toast would have nothing to name.
+    const label = line.name;
+    await removeLine(line);
     setToast(`${label} removed from your bag`);
   };
 
@@ -222,7 +227,7 @@ export default function CartPage() {
           </CheckoutAlert>
         )}
 
-        {items.length === 0 ? (
+        {lines.length === 0 ? (
           <div
             style={{
               textAlign: 'center',
@@ -304,11 +309,11 @@ export default function CartPage() {
                 </div>
               )}
 
-              {items.map((item) => (
+              {lines.map((line) => (
                 <CartItemRow
-                  key={item.id}
-                  item={item}
-                  onUpdateQty={updateQty}
+                  key={line.key}
+                  line={line}
+                  onUpdateQty={setLineQty}
                   onRemove={handleRemove}
                 />
               ))}
@@ -422,7 +427,7 @@ export default function CartPage() {
               {/* The owner's ask: somewhere in checkout to type the code the
                   dashboard generates. Here on the Bag step, and again on
                   Payment as a last chance before paying. */}
-              {items.length > 0 && (
+              {lines.length > 0 && (
                 <div style={{ marginTop: 'var(--mr-sp-5)', paddingTop: 'var(--mr-sp-4)', borderTop: '1px solid var(--mr-hairline)' }}>
                   <DiscountCodeField lines={discountLines} onChange={handleDiscountChange} />
                 </div>

@@ -1,6 +1,8 @@
 import React, { act } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { DiscountPreview } from '@/lib/api/discounts';
+import type { CartItemDto } from '@/lib/api/cart';
+import { groupBagLines } from '@/components/storefront/cart/bag-lines';
 
 /**
  * #36 and #38 in the one block they both land in: the order summary.
@@ -57,13 +59,22 @@ jest.mock('@/lib/analytics/track', () => ({ track: jest.fn() }));
 
 const cart = {
   items: [] as Array<Record<string, unknown>>,
+  /**
+   * The page renders bag LINES now, not cart rows (#56). Derived with the real
+   * grouping rather than hand-written so these cases keep exercising the same
+   * translation the shop does.
+   */
+  get lines() {
+    return groupBagLines(cart.items as unknown as CartItemDto[]);
+  },
+  bundleIndex: new Map(),
   subtotalAmount: '0.00',
   currency: 'EGP',
   itemCount: 0,
   loading: false,
   error: null as string | null,
-  updateQty: jest.fn(),
-  removeItem: jest.fn(),
+  setLineQty: jest.fn(),
+  removeLine: jest.fn(),
   clearError: jest.fn(),
 };
 

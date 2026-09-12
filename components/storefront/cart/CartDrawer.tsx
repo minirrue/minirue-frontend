@@ -16,7 +16,7 @@ import PriceDisplay from '@/components/storefront/PriceDisplay';
 import Sparkle from '@/components/ui/Sparkle';
 
 export default function CartDrawer() {
-  const { items, subtotalAmount, currency, itemCount, loading, error, drawerOpen, closeDrawer, updateQty, removeItem, clearError } =
+  const { lines, subtotalAmount, currency, itemCount, loading, error, drawerOpen, closeDrawer, setLineQty, removeLine, clearError } =
     useCart();
 
   const drawerRef = React.useRef<HTMLElement | null>(null);
@@ -199,7 +199,7 @@ export default function CartDrawer() {
             transition: 'opacity var(--mr-dur-fast) var(--mr-ease-out)',
           }}
         >
-          {items.length === 0 ? (
+          {lines.length === 0 ? (
             /* Empty state */
             <div style={{ textAlign: 'center', padding: '80px 0' }}>
               <div
@@ -252,19 +252,19 @@ export default function CartDrawer() {
               </button>
             </div>
           ) : (
-            items.map((item) => (
+            lines.map((line) => (
               <CartItemRow
-                key={item.id}
-                item={item}
-                onUpdateQty={updateQty}
-                onRemove={removeItem}
+                key={line.key}
+                line={line}
+                onUpdateQty={setLineQty}
+                onRemove={removeLine}
               />
             ))
           )}
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────── */}
-        {items.length > 0 && (
+        {lines.length > 0 && (
           <div
             style={{
               padding: 'var(--mr-sp-5) var(--mr-sp-6)',
