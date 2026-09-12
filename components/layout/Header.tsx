@@ -153,13 +153,43 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   // HIDE_FLIP_COOLDOWN_MS) rather than left at the hook's default, so the two
   // cannot drift apart if someone retunes the slide. Thresholds stay at the
   // hook's defaults — decisive to hide, eager to reveal; see #51.
-  const { direction, atTop, y } = useScrollDirection({ cooldownMs: HIDE_FLIP_COOLDOWN_MS });
+  const { direction, atTop } = useScrollDirection({ cooldownMs: HIDE_FLIP_COOLDOWN_MS });
   const reducedMotion = usePrefersReducedMotion();
-  const scrolled = y > 60;
+  /**
+   * "Has this page been scrolled?" — the switch between the roomy transparent
+   * treatment over a hero and the compact solid one.
+   *
+   * #61: this was `y > 60`, a bare comparison on the raw scroll offset, and it
+   * was the bug the owner was still seeing near the top. It had no threshold,
+   * no hysteresis and no cooldown — none of the machinery #51 built, because
+   * none of that machinery is on `y`; it is on `direction`, and this never
+   * asked about direction. A slow drag from the top rolls back ~11px every few
+   * frames (a 2mm thumb tremor — see useScrollDirection), so the page crosses
+   * y=60 and re-crosses it perhaps ten times on the way past, and every single
+   * crossing restarted the 360ms background/border/colour transition and the
+   * padding jump below. Measured on the production build: NINE changes over one
+   * slow 0 -> 120px drag (e2e/storefront/mobile-scroll-stability.spec.ts).
+   *
+   * `atTop` is the same question already answered properly. It is hysteretic —
+   * in at 4px, out at 60px — so the 60px boundary is crossed once and the way
+   * back to transparent is the page actually returning to the top, which is
+   * when a hero header should be transparent anyway. One gesture, one change.
+   */
+  const scrolled = !atTop;
   // Below 1024px only — desktop has no bottom bar to hand the edge to, so the
   // top bar always stays put there. `w > 0` guards the one SSR/pre-hydration
   // frame where `tablet` would otherwise read false-positive as "desktop".
   const belowBreakpoint = w > 0 && tablet;
+  /**
+   * #61 also asked whether the bar should simply refuse to hide below some
+   * fixed offset. It does now, but as a consequence rather than a second magic
+   * number: `atTop` holds for the first 60px, and while it holds the hook pins
+   * its anchor to the current position, so the 56px of decisive downward travel
+   * that a hide costs is measured from the moment the band is left — the
+   * earliest the bar can go is ~116px, not the ~56px it used to be. No
+   * discontinuity, no offset to keep in sync with the band, and one gesture
+   * still hides it.
+   */
   const hideForScroll = belowBreakpoint && !atTop && direction === 'down';
 
   // Re-read whenever the auth answer moves, not once at mount. Every

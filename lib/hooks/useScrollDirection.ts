@@ -59,6 +59,23 @@
  *      lifts, so a dropped flip would leave the bar hidden with nothing left to
  *      wake it.
  *
+ * THE TOP OF THE PAGE IS ITS OWN CASE (#61)
+ * ==========================================
+ * #51 got the count over a 1400px traversal from 99 to one, and the owner still
+ * reported the bar misbehaving "at near end of top scroll on mobile view only".
+ * The first ~60px are not a smaller version of the rest of the scroll:
+ *
+ *   - `direction` is not what governs them. The top zone overrides it, so none
+ *     of the thresholds above apply, and the zone's own edge was a single 4px
+ *     line — the smallest deadband that can exist, sitting exactly where
+ *     momentum, an overscroll rubber-band and scroll anchoring all settle. It
+ *     is now a 4px-in / 60px-out band; see `TOP_ZONE_EXIT_PX`.
+ *   - A consumer that ALSO compares raw `y` against a number of its own gets
+ *     none of this protection. `Header.tsx` had `scrolled = y > 60`, an
+ *     unhysteretic, uncooled-down comparison sitting in the middle of the band,
+ *     and one slow drag from the top toggled it nine times. `atTop` is now
+ *     stable enough to be that answer, and Header reads it instead.
+ *
  * And one thing that is not about the finger at all: on iOS Safari and Chrome
  * Android the browser toolbar collapses and expands during a scroll, which
  * changes `window.innerHeight` by 60-100px and shifts the scroll offset in the
@@ -73,7 +90,16 @@ import React from 'react';
 export interface ScrollDirectionState {
   /** Which way the page last moved decisively — see the thresholds below. */
   direction: 'up' | 'down';
-  /** True within a few px of the very top — direction is meaningless there. */
+  /**
+   * True while the page is still in the top BAND — direction is meaningless
+   * there, and `direction` is pinned to 'up' for as long as this is true.
+   *
+   * Hysteretic (#61): you enter it at `TOP_ZONE_PX` and do not leave until
+   * `TOP_ZONE_EXIT_PX`, so a settle at y≈0 cannot toggle it and a consumer can
+   * use it as a stable "has this page been scrolled?" without adding a second,
+   * unhysteretic comparison of its own on `y` — which is the bug #61 turned
+   * out to be.
+   */
   atTop: boolean;
   /**
    * True within a few px of the very bottom of the document (Task 15a).
@@ -112,9 +138,39 @@ const UP_THRESHOLD_PX = 24;
 /** Longer than Header's 280ms transform transition, on purpose. */
 const FLIP_COOLDOWN_MS = 320;
 
-/** Below this, we are "at the top" regardless of direction — matches the
- *  brief: "near the very top of the page, the top bar is always shown". */
+/**
+ * ENTERING the top zone: within a few px of the very top — matches the brief,
+ * "near the very top of the page, the top bar is always shown". Coming back to
+ * the top is only true when the page really is back at the top.
+ */
 const TOP_ZONE_PX = 4;
+/**
+ * LEAVING it (#61). The top zone is a REGION, not a line, and it needs two
+ * numbers for the same reason the direction thresholds do.
+ *
+ * A single 4px edge is the smallest deadband that can exist, and it sits
+ * exactly where a scroll settles: momentum, an overscroll rubber-band and
+ * scroll anchoring all land within a few px of 0 and can cross 4px repeatedly
+ * with no finger movement at all. Every crossing is a state change a consumer
+ * has to animate. 60px — a finger's width, an order of magnitude past the
+ * ~11px tremor floor measured in (1) above — is far enough that leaving the
+ * top is something the reader did on purpose.
+ *
+ * On the fear that `atTop` "overrides direction" and so flips a consumer's
+ * `!atTop && direction === 'down'` behind the thresholds' backs: it cannot, and
+ * the reason is worth stating because it used to be true only by accident.
+ * `atTop` is published as true ONLY from the branch below, which pins
+ * `direction` to 'up' in the same update — so `atTop === true` implies
+ * `direction === 'up'`, the two can never disagree, and that expression is
+ * simply `direction === 'down'`. The invariant is asserted in
+ * __tests__/hooks/use-scroll-direction.test.tsx so a later change to the zone
+ * cannot quietly cost a consumer the protection it thinks it has.
+ *
+ * What the 4px edge DID cost was any consumer asking "has this page been
+ * scrolled?" — it had no stable answer to use, so Header.tsx computed its own
+ * from raw `y`, with no deadband at all. A 60px band gives it one.
+ */
+const TOP_ZONE_EXIT_PX = 60;
 /** Same idea as `TOP_ZONE_PX`, mirrored at the other end of the page. */
 const BOTTOM_ZONE_PX = 2;
 
@@ -174,6 +230,12 @@ export function useScrollDirection(
    * "no flip yet" and silently lets a flip through mid-transition.
    */
   const lastFlipAt = React.useRef(Number.NEGATIVE_INFINITY);
+  /**
+   * Which side of the top zone we are on. The zone is hysteretic (#61), so
+   * "am I at the top?" is not a function of `y` alone — it depends on whether
+   * we were already in it, and the answer has to survive between samples.
+   */
+  const atTopRef = React.useRef(true);
   const lastViewportH = React.useRef(0);
   const rafId = React.useRef<number | null>(null);
   const recheckTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -184,21 +246,38 @@ export function useScrollDirection(
     directionRef.current = 'up';
     lastFlipAt.current = Number.NEGATIVE_INFINITY;
     lastViewportH.current = window.innerHeight;
+    // On the very first reading there is no zone to still be inside, so the
+    // ENTRY threshold is the only one that can apply.
+    atTopRef.current = window.scrollY <= TOP_ZONE_PX;
     setState({
       direction: 'up',
-      atTop: window.scrollY <= TOP_ZONE_PX,
+      atTop: atTopRef.current,
       atBottom: computeAtBottom(window.scrollY),
       y: window.scrollY,
     });
 
-    /** Keep `y`/`atBottom` fresh without touching `direction`. */
-    const refreshOnly = (y: number, atBottom: boolean) =>
-      setState((prev) => (prev.y === y && prev.atBottom === atBottom ? prev : { ...prev, y, atBottom }));
+    /**
+     * Keep `y`/`atBottom` fresh without touching `direction`.
+     *
+     * `atTop` is passed explicitly on every path that has decided it, and
+     * OMITTED only by the toolbar gate below, which has deliberately decided
+     * nothing this frame and must leave the previous answer alone. Before #61
+     * `atTop` was always carried over here, which was invisible while the zone
+     * was 4px deep and every exit from it happened to coincide with a flip;
+     * with a 60px zone a carried-over `atTop` would go stale for the whole band
+     * and the header would never notice it had left the top.
+     */
+    const refreshOnly = (y: number, atBottom: boolean, atTop?: boolean) =>
+      setState((prev) => {
+        const nextAtTop = atTop ?? prev.atTop;
+        return prev.y === y && prev.atBottom === atBottom && prev.atTop === nextAtTop
+          ? prev
+          : { ...prev, y, atBottom, atTop: nextAtTop };
+      });
 
     const sample = () => {
       rafId.current = null;
       const y = window.scrollY;
-      const atTop = y <= TOP_ZONE_PX;
       const atBottom = computeAtBottom(y);
 
       /*
@@ -208,6 +287,14 @@ export function useScrollDirection(
        * how the bar ends up strobing at the exact moment the toolbar animates.
        * Re-anchor to wherever the page has landed and wait for a real move.
        * On desktop `innerHeight` is constant, so this branch never runs.
+       *
+       * #61 asked whether `atTop` was inside this gate or bypassed it. It is
+       * inside it, and now demonstrably so: `atTop` is computed BELOW this
+       * return, and `atTopRef` is left untouched, so a toolbar frame cannot
+       * move the top zone any more than it can move the direction. That matters
+       * most exactly here — the toolbar is at its largest at the top of a page
+       * and collapses as the scroll begins, so this is the one place where a
+       * browser-driven offset shift and the top band coincide.
        */
       if (window.innerHeight !== lastViewportH.current) {
         lastViewportH.current = window.innerHeight;
@@ -215,6 +302,15 @@ export function useScrollDirection(
         refreshOnly(y, atBottom);
         return;
       }
+
+      /*
+       * Hysteresis (#61): still in the zone until 60px away, back in it only at
+       * the very top. Written as one expression so there is exactly one place
+       * that decides, and so the two thresholds can never be applied to the
+       * wrong side of the boundary.
+       */
+      const atTop = atTopRef.current ? y <= TOP_ZONE_EXIT_PX : y <= TOP_ZONE_PX;
+      atTopRef.current = atTop;
 
       if (atTop) {
         anchorY.current = y;
@@ -243,9 +339,10 @@ export function useScrollDirection(
 
       if (travelBack < required) {
         // Below threshold: direction doesn't flip, but keep `y` (and
-        // `atBottom`) fresh so callers doing their own math (e.g. a fade tied
-        // to scroll position) aren't stuck on a stale value.
-        refreshOnly(y, atBottom);
+        // `atBottom`, and `atTop` — which this frame HAS decided, unlike the
+        // toolbar gate) fresh so callers doing their own math (e.g. a fade
+        // tied to scroll position) aren't stuck on a stale value.
+        refreshOnly(y, atBottom, false);
         return;
       }
 
@@ -255,7 +352,7 @@ export function useScrollDirection(
         // lifts, so simply returning here could strand the bar off screen with
         // nothing left to wake it. Re-sample when the cooldown expires — the
         // page will still be where it is, and the flip will go through then.
-        refreshOnly(y, atBottom);
+        refreshOnly(y, atBottom, false);
         if (recheckTimer.current !== null) clearTimeout(recheckTimer.current);
         recheckTimer.current = setTimeout(() => {
           recheckTimer.current = null;
