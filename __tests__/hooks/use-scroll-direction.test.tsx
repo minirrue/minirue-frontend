@@ -218,6 +218,158 @@ describe('useScrollDirection — the browser toolbar (#51, shared root cause wit
   });
 });
 
+describe('useScrollDirection — the top band (#61)', () => {
+  /**
+   * A slow drag that creeps past the top of the page, crossing y=60 and
+   * re-crossing it on every thumb roll-back — 7px forward per frame, 11px back
+   * every third. Net progress smaller than the tremor is what "sliding slowly"
+   * means, and it is why a single boundary anywhere in the first 120px gets met
+   * again and again.
+   */
+  const SLOW_TOP_DRAG: number[] = (() => {
+    const ys: number[] = [];
+    let y = 0;
+    for (let i = 1; y < 120; i++) {
+      y = Math.max(0, y + (i % 3 === 0 ? -11 : 7));
+      ys.push(y);
+    }
+    return ys;
+  })();
+
+  it('DEMONSTRATES the bug: a bare `y > 60` toggles nine times over that one drag', () => {
+    /*
+     * The control, exactly as the first test in this file is the control for
+     * #51. `scrolled = y > 60` is what Header.tsx used to compute for itself,
+     * and `y` is — correctly — refreshed on every sample, so nothing in the
+     * hook protects a consumer that asks the question this way.
+     */
+    const seen: boolean[] = [];
+    function RawProbe() {
+      const { y } = useScrollDirection();
+      const scrolled = y > 60;
+      if (seen[seen.length - 1] !== scrolled) seen.push(scrolled);
+      return null;
+    }
+    render(<RawProbe />);
+    run(SLOW_TOP_DRAG);
+    expect(Math.max(0, seen.length - 1)).toBeGreaterThan(5);
+  });
+
+  it('holds one answer through the same drag when it asks `atTop` instead', () => {
+    const seen: boolean[] = [];
+    function AtTopProbe() {
+      const { atTop } = useScrollDirection();
+      if (seen[seen.length - 1] !== atTop) seen.push(atTop);
+      return null;
+    }
+    render(<AtTopProbe />);
+    run(SLOW_TOP_DRAG);
+    // true (at the top) -> false (left the band), and nothing after it.
+    expect(seen).toEqual([true, false]);
+  });
+
+  it('does not leave the band until 60px, and does not re-enter it until the very top', () => {
+    const seen: boolean[] = [];
+    function AtTopProbe() {
+      const { atTop } = useScrollDirection();
+      if (seen[seen.length - 1] !== atTop) seen.push(atTop);
+      return null;
+    }
+    render(<AtTopProbe />);
+
+    sampleAt(40, 16); // inside the band
+    expect(seen[seen.length - 1]).toBe(true);
+    sampleAt(61, 16); // out
+    expect(seen[seen.length - 1]).toBe(false);
+    sampleAt(40, 16); // 40 is not a way back IN — that is the whole point
+    expect(seen[seen.length - 1]).toBe(false);
+    sampleAt(5, 16); // nor is 5
+    expect(seen[seen.length - 1]).toBe(false);
+    sampleAt(0, 16); // the very top is
+    expect(seen[seen.length - 1]).toBe(true);
+  });
+
+  it('a settle at the very top cannot toggle the band', () => {
+    const seen: boolean[] = [];
+    function AtTopProbe() {
+      const { atTop } = useScrollDirection();
+      if (seen[seen.length - 1] !== atTop) seen.push(atTop);
+      return null;
+    }
+    render(<AtTopProbe />);
+    // Momentum / an overscroll rubber-band / scroll anchoring, all of which
+    // land within a few px of 0 and used to cross the 4px edge for free.
+    run([0, 3, 6, 2, 9, 1, 5, 0, 7, 2], 16);
+    expect(seen).toEqual([true]);
+  });
+
+  it('never reports the band and a downward direction at the same time', () => {
+    /*
+     * The invariant Header.tsx and MobileBottomNav.tsx both depend on, and the
+     * reason `atTop` can be combined with `direction` at all. Locked in here
+     * because it used to hold only by accident: `atTop` is published as true
+     * only from the branch that also pins `direction` to 'up'.
+     */
+    const pairs: Array<[boolean, string]> = [];
+    function PairProbe() {
+      const { atTop, direction } = useScrollDirection();
+      pairs.push([atTop, direction]);
+      return null;
+    }
+    render(<PairProbe />);
+    run(SLOW_TOP_DRAG);
+    run([400, 380, 500, 470, 60, 30, 2, 0, 90, 200], 400);
+    expect(pairs.filter(([atTop, direction]) => atTop && direction === 'down')).toEqual([]);
+  });
+
+  it('a toolbar collapse cannot move the band', () => {
+    const seen: boolean[] = [];
+    function AtTopProbe() {
+      const { atTop } = useScrollDirection();
+      if (seen[seen.length - 1] !== atTop) seen.push(atTop);
+      return null;
+    }
+    render(<AtTopProbe />);
+    sampleAt(40, 16);
+    expect(seen[seen.length - 1]).toBe(true);
+
+    // The browser, not the reader: the viewport grows by ~80px and the offset
+    // shifts past the band edge in the same frame.
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 807 });
+    sampleAt(95, 16);
+    expect(seen[seen.length - 1]).toBe(true);
+
+    // A real move from where the page landed still leaves the band.
+    sampleAt(110, 16);
+    expect(seen[seen.length - 1]).toBe(false);
+  });
+
+  it('still hides only after a decisive move, now measured from the band edge', () => {
+    const seen: string[] = [];
+    render(<Probe seen={seen} />);
+    // A real drag out of the band. The bar must NOT have been asked to hide by
+    // 90px — the page has moved less than the header's own height.
+    run(
+      (() => {
+        const ys: number[] = [];
+        let y = 0;
+        for (let i = 1; y < 90; i++) {
+          y = Math.max(0, y + (i % 3 === 0 ? -11 : 7));
+          ys.push(y);
+        }
+        return ys;
+      })(),
+    );
+    // 'top' -> 'up': it has left the band (so a hero header goes solid) but
+    // 'down' never appears, so the bar was never asked to leave the screen.
+    expect(seen).toEqual(['top', 'up']);
+
+    // Carry on past the band edge plus the 56px a hide costs, and it hides.
+    run([130, 140, 150], 16);
+    expect(seen[seen.length - 1]).toBe('down');
+  });
+});
+
 describe('useScrollDirection — what was already right and must stay right', () => {
   it('keeps y and atBottom fresh on sub-threshold samples', () => {
     const samples: Array<{ y: number; atBottom: boolean }> = [];
