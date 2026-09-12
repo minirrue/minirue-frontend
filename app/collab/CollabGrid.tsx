@@ -30,6 +30,9 @@ function CollabCard({ brand }: { brand: PublicCollaboratorBrand }) {
           borderRadius: 6,
           overflow: 'hidden',
           marginBottom: 'var(--mr-sp-2)',
+          // `fill` below is absolutely positioned and needs a positioned
+          // ancestor, the same as any `next/image fill`.
+          position: 'relative',
         }}
       >
         {brand.logoUrl ? (
@@ -40,7 +43,28 @@ function CollabCard({ brand }: { brand: PublicCollaboratorBrand }) {
           <UploadPreviewImage
             src={brand.logoUrl}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            fill
+            /*
+              Geometry, read back off the rendered page: `<main>` is
+              `max-width: 1280px` with `var(--mr-gutter)` =
+              clamp(20px, 4vw, 48px) of padding, border-box (Tailwind
+              preflight), so the usable ROW is min(1280, vw) − 2·gutter and
+              tops out at 1184px. The grid is `auto-fill, minmax(140px, 1fr)`
+              with a 16px gap, so n = floor((row + 16) / 156) and the card is
+              (row − 16·(n−1)) / n.
+
+                390px viewport → gutter 20 → row  350 → 2 columns → 167px
+               1440px viewport → gutter 48 → row 1184 → 7 columns → 155px
+
+              These are small tiles and stay small: the widest a card can ever
+              be is 140 + 156/n, so 218px at two columns and 155px once the row
+              pins. Each stop is the upper bound of its band — including the
+              narrowest phones, where under 336px the grid drops to a SINGLE
+              column at row width and a 45vw hint would have been under half of
+              what it renders.
+            */
+            sizes="(max-width: 336px) calc(100vw - 40px), (max-width: 500px) 45vw, (max-width: 900px) 33vw, (max-width: 1279px) 20vw, 156px"
+            style={{ objectFit: 'cover' }}
           />
         ) : null}
       </div>

@@ -112,6 +112,9 @@ function Tile({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          // `fill` below is absolutely positioned and needs a positioned
+          // ancestor, the same as any `next/image fill`.
+          position: 'relative',
         }}
       >
         {imageUrl ? (
@@ -123,7 +126,37 @@ function Tile({
           <UploadPreviewImage
             src={imageUrl}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            fill
+            /*
+              The biggest tile on /shop, and the one this page is mostly made
+              of.
+
+              Geometry, and every number below was read back off the rendered
+              page, not only derived: `<main>` is `max-width: 1280px` with
+              `var(--mr-gutter)` = clamp(20px, 4vw, 48px) of padding, and
+              Tailwind's preflight makes that border-box — so the usable ROW is
+              min(1280, vw) − 2·gutter and tops out at 1184px, not 1280. The
+              grid is `auto-fill, minmax(min(100%, 280px), 1fr)` with a 16px
+              gap, so n = floor((row + 16) / 296) and the tile is
+              (row − 16·(n−1)) / n.
+
+                390px viewport → gutter 20 → row  350 → 1 column  → 350px
+               1440px viewport → gutter 48 → row 1184 → 4 columns → 284px
+
+              The sawtooth between those matters more than either end: a tile
+              is widest just BEFORE a column is added, at 280 + 296/n — 576px
+              at one column, 428px at two, 379px at three. Each stop is the
+              upper bound of its band, so no width is ever asked for less than
+              it renders:
+
+                ≤500px   one column, gutter pinned at 20  → exactly 100vw − 40px
+                ≤626px   one column, gutter 4vw           → exactly 92vw
+                ≤948px   two columns, 0.46·vw − 8         → 50vw bounds it
+                ≤1279px  three/four columns, ≤379px       → 33vw bounds it
+                 ≥1280px row pinned at 1184, four columns → flat 284px
+            */
+            sizes="(max-width: 500px) calc(100vw - 40px), (max-width: 626px) 92vw, (max-width: 948px) 50vw, (max-width: 1279px) 33vw, 284px"
+            style={{ objectFit: 'cover' }}
           />
         ) : (
           // No picture chosen (or none set yet): a glyph on the same tinted

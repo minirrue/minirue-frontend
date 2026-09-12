@@ -69,7 +69,31 @@ export default function EditorialBlock({ section }: { section: JournalSection })
               src={section.imageUrl}
               alt=""
               className="mr-hero-drift"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              fill
+              /*
+                The widest picture on the storefront that is not the hero, so
+                `sizes` is worth deriving rather than guessing (#11).
+                Geometry: this `<section>` is full-bleed with `var(--mr-gutter)`
+                = clamp(20px, 4vw, 48px) of padding; the grid inside caps at
+                1100px and splits into two equal columns with an 80px gap above
+                the 640px breakpoint (`useBreakpoint`), one column below it.
+
+                  390px viewport → gutter 20 → row 350 → 1 column →  350px
+                 1440px viewport → gutter 48 → row min(1100,1344)=1100
+                                 → (1100 − 80) / 2 =                  510px
+
+                The 1100px cap is reached at ≈1196px of viewport, so between the
+                breakpoint and there the column is (0.92·vw − 80)/2, which 46vw
+                bounds from above at every width. The first stop is set at 700px
+                rather than 639px on purpose: the one/two-column switch is a JS
+                measurement of `window.innerWidth` and this is a CSS media query
+                on the viewport, and the two disagree by the scrollbar. Erring
+                to the wide side of that seam costs a few KB in a 60px band;
+                erring to the narrow side would ship a half-width image into a
+                full-width box.
+              */
+              sizes="(max-width: 700px) calc(100vw - 40px), (max-width: 1196px) 46vw, 510px"
+              style={{ objectFit: 'cover' }}
             />
           ) : (
             <div

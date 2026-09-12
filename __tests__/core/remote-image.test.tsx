@@ -73,3 +73,54 @@ describe('RemoteImage', () => {
     expect(img.src).toContain(encodeURIComponent(next));
   });
 });
+
+/**
+ * #11's second half. The nine images #45 converted all had a pixel size; the
+ * ones behind `UploadPreviewImage` fill a fluid box instead, so they need
+ * `fill` plus a `sizes` describing that box. `sizes` is what decides which
+ * width the browser actually downloads, so it is required by the type — a
+ * `fill` without one makes Next assume full viewport width and a 146px tile
+ * would pull the 1920px rung, which is worse than the raw tag it replaced.
+ */
+describe('RemoteImage — fill mode', () => {
+  const SIZES = '(max-width: 500px) calc(100vw - 40px), 320px';
+
+  it('emits a real width ladder and carries sizes through to the tag', () => {
+    render(<RemoteImage src={SRC} alt="A tile" fill sizes={SIZES} />);
+
+    const img = screen.getByAltText('A tile') as HTMLImageElement;
+    expect(img.src).toContain('/_next/image');
+    expect(img.getAttribute('sizes')).toBe(SIZES);
+    // More than one rung, or `sizes` is buying nothing.
+    const srcset = img.getAttribute('srcset') ?? '';
+    expect(srcset.split(',').length).toBeGreaterThan(1);
+  });
+
+  it('keeps the fill geometry on the plain-tag fallback, so degrading does not reflow the box', () => {
+    const onError = jest.fn();
+    render(<RemoteImage src={SRC} alt="A tile" fill sizes={SIZES} onError={onError} />);
+
+    fireEvent.error(screen.getByAltText('A tile'));
+
+    const img = screen.getByAltText('A tile') as HTMLImageElement;
+    expect(img.src).toBe(SRC);
+    // `next/image fill` positions itself absolutely inside the (positioned)
+    // parent; a fallback that did not would collapse the tile to nothing.
+    expect(img.style.position).toBe('absolute');
+    expect(img.style.width).toBe('100%');
+    expect(img.style.height).toBe('100%');
+    // Same two-step contract as the fixed mode: the optimizer refusing is not
+    // the image being unavailable.
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('still reports onError only once the direct URL has failed too', () => {
+    const onError = jest.fn();
+    render(<RemoteImage src={SRC} alt="A tile" fill sizes={SIZES} onError={onError} />);
+
+    fireEvent.error(screen.getByAltText('A tile'));
+    fireEvent.error(screen.getByAltText('A tile'));
+
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+});

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import RemoteImage from '@/components/ui/RemoteImage';
 
 /**
  * Task FF (2026-07-30) — a freshly uploaded picture (starting with the
@@ -27,7 +28,7 @@ import React from 'react';
  *
  * When `localFile` is omitted (an existing image on first paint — a review's
  * photo grid loaded from someone else's earlier upload, say), this is a
- * plain `<img>` with the same background-retry protection, since no local
+ * remote image with the same background-retry protection, since no local
  * bytes exist to fall back to.
  *
  * Object URL lifecycle is owned entirely inside this component, keyed off
@@ -37,34 +38,56 @@ import React from 'react';
  * effect registered with `[]` deps closed over the FIRST render's empty
  * attachment list forever and revoked nothing on every file after that).
  *
- * ## Why this is still a raw `<img>` after #11
+ * ## The local branch is a raw `<img>` and always will be
  *
- * The LOCAL branch has to be: its `src` is a `blob:` object URL for bytes that
- * exist only in this browser tab. `/_next/image` would have to fetch that from
- * the server, and the server has never seen it. There is no version of this
- * that goes through the optimizer.
+ * Its `src` is a `blob:` object URL for bytes that exist only in this browser
+ * tab. `/_next/image` would have to fetch that from the server, and the
+ * server has never seen it. There is no version of this that goes through the
+ * optimizer.
  *
- * The REMOTE branch is a different matter and is the single biggest remaining
- * win in #11 — it backs `EditorialBlock`, `CollabShowcase`, the shop category
- * tiles, the bundle and collab grids and `SpaceView`, i.e. most of the large
- * imagery on the storefront, and every one of those is a full imgproxy render
- * at `q:95` today. It is deliberately NOT converted here, because unlike the
- * nine thumbnails that moved to `components/ui/RemoteImage.tsx`, none of these
- * call sites has a pixel size: they all pass
- * `style={{ width: '100%', height: '100%', objectFit: 'cover' }}` into a fluid
- * box. `next/image` needs either intrinsic `width`/`height` or `fill` plus a
- * `sizes` that describes that box, so converting this means deciding a `sizes`
- * per call site — ten layout judgements, on the pages where LCP is measured.
- * #34 is the record of what shipping an image change to the home page without
- * measuring the deployed result costs. That work wants its own PR with a
- * before/after on the live site, not a ride along with the thumbnails.
+ * ## The remote branch goes through the optimizer — when it is told how big
+ *
+ * This is the change #11 left for its own PR. The remote branch backs
+ * `EditorialBlock`, `CollabShowcase`, the shop category tiles, the bundle and
+ * collab grids and `SpaceView` — most of the large imagery on the storefront,
+ * every one of it a full imgproxy render at `dpr:2/q:95` with no AVIF and no
+ * width negotiation. `components/ui/RemoteImage.tsx` explains why routing the
+ * same URL through `/_next/image` is the direction that wins (#33/#34 is the
+ * record of the opposite direction costing 1.4s of LCP).
+ *
+ * What made it harder than the nine thumbnails in #45: none of these call
+ * sites has a pixel size. They pass `width: 100%; height: 100%; objectFit:
+ * cover` into a fluid box, so the optimizer needs `fill` plus a `sizes` that
+ * describes that box — and `sizes` is what picks the width to fetch, so a
+ * wrong one is worse than none. Every converted call site therefore carries
+ * the arithmetic for its own `sizes` in a comment beside it.
+ *
+ * Which makes the size information the *gate*, not an optional extra:
+ *
+ *  - `fill` + `sizes`  → optimized, fluid box (the tiles and editorial photos)
+ *  - `width` + `height` → optimized, fixed box (logos, avatars)
+ *  - neither            → raw `<img>` on the original URL, exactly as before
+ *
+ * The third case is not an oversight. `ChatPanel`'s attachment thumbnails are
+ * `maxWidth/maxHeight: 200` over an image of unknown aspect — there is no
+ * honest width to declare, and declaring a dishonest one is the failure mode
+ * this whole exercise is trying to avoid. They keep the markup they had.
+ *
+ * Whatever the branch, the never-a-broken-frame rule is unchanged: a failed
+ * optimizer request falls back to the original URL on a plain `<img>`
+ * (`RemoteImage`), and only if THAT fails does this component's own
+ * exponential-backoff retry start — ending, after five attempts, at the same
+ * tap-to-retry affordance it has always shown. The optimizer added a rung
+ * below the floor; it did not move the floor.
  */
 
 const RETRY_BASE_DELAY_MS = 600;
 const RETRY_MAX_ATTEMPTS = 5;
 
-export interface UploadPreviewImageProps
-  extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onError'> {
+type BaseProps = Omit<
+  React.ImgHTMLAttributes<HTMLImageElement>,
+  'src' | 'onError' | 'width' | 'height' | 'sizes'
+> & {
   /** The final remote URL — what the server returns for this image on every
    *  later request. */
   src: string;
@@ -72,16 +95,40 @@ export interface UploadPreviewImageProps
    *  picked or cropped, whose upload `src` is the eventual result of. Omit
    *  for an image that was not just uploaded in this session. */
   localFile?: File | Blob | null;
-}
+  /** Passed to the optimizer. Deliberate rather than inherited (#11). */
+  quality?: number;
+};
 
-export default function UploadPreviewImage({
-  src,
-  localFile,
-  alt,
-  style,
-  className,
-  ...rest
-}: UploadPreviewImageProps) {
+/** Fluid box: the layout decides the width, so `sizes` has to describe it. */
+type FillProps = { fill: true; sizes: string; width?: never; height?: never };
+/** Fixed box: Next builds the 1x/2x ladder from the pixel count itself. */
+type FixedProps = { fill?: false; width: number; height: number; sizes?: never };
+/** No size information — stays a raw `<img>`, see the note above. */
+type UnsizedProps = { fill?: false; width?: never; height?: never; sizes?: never };
+
+export type UploadPreviewImageProps = BaseProps & (FillProps | FixedProps | UnsizedProps);
+
+export default function UploadPreviewImage(props: UploadPreviewImageProps) {
+  const {
+    src,
+    localFile,
+    alt,
+    style,
+    className,
+    fill,
+    sizes,
+    width,
+    height,
+    quality,
+    onLoad,
+    ...rest
+  } = props as BaseProps & {
+    fill?: boolean;
+    sizes?: string;
+    width?: number;
+    height?: number;
+  };
+
   const [localUrl, setLocalUrl] = React.useState<string | null>(null);
   const [remoteReady, setRemoteReady] = React.useState(false);
   const [remoteRenderedSrc, setRemoteRenderedSrc] = React.useState(src);
@@ -120,6 +167,11 @@ export default function UploadPreviewImage({
   // `src` enough to show it (and free the local object URL) — swapping the
   // visible `<img>` straight to a cold URL would show the exact broken flash
   // this component exists to avoid.
+  //
+  // Probed on the ORIGINAL url, not the optimized one, on purpose: the thing
+  // that is cold is imgproxy's render of this key, and `/_next/image` has to
+  // fetch that same upstream before it can answer. Confirming the upstream is
+  // warm is the fact this branch actually needs.
   React.useEffect(() => {
     if (!localUrl) return;
     let cancelled = false;
@@ -174,12 +226,21 @@ export default function UploadPreviewImage({
     setRemoteRenderedSrc(src);
   }
 
-  // Showing the customer's own picture — no local bytes still pending
-  // confirmation of the remote copy.
+  // Showing the customer's own picture — local bytes still pending
+  // confirmation of the remote copy. Always a raw tag: see the note above.
   if (localUrl && !remoteReady) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={localUrl} alt={alt} style={style} className={className} {...rest} />
+      <img
+        src={localUrl}
+        alt={alt}
+        style={fill ? { position: 'absolute', inset: 0, width: '100%', height: '100%', ...style } : style}
+        className={className}
+        width={width}
+        height={height}
+        onLoad={onLoad}
+        {...rest}
+      />
     );
   }
 
@@ -208,6 +269,7 @@ export default function UploadPreviewImage({
           fontSize: 11,
           lineHeight: 1.3,
           cursor: 'pointer',
+          ...(fill ? { position: 'absolute' as const, inset: 0 } : null),
           ...style,
         }}
       >
@@ -216,6 +278,43 @@ export default function UploadPreviewImage({
     );
   }
 
+  // Sized, so the optimizer can be told what to fetch. `RemoteImage` keeps its
+  // own plain-`<img>` floor under this, and only calls back here once the
+  // direct URL has failed too — so `handleRemoteError` still means what it
+  // always meant: the picture itself could not be shown.
+  if (fill && sizes) {
+    return (
+      <RemoteImage
+        src={remoteRenderedSrc}
+        alt={alt ?? ''}
+        fill
+        sizes={sizes}
+        quality={quality}
+        className={className}
+        style={style}
+        onError={handleRemoteError}
+        onLoad={onLoad}
+      />
+    );
+  }
+
+  if (typeof width === 'number' && typeof height === 'number') {
+    return (
+      <RemoteImage
+        src={remoteRenderedSrc}
+        alt={alt ?? ''}
+        width={width}
+        height={height}
+        quality={quality}
+        className={className}
+        style={style}
+        onError={handleRemoteError}
+        onLoad={onLoad}
+      />
+    );
+  }
+
+  // No honest width to declare — the markup that shipped before.
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -224,6 +323,7 @@ export default function UploadPreviewImage({
       style={style}
       className={className}
       onError={handleRemoteError}
+      onLoad={onLoad}
       {...rest}
     />
   );

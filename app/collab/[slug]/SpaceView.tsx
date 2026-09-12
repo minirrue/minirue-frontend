@@ -89,6 +89,9 @@ function Tile({
           borderRadius: 6,
           overflow: 'hidden',
           marginBottom: 'var(--mr-sp-2)',
+          // `fill` below is absolutely positioned and needs a positioned
+          // ancestor, the same as any `next/image fill`.
+          position: 'relative',
         }}
       >
         {imageUrl ? (
@@ -99,7 +102,25 @@ function Tile({
           <UploadPreviewImage
             src={imageUrl}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            fill
+            /*
+              Same grid as `app/collab/CollabGrid.tsx` — `<main>` at max 1280px
+              of content inside `var(--mr-gutter)` = clamp(20px, 4vw, 48px),
+              `auto-fill, minmax(140px, 1fr)` with a 16px gap (`TileGrid`
+              below). Column count floor((row + 16) / 156), tile
+              (row − 16·(n−1)) / n:
+
+                390px viewport → gutter 20 → row 350 → 2 columns → 167px
+               1440px viewport → gutter 48 → row 1280 → 8 columns → 146px
+
+              Widest a tile can ever be is 140 + 156/n — 218px at two columns —
+              and under 336px the grid collapses to one column at row width,
+              which is what the first stop covers. Kept identical to CollabGrid
+              deliberately: the two render the same square tile from the same
+              measurements, so one drifting from the other is the bug.
+            */
+            sizes="(max-width: 336px) calc(100vw - 40px), (max-width: 500px) 45vw, (max-width: 900px) 33vw, (max-width: 1200px) 20vw, 170px"
+            style={{ objectFit: 'cover' }}
           />
         ) : null}
       </div>
@@ -351,6 +372,11 @@ export default async function SpaceView({
                 <UploadPreviewImage
                   src={genericBrand.imageUrl}
                   alt=""
+                  // A fixed 96px box at every viewport — the same pixel count
+                  // the space logo above uses — so the optimizer needs no
+                  // `sizes` judgement, only the intrinsic pair (#11).
+                  width={96}
+                  height={96}
                   style={{
                     width: 96,
                     height: 96,

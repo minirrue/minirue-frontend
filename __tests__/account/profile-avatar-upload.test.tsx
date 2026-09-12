@@ -138,8 +138,11 @@ describe('customer avatar — upload then re-read shows the photo, never the gen
 
     const img = container.querySelector('img') as HTMLImageElement;
     // No local bytes exist on a fresh mount — this is the plain read path,
-    // rendering exactly the URL the (simulated) re-fetch returned.
-    expect(img.getAttribute('src')).toBe(persistedUrl);
+    // rendering the URL the (simulated) re-fetch returned. Since #11 the 72px
+    // avatar goes through `/_next/image`, which carries that URL in its query
+    // string rather than in `src` verbatim; the fact under test is that the
+    // persisted photo is what renders, not which hop fetches it.
+    expect(decodeURIComponent(img.getAttribute('src') ?? '')).toContain(persistedUrl);
     expect(screen.queryByTestId('avatar-generic')).toBeNull();
   });
 
@@ -154,13 +157,20 @@ describe('customer avatar — upload then re-read shows the photo, never the gen
       let img = container.querySelector('img');
       expect(img).not.toBeNull();
 
-      // Fail every attempt. Each failure schedules a backoff retry except the
-      // last, which gives up immediately — advancing generously after each
-      // dispatch covers both cases without needing the exact delay.
-      for (let attempt = 0; attempt < 5; attempt++) {
+      // Fail everything. Since #11 each attempt is TWO failures, not one: the
+      // `/_next/image` request fails first and silently drops to a plain tag
+      // on the original URL (a host outside `remotePatterns` is the expected
+      // case, and it must not cost the shopper the picture), and only that
+      // tag failing counts as an attempt. So dispatch an error at whatever
+      // `<img>` is currently on screen until there is none left, bounded well
+      // above the 5 attempts × 2 hops it should take. Each failure schedules a
+      // backoff retry except the last, which gives up immediately — advancing
+      // generously after each dispatch covers both without the exact delay.
+      for (let i = 0; i < 12; i++) {
         const current = container.querySelector('img');
+        if (!current) break;
         act(() => {
-          current?.dispatchEvent(new Event('error'));
+          current.dispatchEvent(new Event('error'));
         });
         act(() => {
           jest.advanceTimersByTime(10_000);
