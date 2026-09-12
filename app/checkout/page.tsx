@@ -27,7 +27,7 @@ import {
 } from '@/components/checkout/checkout-ui';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import Button from '@/components/ui/Button';
-import { SHIPPING_AMOUNT_MINOR, orderTotalMinor, subtotalToMinor } from '@/lib/checkout/checkout-schemas';
+import { SHIPPING_AMOUNT_MINOR, orderTotalMinor, subtotalToMinor } from '@/lib/checkout/checkout-money';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { track } from '@/lib/analytics';
 

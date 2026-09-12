@@ -23,7 +23,7 @@ import {
 import { isAuthenticated } from '@/lib/auth/tokens';
 import { applyEnrichmentToCart, cacheVariantEnrichment, type VariantEnrichment } from '@/lib/cart/enrichment';
 import { track } from '@/lib/analytics';
-import { subtotalToMinor } from '@/lib/checkout/checkout-schemas';
+import { subtotalToMinor } from '@/lib/checkout/checkout-money';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
