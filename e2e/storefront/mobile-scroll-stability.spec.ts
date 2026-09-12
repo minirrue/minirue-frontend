@@ -276,15 +276,19 @@ test.describe('#50 — the footer curtain must not change positioning mode mid-s
    *
    * #50 floated "remove the switch entirely — always use flow" as the most
    * robust direction, on the grounds that it would delete the whole class of
-   * bug. It would also delete the effect: `flow` is `absolute` inside the
-   * reserved band at the true BOTTOM of the document, below `.mr-page-sheet`
-   * rather than behind it, so the sheet never covers it and there is nothing to
-   * uncover. This test is the measurement that settles that rather than
-   * assuming it — on a viewport tall enough for the footer to fit, `pinned`
-   * must still be chosen, must still be `fixed`, must still be COVERED by the
-   * sheet mid-page, and must still be UNCOVERED at the end.
+   * bug. It would also delete the effect: `flow` drops the stickiness, leaving
+   * the footer as an ordinary last block that scrolls with the page, so there
+   * is nothing parked for the page to be lifted off. This test is the
+   * measurement that settles that rather than assuming it — on a viewport tall
+   * enough for the footer to fit, `stuck` must still be chosen, must still be
+   * `sticky`, must still be COVERED by the sheet mid-page, and must still be
+   * UNCOVERED at the end.
+   *
+   * Restored to the pre-September positioning in #57: the two modes are
+   * `sticky` and `static`, both in normal flow, so a mode change no longer
+   * moves `body`'s reserved band (there is none) or any page content with it.
    */
-  test('the reveal itself still works where the footer fits (pinned is not dead code)', async ({ page }) => {
+  test('the reveal itself still works where the footer fits (stuck is not dead code)', async ({ page }) => {
     // 900 clears the ~749px footer by more than the promotion dead band.
     await page.setViewportSize({ width: VIEWPORT.width, height: 900 });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -292,10 +296,10 @@ test.describe('#50 — the footer curtain must not change positioning mode mid-s
     await page.waitForTimeout(1500);
 
     const curtain = page.locator('.mr-footer-curtain');
-    await expect(curtain).toHaveAttribute('data-curtain', 'pinned');
+    await expect(curtain).toHaveAttribute('data-curtain', 'stuck');
     expect(
       await curtain.evaluate((el) => getComputedStyle(el).position),
-    ).toBe('fixed');
+    ).toBe('sticky');
 
     // Mid-page: the curtain is parked at the bottom of the viewport, and the
     // page sheet is painted over it. Whatever is at that point must belong to

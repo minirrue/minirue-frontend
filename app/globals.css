@@ -13,10 +13,11 @@ body {
      what produced the sub-second black flash between pages. The footer paints its own ink
      background, so nothing depends on this being dark.
 
-     Briefly moved to `html` alone, to let the footer sit at `z-index: -1` beneath it.
-     That approach is gone — the footer reveal is won on document order now, with no
-     z-index anywhere (see Footer.tsx) — so this is back where it was and on both
-     elements. */
+     Briefly moved to `html` alone, to let the footer sit at a negative z-index beneath it
+     in the ROOT stacking context. That is the version that shipped with every footer link
+     dead, and it is not what happens now: the footer's negative z-index is resolved inside
+     `.mr-app-layer` (app/layout.tsx), which paints above `body` whatever `body`'s own
+     background is — so this can stay where it was and on both elements. See Footer.tsx. */
   background: var(--mr-cream-200);
   /* No horizontal scroll, ever.
    *
@@ -44,35 +45,26 @@ body {
   overflow-x: clip;
 }
 
-/* The footer curtain's two jobs, both on `body`, both one line.
+/* NOTHING HERE FOR THE FOOTER, AND THAT IS THE POINT (#57).
  *
- * `padding-bottom` is the reserved band the footer is revealed in. It is the
- * scroll room that lets `.mr-page-sheet`'s bottom edge travel up the viewport —
- * without it the sheet's bottom edge IS the bottom of the document, there is
- * nothing to scroll past it, and a `position: fixed` footer behind it is never
- * uncovered. `--mr-footer-h` is the curtain's real measured height, written by
- * Footer.tsx; it is `0px` (mr-tokens.css) on any route with no footer, so this
- * reserves nothing there.
+ * `body` used to carry two declarations on the footer's behalf:
  *
- * Padding, on `body`, and not margin on the sheet: a bottom margin on the last
- * in-flow child collapses straight out through `body`'s auto height, so the
- * document would not actually grow and `bottom: 0` would not actually be the
- * bottom. Padding cannot collapse. This is also NOT the deleted
- * `document.body.style.paddingBottom` effect coming back — that wrote an inline
- * style from JS on every resize; this is one declaration in a stylesheet fed by
- * one custom property.
+ *   padding-bottom: var(--mr-footer-h, 0px);   the reserved band a `fixed`
+ *                                              curtain needed, fed by a
+ *                                              ResizeObserver in Footer.tsx
+ *   position: relative;                        the containing block for that
+ *                                              curtain's `absolute` fallback
  *
- * `position: relative` makes `body` the containing block for the curtain's
- * taller-than-the-viewport fallback (`position: absolute; bottom: 0` — see
- * Footer.tsx), so "the bottom" means the bottom of the DOCUMENT, padding
- * included, rather than the bottom of the viewport. Every full-screen overlay
- * in the app is `position: fixed`, which ignores this entirely, so nothing
- * else re-anchors.
+ * Both are gone with the machinery that needed them. The footer is back to
+ * `position: sticky` in NORMAL FLOW as the last block of the page, so it
+ * carries its own height and the document is naturally that much taller —
+ * there is nothing to reserve and nothing to anchor. Every earlier version of
+ * this reached into `body` one way or another (the first wrote
+ * `document.body.style.paddingBottom` from JS on every resize); the footer
+ * that shipped before September touched it not at all, and neither does this.
+ *
+ * Do not add a footer rule here. See components/layout/Footer.tsx.
  */
-body {
-  position: relative;
-  padding-bottom: var(--mr-footer-h, 0px);
-}
 
 html {
   scroll-behavior: auto; /* Lenis handles smooth scroll; native smooth interferes */

@@ -36,14 +36,6 @@ export default function HomePageClient() {
 
   return (
     <>
-      {/* The curtain, BEFORE the sheet on purpose: both are positioned with
-          `z-index: auto`, so document order alone decides which paints on top,
-          and the sheet has to be the later sibling for the footer to be
-          revealed from under it rather than painted over it. Moving this line
-          below the sheet re-creates the bug the owner reported. See
-          components/layout/Footer.tsx. */}
-      <Footer config={chrome.footer} shopName={chrome.shopName} />
-
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={chrome.announcement.messages}
@@ -59,6 +51,14 @@ export default function HomePageClient() {
         />
         <HomeView home={home} />
       </div>
+
+      {/* The footer band — AFTER the page sheet, which is where it was before
+          September and where the DOM should read it: the page first, its
+          footer last. It is ordered UNDER the page by `z-index: -1` resolved
+          inside `.mr-app-layer` (app/layout.tsx), not by being moved ahead of
+          the page in document order the way #48 did. See
+          components/layout/Footer.tsx. */}
+      <Footer config={chrome.footer} shopName={chrome.shopName} />
     </>
   );
 }

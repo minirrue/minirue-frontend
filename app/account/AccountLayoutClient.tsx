@@ -55,11 +55,6 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
 
   return (
     <>
-      {/* Curtain layer — BEFORE the sheet on purpose: both are positioned with
-          `z-index: auto`, so document order alone decides which paints on top.
-          See components/layout/Footer.tsx. */}
-      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} shopName={chrome?.shopName} />
-
       <div className="mr-page-sheet">
         <AnnouncementBar
           messages={storefront?.announcementMessages}
@@ -247,6 +242,14 @@ export default function AccountLayoutClient({ children }: { children: React.Reac
           </main>
         </div>
       </div>
+
+      {/* The footer band — AFTER the page sheet, which is where it was before
+          September and where the DOM should read it: the page first, its
+          footer last. It is ordered UNDER the page by `z-index: -1` resolved
+          inside `.mr-app-layer` (app/layout.tsx), not by being moved ahead of
+          the page in document order the way #48 did. See
+          components/layout/Footer.tsx. */}
+      <Footer config={chrome?.footer ?? FALLBACK_CHROME.footer} shopName={chrome?.shopName} />
     </>
   );
 }

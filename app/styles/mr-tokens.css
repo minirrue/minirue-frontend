@@ -110,15 +110,12 @@
      instead of being covered by it. Default here covers the moment before
      that effect has run (SSR, first paint). */
   --mr-bottom-nav-offset: 0px;
-  /* Real, measured height of the footer curtain — the Ebneely signature plus
-     the <footer> itself, as one band. Written by Footer.tsx (ResizeObserver);
-     consumed by `body`'s padding-bottom in app/globals.css, which reserves
-     exactly that much scroll room BELOW the page sheet so the sheet's bottom
-     edge has somewhere to travel and something to uncover. 0 here is the
-     honest default: it is the state before the effect has run (SSR, first
-     paint) and the state on any route that renders no footer at all — and a
-     0px band reserves nothing, which is right in both cases. */
-  --mr-footer-h: 0px;
+  /* `--mr-footer-h` used to live here: the measured height of the footer
+     curtain, written by Footer.tsx on every resize and consumed by `body`'s
+     padding-bottom to reserve the band a `fixed` footer was revealed in. It is
+     gone with that mechanism (#57) — the footer is `position: sticky` in
+     normal flow again and carries its own height, so there is no band to
+     reserve and no measurement to publish. Nothing should reintroduce it. */
 
   /* ── Motion personality defaults (luxury) ── */
   --mp-dur-hover: 300ms;
@@ -351,16 +348,16 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
    * anchor to it and it still paints over the body background — but it no
    * longer creates a context, so those 60s and 120s mean what they say.
    *
-   * THE CURTAIN DOES NOT NEED ONE EITHER, and that is the whole reason the
-   * footer reveal could come back. `.mr-footer-curtain` (below) is positioned
-   * too, and also `z-index: auto`, so the two are ordered by the one rule that
-   * costs nothing: two positioned boxes with `z-index: auto` paint in DOCUMENT
-   * ORDER. The curtain is rendered BEFORE this sheet at every call site, so
-   * this sheet paints over it — a reveal, with no number to invert and no
-   * stacking context to seal anything into. Adding `z-index: 1` here would
-   * also have produced the reveal, and would have re-sealed not just the two
-   * overlays above but `MobileSheet` (the filter/review sheets, 60) and the
-   * review lightbox (70) under the bottom nav as well.
+   * THE FOOTER REVEAL DOES NOT NEED ONE HERE EITHER, and that is the whole
+   * reason the pre-September footer could come back (#57). Restoring
+   * `z-index: 1` on this wrapper is the obvious way to make the page paint
+   * over `.mr-footer-curtain` — it is also exactly the line that caused the
+   * bug above, and it would re-seal not just the two overlays named there but
+   * `MobileSheet` (the filter/review sheets, 60) and the review lightbox (70)
+   * under the bottom nav as well. So the z-index went one level out instead,
+   * to `.mr-app-layer` (below), which wraps the page AND the root-mounted
+   * overlays together: the page still out-ranks the footer, and no overlay
+   * changes rank relative to any other.
    *
    * Covered by __tests__/layout/page-sheet-stacking.test.ts.
    */
@@ -375,40 +372,70 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
   min-height: 100svh;
 }
 
-/* The footer curtain — the layer the page sheet above is lifted off.
+/* THE APP LAYER — one stacking context around the whole application.
  *
- * Rendered by Footer.tsx as the sibling immediately BEFORE `.mr-page-sheet`,
- * which is the entire stacking argument: both boxes are positioned, both are
- * `z-index: auto`, so they paint in document order and the sheet — the later
- * sibling — paints over this one. No z-index on either, so no stacking context
- * on either, so nothing anywhere in the app changes rank. See the note above
- * and the one on `useFooterCurtain` in components/layout/Footer.tsx for the
- * three attempts that tried to win this with a number instead.
+ * This is where `.mr-page-sheet`'s old `z-index: 1` went (#57). That line gave
+ * the page its precedence over the footer and was the only thing holding the
+ * pre-September footer down; `00cd9ec` (#25) removed it because a stacking
+ * context ON THE SHEET seals every overlay rendered inside the sheet — the
+ * mobile nav sheet (60), the search sheet (120), `MobileSheet` (60), the review
+ * lightbox (70) — beneath the root-mounted bottom nav (20). That is #6 and it
+ * must stay fixed; see page-sheet-stacking.test.ts.
  *
- * There is no z-index here for the same reason there is none on the sheet, and
- * it must not gain one: `-1` is how attempt three made every link in the footer
- * unclickable, and any positive value re-creates the bug where the footer
- * covers the page.
+ * Here the context wraps BOTH the page and the root-mounted overlays (cart
+ * drawer 80, support widget 201, bottom nav 20, page loader), so every z-index
+ * in the app is still resolved against every other one, exactly as it was, and
+ * nothing is sealed. The only thing it changes is what is outside it: `body`'s
+ * own painted background box. That is what lets `.mr-footer-curtain` sit at
+ * `z-index: -1` and still take its own clicks — see below.
+ *
+ * Rendered in app/layout.tsx. Do not remove the z-index.
+ */
+.mr-app-layer {
+  position: relative;
+  z-index: 1;
+}
+
+/* The footer curtain — the band the page is lifted off, restored to the
+ * pre-September footer (#57).
+ *
+ * `position: sticky; bottom: 0`, in NORMAL FLOW, rendered AFTER
+ * `.mr-page-sheet` at every call site: the footer is the last block of the
+ * document, it carries its own height, and it parks against the bottom of the
+ * viewport while the page above scrolls up off it. No reserved band, no
+ * measured custom property, nothing written to `body`.
+ *
+ * THE z-index IS -1 AND THAT IS DELIBERATE — read this before changing it.
+ * A negative-z-index box paints above its stacking context's own background
+ * and below that context's in-flow content. Scoped to the ROOT context (which
+ * is where every previous attempt put it) that means `body`'s background box
+ * paints above it and swallows every pointer event aimed at the footer: that
+ * is exactly how the `z-index: -1` version shipped with every footer link dead.
+ * Scoped to `.mr-app-layer` above, the whole layer paints above `body`, the
+ * layer's own box is transparent and paints below its negative child, and
+ * ordinary hit testing applies — the page takes the clicks where it covers the
+ * footer, the footer takes its own where the page has scrolled past it.
+ *
+ * So this value is only safe WITH `.mr-app-layer`. The two are one mechanism;
+ * footer-stacking.test.ts asserts both halves.
  */
 .mr-footer-curtain {
-  left: 0;
-  right: 0;
+  position: sticky;
   bottom: 0;
+  z-index: -1;
 }
 
-/* The reveal. Parked against the bottom of the viewport, behind the sheet; the
-   `body` padding-bottom in app/globals.css is the scroll room that lets the
-   sheet's bottom edge rise off it. */
-.mr-footer-curtain[data-curtain='pinned'] {
-  position: fixed;
-}
-
-/* The fallback, for a footer taller than the viewport — see Footer.tsx. Same
-   reserved band, but at the true bottom of the DOCUMENT (absolute against
-   `body`, which app/globals.css makes a containing block), so the whole of it
-   can be scrolled to instead of having its top pinned off screen. */
+/* The one guard the pre-September footer lacked. A sticky box pinned by
+   `bottom: 0` that is TALLER than the scrollport keeps its own top edge above
+   the viewport for the whole scroll, the end of the document included — the
+   footer is ~745px on a 390px-wide phone, and plenty of phones are shorter.
+   Dropping the stickiness changes nothing else: the footer stays exactly where
+   it already is in flow, as an ordinary last block, and every pixel of it can
+   be scrolled to. Both states are in flow, so the document height and the
+   footer's flow position are identical in each and the switch cannot move the
+   page under the reader (#50). See components/layout/Footer.tsx. */
 .mr-footer-curtain[data-curtain='flow'] {
-  position: absolute;
+  position: static;
 }
 
 /* Tabular numbers utility */

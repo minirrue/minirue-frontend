@@ -7,31 +7,29 @@ import { FALLBACK_CHROME } from '@/lib/api/storefront';
 import type { PaymentBadge } from '@/lib/api/storefront';
 
 /**
- * W4a.1 — the footer's root fix: `position: fixed` -> `sticky`, and the
- * `ResizeObserver` / `document.body.style.paddingBottom` effect that used to
- * fake in-flow height is deleted outright (see Footer.tsx). These are the
- * highest-value tests in this task per the brief.
+ * W4a.1 — the footer's root fix, and #57, which reverted it to the footer that
+ * shipped before September.
  *
- * Superseded in part: the positioning does not live on `<footer>` at all any
- * more. `fixed` and `sticky` both overlapped the page — `sticky` pinned a 697px
- * footer across an 851px viewport with the page still scrolling underneath —
- * and `z-index: -1`, the attempted fix, made every footer link unclickable. The
- * reveal is back, but it is the curtain WRAPPER that is positioned and it is
- * ordered under the page sheet by document order rather than by a z-index; the
- * whole argument is in __tests__/layout/footer-stacking.test.ts.
+ * The positioning does not live on `<footer>` at all: `fixed`, `sticky` and
+ * `sticky; z-index: -1` were each tried on this element, in the ROOT stacking
+ * context, and each broke something (the whole history is in
+ * __tests__/layout/footer-stacking.test.ts). The curtain WRAPPER is what is
+ * positioned, it is `position: sticky; bottom: 0` — the pre-September
+ * declaration — and it is ordered under the page by a `z-index: -1` resolved
+ * inside `.mr-app-layer` rather than against `body`.
  *
- * What survives here unchanged is the deleted measuring effect, which is the
- * part of W4a.1 that was right: the curtain's height is still measured, but it
- * travels as a CSS custom property instead of an inline body style.
+ * What survives here unchanged is the part of W4a.1 that was right: this
+ * component writes nothing to `body`. It no longer publishes a measured height
+ * either — a sticky footer is in normal flow and carries its own.
  */
-describe('Footer position (W4a.1)', () => {
+describe('Footer position (W4a.1 / #57)', () => {
   it('leaves <footer> itself unpositioned, so it cannot overlap the page', () => {
     /*
      * All three positioned values were tried on this element in production and
-     * all three overlapped: `fixed` clipped the footer's own top edge once it
-     * grew taller than the viewport, `sticky` pinned it over the page sheet,
-     * and the z-index that was supposed to settle that put its links behind
-     * the page for pointer events. The wrapper is positioned instead.
+     * all three broke: `fixed` clipped the footer's own top edge once it grew
+     * taller than the viewport, `sticky` pinned it over the page sheet, and the
+     * z-index that was supposed to settle that put its links behind `body` for
+     * pointer events. The wrapper is positioned instead.
      */
     render(<Footer config={FALLBACK_CHROME.footer} />);
     const footer = screen.getByRole('contentinfo');
@@ -41,14 +39,14 @@ describe('Footer position (W4a.1)', () => {
   });
 
   it('renders the curtain wrapper around the whole footer band', () => {
-    // The revealed layer is the signature + <footer> together, as one box, so
+    // The revealed band is the signature + <footer> together, as one box, so
     // the curtain measures and moves them as one.
     const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
     const curtain = container.querySelector('.mr-footer-curtain');
     expect(curtain).not.toBeNull();
     expect(curtain).toContainElement(screen.getByRole('contentinfo'));
-    // `pinned` (the reveal) or `flow` (the taller-than-the-viewport fallback).
-    expect(curtain?.getAttribute('data-curtain')).toMatch(/^(pinned|flow)$/);
+    // `stuck` (the reveal) or `flow` (the taller-than-the-viewport fallback).
+    expect(curtain?.getAttribute('data-curtain')).toMatch(/^(stuck|flow)$/);
   });
 
   it('never writes document.body.style.paddingBottom (the measuring effect is gone)', () => {
@@ -57,6 +55,18 @@ describe('Footer position (W4a.1)', () => {
     expect(document.body.style.paddingBottom).toBe('');
     unmount();
     expect(document.body.style.paddingBottom).toBe('');
+  });
+
+  it('publishes no --mr-footer-h either — the reserved band is gone with it', () => {
+    // #48 replaced the inline body style with a custom property feeding
+    // `body { padding-bottom }`. A sticky footer is in flow and carries its own
+    // height, so there is no band to reserve and nothing to publish.
+    const root = document.documentElement;
+    root.style.removeProperty('--mr-footer-h');
+    const { unmount } = render(<Footer config={FALLBACK_CHROME.footer} />);
+    expect(root.style.getPropertyValue('--mr-footer-h')).toBe('');
+    unmount();
+    expect(root.style.getPropertyValue('--mr-footer-h')).toBe('');
   });
 
   it('carries the home-indicator safe area in its own bottom padding', () => {
@@ -100,34 +110,41 @@ describe('Ebneely signature placement', () => {
 
 /**
  * Structural audit: every module that renders `.mr-page-sheet` and a
- * `<Footer>`/`<FooterWithSettings>` must render the footer BEFORE the sheet —
- * outside it, and as the EARLIER sibling.
+ * `<Footer>`/`<FooterWithSettings>` must render the footer AFTER the sheet —
+ * outside it, and as the LATER sibling.
  *
- * This flipped (it used to demand the footer come after the sheet) and the flip
- * is the fix, not a detail. The curtain is `position: fixed`, `.mr-page-sheet`
- * is `position: relative`, and neither declares a z-index — so the only thing
- * deciding which paints on top is DOCUMENT ORDER, in which the later sibling
- * wins. Rendered after the sheet, the footer paints OVER the page: that is the
- * bug the owner reported twice ("footer is broken its not reveled under the
- * webpage"), once with `fixed` and once with `sticky`. Rendered before it, the
- * sheet covers the footer and uncovers it on scroll, which is the effect.
+ * This flipped back (#57), and the flip is the fix, not a detail.
  *
- * Ordering them with a z-index instead would work and is deliberately not done:
- * a positioned element with a z-index creates a stacking context, and the last
- * time `.mr-page-sheet` had one it sealed the mobile menu and the search sheet
- * under the bottom nav (see page-sheet-stacking.test.ts).
+ * #48 moved the footer ahead of the sheet because at that point document order
+ * was the ONLY thing deciding which of the two positioned boxes painted on top:
+ * neither declared a z-index, so the later sibling won, and a footer rendered
+ * after the sheet painted OVER the page. The cost was that the footer came
+ * ahead of the entire page in the DOM on every route — so keyboard order and
+ * every screen reader reached the footer before the header and the content.
+ *
+ * The ordering is no longer won on document order, so that cost is not worth
+ * paying. `.mr-app-layer` (app/layout.tsx) is one stacking context around the
+ * page AND the root-mounted overlays, and inside it the curtain sits at
+ * `z-index: -1` — the page out-ranks the footer wherever the footer sits in the
+ * tree. So the footer goes back where it reads correctly: last.
+ *
+ * Ordering them with a z-index ON `.mr-page-sheet` instead would also work and
+ * is deliberately still not done: a stacking context there seals the mobile
+ * menu and the search sheet under the bottom nav (see
+ * page-sheet-stacking.test.ts). That is exactly why the z-index went one level
+ * out rather than back onto the sheet.
  *
  * A full RSC render isn't available in jest (several of these are async Server
  * Components hitting real fetchers), so this follows the same static-source-scan
  * convention `chrome-coverage.test.ts` already uses for "every <Header> usage
  * passes a navbar prop": find where `.mr-page-sheet`'s own `<div>` OPENS in the
- * source text and assert the footer render appears before that point.
+ * source text and assert the footer render appears after that point.
  *
  * This scans the whole `app/` and `components/` tree — not a fixed list of
  * files — so a NEW page that renders its footer on the wrong side of the sheet
  * fails this test too, which is the whole point of making it structural.
  */
-describe('Footer placement — before .mr-page-sheet, outside it', () => {
+describe('Footer placement — after .mr-page-sheet, outside it', () => {
   const ROOT = path.resolve(__dirname, '../..');
   const SEARCH_DIRS = ['app', 'components'];
 
@@ -176,21 +193,65 @@ describe('Footer placement — before .mr-page-sheet, outside it', () => {
     expect(relevant.length).toBeGreaterThan(0);
   });
 
+  /** Index of the `</div>` that CLOSES `.mr-page-sheet`, by counting `<div`
+   *  against `</div>` from the opening tag. Returns null if the tags don't
+   *  balance (treated as "couldn't verify" — the assertion fails loudly rather
+   *  than passing vacuously). */
+  function mrPageSheetCloseIndex(src: string, openIdx: number): number | null {
+    let depth = 0;
+    const tag = /<div\b|<\/div>/g;
+    tag.lastIndex = openIdx;
+    let m: RegExpExecArray | null;
+    while ((m = tag.exec(src))) {
+      depth += m[0] === '</div>' ? -1 : 1;
+      if (depth === 0) return m.index;
+    }
+    return null;
+  }
+
   it.each(relevant.map((f) => [path.relative(ROOT, f), f] as const))(
-    '%s renders its footer before .mr-page-sheet opens, not inside or after it',
+    '%s renders its footer after .mr-page-sheet closes, not inside or before it',
     (_label, file) => {
       const src = readFileSync(file, 'utf8');
       const openIdx = mrPageSheetOpenIndex(src);
       expect(openIdx).not.toBeNull();
+      const closeIdx = mrPageSheetCloseIndex(src, openIdx as number);
+      expect(closeIdx).not.toBeNull();
 
       const footerMatch = /<Footer(?:WithSettings)?[\s/>]/.exec(src);
       expect(footerMatch).not.toBeNull();
 
-      // Strictly earlier in the source, which for sibling JSX is strictly
-      // earlier in the DOM, which is what makes the sheet paint on top.
-      expect(footerMatch!.index).toBeLessThan(openIdx as number);
+      // Strictly later in the source than the sheet's CLOSING tag, which for
+      // sibling JSX is strictly later in the DOM — so the page and its header
+      // come first for keyboard and screen-reader order, and "outside it"
+      // rather than nested within the sheet.
+      expect(footerMatch!.index).toBeGreaterThan(closeIdx as number);
     },
   );
+});
+
+/**
+ * The other half of the placement rule, for the routes whose `.mr-page-sheet`
+ * lives in a CHILD component — the PDP renders `<ProductPageClient>`, which is
+ * what owns the sheet, so the audit above cannot see it. The footer still has
+ * to be the later sibling there, and #48 moved it ahead of the page on exactly
+ * these routes too.
+ */
+describe('Footer placement — after the page on routes whose sheet is in a child', () => {
+  const ROOT = path.resolve(__dirname, '../..');
+
+  const CASES: Array<[string, RegExp]> = [
+    ['app/shop/[category]/[product]/page.tsx', /<ProductPageClient[\s/>]/],
+  ];
+
+  it.each(CASES)('%s renders its footer after the page component', (rel, pageRe) => {
+    const src = readFileSync(path.join(ROOT, rel), 'utf8');
+    const pageMatch = pageRe.exec(src);
+    const footerMatch = /<Footer(?:WithSettings)?[\s/>]/.exec(src);
+    expect(pageMatch).not.toBeNull();
+    expect(footerMatch).not.toBeNull();
+    expect(footerMatch!.index).toBeGreaterThan(pageMatch!.index);
+  });
 });
 
 /**
@@ -295,8 +356,12 @@ describe('Footer section rhythm — single shared gap (Owner request 2026-07-31)
  * scroll, moving it by 60-100px; the footer is ~749px on a 393px-wide phone and
  * a Pixel 5 in Chrome runs 727px (toolbar visible) to ~807px (collapsed), so
  * the comparison genuinely had a different answer depending on where the
- * toolbar happened to be, and the element jumped between `fixed` and `absolute`
- * under the reader's finger.
+ * toolbar happened to be, and the element jumped between its two
+ * positions under the reader's finger — and at that point the two positions
+ * were `fixed` and `absolute`, so the jump took `body`'s reserved band with it
+ * and moved the page as well. Both modes are in normal flow now (#57), so the
+ * worst a flip can do is move the footer; the decision is still made this way
+ * because an unstable one was visible at all.
  *
  * jsdom has no layout engine, so `100svh` resolves to 0 and
  * `readSmallViewportHeight` falls through to `innerHeight` — which is exactly
@@ -346,18 +411,18 @@ describe('Footer curtain — the mode must not change mid-scroll (#50)', () => {
   it('falls back to flow for a footer taller than the viewport, as it always did', () => {
     stubCurtainHeight(749);
     const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
-    // 749 > 727: pinned, its own top edge would be off screen and unreachable —
+    // 749 > 727: stuck, its own top edge would be off screen and unreachable —
     // failure (1) in the Footer.tsx history. Demotion is immediate for exactly
     // that reason; it is a correctness rule, not a preference.
     expect(mode(container)).toBe('flow');
   });
 
-  it('does not flip back to pinned when the toolbar collapses', () => {
+  it('does not flip back to stuck when the toolbar collapses', () => {
     stubCurtainHeight(749);
     const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
     expect(mode(container)).toBe('flow');
 
-    // THE BUG. 749 <= 807 is true, so the old code promoted to `pinned` here —
+    // THE BUG. 749 <= 807 is true, so the old code promoted to `stuck` here —
     // and demoted again the moment the toolbar came back. One flip per toolbar
     // movement, under the reader's finger.
     setViewportHeight(PHONE_LARGE_VH);
@@ -370,18 +435,18 @@ describe('Footer curtain — the mode must not change mid-scroll (#50)', () => {
     expect(mode(container)).toBe('flow');
   });
 
-  it('stays pinned across a toolbar cycle when the footer genuinely fits', () => {
+  it('stays stuck across a toolbar cycle when the footer genuinely fits', () => {
     stubCurtainHeight(420);
     const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
-    expect(mode(container)).toBe('pinned');
+    expect(mode(container)).toBe('stuck');
 
     setViewportHeight(PHONE_LARGE_VH);
-    expect(mode(container)).toBe('pinned');
+    expect(mode(container)).toBe('stuck');
     setViewportHeight(PHONE_SMALL_VH);
-    expect(mode(container)).toBe('pinned');
+    expect(mode(container)).toBe('stuck');
   });
 
-  it('promotes back to pinned only on a viewport with real headroom to spare', () => {
+  it('promotes back to stuck only on a viewport with real headroom to spare', () => {
     stubCurtainHeight(749);
     const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
     expect(mode(container)).toBe('flow');
@@ -394,6 +459,6 @@ describe('Footer curtain — the mode must not change mid-scroll (#50)', () => {
 
     // Clear headroom (749 + the 120px dead band = 869): the reveal comes back.
     setViewportHeight(900);
-    expect(mode(container)).toBe('pinned');
+    expect(mode(container)).toBe('stuck');
   });
 });
