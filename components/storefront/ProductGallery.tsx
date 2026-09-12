@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { useReducedMotion } from 'motion/react';
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import type { ApiProduct, MediaAsset } from '@/lib/api/catalog';
 import { mediaImageUrl } from '@/lib/api/catalog';
 import {
@@ -69,7 +69,26 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
     setIndex(i);
     onOpen?.(i);
   };
-  const reduceMotion = useReducedMotion();
+  /*
+   * The local hook, not `useReducedMotion` from `motion/react`.
+   *
+   * Honest scope: this does NOT reduce what this route downloads. `motion`
+   * still arrives, because the carousel below genuinely uses it for drag and
+   * snap — measured after the change, the chunk still loads and the route's JS
+   * is unchanged.
+   *
+   * It is here because importing a ~56KB animation library for one media query
+   * is the wrong shape regardless of whether the bytes happen to be paid for
+   * elsewhere, and because the hook is reusable by files that have no other
+   * reason to touch `motion`. If the carousel is ever replaced with CSS
+   * scroll-snap — which is what the bundle cross-sell rail deliberately chose
+   * instead of this carousel — this file will already be clean.
+   *
+   * What actually costs this page is measured on #7: the LCP image shares a
+   * 1.6 Mbps pipe with ~283KB of concurrent JavaScript and takes 1806ms to
+   * transfer 78KB. That is a route-level code-splitting problem, not a hook.
+   */
+  const reduceMotion = usePrefersReducedMotion();
 
   // The house slide feel; instant for anyone who asked for less movement.
   const transition = reduceMotion
