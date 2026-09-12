@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { apiGetOrder } from '@/lib/api/orders';
+import { apiGetOrder, type Order, type OrderStatus } from '@/lib/api/orders';
 import { apiFetch } from '@/lib/api/client';
 
 export const metadata: Metadata = {
@@ -46,6 +46,91 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
   FAILED_ATTEMPT: 'Delivery Attempted',
   RETURNED: 'Returned to Sender',
 };
+
+
+/**
+ * What the shop can actually tell a customer today.
+ *
+ * MiniRue has no carrier integration — the dashboard's Shipping service panel
+ * says so in as many words, and every control on it is disabled. So no
+ * `fulfillment_shipments` row is ever created, and this page's carrier view is
+ * for a future that has not arrived.
+ *
+ * It used to say, for every order forever:
+ *
+ *     "Your order has been received and is being prepared for shipment.
+ *      Tracking information will appear here once your order ships."
+ *
+ * Which is true on the day the order is placed and a lie once it has been
+ * delivered. The order's OWN status is the real signal and was already fetched
+ * on this page — used for nothing but printing the order number (#60).
+ *
+ * So this renders that instead: the four states an order actually moves
+ * through, with the reached ones marked. When a carrier is signed the shipment
+ * view above takes over and this becomes the fallback it was always meant to
+ * be.
+ */
+const ORDER_STEPS: Array<{ status: OrderStatus; label: string; note: string }> = [
+  { status: 'CONFIRMED', label: 'Confirmed', note: 'We have your order and your payment.' },
+  { status: 'PROCESSING', label: 'Being prepared', note: 'Your order is being packed.' },
+  { status: 'SHIPPED', label: 'On its way', note: 'Your order has left us.' },
+  { status: 'DELIVERED', label: 'Delivered', note: 'Your order has arrived.' },
+];
+
+function OrderProgress({ order }: { order: Order | null }) {
+  // No order either — the id is wrong, or it is not this customer's. Say the
+  // honest thing rather than implying a parcel exists.
+  if (!order) {
+    return (
+      <div className="mr-track-empty">
+        We could not find that order. Check the link, or open it from your
+        account.
+      </div>
+    );
+  }
+
+  if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+    return (
+      <div className="mr-track-empty">
+        This order was {order.status === 'CANCELLED' ? 'cancelled' : 'refunded'}.
+        There is nothing on its way.
+      </div>
+    );
+  }
+
+  const reachedIndex = ORDER_STEPS.findIndex((s) => s.status === order.status);
+
+  return (
+    <ol className="mr-track-steps" aria-label="Order progress">
+      {ORDER_STEPS.map((step, i) => {
+        const reached = reachedIndex >= i;
+        const current = reachedIndex === i;
+        return (
+          <li
+            key={step.status}
+            className="mr-track-step"
+            data-reached={reached ? 'true' : 'false'}
+            data-current={current ? 'true' : 'false'}
+            /*
+             * aria-current rather than colour alone. The whole point of this
+             * list is "where is my order", and a screen reader has to be able
+             * to answer that without the visual treatment.
+             */
+            aria-current={current ? 'step' : undefined}
+          >
+            <span className="mr-track-step-dot" aria-hidden="true" />
+            <span className="mr-track-step-body">
+              <span className="mr-track-step-label">{step.label}</span>
+              {reached && (
+                <span className="mr-track-step-note">{step.note}</span>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 export default async function TrackOrderPage({
   params,
@@ -121,21 +206,7 @@ export default async function TrackOrderPage({
           </p>
         )}
 
-        {!shipment && (
-          <div
-            style={{
-              padding: 'var(--mr-sp-5)',
-              background: 'var(--mr-bg-raised)',
-              border: '1px solid var(--mr-border)',
-              borderRadius: 'var(--mr-radius-md)',
-              fontSize: 'var(--mr-text-sm)',
-              color: 'var(--mr-fg-3)',
-            }}
-          >
-            Your order has been received and is being prepared for shipment.
-            Tracking information will appear here once your order ships.
-          </div>
-        )}
+        {!shipment && <OrderProgress order={order} />}
 
         {shipment && (
           <div

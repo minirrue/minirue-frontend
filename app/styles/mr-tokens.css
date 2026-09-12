@@ -525,3 +525,89 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
     mask-image: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Order progress on the tracking page (#60)
+   ---------------------------------------------------------------------------
+   MiniRue has no carrier integration, so no shipment row is ever created and
+   the carrier view on that page is for a future that has not arrived. This is
+   the order's own status instead — the four states it really moves through.
+
+   Reached and current are carried on data- attributes rather than composed
+   class names so the markup stays readable, and every visual state has a
+   non-colour counterpart: the dot fills, and the current step carries
+   aria-current. Someone who cannot tell the two greys apart still gets the
+   answer.
+   --------------------------------------------------------------------------- */
+.mr-track-empty {
+  padding: var(--mr-sp-5);
+  background: var(--mr-bg-raised);
+  border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius-md);
+  font-size: var(--mr-text-sm);
+  color: var(--mr-fg-3);
+}
+
+.mr-track-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius-lg);
+  background: var(--mr-bg-raised);
+  overflow: hidden;
+}
+
+.mr-track-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--mr-hairline);
+}
+
+.mr-track-step:last-child {
+  border-bottom: 0;
+}
+
+.mr-track-step-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  border: 1.5px solid var(--mr-fg-4);
+  background: transparent;
+}
+
+/* Filled, not merely tinted — the shape changes, so this survives a greyscale
+   display and any colour-vision difference. */
+.mr-track-step[data-reached='true'] .mr-track-step-dot {
+  background: var(--mr-fg);
+  border-color: var(--mr-fg);
+}
+
+.mr-track-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mr-track-step-label {
+  font-size: var(--mr-text-sm);
+  color: var(--mr-fg-4);
+}
+
+.mr-track-step[data-reached='true'] .mr-track-step-label {
+  color: var(--mr-fg);
+}
+
+.mr-track-step[data-current='true'] .mr-track-step-label {
+  font-weight: 600;
+}
+
+.mr-track-step-note {
+  font-size: var(--mr-text-xs);
+  color: var(--mr-fg-3);
+}
