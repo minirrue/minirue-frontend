@@ -42,6 +42,61 @@ describe('ProductGallery', () => {
     );
   });
 
+  /**
+   * #58 — the slide is a FIXED ratio at every width.
+   *
+   * It used to be `lg:aspect-auto lg:h-screen`: no ratio on a laptop, just "as
+   * tall as the window", so the crop changed with the window and a tall one
+   * enlarged a ~900px source past 1:1. 1:1 from `lg:` is what the dashboard
+   * crops to, so a square box shows the admin's crop whole.
+   */
+  describe('the slide box (#58)', () => {
+    const slideBoxes = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-trace-id^="PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@"]',
+        ),
+      );
+
+    it('keeps 4:5 on a phone — the framing the owner asked not to touch', () => {
+      render(<ProductGallery product={PRODUCT_FIXTURE} items={items} />);
+
+      for (const box of slideBoxes()) {
+        expect(box.className).toContain('aspect-[4/5]');
+      }
+    });
+
+    it('is a square, viewport-independent box from lg: — never window-tall', () => {
+      render(<ProductGallery product={PRODUCT_FIXTURE} items={items} />);
+
+      const boxes = slideBoxes();
+      expect(boxes).toHaveLength(items.length);
+      for (const box of boxes) {
+        expect(box.className).toContain('lg:aspect-square');
+        // The two halves of the old rule. `h-screen` is what made the crop a
+        // function of window height and what upscaled the source on a tall
+        // display; `aspect-auto` is what dropped the ratio to let it.
+        expect(box.className).not.toContain('lg:h-screen');
+        expect(box.className).not.toContain('lg:aspect-auto');
+      }
+    });
+
+    it('never asks Cloudinary for a width AND a height', () => {
+      /**
+       * `cloudinaryUrl()` emits no crop mode, so `w_1400,h_1750` is `c_scale`:
+       * it does not crop a square source to 4:5, it stretches it. Gallery media
+       * arrives pre-resolved and ignores these options entirely — this guards
+       * the legacy Cloudinary assets that still fall through to them.
+       */
+      render(<ProductGallery product={PRODUCT_FIXTURE} items={items} />);
+
+      for (const img of screen.getAllByRole('img')) {
+        const src = decodeURIComponent(img.getAttribute('src') ?? '');
+        expect(src).not.toMatch(/[,/]h_\d+/);
+      }
+    });
+  });
+
   it('shows no dots, counter or arrows for a product with one photograph', () => {
     render(<ProductGallery product={PRODUCT_FIXTURE} items={[items[0]]} />);
 

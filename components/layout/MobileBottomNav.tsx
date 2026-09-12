@@ -21,13 +21,14 @@
  *
  * Task AA (2026-07-30, owner request): Home dropped from this bar — the top
  * bar's own logo already goes there, and having two ways to get "home" left
- * no room for the item the owner actually wanted front and center. Collab
- * takes the freed middle slot instead and opens `/collab`, an index of every
- * partner MiniRue works with (logo tile, rating, product count — one request
- * for the whole grid via `apiListPublicBrands()`). Shop now opens `/shop`
- * — MiniRue's real category tree with images, not the flat all-products list
- * — since a picture-led category browse is what the owner asked for; the
- * all-products page is still one tap away as the grid's own extra card.
+ * no room for the item the owner actually wanted front and center. Shop opens
+ * `/shop` — MiniRue's real category tree with images, not the flat
+ * all-products list — since a picture-led category browse is what the owner
+ * asked for; the all-products page is still one tap away as the grid's own
+ * extra card.
+ *
+ * #59 (2026-09-12, owner request): Collab, which had taken the slot Home left,
+ * is out again. See ITEMS below for why nothing replaced it.
  */
 
 import React from 'react';
@@ -75,14 +76,31 @@ interface NavItem {
  */
 const ACCOUNT_AVATAR_SIZE = 30;
 
+/**
+ * FOUR tabs, and deliberately four (#59).
+ *
+ * Collab was the middle one and is gone (owner: "remove collab in desktop
+ * navbar and mobile navbar… but leave shop"). Nothing is promoted into the
+ * freed slot, because everything that could be has already been ruled out on
+ * this bar by name:
+ *
+ *   - Home was dropped on 2026-07-30 at the owner's request — the top bar's
+ *     logo already goes there, and it was Home's slot Collab originally took.
+ *     Putting it back to plug a hole would undo that decision by accident.
+ *   - Menu was dropped on 2026-08-21 at the owner's request — the account
+ *     avatar at the right-hand end opens the very same sheet ("upon tapping it
+ *     reveals the bottom sheet like top left navbar"), so a fifth tab labelled
+ *     Menu would be a second door onto one room.
+ *
+ * That leaves the four things this bar exists to do — find, browse, buy, and
+ * you — and each now gets 25% of the width instead of 20%, which the 9px
+ * uppercase labels were tight for on a 360px phone. A four-item bar is the
+ * composition, not a gap where a fifth item used to be.
+ *
+ * `/collab` itself is untouched and still resolves; see Header.tsx.
+ */
 const ITEMS: NavItem[] = [
-  // No 'menu' item. The account avatar in the header opens the menu sheet now,
-  // so a second door labelled Menu sat beside a door that did the same thing
-  // (owner, 2026-08-21: "remove menu from navbar, just move it there on profile
-  // icon"). Five tabs also gives each one noticeably more width on a small
-  // phone, which the labels needed.
   { key: 'search', label: 'Search', icon: 'search' },
-  { key: 'collab', label: 'Collab', icon: 'collab' },
   { key: 'shop', label: 'Shop', icon: 'grid' },
   { key: 'cart', label: 'Cart', icon: 'bag' },
   { key: 'account', label: 'Account', icon: 'user' },
@@ -395,8 +413,10 @@ export default function MobileBottomNav() {
           );
         }
 
-        const href =
-          item.key === 'shop' ? SHOP_ROOT : item.key === 'collab' ? '/collab' : accountHref;
+        // Shop is the only tab left that simply navigates — search, cart and
+        // account all open something. `accountHref` stays the fallback so an
+        // item added here later cannot render an empty href.
+        const href = item.key === 'shop' ? SHOP_ROOT : accountHref;
         return (
           <Link
             key={item.key}
