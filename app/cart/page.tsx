@@ -266,12 +266,33 @@ export default function CartPage() {
                   label="Subtotal"
                   value={<PriceDisplay amount={subtotalAmount} currency={currency} />}
                 />
+                {/*
+                  PriceDisplay, not `{amount} {currency}`.
+
+                  Subtotal and Estimated total go through it; Shipping and the
+                  discount row were interpolating raw, so one summary block
+                  showed `EGP 799` on two rows and `50.00 EGP` on the others —
+                  the symbol changing sides and the decimals appearing and
+                  disappearing between lines a shopper reads in one glance.
+
+                  formatMoney already owns this: prefix, grouping, and no
+                  trailing `.00` on a whole amount. The styling that made this
+                  row quiet is kept as a `style` override rather than as a
+                  reason to re-spell the price.
+                */}
                 <SummaryRow
                   label="Shipping"
                   value={
-                    <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-4)', fontStyle: 'italic' }}>
-                      {shippingDisplay} {currency}
-                    </span>
+                    <PriceDisplay
+                      amount={shippingDisplay}
+                      currency={currency}
+                      style={{
+                        fontFamily: 'var(--mr-font-ui)',
+                        fontSize: 'var(--mr-text-sm)',
+                        color: 'var(--mr-fg-4)',
+                        fontStyle: 'italic',
+                      }}
+                    />
                   }
                 />
                 {discountMinor > 0 && (
@@ -285,7 +306,23 @@ export default function CartPage() {
                           color: 'var(--mr-fg-2)',
                         }}
                       >
-                        −{minorToAmount(discountMinor)} {currency}
+                        {/*
+                          The minus stays outside PriceDisplay: it is not part of
+                          the amount, and formatMoney would otherwise be asked to
+                          format a negative number and place the sign relative to
+                          the currency prefix itself.
+                        */}
+                        −
+                        <PriceDisplay
+                          amount={minorToAmount(discountMinor)}
+                          currency={currency}
+                          style={{
+                            fontFamily: 'inherit',
+                            fontSize: 'inherit',
+                            color: 'inherit',
+                            fontWeight: 'inherit',
+                          }}
+                        />
                       </span>
                     }
                   />
