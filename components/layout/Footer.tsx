@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import Wordmark from '@/components/ui/Wordmark';
 import PaymentBadge from '@/components/ui/PaymentBadge';
 import SocialIcon from '@/components/ui/SocialIcon';
@@ -39,273 +39,49 @@ import type { FooterConfig } from '@/lib/api/storefront';
 const FOOTER_SECTION_GAP = 'clamp(24px, 4vw, 40px)';
 
 /**
- * The curtain — restored to the footer that shipped before September (#57).
- * =========================================================================
- * The owner's effect, verbatim: "we want the outer reveal under the webpage" —
- * the footer sits BEHIND the page, and the page slides up and off it.
+ * The curtain — the footer that shipped before September (#57, #68).
+ * ==================================================================
+ * Owner's effect, verbatim: "we want the outer reveal under the webpage" — the
+ * footer sits BEHIND the page and the page slides up and off it. Not a block
+ * underneath it: "revealed under the webpage, not vertical under it".
  *
- * This is the pre-September footer, and the declaration below is the one it
- * had: `position: sticky; bottom: 0`, in normal document flow, rendered AFTER
- * `.mr-page-sheet` at every call site. Nothing is measured into `body`,
- * nothing is written to it, and there is no reserved band — the September
- * machinery that did all three is deleted, not patched.
+ * The whole arrangement is three CSS declarations on the wrapper and nothing
+ * else:
  *
- * WHY IT BROKE, AND WHY IT WAS NEVER THE FOOTER'S FAULT
- * -----------------------------------------------------
- * That footer relied on ONE line elsewhere:
- * `.mr-page-sheet { position: relative; z-index: 1 }`. The page out-ranked the
- * footer, so the footer painted behind it and was uncovered as the page
- * scrolled up off it. `00cd9ec` (#25) removed that line to fix #6 — a stacking
- * context on the page sheet seals the mobile nav sheet (60), the search sheet
- * (120), `MobileSheet` (60) and the review lightbox (70) under the
- * root-mounted bottom nav (20) — and with it went the only thing holding the
- * footer down. Four rewrites of THIS file followed, each fixing a symptom of a
- * change in a different file:
+ *     .mr-footer-curtain { position: sticky; bottom: 0; z-index: -1 }
  *
- *   1. `fixed; bottom: 0` + a `ResizeObserver` writing `document.body.style.
- *      paddingBottom` — once the footer grew taller than the viewport its own
- *      top edge was pinned off screen and the wordmark was unreachable.
- *   2. `sticky; bottom: 0; z-index: 0` rendered after the sheet — measured on
- *      a Pixel 5: a 697px footer pinned across an 851px viewport with 2465px
- *      of page still scrolling underneath it, all of it unclickable. Without
- *      the sheet's `z-index: 1` the two tied at 0 and the footer won on tree
- *      order, being the later sibling.
- *   3. `sticky; z-index: -1` — corrected the painting and broke hit testing
- *      with it. Every footer link rendered perfectly and did nothing.
- *   4. a `fixed`/`absolute` curtain rendered BEFORE the sheet (#48/#54) — the
- *      reveal worked and the links worked, but it put the footer ahead of the
- *      whole page in the DOM (so keyboard and screen-reader order hit it
- *      first), reserved its band by writing `--mr-footer-h` into `body`'s
- *      padding on every resize, and had to pick between two positions from a
- *      viewport measurement that a mobile toolbar moves (#50).
+ * plus `.mr-app-layer { position: relative; z-index: 1 }` around the page and
+ * the root-mounted overlays, so the page out-ranks the footer while every
+ * overlay keeps its rank relative to every other.
  *
- * WHAT REPLACED THE LINE THAT WAS REMOVED
- * ---------------------------------------
- * `.mr-page-sheet` still declares no z-index and must not — see
- * __tests__/layout/page-sheet-stacking.test.ts. The page's precedence over the
- * footer comes instead from `.mr-app-layer` in app/layout.tsx: ONE stacking
- * context wrapped around the whole application, page and root-mounted overlays
- * together, so every z-index in the app still resolves against every other one
- * and nothing is sealed.
+ * ## No JavaScript. That is the design, not an omission.
  *
- * Inside that layer the footer sits at `z-index: -1`, and THAT is what makes
- * attempt (3) safe now where it was fatal then. A negative-z-index box paints
- * above its stacking context's own background and below that context's in-flow
- * content. In the ROOT context that meant `body` — whose background box paints
- * at the in-flow step — swallowed every pointer event aimed at the footer.
- * Scoped to `.mr-app-layer`, the whole layer paints above `body`, the layer's
- * own box is transparent and paints below its negative child, and the footer
- * takes its own clicks. Verified the only way that counts: `document.
- * elementFromPoint` at each link's own coordinates, then a real pointer click.
+ * This file briefly carried a `ResizeObserver`, a `100svh` probe element, a
+ * `document.fonts.ready` wait and a `data-curtain` state that swapped the
+ * wrapper between `sticky` and `static`. All of it existed to answer one
+ * question — "is the footer taller than the viewport?" — and to fall back to
+ * `position: static` when it was.
  *
- * THE ONE THING THE PRE-SEPTEMBER FOOTER GOT WRONG
- * ------------------------------------------------
- * A sticky box pinned by `bottom: 0` that is TALLER than the scrollport keeps
- * its top edge above the viewport for the whole scroll, including at the end
- * of the document — failure (1), reached by a different road. The footer is
- * ~745px on a 390px-wide phone and plenty of phones are shorter than that, so
- * the case is real and needs the one guard below.
+ * That fallback is what the owner was reporting. The footer is ~748px, so on a
+ * Pixel 5 (727px), an iPhone 12 (664px) and a 1440x720 laptop it answered YES
+ * and dropped the stickiness — which is precisely "vertical under it" rather
+ * than revealed. Every phone lost the effect, and so did any short laptop.
  *
- * `data-curtain="flow"` drops the stickiness and nothing else: the footer
- * stays exactly where it already is in normal flow, as an ordinary last block,
- * and every pixel of it can be scrolled to. Because both states are in flow,
- * the document height and the footer's flow position are IDENTICAL in each —
- * switching cannot move the page under the reader, which is precisely what the
- * previous `fixed`/`absolute` pair did (it toggled `body`'s padding band too).
+ * The fallback was guarding a real property of `position: sticky` — a box
+ * pinned by `bottom: 0` that is taller than the scrollport holds its own top
+ * edge above the viewport while it is pinned. But it un-sticks on reaching its
+ * flow position at the end of the document, which is exactly where the reveal
+ * finishes, so the top is reachable anyway. The pre-September footer had no
+ * such guard and worked; adding one traded the effect for a problem that does
+ * not occur.
  *
- * THE GUARD MUST NOT FLIP MID-SCROLL (#50)
- * ----------------------------------------
- * The measurement is taken against the SMALL viewport (`100svh`, the height
- * with the browser chrome VISIBLE) rather than the live `window.innerHeight`,
- * and the decision is asymmetric with a dead band wider than any mobile
- * toolbar. iOS Safari and Chrome Android collapse and expand their toolbars
- * while you scroll, moving `innerHeight` by 60-100px; a 745px footer on a
- * phone that runs between 727px and 807px genuinely has a different answer
- * depending on where the toolbar happens to be. `svh` is constant across a
- * toolbar collapse by definition; the dead band stops the decision oscillating
- * around the boundary when the measurement is noisy. Demotion is immediate (an
- * unreachable footer is a correctness bug); promotion needs headroom to spare.
+ * ## If the reveal ever needs the footer to fit the viewport
  *
- * Covered by __tests__/layout/footer-stacking.test.ts, the placement audit in
- * __tests__/layout/footer.test.tsx, and
- * e2e/storefront/mobile-scroll-stability.spec.ts.
+ * Shorten the FOOTER, not the mechanism. It is ~748px against a 664px iPhone
+ * viewport — an 84px difference, which is a spacing decision. Reaching for JS
+ * to detect the overflow is how this file grew a scroll listener, a resize
+ * observer and a font-loading race in the first place.
  */
-
-/**
- * The headroom `flow` must gain before it is allowed back to `stuck`. Wider
- * than any mobile browser's toolbar (Chrome Android's is 56dp, Safari's bottom
- * bar comparable; the issues quote a 60-100px band), so nothing a toolbar does
- * can push the measurement across it in either direction.
- */
-const TOOLBAR_DEAD_BAND_PX = 120;
-
-/**
- * The height of the SMALL viewport — the scrollport with the browser's chrome
- * showing — in CSS pixels.
- *
- * There is no JS property for this (`innerHeight` is the LIVE height, which is
- * the whole problem), so it is read the only way it can be: by asking the
- * engine to resolve `100svh` on a throwaway element. Zero-width, hidden and
- * `position: fixed`, so it neither paints, nor takes a hit test, nor
- * contributes to the document's scrollable area.
- *
- * `Math.min` with `innerHeight` is the degradation path, and it degrades the
- * safe way: an engine that doesn't understand `svh` resolves the height to 0
- * and we fall through to `innerHeight`, while an engine that does can never
- * report a small viewport LARGER than the live one.
- */
-function readSmallViewportHeight(): number {
-  if (typeof window === 'undefined') return 0;
-  const live = window.innerHeight;
-  if (typeof document === 'undefined' || !document.body) return live;
-  const probe = document.createElement('div');
-  probe.setAttribute('aria-hidden', 'true');
-  probe.style.cssText =
-    'position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none;';
-  document.body.appendChild(probe);
-  const measured = Math.floor(probe.getBoundingClientRect().height);
-  probe.remove();
-  // jsdom has no layout engine, so `measured` is 0 there and every unit test
-  // keeps comparing against `innerHeight` exactly as it did before.
-  return measured > 0 ? Math.min(measured, live) : live;
-}
-
-/**
- * The ONLY thing this hook still decides: whether the footer is short enough
- * to be pinned. It writes no CSS custom property, touches no `body` style and
- * reserves no band — the footer is in normal flow and carries its own height,
- * which is the entire point of going back to `sticky`.
- */
-function useFooterCurtain() {
-  const ref = useRef<HTMLDivElement>(null);
-  /**
-   * Optimistic: the reveal is the point, and it is correct on every viewport
-   * the footer fits in. The measurement below demotes it inside the first
-   * effect if it does not fit — long before a shopper could have scrolled to
-   * the bottom of the page to see it.
-   */
-  const [stuck, setStuck] = useState(true);
-  const smallViewportH = useRef(0);
-  const measuredAtWidth = useRef(-1);
-  const measuredAtHeight = useRef(-1);
-  /**
-   * Whether the webfonts have settled. Until they have, the height being
-   * measured is not the footer's real height and must not be allowed to make a
-   * one-way decision — see the note on `decide` below.
-   */
-  const fontsSettled = useRef(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    /**
-     * The cache is the second line of defence, and it is what makes this hold
-     * even in an engine with no `svh` support at all. A toolbar collapse
-     * changes the viewport's HEIGHT ONLY and by less than the dead band, so it
-     * re-uses the cached reading and reaches the same verdict. A genuine
-     * layout change — a rotation, a window drag, a split screen — changes the
-     * width, or the height by more than any toolbar could, and re-probes. It
-     * is also a performance guard: appending the probe forces a synchronous
-     * layout, and Chrome Android fires a resize storm for the whole duration
-     * of the toolbar animation.
-     */
-    const stableViewportHeight = () => {
-      const width = window.innerWidth;
-      const live = window.innerHeight;
-      if (
-        smallViewportH.current <= 0 ||
-        width !== measuredAtWidth.current ||
-        Math.abs(live - measuredAtHeight.current) > TOOLBAR_DEAD_BAND_PX
-      ) {
-        measuredAtWidth.current = width;
-        measuredAtHeight.current = live;
-        smallViewportH.current = readSmallViewportHeight();
-      }
-      return smallViewportH.current;
-    };
-
-    /*
-     * THE DEAD BAND IS ASYMMETRIC, AND IT MUST NOT APPLY BEFORE THE WEBFONTS
-     * LAND.
-     *
-     * The band exists to stop the mode oscillating when the VIEWPORT
-     * measurement is noisy — a mobile toolbar collapsing and expanding under
-     * the reader's finger (#50). Demotion is immediate because a footer that
-     * does not fit is unreachable, which is a correctness bug, not a taste one;
-     * promotion needs real headroom so no plausible wobble can walk the mode
-     * back and forth.
-     *
-     * But the FOOTER's own height is noisy exactly once, at the start, and in
-     * one direction. Measured on the production build at 1440x720: this footer
-     * reads 840px at 154ms, on the fallback fonts, and 667px at 385ms once
-     * Jost/Cormorant/Inter Tight have swapped in. 840 > 720 demotes, and then
-     * 667 can never promote back because the band demands 600. A 1440x720
-     * laptop therefore lost the reveal permanently — with 53px of headroom to
-     * spare — on the strength of a reading taken before the page had its
-     * fonts. That is a large part of "sometimes reveals correctly and sometimes
-     * opens as if its under the webpage", and it is not a toolbar at all.
-     *
-     * So until `document.fonts.ready` resolves the decision is symmetric: it
-     * may promote as freely as it demotes, because what is changing is the
-     * footer settling, not the viewport moving. Demotion stays immediate
-     * throughout, so the unreachable-footer case is never entered; and the
-     * window closes on a one-off event that fires long before a mobile toolbar
-     * could have moved, so #50's guarantee is untouched.
-     */
-    const measure = (settling = !fontsSettled.current) => {
-      const height = Math.ceil(el.getBoundingClientRect().height);
-      const viewport = stableViewportHeight();
-      // `settling` is captured here, not read inside the updater: React may run
-      // the updater after the flag has been flipped, and the whole point is
-      // that THIS reading is the one allowed to promote freely.
-      setStuck((wasStuck) =>
-        wasStuck || settling ? height <= viewport : height <= viewport - TOOLBAR_DEAD_BAND_PX,
-      );
-    };
-
-    // A listener, never `measure` itself: `ResizeObserver` and `resize` both
-    // call their callback with an argument, and a truthy one would silently
-    // mean "still settling" forever.
-    const onChange = () => measure();
-
-    measure();
-
-    // `document.fonts` is absent in jsdom and in older engines; there the flag
-    // is set immediately and the mode behaves exactly as it did before, the
-    // same degradation path the `svh` probe takes.
-    let cancelled = false;
-    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
-    if (fonts?.ready) {
-      const settle = () => {
-        if (cancelled) return;
-        // The re-measure comes FIRST and is still a settling one, so the real
-        // post-font height gets its one chance to promote; the band applies to
-        // everything after it.
-        measure(true);
-        fontsSettled.current = true;
-      };
-      fonts.ready.then(settle).catch(settle);
-    } else {
-      fontsSettled.current = true;
-    }
-
-    const observer =
-      typeof ResizeObserver === 'function' ? new ResizeObserver(onChange) : null;
-    observer?.observe(el);
-    window.addEventListener('resize', onChange);
-    window.addEventListener('orientationchange', onChange);
-
-    return () => {
-      cancelled = true;
-      observer?.disconnect();
-      window.removeEventListener('resize', onChange);
-      window.removeEventListener('orientationchange', onChange);
-    };
-  }, []);
-
-  return { ref, stuck };
-}
 
 
 function EbneelySignature() {
@@ -351,8 +127,6 @@ export default function Footer({
   shopName?: string;
 }) {
   const { mobile } = useBreakpoint();
-  const { ref: curtainRef, stuck } = useFooterCurtain();
-
   return (
     /*
       The curtain wrapper — the thing that is positioned, so that `<footer>`
@@ -366,11 +140,7 @@ export default function Footer({
       The height is measured from THIS element for the same reason: what has to
       fit the viewport is everything being revealed, not just `<footer>`.
     */
-    <div
-      ref={curtainRef}
-      className="mr-footer-curtain"
-      data-curtain={stuck ? 'stuck' : 'flow'}
-    >
+    <div className="mr-footer-curtain">
       <EbneelySignature />
       <footer
         data-mr-surface="ink"
