@@ -230,11 +230,48 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
     product.isMinirueOwned ?? false,
   );
 
+  /**
+   * Hoisted so the badge row can be skipped entirely when it is empty.
+   *
+   * Most of the catalogue carries neither `gender` nor `fragranceFamily`
+   * (Black Opium is one of them), and the row was still rendering as an empty
+   * flex box with a 32px bottom margin — 32px of nothing in a column that is
+   * measurably short of room on a 720-tall laptop, which is part of why the
+   * service lines below it ended up under the fold (#42).
+   */
+  const tags = [product.gender, product.fragranceFamily].filter(Boolean) as string[];
+
   return (
     <div
       data-testid="product-info-panel"
       data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-info-panel"
-      style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+      /**
+       * Centred, not left-aligned (#42).
+       *
+       * The owner's report was "'BLACK OPIUM EAU DE PARFUM' YSL … where we put
+       * brand name and name of item its not properly centered". Measured, the
+       * COLUMN was already centred: `lg:px-[clamp(32px,4vw,56px)]` puts 57.6px
+       * of padding on both sides of a 605px column at 1440. What is off is the
+       * TYPE — left-aligned and ragged, so on the widest line ("EAU DE
+       * PARFUM", ending ~460px) the block carried 57px of space on the left
+       * and ~145px on the right and read as shoved against the left edge.
+       * Balancing the padding would have been a no-op on an already-symmetric
+       * box, so the honest reading of the complaint is the alignment.
+       *
+       * It is the whole panel, not just the brand and the title. Centring the
+       * eyebrow and the H1 while the price, the OPTIONS label and the pills
+       * below them stayed left would read as a mistake rather than a choice —
+       * and every row here centres cleanly: the price is one short line, the
+       * size pills are a wrapping row, the buy button is already full width
+       * with its own label centred. It also matches the page's own voice; the
+       * editorial panel between the photographs is centred type on the same
+       * product.
+       *
+       * `alignItems` is deliberately left at `stretch`. Switching it to
+       * `center` would shrink-wrap every child and cost the buy button its
+       * full width.
+       */
+      style={{ flex: 1, display: 'flex', flexDirection: 'column', textAlign: 'center' }}
     >
       <div
         style={{
@@ -324,6 +361,9 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
             variants={activeVariants}
             selectedId={selectedVariant?.id ?? null}
             onChange={onSelectVariant}
+            // The label inherits the panel's `textAlign`, but the pills are a
+            // flex row and have to be told.
+            align="center"
             traceIdPrefix="PG-STOREFRONT-CAT-005::EL-TOGGLE-variant-option"
           />
         </div>
@@ -335,7 +375,10 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           display: 'flex',
           gap: 12,
           alignItems: 'center',
-          marginBottom: 36,
+          // Height-aware, like the column's top padding: a 720-tall laptop is
+          // short of room and this is the largest discretionary gap in the
+          // panel. Unchanged on anything 900 and taller.
+          marginBottom: 'clamp(24px,4vh,36px)',
           animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
           animationDelay: '500ms',
         }}
@@ -415,9 +458,10 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'center',
           flexWrap: 'wrap',
           gap: 10,
-          marginBottom: 24,
+          marginBottom: 'clamp(16px,2.5vh,24px)',
           animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
           animationDelay: '520ms',
         }}
@@ -441,18 +485,21 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         {selectedVariant?.sku && <SkuCopyButton sku={selectedVariant.sku} />}
       </div>
 
-      {/* Gender + fragrance family badges */}
+      {/* Gender + fragrance family badges — nothing at all when there are
+          none, rather than an empty 32px-tall gap. */}
+      {tags.length > 0 && (
       <div
         style={{
           display: 'flex',
           gap: 8,
           flexWrap: 'wrap',
+          justifyContent: 'center',
           marginBottom: 32,
           animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
           animationDelay: '540ms',
         }}
       >
-        {[product.gender, product.fragranceFamily].filter(Boolean).map((tag) => (
+        {tags.map((tag) => (
           <span
             key={tag}
             data-trace-id={`PG-STOREFRONT-CAT-005::EL-BADGE-product-tag@${tag}`}
@@ -471,15 +518,34 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           </span>
         ))}
       </div>
+      )}
 
-      {/* Service row */}
+      {/*
+        Service row.
+
+        It used to be `marginTop: 'auto'`, which parked it on the bottom edge
+        of a `100vh` column — and the column does not start at the top of the
+        viewport. `components/layout/Header.tsx` is `position: sticky` and 89px
+        tall until the page is scrolled, so at rest an `h-screen` column runs
+        from y=89 to y=989 on a 900-tall screen and its last 89px — precisely
+        where the auto margin put these two lines — sits below the fold. That
+        is the "cut out" in #42: measured on production, 1440x800 sliced the
+        second line 17px below the edge and 1280x720 put both lines 55-85px
+        under it.
+
+        So the row is no longer bottom-anchored. It follows the copy it
+        belongs to, which is where it reads better anyway — the auto margin
+        was also opening a ~150px hole in the middle of the column between the
+        share row and these lines. `paddingTop` carries the separation on its
+        own.
+      */}
       <div
         data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-shipping-service-info"
         style={{
-          marginTop: 'auto',
-          paddingTop: 32,
+          paddingTop: 'clamp(24px,4vh,40px)',
           display: 'flex',
           flexDirection: 'column',
+          alignItems: 'center',
           gap: 12,
           fontFamily: 'var(--mr-font-ui)',
           fontSize: 'var(--mr-text-xs)',
@@ -814,16 +880,53 @@ export default function ApiProductDetail({
         <ProductBackButton onBack={onBack} />
       </div>
 
-      {/* LEFT on a laptop / BELOW the photographs on a phone: the copy. */}
+      {/* LEFT on a laptop / BELOW the photographs on a phone: the copy.
+
+          `lg:h-screen` + `lg:overflow-y-auto` is what pins this column beside
+          the photographs, and it stays — but two details of it were cutting
+          the service lines off the bottom of the page (#42).
+
+          1. `scrollbar-hide` is gone from this element. It was hiding the only
+             signal that the column has more to read: on a 720-tall laptop the
+             copy needs ~810px and there is no other affordance. It is kept
+             where it belongs — AccountLayoutClient's horizontal mobile nav
+             scroller, where a hidden bar is the convention and a sideways
+             strip of chips announces itself as swipeable. A vertical column
+             that looks like a finished page does not. In its place: a thin
+             hairline-coloured bar, quiet enough for this layout and honest
+             about the overflow. */}
       <aside
-        className="order-3 lg:order-1 lg:sticky lg:top-0 lg:h-screen lg:w-[46%] lg:flex-shrink-0 lg:self-start lg:overflow-y-auto lg:border-r xl:w-[42%] scrollbar-hide"
-        style={{ borderColor: 'var(--mr-hairline)' }}
+        className="order-3 lg:order-1 lg:sticky lg:top-0 lg:h-screen lg:w-[46%] lg:flex-shrink-0 lg:self-start lg:overflow-y-auto lg:border-r xl:w-[42%]"
+        style={{
+          borderColor: 'var(--mr-hairline)',
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'var(--mr-hairline) transparent',
+        }}
       >
+        {/*
+          2. `lg:min-h-full`, not `lg:h-full`. At exactly 100% the box could
+             never grow, so when the copy outgrew it the overflow was absorbed
+             by this element's own 96px of bottom padding instead of extending
+             the scroll area — measured on production, `scrollHeight ===
+             clientHeight` at every viewport, i.e. the column was not
+             scrollable AT ALL and the last line simply ended 4px above the
+             bottom edge with no way to bring the padding back. As a minimum
+             it still fills the viewport (so a short product's copy is not
+             floating in a half-height panel), but it may now exceed it, which
+             is what makes the padding below the last line real space.
+
+          The top rhythm is height-aware as well as width-aware. `5vw` says
+          nothing about a 1440x720 laptop, which is wide and short — exactly
+          the shape where this column runs out of room — so a plain
+          `max-height` query tightens the head of the column there and leaves
+          a normal laptop alone. 820px is the threshold because a 900-tall
+          screen has room to spare and an 800-tall one does not.
+        */}
         <div
-          className="flex flex-col px-[clamp(20px,5vw,32px)] pb-[clamp(64px,14vw,96px)] pt-[clamp(32px,8vw,56px)] lg:h-full lg:px-[clamp(32px,4vw,56px)] lg:pt-[clamp(40px,5vw,64px)]"
+          className="flex flex-col px-[clamp(20px,5vw,32px)] pb-[clamp(64px,14vw,96px)] pt-[clamp(32px,8vw,56px)] lg:min-h-full lg:px-[clamp(32px,4vw,56px)] lg:pt-[clamp(40px,5vw,64px)] lg:[@media(max-height:820px)]:pt-8"
           style={{ background: 'inherit' }}
         >
-          <div className="mb-12 hidden lg:block">
+          <div className="mb-12 hidden lg:block lg:[@media(max-height:820px)]:mb-6">
             <ProductBackButton onBack={onBack} />
           </div>
           <div style={{ ...copyEnt, display: 'flex', flexDirection: 'column', flex: 1 }}>
