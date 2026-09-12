@@ -461,4 +461,72 @@ describe('Footer curtain — the mode must not change mid-scroll (#50)', () => {
     setViewportHeight(900);
     expect(mode(container)).toBe('stuck');
   });
+
+  /**
+   * The other half of "sometimes reveals correctly and sometimes opens as if
+   * its under the webpage", and it is not a toolbar at all.
+   *
+   * The dead band is asymmetric so a noisy VIEWPORT cannot walk the mode back
+   * and forth. But the FOOTER's own height is noisy exactly once, at the start,
+   * and in one direction: measured on the production build at 1440x720, this
+   * footer reads 840px at 154ms on the fallback fonts and 667px at 385ms once
+   * the webfonts swap in. 840 > 720 demotes; 667 can then never promote back,
+   * because the band demands 600. That laptop lost the reveal permanently, with
+   * 53px of headroom to spare, on the strength of a reading taken before the
+   * page had its fonts.
+   *
+   * Until `document.fonts.ready` resolves the decision is symmetric — what is
+   * changing is the footer settling, not the viewport moving. Demotion stays
+   * immediate throughout, so the unreachable-footer case is never entered.
+   */
+  it('a height measured before the webfonts land cannot demote it for good', async () => {
+    const original = Object.getOwnPropertyDescriptor(document, 'fonts');
+    let landFonts: () => void = () => {};
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      value: { ready: new Promise<void>((resolve) => { landFonts = resolve; }) },
+    });
+
+    try {
+      // First paint, fallback fonts: the footer measures far taller than it
+      // will end up. Demotion is still immediate — that part is correctness.
+      stubCurtainHeight(840);
+      const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
+      expect(mode(container)).toBe('flow');
+
+      // The webfonts land and the footer is its real height, which fits the
+      // 727px viewport with room to spare — but NOT by the 120px the toolbar
+      // dead band would demand (667 > 727 - 120). Before this fix it stayed in
+      // `flow` for the life of the page.
+      stubCurtainHeight(667);
+      await act(async () => {
+        landFonts();
+        // The component registered its own `.then` on this same promise before
+        // we resolved it, so awaiting it here lets that callback run first;
+        // the extra tick flushes the state update it schedules.
+        await (document.fonts as unknown as { ready: Promise<void> }).ready;
+        await Promise.resolve();
+      });
+      expect(mode(container)).toBe('stuck');
+
+      // And from here nothing has changed about #50. A toolbar-sized move is
+      // inside the dead band, so it re-uses the cached small-viewport reading
+      // and does not touch the mode...
+      setViewportHeight(660);
+      expect(mode(container)).toBe('stuck');
+      setViewportHeight(727);
+      expect(mode(container)).toBe('stuck');
+
+      // ...while a genuine viewport change still demotes immediately, and the
+      // band still refuses to promote back on less than a toolbar's headroom
+      // (667 needs 787 to return, and 727 is not it).
+      setViewportHeight(600);
+      expect(mode(container)).toBe('flow');
+      setViewportHeight(727);
+      expect(mode(container)).toBe('flow');
+    } finally {
+      if (original) Object.defineProperty(document, 'fonts', original);
+      else delete (document as unknown as { fonts?: unknown }).fonts;
+    }
+  });
 });

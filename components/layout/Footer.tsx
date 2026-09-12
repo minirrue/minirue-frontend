@@ -188,6 +188,12 @@ function useFooterCurtain() {
   const smallViewportH = useRef(0);
   const measuredAtWidth = useRef(-1);
   const measuredAtHeight = useRef(-1);
+  /**
+   * Whether the webfonts have settled. Until they have, the height being
+   * measured is not the footer's real height and must not be allowed to make a
+   * one-way decision — see the note on `decide` below.
+   */
+  const fontsSettled = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -219,26 +225,82 @@ function useFooterCurtain() {
       return smallViewportH.current;
     };
 
-    const measure = () => {
+    /*
+     * THE DEAD BAND IS ASYMMETRIC, AND IT MUST NOT APPLY BEFORE THE WEBFONTS
+     * LAND.
+     *
+     * The band exists to stop the mode oscillating when the VIEWPORT
+     * measurement is noisy — a mobile toolbar collapsing and expanding under
+     * the reader's finger (#50). Demotion is immediate because a footer that
+     * does not fit is unreachable, which is a correctness bug, not a taste one;
+     * promotion needs real headroom so no plausible wobble can walk the mode
+     * back and forth.
+     *
+     * But the FOOTER's own height is noisy exactly once, at the start, and in
+     * one direction. Measured on the production build at 1440x720: this footer
+     * reads 840px at 154ms, on the fallback fonts, and 667px at 385ms once
+     * Jost/Cormorant/Inter Tight have swapped in. 840 > 720 demotes, and then
+     * 667 can never promote back because the band demands 600. A 1440x720
+     * laptop therefore lost the reveal permanently — with 53px of headroom to
+     * spare — on the strength of a reading taken before the page had its
+     * fonts. That is a large part of "sometimes reveals correctly and sometimes
+     * opens as if its under the webpage", and it is not a toolbar at all.
+     *
+     * So until `document.fonts.ready` resolves the decision is symmetric: it
+     * may promote as freely as it demotes, because what is changing is the
+     * footer settling, not the viewport moving. Demotion stays immediate
+     * throughout, so the unreachable-footer case is never entered; and the
+     * window closes on a one-off event that fires long before a mobile toolbar
+     * could have moved, so #50's guarantee is untouched.
+     */
+    const measure = (settling = !fontsSettled.current) => {
       const height = Math.ceil(el.getBoundingClientRect().height);
       const viewport = stableViewportHeight();
+      // `settling` is captured here, not read inside the updater: React may run
+      // the updater after the flag has been flipped, and the whole point is
+      // that THIS reading is the one allowed to promote freely.
       setStuck((wasStuck) =>
-        wasStuck ? height <= viewport : height <= viewport - TOOLBAR_DEAD_BAND_PX,
+        wasStuck || settling ? height <= viewport : height <= viewport - TOOLBAR_DEAD_BAND_PX,
       );
     };
 
+    // A listener, never `measure` itself: `ResizeObserver` and `resize` both
+    // call their callback with an argument, and a truthy one would silently
+    // mean "still settling" forever.
+    const onChange = () => measure();
+
     measure();
 
+    // `document.fonts` is absent in jsdom and in older engines; there the flag
+    // is set immediately and the mode behaves exactly as it did before, the
+    // same degradation path the `svh` probe takes.
+    let cancelled = false;
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (fonts?.ready) {
+      const settle = () => {
+        if (cancelled) return;
+        // The re-measure comes FIRST and is still a settling one, so the real
+        // post-font height gets its one chance to promote; the band applies to
+        // everything after it.
+        measure(true);
+        fontsSettled.current = true;
+      };
+      fonts.ready.then(settle).catch(settle);
+    } else {
+      fontsSettled.current = true;
+    }
+
     const observer =
-      typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+      typeof ResizeObserver === 'function' ? new ResizeObserver(onChange) : null;
     observer?.observe(el);
-    window.addEventListener('resize', measure);
-    window.addEventListener('orientationchange', measure);
+    window.addEventListener('resize', onChange);
+    window.addEventListener('orientationchange', onChange);
 
     return () => {
+      cancelled = true;
       observer?.disconnect();
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('orientationchange', measure);
+      window.removeEventListener('resize', onChange);
+      window.removeEventListener('orientationchange', onChange);
     };
   }, []);
 
