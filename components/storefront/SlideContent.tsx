@@ -13,6 +13,29 @@ interface SlideContentProps {
   onShop?: () => void;
 }
 
+/** `#abc` or `#aabbcc`, nothing else. */
+const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+/**
+ * An admin-authored colour, or `null` if it is not one.
+ *
+ * These arrive from the dashboard through the API, and a value that reaches a
+ * CSS property is a value the browser will try to interpret — historically the
+ * hole `expression()` crawled through, and still a way to smuggle `url(...)`
+ * fetches or an inherited `!important` past a reviewer. The backend validates
+ * hex, but the backend is not the only thing that can put a string in this
+ * field: a layout cached before the validation landed, or an older deployment,
+ * carries whatever it carried. So this side validates too, and anything that
+ * is not a plain hex triple is dropped rather than sanitised — a wrong colour
+ * is a bug report, a passed-through string is a vulnerability.
+ *
+ * Dropping (returning null) is also what makes the whole feature fail safe:
+ * every caller treats null exactly like absent, i.e. leaves today's styling.
+ */
+export function safeHexColor(value: string | null | undefined): string | null {
+  return typeof value === 'string' && HEX.test(value) ? value : null;
+}
+
 export default function SlideContent({ slide, mobile, isActive, onShop }: SlideContentProps) {
   const [mounted, setMounted] = React.useState(false);
 
@@ -50,6 +73,59 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
         : slide.imageSrcSet
       : null;
   const hasSrcSet = Boolean(heroSrcSet && Object.keys(heroSrcSet).length > 0);
+
+  /*
+   * Admin-chosen copy colours.
+   *
+   * Each is spread in conditionally rather than written as
+   * `color: slide.eyebrowColor ?? 'var(--mr-...)'`. The `??` form looks
+   * equivalent but is not: it restates the current colour as a literal in this
+   * file, so the day the theme moves the eyebrow off `rgba(238,230,209,.6)` or
+   * the headline off `--mr-cream-100`, every slide with no colour set silently
+   * keeps the OLD one. Spreading nothing leaves the existing declaration
+   * untouched and the cascade is still the single source of truth — which
+   * matters most here, because "nothing set" is every slide in production
+   * until an admin opens a picker.
+   */
+  const eyebrowColor = safeHexColor(slide.eyebrowColor);
+  const headlineColor = safeHexColor(slide.headlineColor);
+  const subColor = safeHexColor(slide.subColor);
+  const taglineColor = safeHexColor(slide.taglineColor);
+
+  /*
+   * The CTA pair is all-or-nothing.
+   *
+   * The pill is a coordinated set — cream fill, ink label, ink hover sweep —
+   * and half of it is how an admin makes an invisible button: pick a cream-ish
+   * fill and the ink label survives, pick an ink-ish fill and the ink label
+   * vanishes into it; set only the label colour and the same trap runs the
+   * other way on the cream fill. Neither picker can be judged on its own, and
+   * the dashboard shows both, so requiring both costs one extra click and
+   * removes the entire failure mode. One alone falls back to today's pill.
+   */
+  const ctaBg = safeHexColor(slide.ctaBgColor);
+  const ctaFg = safeHexColor(slide.ctaTextColor);
+  const ctaColors = ctaBg && ctaFg ? { bg: ctaBg, fg: ctaFg } : null;
+
+  /*
+   * `.mr-hero-cta` inverts on hover by gliding a `--sweep-color` panel (ink)
+   * under a label that a CSS rule turns cream. An inline `color` beats that
+   * rule, so a custom label colour would sit on the ink panel whatever it is —
+   * a dark custom label would disappear on hover. Pointing the sweep at the
+   * chosen FILL keeps the panel invisible instead: the hover animation still
+   * runs, it just no longer changes anything, and the pair the admin picked is
+   * legible in every state. Restoring a real inverted sweep needs a rule in
+   * `app/styles/mr-tokens.css`, which another change owns right now; it is
+   * called out in the PR as a follow-up.
+   */
+  const ctaStyle = ctaColors
+    ? ({
+        background: ctaColors.bg,
+        borderColor: ctaColors.bg,
+        color: ctaColors.fg,
+        ['--sweep-color' as string]: ctaColors.bg,
+      } as React.CSSProperties)
+    : undefined;
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -131,6 +207,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
             letterSpacing: '0.32em',
             textTransform: 'uppercase',
             color: 'rgba(238,230,209,0.6)',
+            ...(eyebrowColor ? { color: eyebrowColor } : {}),
             marginBottom: 16,
             opacity: mounted ? 1 : 0,
             transform: mounted ? 'translateY(0)' : 'translateY(8px)',
@@ -148,6 +225,10 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
             letterSpacing: '-0.02em',
             margin: '0 0 8px',
             color: 'var(--mr-cream-100)',
+            ...(headlineColor ? { color: headlineColor } : {}),
+            /* The shadow stays either way — it is what separates the copy from
+               a busy photograph, and dropping it with a colour set would make
+               "pick a colour" quietly also mean "lose the lift". */
             textShadow: '0 2px 24px rgba(0,0,0,0.35)',
             opacity: mounted ? 1 : 0,
             transform: mounted ? 'translateY(0)' : 'translateY(20px)',
@@ -166,6 +247,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
             letterSpacing: '-0.015em',
             margin: '0 0 20px',
             color: 'var(--mr-gold-300)',
+            ...(subColor ? { color: subColor } : {}),
             textShadow: '0 2px 16px rgba(0,0,0,0.3)',
             opacity: mounted ? 1 : 0,
             transform: mounted ? 'translateY(0)' : 'translateY(20px)',
@@ -180,6 +262,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
             fontStyle: 'italic',
             fontSize: mobile ? 15 : 18,
             color: 'rgba(246,242,233,0.6)',
+            ...(taglineColor ? { color: taglineColor } : {}),
             margin: '0 0 32px',
             maxWidth: 400,
             opacity: mounted ? 1 : 0,
@@ -208,7 +291,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
               scroll to the products); the appearance does not.
             */}
             {slide.ctaHref ? (
-              <a href={slide.ctaHref} className="mr-hero-cta">
+              <a href={slide.ctaHref} className="mr-hero-cta" style={ctaStyle}>
                 {/* Wrapped, not bare text. `.mr-hero-cta::before` is a positioned
                     z-index:0 panel, and CSS paints positioned descendants ABOVE an
                     element's own inline content — so an unwrapped label is covered
@@ -217,7 +300,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
                 <span>{slide.ctaLabel}</span>
               </a>
             ) : (
-              <button type="button" className="mr-hero-cta" onClick={onShop}>
+              <button type="button" className="mr-hero-cta" style={ctaStyle} onClick={onShop}>
                 <span>{slide.ctaLabel}</span>
               </button>
             )}
