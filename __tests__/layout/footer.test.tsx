@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import Footer from '@/components/layout/Footer';
@@ -281,5 +281,119 @@ describe('Footer section rhythm — single shared gap (Owner request 2026-07-31)
     const socials = screen.getByTestId('footer-socials');
     const columns = screen.getByTestId('footer-columns');
     expect(socials.style.marginTop).toBe(columns.style.marginTop);
+  });
+});
+
+/**
+ * #50 — "the footer is still broken, sometimes reveals correctly and sometimes
+ * opens as if its under the webpage… snaps to change its position".
+ *
+ * The curtain has two modes and both are correct (see the long note in
+ * Footer.tsx). What was not correct is that the CHOICE between them was
+ * recomputed from `window.innerHeight` — which on a phone is not a constant.
+ * iOS Safari and Chrome Android collapse and expand their toolbars during a
+ * scroll, moving it by 60-100px; the footer is ~749px on a 393px-wide phone and
+ * a Pixel 5 in Chrome runs 727px (toolbar visible) to ~807px (collapsed), so
+ * the comparison genuinely had a different answer depending on where the
+ * toolbar happened to be, and the element jumped between `fixed` and `absolute`
+ * under the reader's finger.
+ *
+ * jsdom has no layout engine, so `100svh` resolves to 0 and
+ * `readSmallViewportHeight` falls through to `innerHeight` — which is exactly
+ * the degradation path a browser without `svh` support takes, and it means
+ * these tests exercise the OTHER half of the fix: the asymmetric, toolbar-proof
+ * dead band. The `svh` half is covered end-to-end by
+ * e2e/storefront/mobile-scroll-stability.spec.ts, which counts `data-curtain`
+ * changes while resizing a real viewport mid-scroll.
+ */
+describe('Footer curtain — the mode must not change mid-scroll (#50)', () => {
+  const PHONE_SMALL_VH = 727; // Pixel 5, Chrome toolbar VISIBLE
+  const PHONE_LARGE_VH = 807; // the same phone, toolbar collapsed
+  let originalRect: typeof HTMLElement.prototype.getBoundingClientRect;
+
+  /** Make the curtain report a fixed height; everything else keeps jsdom's zero rect. */
+  function stubCurtainHeight(height: number) {
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const rect = originalRect.call(this);
+      if (this.classList?.contains('mr-footer-curtain')) {
+        return { ...rect, height } as DOMRect;
+      }
+      return rect;
+    };
+  }
+
+  function setViewportHeight(height: number) {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+  }
+
+  function mode(container: HTMLElement): string | null {
+    return container.querySelector('.mr-footer-curtain')!.getAttribute('data-curtain');
+  }
+
+  beforeEach(() => {
+    originalRect = HTMLElement.prototype.getBoundingClientRect;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 393 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: PHONE_SMALL_VH });
+  });
+
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = originalRect;
+  });
+
+  it('falls back to flow for a footer taller than the viewport, as it always did', () => {
+    stubCurtainHeight(749);
+    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
+    // 749 > 727: pinned, its own top edge would be off screen and unreachable —
+    // failure (1) in the Footer.tsx history. Demotion is immediate for exactly
+    // that reason; it is a correctness rule, not a preference.
+    expect(mode(container)).toBe('flow');
+  });
+
+  it('does not flip back to pinned when the toolbar collapses', () => {
+    stubCurtainHeight(749);
+    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
+    expect(mode(container)).toBe('flow');
+
+    // THE BUG. 749 <= 807 is true, so the old code promoted to `pinned` here —
+    // and demoted again the moment the toolbar came back. One flip per toolbar
+    // movement, under the reader's finger.
+    setViewportHeight(PHONE_LARGE_VH);
+    expect(mode(container)).toBe('flow');
+
+    setViewportHeight(PHONE_SMALL_VH);
+    expect(mode(container)).toBe('flow');
+
+    setViewportHeight(PHONE_LARGE_VH);
+    expect(mode(container)).toBe('flow');
+  });
+
+  it('stays pinned across a toolbar cycle when the footer genuinely fits', () => {
+    stubCurtainHeight(420);
+    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
+    expect(mode(container)).toBe('pinned');
+
+    setViewportHeight(PHONE_LARGE_VH);
+    expect(mode(container)).toBe('pinned');
+    setViewportHeight(PHONE_SMALL_VH);
+    expect(mode(container)).toBe('pinned');
+  });
+
+  it('promotes back to pinned only on a viewport with real headroom to spare', () => {
+    stubCurtainHeight(749);
+    const { container } = render(<Footer config={FALLBACK_CHROME.footer} />);
+    expect(mode(container)).toBe('flow');
+
+    // A genuine resize that clears the footer by less than a toolbar's worth is
+    // still refused — that margin is what stops the mode oscillating around the
+    // boundary when the measurement itself is noisy.
+    setViewportHeight(800);
+    expect(mode(container)).toBe('flow');
+
+    // Clear headroom (749 + the 120px dead band = 869): the reveal comes back.
+    setViewportHeight(900);
+    expect(mode(container)).toBe('pinned');
   });
 });

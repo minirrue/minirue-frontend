@@ -64,11 +64,52 @@ beforeAll(() => {
   window.cancelAnimationFrame = () => {};
 });
 
-function scrollTo(y: number) {
+/**
+ * A controllable clock for the hook's flip cooldown (#51).
+ *
+ * `useScrollDirection` refuses to change direction twice inside
+ * `cooldownMs` (320ms by default) so the bars cannot be asked to reverse
+ * while their own transition is still running. Everything in this file
+ * happens inside a single synchronous tick, so without a clock every
+ * scripted gesture after the first would land inside that window and be
+ * deferred — the test would be measuring the cooldown rather than the thing
+ * it means to test.
+ *
+ * Each `scrollTo` below is a separate DELIBERATE gesture, so the clock moves
+ * past the cooldown between them. Sub-threshold nudges within one gesture use
+ * `nudgeTo`, which does not advance it.
+ */
+let clockMs = 0;
+let nowSpy: jest.SpyInstance<number, []>;
+beforeAll(() => {
+  nowSpy = jest.spyOn(performance, 'now').mockImplementation(() => clockMs);
+});
+afterAll(() => nowSpy.mockRestore());
+beforeEach(() => {
+  clockMs = 0;
+  // `window.scrollY` is a property on a shared window, so without this each
+  // test inherits wherever the previous one left the page — and the hook
+  // anchors to the scroll position it finds at mount, so that leak decides
+  // whether the first gesture reads as up or down. Start every test at the top.
+  Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+});
+
+function dispatchScroll(y: number) {
   Object.defineProperty(window, 'scrollY', { configurable: true, value: y });
   act(() => {
     window.dispatchEvent(new Event('scroll'));
   });
+}
+
+/** A deliberate gesture: far enough apart in time to clear the flip cooldown. */
+function scrollTo(y: number) {
+  clockMs += 500;
+  dispatchScroll(y);
+}
+
+/** A movement WITHIN one gesture — no time passes, as on a real finger. */
+function nudgeTo(y: number) {
+  dispatchScroll(y);
 }
 
 function bar(): HTMLElement {
@@ -116,16 +157,45 @@ describe('MobileBottomNav (W4a.2)', () => {
     scrollTo(500);
     scrollTo(400); // a real upward move — direction flips to 'up', bar hides
     expect(bar().style.transform).toBe('translateY(100%)');
-    scrollTo(403); // +3px — below the ~8px threshold; without it this alone
-    // would read as "scrolling down" and flip the bars right back.
+    nudgeTo(403); // +3px — nowhere near the 56px needed to claim "down".
     expect(bar().style.transform).toBe('translateY(100%)');
+  });
+
+  /**
+   * #51, the actual report: "the upper navbar flashes many times under one
+   * second when sliding slowly". A thumb roll-back on a Pixel 5 is ~11 CSS px
+   * (≈5.6 CSS px per mm), which comfortably beat the hook's old symmetric 8px
+   * threshold — so every wobble of a slow drag flipped both bars. The run's
+   * EXTREME is the anchor now, so forward creep cannot walk the baseline up
+   * behind the finger and a wobble is measured against how far the page has
+   * really come.
+   */
+  it('ignores the roll-back of a slow thumb drag instead of strobing', () => {
+    setViewportWidth(600);
+    renderNav();
+    scrollTo(200); // a decisive downward gesture — bar slides in
+    expect(bar().style.transform).toBe('translateY(0)');
+
+    // One slow drag: forward, forward, roll back 11px, forward… all inside the
+    // same gesture, so no time passes and the cooldown is not what is being
+    // tested here. The bar must not move once.
+    let y = 200;
+    for (let i = 0; i < 12; i++) {
+      y += 13;
+      nudgeTo(y);
+      y += 13;
+      nudgeTo(y);
+      y -= 11;
+      nudgeTo(y);
+      expect(bar().style.transform).toBe('translateY(0)');
+    }
   });
 
   it('slides in on scroll down past the threshold, and the top bar (site header) would hide — verified via the shared hook contract', () => {
     setViewportWidth(600);
     renderNav();
     scrollTo(100);
-    scrollTo(140); // well past threshold, moving down
+    scrollTo(200); // 100px down — past the 56px a decisive hide now demands
     expect(bar().style.transform).toBe('translateY(0)');
   });
 
@@ -133,9 +203,11 @@ describe('MobileBottomNav (W4a.2)', () => {
     setViewportWidth(600);
     renderNav();
     scrollTo(100);
-    scrollTo(160); // down — bar visible
+    scrollTo(200); // down — bar visible
     expect(bar().style.transform).toBe('translateY(0)');
-    scrollTo(80); // up past threshold — bar hides again
+    // Revealing is EAGER (24px, vs 56 to hide): a reader reaching back for the
+    // top bar gets it after a flick, not after undoing the whole scroll.
+    scrollTo(170);
     expect(bar().style.transform).toBe('translateY(100%)');
   });
 
@@ -143,7 +215,7 @@ describe('MobileBottomNav (W4a.2)', () => {
     setViewportWidth(600);
     renderNav();
     scrollTo(200);
-    scrollTo(260); // scrolled down, bar visible
+    scrollTo(300); // scrolled down, bar visible
     expect(bar().style.transform).toBe('translateY(0)');
     scrollTo(0);
     expect(bar().style.transform).toBe('translateY(100%)');

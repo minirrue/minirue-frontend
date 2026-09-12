@@ -35,6 +35,21 @@ const HOVER_OPEN_MS = 90;
 const HOVER_CLOSE_MS = 220;
 
 /**
+ * How long the bar takes to slide off the top, and — the reason it is a
+ * constant rather than a literal buried in the transition string — the floor
+ * for how long `useScrollDirection` must refuse to reverse its mind.
+ *
+ * #51: the owner reported the bar "flashes many times under one second" on a
+ * slow scroll. Part of that is the hook's thresholds (fixed there), but part is
+ * structural: a bar asked to reverse while this transition is still running can
+ * only stutter. The two numbers have to move together, so they are one number.
+ * `HIDE_FLIP_COOLDOWN_MS` is deliberately LONGER than the transition so the
+ * animation always lands before anything can ask for the opposite.
+ */
+const HIDE_TRANSITION_MS = 280;
+const HIDE_FLIP_COOLDOWN_MS = HIDE_TRANSITION_MS + 40;
+
+/**
  * The two destinations the desktop bar always offers.
  *
  * `prefetch` on both: every shop route is dynamic, so the default prefetch
@@ -125,7 +140,11 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   // Single scroll subscription, rAF-throttled, shared with MobileBottomNav —
   // replaces the old unthrottled `scroll` listener this file used to attach
   // just to compute `scrolled`.
-  const { direction, atTop, y } = useScrollDirection();
+  // The cooldown is pinned to this header's own transition duration (see
+  // HIDE_FLIP_COOLDOWN_MS) rather than left at the hook's default, so the two
+  // cannot drift apart if someone retunes the slide. Thresholds stay at the
+  // hook's defaults — decisive to hide, eager to reveal; see #51.
+  const { direction, atTop, y } = useScrollDirection({ cooldownMs: HIDE_FLIP_COOLDOWN_MS });
   const reducedMotion = usePrefersReducedMotion();
   const scrolled = y > 60;
   // Below 1024px only — desktop has no bottom bar to hand the edge to, so the
@@ -212,7 +231,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
           transform: hideForScroll ? 'translateY(-100%)' : 'translateY(0)',
           transition: reducedMotion
             ? 'background 360ms var(--mr-ease-out), border-color 360ms var(--mr-ease-out), color 360ms var(--mr-ease-out)'
-            : 'background 360ms var(--mr-ease-out), border-color 360ms var(--mr-ease-out), color 360ms var(--mr-ease-out), transform 280ms var(--mr-ease-out)',
+            : `background 360ms var(--mr-ease-out), border-color 360ms var(--mr-ease-out), color 360ms var(--mr-ease-out), transform ${HIDE_TRANSITION_MS}ms var(--mr-ease-out)`,
         }}
       >
         <div
