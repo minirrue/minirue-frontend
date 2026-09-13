@@ -106,8 +106,11 @@ export default function Hero({
   return (
     <section
       aria-label={ariaLabel}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      // Hover pauses for a MOUSE only (frontend#81). A tap on a touch screen
+      // fires a compat mouseenter with no mouseleave until the shopper taps
+      // somewhere else, so one tap used to stop the carousel for good.
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setPaused(true); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') setPaused(false); }}
       style={{
         position: 'relative',
         /*
