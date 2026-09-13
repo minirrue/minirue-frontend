@@ -63,6 +63,14 @@ export interface ResolvedHeroSlide {
   mobileImageUrl: string | null;
   /** As `imageSrcSet`, for the portrait crop. */
   mobileImageSrcSet?: Record<string, string> | null;
+  /**
+   * backend#89: what `imageUrl` / `mobileImageUrl` point at, and the poster
+   * for a video. Optional — an older backend sends none, which means photos.
+   */
+  mediaKind?: 'image' | 'video';
+  posterUrl?: string | null;
+  mobileMediaKind?: 'image' | 'video';
+  mobilePosterUrl?: string | null;
   /** Admin-authored alt text for the rendered image. */
   imageAlt: string;
   background: string;
