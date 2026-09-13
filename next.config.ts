@@ -113,6 +113,14 @@ const nextConfig: NextConfig = {
        * which the account order page does, by the same id.
        */
       { source: "/orders/:id/confirmation", destination: "/account/orders/:id", permanent: true },
+      /**
+       * `/orders/[id]/track` retired (#125) for the same reason: a Server
+       * Component calling the API without the shopper's cookies and through
+       * a client-only function, so every order read "We could not find that
+       * order". Nothing links to it. Its order progress now shows on the
+       * account order page, by the same id.
+       */
+      { source: "/orders/:id/track", destination: "/account/orders/:id", permanent: true },
     ];
   },
   reactCompiler: true,
