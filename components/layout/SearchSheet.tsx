@@ -25,6 +25,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
 import IconButton from '@/components/ui/IconButton';
+import Button from '@/components/ui/Button';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import { catalog, mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
@@ -536,33 +537,19 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
                 ))}
 
                 {total > 0 && (
-                  <Link
+                  <Button
+                    variant="primary"
                     href={searchHref(q)}
                     onClick={() => {
                       rememberRecent(q);
                       onClose();
                     }}
-                    data-trace-id="PG-STOREFRONT-CAT-004::EL-LINK-search-sheet-see-all"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 10,
-                      marginTop: 24,
-                      padding: '16px 20px',
-                      borderRadius: 'var(--mr-radius-pill)',
-                      background: 'var(--mr-ink-900)',
-                      color: 'var(--mr-cream-100)',
-                      textDecoration: 'none',
-                      fontFamily: 'var(--mr-font-label)',
-                      fontSize: 12,
-                      letterSpacing: '0.18em',
-                      textTransform: 'uppercase',
-                    }}
+                    traceId="PG-STOREFRONT-CAT-004::EL-LINK-search-sheet-see-all"
+                    // A long query has to wrap inside the pill, not overflow it.
+                    style={{ display: 'flex', width: '100%', marginTop: 24, whiteSpace: 'normal', textAlign: 'center' }}
                   >
-                    See all {total} results for “{q}”
-                    <span className="mr-link-arrow">→</span>
-                  </Link>
+                    See all {total} results for “{q}” <span className="mr-link-arrow">→</span>
+                  </Button>
                 )}
 
                 {nothingFound && (

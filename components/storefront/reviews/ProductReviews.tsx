@@ -4,6 +4,7 @@ import React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useClientQuery } from '@/lib/hooks/use-client-query';
 import { useUser } from '@/lib/hooks/use-auth';
+import Button from '@/components/ui/Button';
 import MobileSheet from '@/components/ui/MobileSheet';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import RemoteImage from '@/components/ui/RemoteImage';
@@ -42,22 +43,6 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: '0.22em',
   textTransform: 'uppercase',
   color: 'var(--mr-fg-3)',
-};
-
-/**
- * Shared base for the two pill buttons in this section ("Read all N reviews"
- * and "Write a review"). Colour is the only per-button override, applied
- * AFTER this spread — spreading labelStyle (which carries its own
- * `color: var(--mr-fg-3)`) after an explicit colour silently overrides it,
- * which is how "Write a review" ended up grey-brown on its near-black
- * background instead of cream.
- */
-const reviewButtonBaseStyle: React.CSSProperties = {
-  padding: '14px 22px',
-  minHeight: 44,
-  borderRadius: 'var(--mr-radius-pill)',
-  cursor: 'pointer',
-  ...labelStyle,
 };
 
 /**
@@ -304,36 +289,23 @@ export default function ProductReviews({
         }}
       >
         {count > INLINE_LIMIT ? (
-          <button
-            type="button"
+          <Button
+            variant="outline"
             onClick={() => setAllOpen(true)}
-            data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-read-all-reviews"
-            style={{
-              ...reviewButtonBaseStyle,
-              border: '1px solid var(--mr-border)',
-              background: 'transparent',
-              color: 'var(--mr-fg)',
-            }}
+            traceId="PG-STOREFRONT-CAT-005::EL-BTN-read-all-reviews"
           >
             Read all {count} reviews
-          </button>
+          </Button>
         ) : null}
 
         {canWrite ? (
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={() => setWriteOpen(true)}
-            data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-write-review"
-            style={{
-              ...reviewButtonBaseStyle,
-              border: 0,
-              background: 'var(--mr-ink-900)',
-              boxShadow: 'var(--mr-shadow-md)',
-              color: 'var(--mr-cream-100)',
-            }}
+            traceId="PG-STOREFRONT-CAT-005::EL-BTN-write-review"
           >
             Write a review
-          </button>
+          </Button>
         ) : null}
       </div>
 

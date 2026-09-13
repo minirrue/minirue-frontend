@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { ApiProduct } from '@/lib/api/catalog';
+import Button from '@/components/ui/Button';
 import CatalogProductCard from './CatalogProductCard';
 import { useProductGridTracking } from './useProductGridTracking';
 
@@ -91,27 +92,14 @@ export default function CatalogProductGrid({
             marginTop: 'var(--mr-sp-8)',
           }}
         >
-          <button
-            data-trace-id={loadMoreTraceId}
+          <Button
+            variant="outline"
+            traceId={loadMoreTraceId}
             onClick={onLoadMore}
             disabled={loadingMore}
-            style={{
-              padding: '14px 40px',
-              background: 'transparent',
-              border: '1px solid var(--mr-border)',
-              borderRadius: 'var(--mr-radius-pill)',
-              cursor: loadingMore ? 'default' : 'pointer',
-              fontFamily: 'var(--mr-font-label)',
-              fontSize: 'var(--mr-text-xs)',
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              color: loadingMore ? 'var(--mr-fg-4)' : 'var(--mr-fg)',
-              transition: 'all var(--mr-dur-fast) var(--mr-ease-out)',
-              opacity: loadingMore ? 0.6 : 1,
-            }}
           >
             {loadingMore ? 'Loading…' : 'Load more'}
-          </button>
+          </Button>
         </div>
       )}
     </div>

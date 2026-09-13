@@ -17,6 +17,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import MobileSheet from '@/components/ui/MobileSheet';
+import Button from '@/components/ui/Button';
 
 const BOX_SIZE = 280; // CSS px — the square crop viewport
 const OUTPUT_SIZE = 640; // px — plenty for a circle avatar at any real display size
@@ -160,44 +161,12 @@ export default function AvatarCropSheet({ open, file, onCancel, onCropped }: Ava
       traceId="PG-STOREFRONT-ACCOUNT::EL-SHEET-avatar-crop"
       footer={
         <div style={{ display: 'flex', gap: 12 }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            style={{
-              flex: '0 0 auto',
-              background: 'transparent',
-              border: '1px solid var(--mr-border)',
-              borderRadius: 'var(--mr-radius-sm)',
-              padding: '10px 18px',
-              fontSize: 'var(--mr-text-sm)',
-              color: 'var(--mr-fg-2)',
-              cursor: busy ? 'not-allowed' : 'pointer',
-            }}
-          >
+          <Button variant="outline" onClick={onCancel} disabled={busy} style={{ flex: '0 0 auto' }}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={busy || !src}
-            style={{
-              flex: '1 1 auto',
-              background: 'var(--mr-accent)',
-              color: 'var(--mr-cream-100)',
-              border: 'none',
-              borderRadius: 'var(--mr-radius-sm)',
-              padding: '10px 18px',
-              fontFamily: 'var(--mr-font-label)',
-              fontSize: 'var(--mr-text-xs)',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              cursor: busy ? 'not-allowed' : 'pointer',
-              opacity: busy ? 0.6 : 1,
-            }}
-          >
+          </Button>
+          <Button variant="gold" onClick={handleSave} disabled={busy || !src} style={{ flex: '1 1 auto' }}>
             {busy ? 'Saving…' : 'Use this photo'}
-          </button>
+          </Button>
         </div>
       }
     >

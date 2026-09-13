@@ -45,6 +45,7 @@ import React from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/Icon';
 import IconButton from '@/components/ui/IconButton';
+import Button from '@/components/ui/Button';
 import SocialIcon from '@/components/ui/SocialIcon';
 import Wordmark from '@/components/ui/Wordmark';
 import type { ApiProduct } from '@/lib/api/catalog';
@@ -544,25 +545,12 @@ export default function MobileNavSheet({
                 ))}
               </div>
 
-              <Link
-                href={item.href}
-                onClick={onClose}
-                data-trace-id="PG-STOREFRONT-NAV-001::EL-LINK-mobile-nav-view-all"
+              {/* The stagger lives on this wrapper, not the Button: Button sets
+                  its own `transform` for the hover scale, which would
+                  overwrite a translateY passed through `style`. */}
+              <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 10,
                   marginTop: 24,
-                  padding: '16px 20px',
-                  borderRadius: 'var(--mr-radius-pill)',
-                  background: 'var(--mr-ink-900)',
-                  color: 'var(--mr-cream-100)',
-                  textDecoration: 'none',
-                  fontFamily: 'var(--mr-font-label)',
-                  fontSize: 12,
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
                   opacity: depth + 1 === drillPath.length ? 1 : 0,
                   transform: depth + 1 === drillPath.length ? 'translateY(0)' : 'translateY(20px)',
                   transition: ITEM_TRANSITION,
@@ -572,9 +560,16 @@ export default function MobileNavSheet({
                       : '0ms',
                 }}
               >
-                All {item.label}
-                <span className="mr-link-arrow">→</span>
-              </Link>
+                <Button
+                  variant="primary"
+                  href={item.href}
+                  onClick={onClose}
+                  traceId="PG-STOREFRONT-NAV-001::EL-LINK-mobile-nav-view-all"
+                  style={{ display: 'flex', width: '100%', whiteSpace: 'normal', textAlign: 'center' }}
+                >
+                  All {item.label} <span className="mr-link-arrow">→</span>
+                </Button>
+              </div>
             </DrillPanel>
           ))}
         </div>
@@ -599,20 +594,6 @@ export default function MobileNavSheet({
               const footerItem = mobileMenu.footerButton;
               const action = resolveMobileMenuAction(footerItem, 'Login');
               const style: React.CSSProperties = {
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '12px 22px',
-                borderRadius: 'var(--mr-radius-pill)',
-                background: 'var(--mr-ink-900)',
-                color: 'var(--mr-cream-100)',
-                textDecoration: 'none',
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 12,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                border: 0,
-                cursor: 'pointer',
                 // A signed-in shopper's first name replaces the short admin
                 // label here and has no length limit of its own — on a narrow
                 // phone a long one must not push the socials row off the bar
@@ -624,8 +605,20 @@ export default function MobileNavSheet({
                 minWidth: 0,
                 flex: '0 1 auto',
               };
+              // A grid, not a fragment: Button wraps its children in one span for
+              // the sweep, and that span is a flex item whose minimum width is
+              // its content's. A `minmax(0, max-content)` label track gives the
+              // content a minimum of just the icon, so the span can shrink and
+              // the label's ellipsis actually engages.
               const inner = (
-                <>
+                <span
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'auto minmax(0, max-content)',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
                   <Icon name={footerItem.icon} size={16} />
                   <span
                     style={{
@@ -637,29 +630,30 @@ export default function MobileNavSheet({
                   >
                     {action.label}
                   </span>
-                </>
+                </span>
               );
               return action.href ? (
-                <Link
+                <Button
+                  variant="primary"
                   href={action.href}
                   onClick={onClose}
-                  data-trace-id="PG-STOREFRONT-NAV-001::EL-LINK-mobile-nav-footer-button"
+                  traceId="PG-STOREFRONT-NAV-001::EL-LINK-mobile-nav-footer-button"
                   style={style}
                 >
                   {inner}
-                </Link>
+                </Button>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
                   onClick={() => {
                     onClose();
                     action.onClick?.();
                   }}
-                  data-trace-id="PG-STOREFRONT-NAV-001::EL-BTN-mobile-nav-footer-button"
+                  traceId="PG-STOREFRONT-NAV-001::EL-BTN-mobile-nav-footer-button"
                   style={style}
                 >
                   {inner}
-                </button>
+                </Button>
               );
             })()}
 

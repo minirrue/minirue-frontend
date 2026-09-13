@@ -17,6 +17,7 @@ import VariantPicker from './VariantPicker';
 import PriceDisplay, { formatPrice } from './PriceDisplay';
 import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
 import Icon from '@/components/ui/Icon';
+import Button from '@/components/ui/Button';
 import Sparkle from '@/components/ui/Sparkle';
 import type { ProductSectionConfig } from '@/lib/api/storefront';
 import ShareButton from './ShareButton';
@@ -191,7 +192,6 @@ interface ProductInfoPanelProps {
   selectedVariant: ProductVariant | null;
   onSelectVariant: (v: ProductVariant) => void;
   added: boolean;
-  addedAnim: boolean;
   soldOut: boolean;
   allSoldOut: boolean;
   /** Nothing to sell at all — no active variant. Distinct from allSoldOut,
@@ -211,7 +211,6 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
   selectedVariant,
   onSelectVariant,
   added,
-  addedAnim,
   soldOut,
   allSoldOut,
   unavailable,
@@ -413,34 +412,16 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           animationDelay: '500ms',
         }}
       >
-        <button
+        {/* The house button (frontend#105) — same shape as every other CTA on
+            the site. Gold once added; Button's own press scale replaces the
+            hand-rolled one. */}
+        <Button
           ref={addToBagRef}
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag"
+          traceId="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag"
+          variant={added ? 'gold' : 'primary'}
           onClick={onAdd}
           disabled={!selectedVariant || soldOut || unavailable}
-          style={{
-            flex: 1,
-            padding: '16px 24px',
-            borderRadius: 'var(--mr-radius-pill)',
-            background: added ? 'var(--mr-gold-500)' : 'var(--mr-ink-900)',
-            color: 'var(--mr-cream-100)',
-            border: 0,
-            cursor: selectedVariant && !soldOut ? 'pointer' : 'not-allowed',
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            transform: addedAnim ? 'scale(0.96)' : 'scale(1)',
-            transition:
-              'background var(--mr-dur-medium) var(--mr-ease-out), transform var(--mr-dur-instant) var(--mr-ease-snappy), box-shadow var(--mr-dur-fast)',
-            boxShadow: added ? 'none' : 'var(--mr-shadow-md)',
-            willChange: 'transform',
-            opacity: selectedVariant && !soldOut ? 1 : 0.6,
-          }}
+          style={{ flex: 1 }}
         >
           {added ? (
             <>
@@ -455,7 +436,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           ) : (
             <>Add to bag{selectedVariant ? ' — ' : ''}<span style={ctaStyle}>{ctaDisplay}</span></>
           )}
-        </button>
+        </Button>
 
         <WishlistHeart
           productId={product.id}
@@ -740,7 +721,6 @@ export default function ApiProductDetail({
     activeVariants.find((v) => variantInStock(v)) ?? activeVariants[0] ?? null;
   const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(defaultVariant);
   const [added, setAdded] = React.useState(false);
-  const [addedAnim, setAddedAnim] = React.useState(false);
 
   // Sticky buy bar visibility (W3.4). Two Add-to-bag buttons on screen at
   // once crowd the layout, so the sticky bar fades out while the main
@@ -857,9 +837,7 @@ export default function ApiProductDetail({
     // not slip past a visual state.
     if (added || !selectedVariant || soldOut) return;
     setAdded(true);
-    setAddedAnim(true);
     onAddToBag(selectedVariant, source);
-    setTimeout(() => setAddedAnim(false), 600);
     setTimeout(() => setAdded(false), 2400);
   };
 
@@ -971,7 +949,6 @@ export default function ApiProductDetail({
               selectedVariant={selectedVariant}
               onSelectVariant={handleSelectVariant}
               added={added}
-              addedAnim={addedAnim}
               soldOut={soldOut}
               allSoldOut={allSoldOut}
               unavailable={unavailable}
@@ -1146,32 +1123,12 @@ export default function ApiProductDetail({
           ) : null}
         </div>
 
-        <button
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag-sticky"
+        <Button
+          traceId="PG-STOREFRONT-CAT-005::EL-BTN-add-to-bag-sticky"
+          variant={added ? 'gold' : 'primary'}
           onClick={() => handleAdd('sticky')}
           disabled={!selectedVariant || soldOut}
-          style={{
-            flex: 1,
-            minHeight: 48,
-            padding: '14px 20px',
-            borderRadius: 'var(--mr-radius-pill)',
-            background: added ? 'var(--mr-gold-500)' : 'var(--mr-ink-900)',
-            color: 'var(--mr-cream-100)',
-            border: 0,
-            cursor: selectedVariant && !soldOut ? 'pointer' : 'not-allowed',
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            opacity: selectedVariant && !soldOut ? 1 : 0.6,
-            transform: addedAnim ? 'scale(0.97)' : 'scale(1)',
-            transition:
-              'background var(--mr-dur-medium) var(--mr-ease-out), transform var(--mr-dur-instant) var(--mr-ease-snappy)',
-          }}
+          style={{ flex: 1 }}
         >
           {added ? (
             <>
@@ -1186,7 +1143,7 @@ export default function ApiProductDetail({
           ) : (
             <>Add to bag</>
           )}
-        </button>
+        </Button>
 
         <WishlistHeart
           productId={product.id}

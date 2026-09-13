@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Button from '@/components/ui/Button';
 import { apiGetOrder, type Order, type OrderStatus } from '@/lib/api/orders';
 import { apiFetch } from '@/lib/api/client';
 
@@ -292,26 +293,9 @@ export default async function TrackOrderPage({
         )}
 
         <div style={{ marginTop: 'var(--mr-sp-6)' }}>
-          <Link
-            href="/shop/all"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '12px 28px',
-              background: 'none',
-              border: '1px solid var(--mr-border)',
-              color: 'var(--mr-fg-2)',
-              textDecoration: 'none',
-              fontFamily: 'var(--mr-font-label)',
-              fontSize: 'var(--mr-text-xs)',
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              borderRadius: 'var(--mr-radius-pill)',
-            }}
-          >
+          <Button variant="outline" href="/shop/all">
             Continue Shopping
-          </Link>
+          </Button>
         </div>
       </div>
     </div>

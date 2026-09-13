@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiCancelOrder } from '@/lib/api/orders';
 import { formatApiError, type ApiError } from '@/lib/api/client';
+import Button from '@/components/ui/Button';
 
 interface Props {
   orderId: string;
@@ -22,23 +23,9 @@ export default function CancelButton({ orderId }: Props) {
 
   if (!confirmed) {
     return (
-      <button
-        onClick={() => setConfirmed(true)}
-        style={{
-          background: 'none',
-          border: '1px solid var(--mr-danger)',
-          borderRadius: 'var(--mr-radius-sm)',
-          padding: '8px 18px',
-          fontFamily: 'var(--mr-font-label)',
-          fontSize: 'var(--mr-text-xs)',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: 'var(--mr-danger)',
-          cursor: 'pointer',
-        }}
-      >
+      <Button variant="dangerOutline" onClick={() => setConfirmed(true)}>
         Cancel Order
-      </button>
+      </Button>
     );
   }
 
@@ -61,43 +48,12 @@ export default function CancelButton({ orderId }: Props) {
         Are you sure you want to cancel this order?
       </p>
       <div style={{ display: 'flex', gap: 10 }}>
-        <button
-          onClick={handleCancel}
-          disabled={loading}
-          style={{
-            background: 'var(--mr-danger)',
-            color: 'var(--mr-cream-100)',
-            border: 'none',
-            borderRadius: 'var(--mr-radius-sm)',
-            padding: '8px 18px',
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-          }}
-        >
+        <Button variant="danger" onClick={handleCancel} disabled={loading}>
           {loading ? 'Cancelling…' : 'Yes, Cancel'}
-        </button>
-        <button
-          onClick={() => setConfirmed(false)}
-          disabled={loading}
-          style={{
-            background: 'none',
-            border: '1px solid var(--mr-border)',
-            borderRadius: 'var(--mr-radius-sm)',
-            padding: '8px 16px',
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: 'var(--mr-fg-3)',
-            cursor: 'pointer',
-          }}
-        >
+        </Button>
+        <Button variant="outline" onClick={() => setConfirmed(false)} disabled={loading}>
           Keep Order
-        </button>
+        </Button>
       </div>
       {error && (
         <p role="alert" style={{ color: 'var(--mr-danger)', fontSize: 'var(--mr-text-sm)', margin: 0 }}>

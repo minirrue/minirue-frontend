@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useCustomerAddresses } from '@/lib/hooks/use-customer';
+import Button from '@/components/ui/Button';
 import AddressBook from './AddressBook';
 
 function AddressesSkeleton() {
@@ -50,21 +51,9 @@ export default function AddressesPageClient() {
           >
             Unable to load addresses. Please try again.
           </p>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--mr-border)',
-              borderRadius: 'var(--mr-radius-sm)',
-              padding: '8px 16px',
-              fontSize: 'var(--mr-text-sm)',
-              color: 'var(--mr-fg-2)',
-              cursor: 'pointer',
-            }}
-          >
+          <Button variant="outline" onClick={() => refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
