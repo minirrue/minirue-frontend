@@ -83,7 +83,9 @@ export default async function CategoryPage({ params }: PageProps) {
 
   // The brand facet for this category's rail. Settled, not all: losing the
   // filter is a worse page, losing the page is a broken one.
-  const brandResult = await Promise.allSettled([catalog.listBrands()]);
+  // Only brands with something in THIS category (frontend#103) — every brand in
+  // the shop would offer choices that filter to "Nothing matches".
+  const brandResult = await Promise.allSettled([catalog.listBrands(category.id)]);
   const facetBrands =
     brandResult[0].status === 'fulfilled'
       ? brandResult[0].value.map((b) => ({ id: b.id, name: b.name }))

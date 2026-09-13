@@ -454,8 +454,10 @@ export const catalog = {
    * /collab/brands and their own pages. Cached 120s server-side and asked for
    * fresh here, same as every other catalogue read — see getProductBySlug.
    */
-  async listBrands(): Promise<ShopBrand[]> {
-    const res = await catalogFetch<{ data: ShopBrand[] }>('/brands', {
+  /** `categoryId` narrows to brands with a published product in that category. */
+  async listBrands(categoryId?: string): Promise<ShopBrand[]> {
+    const qs = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : '';
+    const res = await catalogFetch<{ data: ShopBrand[] }>(`/brands${qs}`, {
       cache: 'no-store',
     });
     return res.data;

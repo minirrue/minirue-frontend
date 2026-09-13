@@ -72,7 +72,7 @@ const rowBase: React.CSSProperties = {
  * while being drawn to match the shop. Using buttons with no role would leave
  * a screen reader announcing eight unrelated buttons instead of one choice.
  */
-function FacetRow({
+export function FacetRow({
   label,
   count,
   checked,
