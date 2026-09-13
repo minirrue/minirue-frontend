@@ -90,6 +90,16 @@ describe('the hero never sets a loader and unoptimized together', () => {
     );
   });
 
+  it('the art-directed <picture> path uses the same one-or-the-other rule', () => {
+    // #11: both crops of a photo slide go through getImageProps, which ignores
+    // a loader under `unoptimized` exactly like <Image> does.
+    expect(source).toMatch(
+      /return hasWidths \? \{ loader: heroImageLoader\(srcSet\) \} : \{ unoptimized: true \};/,
+    );
+    expect(source).toMatch(/src: desktopSrc, \.\.\.heroImageSource\(desktopSrcSet\)/);
+    expect(source).toMatch(/src: mobileSrc, \.\.\.heroImageSource\(mobileSrcSet\)/);
+  });
+
   it('does not set a bare `unoptimized` prop anywhere', () => {
     // A stray one would win over the conditional and undo this silently.
     expect(source).not.toMatch(/^\s*unoptimized$/m);

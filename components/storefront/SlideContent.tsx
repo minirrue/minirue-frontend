@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
+import { preload } from 'react-dom';
+import Image, { getImageProps } from 'next/image';
 import BottleSVG from '@/components/ui/BottleSVG';
 import { heroImageLoader } from '@/lib/images/hero-loader';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
@@ -96,6 +97,97 @@ function HeroVideo({
   );
 }
 
+/**
+ * The phone breakpoint, as CSS. It must say exactly what `useBreakpoint` says
+ * (`innerWidth < 640`), or a 639px window would get one crop from the media
+ * query and the other from JavaScript.
+ */
+const PHONE_MEDIA = '(max-width: 639.98px)';
+const DESKTOP_MEDIA = '(min-width: 640px)';
+
+/**
+ * A loader when the server sent widths, `unoptimized` when it did not — never
+ * both, for the reason spelled out on the single-image branch below (and
+ * pinned by hero-srcset.test.ts).
+ */
+function heroImageSource(srcSet: Record<string, string> | null | undefined) {
+  const hasWidths = Boolean(srcSet && Object.keys(srcSet).length > 0);
+  return hasWidths ? { loader: heroImageLoader(srcSet) } : { unoptimized: true };
+}
+
+/**
+ * A photo slide with a separate phone crop, chosen by the BROWSER (#11).
+ *
+ * `mobile` comes from `useBreakpoint`, which reads `window.innerWidth` in an
+ * effect — so on the server, and on the first client render, every visitor is
+ * a phone. The server HTML therefore carried the portrait crop and preloaded
+ * it, and on a desktop the landscape crop only replaced it after hydration.
+ * Measured on minirueshop.com at 1440x900: the 401 KB phone crop downloaded
+ * first, and the 439 KB desktop image — the one that is actually the LCP —
+ * could not even be requested until the JavaScript had run.
+ *
+ * `<picture>` moves the decision to the HTML: each crop sits behind a media
+ * query, the browser fetches only the one that matches, and it can start
+ * before a line of JavaScript. The preloads carry the same media queries so
+ * the early fetch is also only ever the right crop.
+ *
+ * The object-position differs per crop (the landscape frame favours the right
+ * where the product sits), so it is a media query too rather than an inline
+ * style that would again depend on `mobile`.
+ */
+function ArtDirectedHeroImage({
+  alt,
+  desktopSrc,
+  desktopSrcSet,
+  mobileSrc,
+  mobileSrcSet,
+}: {
+  alt: string;
+  desktopSrc: string;
+  desktopSrcSet: Record<string, string> | null | undefined;
+  mobileSrc: string;
+  mobileSrcSet: Record<string, string> | null | undefined;
+}) {
+  const shared = { alt, fill: true, sizes: '100vw' } as const;
+  const desktop = getImageProps({ ...shared, src: desktopSrc, ...heroImageSource(desktopSrcSet) }).props;
+  const phone = getImageProps({ ...shared, src: mobileSrc, ...heroImageSource(mobileSrcSet) }).props;
+
+  // What `priority` did for the single image, once per crop and gated by media.
+  preload(desktop.src, {
+    as: 'image',
+    fetchPriority: 'high',
+    media: DESKTOP_MEDIA,
+    ...(desktop.srcSet ? { imageSrcSet: desktop.srcSet, imageSizes: desktop.sizes } : {}),
+  });
+  preload(phone.src, {
+    as: 'image',
+    fetchPriority: 'high',
+    media: PHONE_MEDIA,
+    ...(phone.srcSet ? { imageSrcSet: phone.srcSet, imageSizes: phone.sizes } : {}),
+  });
+
+  return (
+    <picture>
+      <source
+        media={PHONE_MEDIA}
+        srcSet={phone.srcSet ?? phone.src}
+        sizes={phone.srcSet ? phone.sizes : undefined}
+      />
+      {/* A plain <img> on purpose: next/image cannot render <picture>, and
+          getImageProps is Next's documented art-direction path — every
+          attribute here still comes from it. */}
+      <img
+        {...desktop}
+        alt={alt}
+        fetchPriority="high"
+        loading="eager"
+        className="mr-hero-drift object-[62%_50%] max-sm:object-[50%_50%]"
+        style={{ ...desktop.style, objectFit: 'cover' }}
+      />
+    </picture>
+  );
+}
+
 interface SlideContentProps {
   slide: ResolvedHeroSlide;
   mobile: boolean;
@@ -179,6 +271,24 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
   const heroObjectPosition = usingMobileCrop ? '50% 50%' : '62% 50%';
 
   /*
+   * Both crops are photos: let the browser pick between them (see
+   * ArtDirectedHeroImage). Any slide with a video on either side keeps the
+   * `mobile`-driven path — a video needs JavaScript to play anyway, and the
+   * poster/photo fallbacks between the two kinds are decided there.
+   */
+  const artDirected =
+    slide.mode === 'image' && slide.imageUrl && slide.mobileImageUrl &&
+    (slide.mediaKind ?? 'image') === 'image' &&
+    (slide.mobileMediaKind ?? 'image') === 'image'
+      ? {
+          desktopSrc: slide.imageUrl,
+          desktopSrcSet: slide.imageSrcSet,
+          mobileSrc: slide.mobileImageUrl,
+          mobileSrcSet: slide.mobileImageSrcSet,
+        }
+      : null;
+
+  /*
    * Admin-chosen copy colours.
    *
    * Each is spread in conditionally rather than written as
@@ -235,7 +345,9 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
     <div style={{ position: 'absolute', inset: 0 }}>
       {/* Background */}
       {slide.mode === 'image' ? (
-        heroSrc && heroKind === 'video' ? (
+        artDirected ? (
+          <ArtDirectedHeroImage key={artDirected.desktopSrc} alt={slide.imageAlt} {...artDirected} />
+        ) : heroSrc && heroKind === 'video' ? (
           reduceMotion ? (
             /*
              * Asked for less motion: the poster, still, and no video element at
