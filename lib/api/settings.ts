@@ -1,5 +1,4 @@
 import {
-  COD_MAX_ORDER_MINOR,
   DEFAULT_SHIPPING_POLICY,
   type ShippingPolicy,
 } from '@/lib/checkout/checkout-money';
@@ -96,15 +95,15 @@ export interface PublicShippingSettings {
  * The COD ceiling, published so the storefront stops mirroring it as a
  * constant.
  *
- * `COD_MAX_ORDER_MINOR` in `checkout-money.ts` has always been a hand-copy of
- * the backend's own — harmless while it gated a total that could not move, and
- * no longer harmless now that #83 makes the total depend on the governorate.
- * The same bag can be under the ceiling in Cairo and over it in Aswan, so the
- * number that decides has to be the shop's own.
+ * The storefront used to keep a hand-copy of the limit in `checkout-money.ts`.
+ * That stopped being harmless once #83 made the total depend on the
+ * governorate — the same bag can be under a limit in Cairo and over it in
+ * Aswan — so the number that decides has to be the shop's own. The copy is
+ * gone.
  *
- * Live on 2026-09-12 as `"payments": { "codMaxOrderMinor": 50000 }`, which
- * happens to equal the mirrored constant — so this changes nothing today and
- * stops being a mirror the day an admin edits it.
+ * `null` means no limit (minirue-backend#105). The backend used to publish its
+ * hard-coded 50000 here as though it were a setting; it now publishes the
+ * admin's stored value, which is `null` until one is set.
  */
 export interface PublicPaymentSettings {
   codMaxOrderMinor?: number | null;
@@ -263,13 +262,16 @@ export function resolveEffectiveShipping(
 }
 
 /**
- * The cash-on-delivery ceiling, in minor units.
+ * The cash-on-delivery limit in minor units, or `null` for none.
  *
- * Falls back to the mirrored `COD_MAX_ORDER_MINOR` for the same reason every
- * other fallback here exists: an older backend that does not publish
- * `payments` must leave the gate where it has always been, not remove it.
+ * Trusts what the shop publishes and invents nothing (minirue-backend#105).
+ * There is deliberately no local fallback number: a backend from before #105
+ * publishes its own 50000 explicitly, so it is still honoured; the current one
+ * publishes the admin's setting, `null` by default. When the settings cannot
+ * be read at all, COD is shown as available — the owner's default — and the
+ * server, which enforces the real limit at place-order, stays the authority.
  */
-export async function loadCodMaxOrderMinor(): Promise<number> {
+export async function loadCodMaxOrderMinor(): Promise<number | null> {
   try {
     const settings = await apiGetPublicSettings();
     const published = settings.payments?.codMaxOrderMinor;
@@ -277,9 +279,9 @@ export async function loadCodMaxOrderMinor(): Promise<number> {
       Number.isFinite(published) &&
       published >= 0
       ? Math.round(published)
-      : COD_MAX_ORDER_MINOR;
+      : null;
   } catch {
-    return COD_MAX_ORDER_MINOR;
+    return null;
   }
 }
 

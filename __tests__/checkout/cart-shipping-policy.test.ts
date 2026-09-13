@@ -1,5 +1,4 @@
 import {
-  COD_MAX_ORDER_MINOR,
   DEFAULT_SHIPPING_FLAT_MINOR,
   DEFAULT_SHIPPING_POLICY,
   isCodAvailable,
@@ -105,15 +104,22 @@ describe('orderTotalMinor', () => {
 });
 
 describe('isCodAvailable', () => {
-  it('gates on the discounted total, not the subtotal', () => {
-    const subtotal = '460.00';
-    expect(isCodAvailable(subtotal)).toBe(false); // 46_000 + 5_000 > 50_000
-    expect(isCodAvailable(subtotal, { discountMinor: 4_600 })).toBe(true);
+  /** A limit an admin set (minirue-backend#105). It is no longer a constant. */
+  const LIMIT = 50_000;
+
+  it('allows COD at any total when no limit is set — the default', () => {
+    expect(isCodAvailable('99999.00', null)).toBe(true);
   });
 
-  it('allows an order sitting exactly on the ceiling', () => {
-    expect(orderTotalMinor('450.00')).toBe(COD_MAX_ORDER_MINOR);
-    expect(isCodAvailable('450.00')).toBe(true);
+  it('gates on the discounted total, not the subtotal', () => {
+    const subtotal = '460.00';
+    expect(isCodAvailable(subtotal, LIMIT)).toBe(false); // 46_000 + 5_000 > 50_000
+    expect(isCodAvailable(subtotal, LIMIT, { discountMinor: 4_600 })).toBe(true);
+  });
+
+  it('allows an order sitting exactly on the limit', () => {
+    expect(orderTotalMinor('450.00')).toBe(LIMIT);
+    expect(isCodAvailable('450.00', LIMIT)).toBe(true);
   });
 });
 

@@ -22,7 +22,6 @@ import {
 } from '@/lib/api/discounts';
 import { loadCodMaxOrderMinor, loadEffectiveShipping } from '@/lib/api/settings';
 import {
-  COD_MAX_ORDER_MINOR,
   type ShippingPolicy,
 } from '@/lib/checkout/checkout-money';
 import {
@@ -38,7 +37,7 @@ import {
  * means the cart drawer and the cart page share the one read.
  */
 let effectiveShippingPromise: Promise<EffectiveShipping> | null = null;
-let codMaxPromise: Promise<number> | null = null;
+let codMaxPromise: Promise<number | null> | null = null;
 
 /** Test seam: drops the memoised read so each case starts clean. */
 export function resetBagPricingCaches(): void {
@@ -112,8 +111,10 @@ export function useEffectiveShipping(): EffectiveShipping {
  * address step has to be able to say which — and it should say it using the
  * shop's own number rather than a constant copied into the bundle.
  */
-export function useCodMaxOrderMinor(): number {
-  const [max, setMax] = React.useState<number>(COD_MAX_ORDER_MINOR);
+export function useCodMaxOrderMinor(): number | null {
+  // `null` = no limit until the shop says otherwise (minirue-backend#105), so
+  // COD is never shown as blocked by a number the store never set.
+  const [max, setMax] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;

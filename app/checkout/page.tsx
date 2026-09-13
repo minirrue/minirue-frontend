@@ -232,7 +232,8 @@ export default function CheckoutPage() {
    * the total is a floor and a floor cannot tell you that a ceiling is
    * breached.
    */
-  const codBlocked = !summary.fromOnly && totalMinor > codMaxMinor;
+  // `null` = no COD limit set, the default (minirue-backend#105).
+  const codBlocked = !summary.fromOnly && codMaxMinor !== null && totalMinor > codMaxMinor;
 
   const hasRateTable = effective.rates.length > 0;
   const money = (minor: number) => `${minorToAmount(minor)} ${currency}`;
@@ -412,7 +413,7 @@ export default function CheckoutPage() {
                 {summary.resolved?.label
                   ? `Delivery to ${summary.resolved.label} brings this order to ${money(totalMinor)}`
                   : `This order comes to ${money(totalMinor)}`}
-                , above the {money(codMaxMinor)} limit for cash on delivery. You can pay by
+                , above the {money(codMaxMinor ?? 0)} limit for cash on delivery. You can pay by
                 Instapay on the next step — or choose a governorate with a lower delivery
                 fee, if one applies to you.
               </CheckoutAlert>

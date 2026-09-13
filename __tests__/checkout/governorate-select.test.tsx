@@ -64,9 +64,11 @@ jest.mock('@/lib/analytics', () => ({ track: jest.fn() }));
  * deployment can demonstrate yet.
  */
 let mockEffective: EffectiveShipping = DEFAULT_EFFECTIVE_SHIPPING;
+// A limit an admin set; `null` is no limit (minirue-backend#105).
+let mockCodLimit: number | null = 50_000;
 jest.mock('@/components/storefront/cart/use-bag-pricing', () => ({
   useEffectiveShipping: () => mockEffective,
-  useCodMaxOrderMinor: () => 50_000,
+  useCodMaxOrderMinor: () => mockCodLimit,
   useAutomaticDiscount: () => null,
 }));
 
@@ -301,6 +303,10 @@ describe('cash on delivery, at the address step', () => {
    * the warning tracks the governorate rather than the bag is the mocked
    * ceiling below.
    */
+  afterEach(() => {
+    mockCodLimit = 50_000;
+  });
+
   it('warns before the payment step once the governorate pushes the total over', async () => {
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
@@ -332,5 +338,23 @@ describe('cash on delivery, at the address step', () => {
 
     await screen.findByLabelText(/governorate/i);
     expect(screen.queryByText(/not available.*cash on delivery/i)).not.toBeInTheDocument();
+  });
+
+  it('never warns when the shop has set no COD limit — the default', async () => {
+    // minirue-backend#105: the limit used to be a hard-coded EGP 500, so this
+    // same bag was always refused. With no limit set, COD is allowed at any
+    // total, whichever governorate is chosen.
+    mockEffective = RATES;
+    mockCodLimit = null;
+    render(<CheckoutDeliveryPage />);
+
+    const select = await screen.findByLabelText(/governorate/i);
+    await userEvent.selectOptions(select, 'cairo');
+    await waitFor(() => expect(select).toHaveValue('cairo'));
+    // The same selection renders the COD alert within this window when a limit
+    // IS set (the first test above), so its absence here is not a timing fluke.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const alerts = screen.queryAllByRole('alert');
+    expect(alerts.find((a) => /cash on delivery/i.test(a.textContent ?? ''))).toBeUndefined();
   });
 });
