@@ -30,8 +30,6 @@
  * row.
  */
 
-/** COD limit in minor units — mirrors backend `COD_MAX_ORDER_MINOR`. */
-export const COD_MAX_ORDER_MINOR = 50_000;
 
 /**
  * Shipping when the shop's configured rate is not known.
@@ -125,9 +123,18 @@ export function orderTotalMinor(
   return Math.max(0, subtotalMinor - discountMinor) + shippingMinor;
 }
 
+/**
+ * Whether cash on delivery is allowed for this bag.
+ *
+ * `limitMinor` is the shop's own setting (minirue-backend#105): `null` means no
+ * limit — the default — and COD is allowed at any total. There is no local copy
+ * of a limit any more; the old hard-coded 50 000 refused COD on every order
+ * over EGP 500 whatever the dashboard said.
+ */
 export function isCodAvailable(
   subtotalAmount: string,
+  limitMinor: number | null,
   options: { discountMinor?: number; shipping?: ShippingPolicy | number } = {},
 ): boolean {
-  return orderTotalMinor(subtotalAmount, options) <= COD_MAX_ORDER_MINOR;
+  return limitMinor === null || orderTotalMinor(subtotalAmount, options) <= limitMinor;
 }

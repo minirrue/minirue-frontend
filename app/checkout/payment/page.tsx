@@ -127,7 +127,8 @@ export default function CheckoutPaymentPage() {
    * screen can bring an order back under the limit, and nothing upstream can
    * know that in advance.
    */
-  const codBlocked = totalMinor > codMaxMinor;
+  // `null` = no COD limit set, the default (minirue-backend#105).
+  const codBlocked = codMaxMinor !== null && totalMinor > codMaxMinor;
 
   useEffect(() => {
     if (codBlocked && method === 'COD') {
@@ -202,7 +203,7 @@ export default function CheckoutPaymentPage() {
             {codBlocked && (
               <CheckoutAlert variant="warning">
                 Cash on delivery is not available above{' '}
-                {minorToAmount(codMaxMinor)} {currency}. Please use Instapay.
+                {minorToAmount(codMaxMinor ?? 0)} {currency}. Please use Instapay.
               </CheckoutAlert>
             )}
             <CheckoutOption
