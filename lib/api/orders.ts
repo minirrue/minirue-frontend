@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import type { OrderItemBundle } from '@/lib/checkout/checkout-api';
 
 export type OrderStatus =
   | 'PENDING'
@@ -26,6 +27,10 @@ export interface OrderItem {
   unitPriceAmount: string;
   unitPriceCurrency: string;
   lineTotalAmount: string;
+  /** Set membership (#116) — see OrderItemSummary in lib/checkout/checkout-api.ts. */
+  bundleId?: string | null;
+  bundleLineKey?: string;
+  bundle?: OrderItemBundle | null;
 }
 
 export interface OrderStatusHistoryEntry {
@@ -58,6 +63,8 @@ export interface Order {
   shippingAmount: string;
   totalAmount: string;
   totalCurrency: string;
+  /** Display only: what the sets saved, already inside the total. */
+  bundleSavingsAmount?: string;
   shippingAddressSnapshot: ShippingAddressSnapshot;
   notes: string | null;
   items: OrderItem[];

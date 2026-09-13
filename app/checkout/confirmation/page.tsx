@@ -21,7 +21,8 @@ import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 import Button from '@/components/ui/Button';
-import RemoteImage from '@/components/ui/RemoteImage';
+import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
+import { formatMoney } from '@/lib/format/money';
 import { track } from '@/lib/analytics';
 
 export default function CheckoutConfirmationPage() {
@@ -241,102 +242,24 @@ export default function CheckoutConfirmationPage() {
               order went through.
             */}
             {order?.items?.length ? (
-              <ul
+              <div
                 style={{
-                  listStyle: 'none',
                   margin: '0 0 var(--mr-sp-5)',
                   padding: 'var(--mr-sp-5) 0 0',
                   borderTop: '1px solid var(--mr-hairline)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--mr-sp-4)',
-                  textAlign: 'left',
                 }}
               >
-                {order.items.map((item) => (
-                  <li
-                    key={item.id}
-                    style={{
-                      display: 'flex',
-                      gap: 'var(--mr-sp-4)',
-                      alignItems: 'center',
-                    }}
-                  >
-                    {item.productSnapshot?.imageUrl ? (
-                      // Optimized (#11) — one per line on the receipt.
-                      <RemoteImage
-                        src={item.productSnapshot.imageUrl}
-                        alt=""
-                        width={56}
-                        height={56}
-                        style={{
-                          width: 56,
-                          height: 56,
-                          objectFit: 'cover',
-                          borderRadius: 'var(--mr-radius-sm)',
-                          border: '1px solid var(--mr-hairline)',
-                          flexShrink: 0,
-                        }}
-                      />
-                    ) : (
-                      <div
-                        aria-hidden
-                        style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 'var(--mr-radius-sm)',
-                          border: '1px solid var(--mr-hairline)',
-                          background: 'var(--mr-cream-200)',
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontFamily: 'var(--mr-font-serif)',
-                          fontSize: 'var(--mr-text-base)',
-                          color: 'var(--mr-fg)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {item.productSnapshot?.name ?? 'Item'}
-                      </p>
-                      <p
-                        style={{
-                          margin: '2px 0 0',
-                          fontFamily: 'var(--mr-font-label)',
-                          fontSize: 'var(--mr-text-xs)',
-                          letterSpacing: '0.12em',
-                          textTransform: 'uppercase',
-                          color: 'var(--mr-fg-3)',
-                        }}
-                      >
-                        {item.productSnapshot?.brand
-                          ? `${item.productSnapshot.brand} · `
-                          : ''}
-                        Qty {item.qty}
-                      </p>
-                    </div>
-                    <p
-                      className="mr-num"
-                      style={{
-                        margin: 0,
-                        fontFamily: 'var(--mr-font-serif)',
-                        fontSize: 'var(--mr-text-base)',
-                        color: 'var(--mr-fg)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {item.lineTotalAmount} {order.totalCurrency}
-                    </p>
-                  </li>
-                ))}
-              </ul>
+                {/* One line per thing bought: a set is its own image, name
+                    and price, never its members (#116). */}
+                <OrderLineList items={order.items} currency={order.totalCurrency} variant="receipt" />
+              </div>
             ) : null}
+
+            <SetSavingsRow
+              amount={order?.bundleSavingsAmount}
+              currency={order?.totalCurrency ?? 'EGP'}
+              style={{ padding: 'var(--mr-sp-3) 0', borderTop: '1px solid var(--mr-hairline)' }}
+            />
 
             {order?.totalAmount && (
               <div
@@ -369,7 +292,7 @@ export default function CheckoutConfirmationPage() {
                     color: 'var(--mr-fg)',
                   }}
                 >
-                  {order.totalAmount} {order.totalCurrency}
+                  {formatMoney(order.totalAmount, order.totalCurrency)}
                 </span>
               </div>
             )}

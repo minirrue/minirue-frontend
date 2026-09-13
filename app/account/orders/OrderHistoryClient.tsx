@@ -10,6 +10,7 @@ import {
   formatOrderStatus,
   formatOrderTotal,
 } from '@/lib/orders/order-format';
+import { groupOrderLines } from '@/lib/orders/order-lines';
 
 /** Statuses that read as "in progress" versus finished or stopped. */
 const STATUS_TONE: Record<string, string> = {
@@ -84,19 +85,26 @@ const REFUND_TONE: Record<RefundStatus, string> = {
 };
 
 function OrderCard({ order, refundStatus }: { order: OrderSummary; refundStatus?: RefundStatus }) {
+  /*
+   * Counted in things BOUGHT, not rows: a set is one thumbnail (its own
+   * picture) and one name, never its members (#116). A 2-piece set and a
+   * product used to read "Member A + 2 more" over three pictures.
+   */
+  const lines = groupOrderLines(order.items);
+
   // Up to three thumbnails; beyond that a summary becomes a gallery.
-  const thumbs = order.items
-    .map((item) => item.productSnapshot?.imageUrl)
+  const thumbs = lines
+    .map((line) => line.imageUrl)
     .filter((url): url is string => !!url)
     .slice(0, 3);
 
-  const firstName = order.items[0]?.productSnapshot?.name;
-  const extra = order.items.length - 1;
+  const firstName = lines[0]?.name;
+  const extra = lines.length - 1;
   const itemLabel = firstName
     ? extra > 0
       ? `${firstName} + ${extra} more`
       : firstName
-    : `${order.items.length} item${order.items.length === 1 ? '' : 's'}`;
+    : `${lines.length} item${lines.length === 1 ? '' : 's'}`;
 
   return (
     <li>
