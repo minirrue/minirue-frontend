@@ -660,7 +660,9 @@ const EditorialMoment = React.memo(function EditorialMoment({
 
           Kept centred and narrow to match the blockquote above it rather than
           becoming a left-aligned article — this is still an editorial pause,
-          not a spec sheet.
+          not a spec sheet. The TEXT is centred too, on every width (owner,
+          2026-09-13: "center center on mobile and desktop") — a centred column
+          of left-ragged lines read as misaligned under the centred quote.
         */}
         {product.description && (
           <div
@@ -673,7 +675,7 @@ const EditorialMoment = React.memo(function EditorialMoment({
               borderTop: '1px solid color-mix(in srgb, var(--mr-gold-400) 28%, transparent)',
               maxWidth: 620,
               marginInline: 'auto',
-              textAlign: 'left',
+              textAlign: 'center',
             }}
           >
             {/* Split on blank lines so copy written as paragraphs reads as
