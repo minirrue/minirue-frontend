@@ -199,7 +199,12 @@ export default function Hero({
           justifyContent: 'center',
           gap: 8,
           zIndex: 10,
-          padding: '0 24px',
+          /*
+           * On a phone the floating chat button (bottom-right, ~56px) sat on top
+           * of the last indicator bar (frontend#82, measured on Pixel 5). The
+           * row now ends before it; desktop keeps its centred, short bars.
+           */
+          padding: mobile ? '0 88px 0 24px' : '0 24px',
         }}
       >
         {slides.map((s, i) => (
@@ -238,8 +243,17 @@ export default function Hero({
         <div
           style={{
             position: 'absolute',
-            bottom: 32,
-            right: 40,
+            /*
+             * On a phone the slide indicators stretch the full width at
+             * `bottom: 56`, and this cue grows ~115px upward from its own
+             * bottom — so at `bottom: 32` its rail ran straight through them
+             * (frontend#82, measured on iPhone SE and Pixel 5). Lifted to sit
+             * just above the indicator row there (56 + 3px bar + 14px gap);
+             * measured clear of the headline and CTA, which are left-aligned.
+             * Desktop indicators are short and centred, so its spot is kept.
+             */
+            bottom: mobile ? 73 : 32,
+            right: mobile ? 20 : 40,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
