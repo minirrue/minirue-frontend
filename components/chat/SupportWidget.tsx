@@ -2,9 +2,10 @@
 
 import React from 'react';
 import ChatButton from '@/components/chat/ChatButton';
-import ChatPanel, { type ChatDisplayMessage, type ChatAttachment } from '@/components/chat/ChatPanel';
-import SignInToChat from '@/components/chat/SignInToChat';
-import SubjectPicker, { type SubjectChoice } from '@/components/chat/SubjectPicker';
+import type { ChatDisplayMessage, ChatAttachment } from '@/components/chat/ChatPanel';
+import type { SubjectChoice } from '@/components/chat/SubjectPicker';
+import type { NewChatDraft } from '@/components/chat/NewChatComposer';
+import { useIdleImport } from '@/lib/hooks/useIdleImport';
 import { useSupportContext } from '@/lib/support/support-context';
 // setGuestSupport is gone with guest chat. getGuestSupport/clearGuestSupport
 // stay: tokens issued before backend 0.53.x are still honoured for READING and
@@ -27,9 +28,15 @@ import {
   type SupportMessageDto,
   type SupportMetaDto,
 } from '@/lib/api/support';
-import ConversationList from '@/components/chat/ConversationList';
-import NewChatComposer, { type NewChatDraft } from '@/components/chat/NewChatComposer';
 import { apiGetPublicSettings } from '@/lib/api/settings';
+
+/**
+ * The panel and everything drawn inside it is closed on arrival on every page,
+ * so it loads after the page has (#76). Only the button ships up front. See
+ * lib/hooks/useIdleImport.ts for the numbers and for how an early open keeps
+ * its transition.
+ */
+const loadPanelParts = () => import('@/components/chat/support-panel-parts');
 
 const POLL_INTERVAL_MS = 4000;
 const META_POLL_INTERVAL_MS = 8000;
@@ -753,8 +760,10 @@ export default function SupportWidget() {
     canMessageRef.current = canMessage;
   });
 
-  const panelBody = guestBlocked ? (
-    <SignInToChat />
+  const { mod: parts, armed: panelArmed } = useIdleImport(loadPanelParts, open);
+
+  const panelBody = !parts ? undefined : guestBlocked ? (
+    <parts.SignInToChat />
   ) : !canMessage ? (
     <div
       style={{
@@ -767,14 +776,14 @@ export default function SupportWidget() {
       Checking your account…
     </div>
   ) : view === 'new' ? (
-      <NewChatComposer
+      <parts.NewChatComposer
         pageSubject={pageSubject}
         submitting={sending}
         onSubmit={handleNewChat}
         onCancel={() => setView(canBrowseList ? 'list' : 'thread')}
       />
     ) : view === 'list' ? (
-      <ConversationList
+      <parts.ConversationList
         conversations={conversations}
         loading={listLoading}
         onOpen={(id) => resumeConversation(id)}
@@ -792,8 +801,9 @@ export default function SupportWidget() {
         shopAvatarUrl={shopAvatarUrl}
         shopName={shopName ?? undefined}
       />
-      <ChatPanel
-        open={open}
+      {parts && (
+      <parts.ChatPanel
+        open={open && panelArmed}
         onClose={() => setOpen(false)}
         messages={messages}
         onSend={handleSend}
@@ -825,10 +835,11 @@ export default function SupportWidget() {
         bottomSlot={!canMessage ? <span /> : undefined}
         topSlot={
           canMessage && !conversationId ? (
-            <SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />
+            <parts.SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />
           ) : undefined
         }
       />
+      )}
       {error && (
         <div
           role="alert"
