@@ -240,7 +240,7 @@ export default function MobileSheet({
           </div>
         </div>
 
-        <div
+        <div data-lenis-prevent
           style={{
             flex: '1 1 auto',
             overflowY: 'auto',

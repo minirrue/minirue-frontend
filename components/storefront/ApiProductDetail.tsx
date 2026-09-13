@@ -926,6 +926,8 @@ export default function ApiProductDetail({
              hairline-coloured bar, quiet enough for this layout and honest
              about the overflow. */}
       <aside
+        // Own wheel scrolling under Lenis (frontend#87) — see LenisProvider.
+        data-lenis-prevent
         className="order-3 lg:order-1 lg:sticky lg:top-0 lg:h-screen lg:w-[46%] lg:flex-shrink-0 lg:self-start lg:overflow-y-auto lg:border-r xl:w-[42%]"
         style={{
           borderColor: 'var(--mr-hairline)',

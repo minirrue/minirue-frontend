@@ -152,7 +152,7 @@ export default function NewChatComposer({
   }
 
   return (
-    <form
+    <form data-lenis-prevent
       onSubmit={(e) => {
         e.preventDefault();
         if (!canSend) return;

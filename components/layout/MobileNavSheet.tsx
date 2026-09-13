@@ -716,7 +716,7 @@ function DrillPanel({
   const translateX = !entered ? 100 : isActive ? 0 : -30;
 
   return (
-    <div
+    <div data-lenis-prevent
       aria-hidden={!isActive}
       style={{
         position: 'absolute',

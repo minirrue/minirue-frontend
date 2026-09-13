@@ -77,7 +77,7 @@ export default function ConversationList({
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+      <div data-lenis-prevent style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {loading && conversations.length === 0 ? (
           <p style={emptyStyle}>Loading your conversations…</p>
         ) : conversations.length === 0 ? (
