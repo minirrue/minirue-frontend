@@ -95,6 +95,12 @@ const subjectPicker = () => screen.queryByText(/what's this about\?/i);
 async function openPanel() {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: /open live support chat/i }));
+  // The panel loads lazily (#76). Wait until it is really mounted AND open —
+  // otherwise every "no composer" assertion below passes against a panel that
+  // was never there.
+  await waitFor(() =>
+    expect(screen.getByRole('dialog', { name: /live support chat/i })).not.toHaveAttribute('inert'),
+  );
   return user;
 }
 

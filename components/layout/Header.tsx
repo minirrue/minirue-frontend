@@ -13,9 +13,7 @@ import { getSession, type Session } from '@/lib/session';
 import { useUser, useLogout } from '@/lib/hooks/use-auth';
 import { useSessionState } from '@/lib/hooks/use-session-state';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
-import MobileNavSheet from '@/components/layout/MobileNavSheet';
-import NavCategorySheet from '@/components/layout/NavCategorySheet';
-import SearchSheet from '@/components/layout/SearchSheet';
+import { useIdleImport } from '@/lib/hooks/useIdleImport';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { FALLBACK_CHROME, type ResolvedChrome, type ResolvedNavItem } from '@/lib/api/storefront';
 import AccountAvatarButton from '@/components/layout/AccountAvatarButton';
@@ -70,6 +68,13 @@ const HIDE_FLIP_COOLDOWN_MS = HIDE_TRANSITION_MS + 40;
 const FIXED_NAV_LINKS: ReadonlyArray<{ label: string; href: string }> = [
   { label: 'Shop', href: SHOP_ROOT },
 ];
+
+/**
+ * The search sheet, mobile menu sheet and desktop category dropdown are all
+ * closed on arrival, so they load after the page has (#76) — module-level so
+ * it is a stable cache key across the Header every page builds for itself.
+ */
+const loadHeaderSheets = () => import('@/components/layout/header-sheets');
 
 export default function Header({ navbar, onOpenCart, cartCount = 0, transparent = false }: HeaderProps) {
   // `mobileOpen`/`searchOpen` used to be local useState here — but W4a.2's
@@ -237,6 +242,13 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   );
   const hoveredItem: ResolvedNavItem | null =
     panelItems.find((i) => i.id === hoveredNavId) ?? null;
+  const { mod: sheets, armed: sheetsArmed } = useIdleImport(
+    loadHeaderSheets,
+    searchOpen || mobileOpen || hoveredItem !== null,
+  );
+  const SearchSheet = sheets?.SearchSheet;
+  const MobileNavSheet = sheets?.MobileNavSheet;
+  const NavCategorySheet = sheets?.NavCategorySheet;
 
   const closeDropdown = () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -572,10 +584,10 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
         {/* Desktop category dropdown. Rendered inside <header> so it hangs off
             the sticky bar and travels with it; never on phones, where the
             bottom sheet owns the same content. */}
-        {!mobile && panelItems.length > 0 && (
+        {!mobile && panelItems.length > 0 && NavCategorySheet && (
           <NavCategorySheet
             item={hoveredItem}
-            open={hoveredItem !== null}
+            open={hoveredItem !== null && sheetsArmed}
             onMouseEnter={() => {
               if (hoverTimer.current) clearTimeout(hoverTimer.current);
             }}
@@ -585,16 +597,18 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
         )}
       </header>
 
-      <SearchSheet
-        open={searchOpen}
-        onClose={closeMobileSearch}
-        suggestions={navbar.items.map((i) => i.label)}
-      />
+      {SearchSheet && (
+        <SearchSheet
+          open={searchOpen && sheetsArmed}
+          onClose={closeMobileSearch}
+          suggestions={navbar.items.map((i) => i.label)}
+        />
+      )}
 
       {/* Mobile nav — bottom sheet */}
-      {mobile && (
+      {mobile && MobileNavSheet && (
         <MobileNavSheet
-          open={mobileOpen}
+          open={mobileOpen && sheetsArmed}
           onClose={closeMobileMenu}
           navbar={navbar}
           mobileMenu={mobileMenu}

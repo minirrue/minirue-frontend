@@ -115,6 +115,12 @@ describe('SupportWidget — identity race conditions', () => {
 
     render(<SupportWidget />);
     await user.click(screen.getByRole('button', { name: /open live support chat/i }));
+    // The panel loads lazily (#76). Wait until it is really mounted AND open —
+    // otherwise the final "never repainted" assertion passes against a panel
+    // that was never there.
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: /live support chat/i })).not.toHaveAttribute('inert'),
+    );
 
     // Bootstrap has resumed 'convo-a' and is awaiting its message fetch —
     // the request is genuinely in flight, not yet resolved.

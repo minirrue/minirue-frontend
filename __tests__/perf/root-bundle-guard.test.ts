@@ -82,7 +82,12 @@ function resolveImport(spec: string, fromFile: string): string | null {
 
 /** Every `from '…'` specifier in a file, import and re-export alike. */
 function specifiersOf(source: string): string[] {
-  return [...source.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
+  // A whole-statement `import type … from` is erased by TypeScript and ships
+  // nothing (#76: SupportWidget needs the chat panel's TYPES while the panel
+  // itself loads later). `import X, { type Y } from` is a value import and
+  // still counts.
+  const withoutTypeImports = source.replace(/^\s*import\s+type\s[^;]*?from\s+['"][^'"]+['"]/gm, '');
+  return [...withoutTypeImports.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
 }
 
 /**
@@ -168,6 +173,67 @@ describe('the root layout import graph', () => {
     expect(
       Object.entries(offenders).map(([pkg, chain]) => `${pkg} via\n    ${chain.join('\n    ')}`),
     ).toEqual([]);
+  });
+});
+
+describe('closed overlays load after the page, not with it (#76)', () => {
+  /*
+   * The chat panel and the header's search sheet, menu sheet and category
+   * dropdown are closed on arrival on every page. They are reached only through
+   * `import()` (lib/hooks/useIdleImport.ts), which this walker deliberately does
+   * not follow — so a static import anywhere in these graphs, even a harmless-
+   * looking one for a helper, puts them back in every route's first load.
+   *
+   * Measured when they were taken out: initial JS 268 -> 241 KB, FCP ~1700 ->
+   * ~1480 ms, main-thread blocking ~900 -> ~700 ms (393px, 4x CPU, 1.6 Mbps).
+   */
+  const DEFERRED = [
+    'components/chat/ChatPanel.tsx',
+    'components/chat/NewChatComposer.tsx',
+    'components/chat/ConversationList.tsx',
+    'components/chat/SignInToChat.tsx',
+    'components/chat/SubjectPicker.tsx',
+    'components/layout/SearchSheet.tsx',
+    'components/layout/MobileNavSheet.tsx',
+    'components/layout/NavCategorySheet.tsx',
+  ];
+
+  function reachable(entry: string): Set<string> {
+    const seen = new Set<string>();
+    const queue = [path.join(ROOT, entry)];
+    while (queue.length) {
+      const f = queue.shift()!;
+      if (seen.has(f)) continue;
+      seen.add(f);
+      let src = '';
+      try {
+        src = fs.readFileSync(f, 'utf8');
+      } catch {
+        continue;
+      }
+      for (const spec of specifiersOf(src)) {
+        const next = resolveImport(spec, f);
+        if (next && !seen.has(next)) queue.push(next);
+      }
+    }
+    return new Set([...seen].map((f) => path.relative(ROOT, f).split(path.sep).join('/')));
+  }
+
+  it.each(['app/layout.tsx', 'components/layout/Header.tsx'])('%s does not statically reach them', (entry) => {
+    const graph = reachable(entry);
+    // Guard the guard: both entries really do reach the components that own them.
+    expect(graph.has(entry === 'app/layout.tsx' ? 'components/chat/SupportWidget.tsx' : 'components/layout/Header.tsx')).toBe(true);
+    expect(DEFERRED.filter((f) => graph.has(f))).toEqual([]);
+  });
+
+  it('the lazy modules really do contain them, so the walker is not just blind', () => {
+    const parts = reachable('components/chat/support-panel-parts.ts');
+    const sheets = reachable('components/layout/header-sheets.ts');
+    expect(DEFERRED.filter((f) => !parts.has(f) && !sheets.has(f))).toEqual([]);
+  });
+
+  it('ignores only whole-statement type imports', () => {
+    expect(specifiersOf("import type { A } from './a';\nimport B, { type C } from './b';")).toEqual(['./b']);
   });
 });
 

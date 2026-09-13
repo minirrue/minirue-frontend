@@ -62,6 +62,19 @@ jest.mock('@/lib/support/support-context', () => ({
 // ── Component ────────────────────────────────────────────────────────────────
 import SupportWidget from '@/components/chat/SupportWidget';
 
+/**
+ * Open the panel and wait until it is mounted AND armed. The panel loads
+ * lazily and arms two frames after mounting (#76); until then it is
+ * `pointer-events: none`, so clicking inside it straight away is a race that
+ * passed locally and failed on CI.
+ */
+async function openPanel(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /open live support chat/i }));
+  await waitFor(() =>
+    expect(screen.getByRole('dialog', { name: /live support chat/i })).not.toHaveAttribute('inert'),
+  );
+}
+
 function pendingConversationSnapshot() {
   const call = mockApiStartSupport.mock.calls[mockApiStartSupport.mock.calls.length - 1];
   return call?.[0] as Record<string, unknown> | undefined;
@@ -87,7 +100,7 @@ describe('SupportWidget — forceNew (W1.6)', () => {
     });
 
     render(<SupportWidget />);
-    await user.click(screen.getByRole('button', { name: /open live support chat/i }));
+    await openPanel(user);
 
     // Skip the product search — "Just a general question" is the composer's
     // escape hatch straight to the message field.
@@ -119,7 +132,7 @@ describe('SupportWidget — forceNew (W1.6)', () => {
     });
 
     render(<SupportWidget />);
-    await user.click(screen.getByRole('button', { name: /open live support chat/i }));
+    await openPanel(user);
 
     await user.type(screen.getByLabelText(/type your message/i), 'Hello, is anyone there?');
     await user.click(screen.getByRole('button', { name: /^send message$/i }));
@@ -164,7 +177,7 @@ describe('SupportWidget — forceNew (W1.6)', () => {
     });
 
     render(<SupportWidget />);
-    await user.click(screen.getByRole('button', { name: /open live support chat/i }));
+    await openPanel(user);
     expect(await screen.findByText('Old message')).toBeInTheDocument();
 
     // Reach the "New conversation" button via the conversations list.
