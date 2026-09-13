@@ -46,8 +46,13 @@ export default function CheckoutPaymentPage() {
    * resolved in an effect on the step before this one.
    */
   const [governorate, setGovernorate] = useState<string | undefined>(undefined);
+  // A guest's phone, for the code preview's per-customer limit
+  // (minirue-backend#120). Same sessionStorage read, same reason for the effect.
+  const [guestPhone, setGuestPhone] = useState<string | undefined>(undefined);
   useEffect(() => {
-    setGovernorate(loadCheckoutSession()?.shippingGovernorate);
+    const session = loadCheckoutSession();
+    setGovernorate(session?.shippingGovernorate);
+    setGuestPhone(session?.guest?.phone);
   }, []);
 
   /**
@@ -234,7 +239,12 @@ export default function CheckoutPaymentPage() {
         {/* After the method, not before it (#101): choosing how to pay is
             what this step is for. */}
         <CheckoutSection title="Discount code">
-          <DiscountCodeField lines={discountLines} onChange={setDiscount} compact />
+          <DiscountCodeField
+            lines={discountLines}
+            onChange={setDiscount}
+            compact
+            guestPhone={guestPhone}
+          />
         </CheckoutSection>
 
 
