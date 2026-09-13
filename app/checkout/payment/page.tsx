@@ -6,6 +6,7 @@ import { useCart } from '@/components/storefront/cart/CartContext';
 import { toPricingLines } from '@/components/storefront/cart/bag-lines';
 import { loadCheckoutSession, saveCheckoutSession } from '@/lib/checkout/checkout-session';
 import {
+  useAutomaticDiscount,
   useCodMaxOrderMinor,
   useEffectiveShipping,
 } from '@/components/storefront/cart/use-bag-pricing';
@@ -95,7 +96,20 @@ export default function CheckoutPaymentPage() {
     if (saved) setMethod(saved);
   }, []);
 
-  const discountMinor = discount?.discountMinor ?? 0;
+  /*
+   * The sitewide discount belongs in this total too (frontend#83).
+   *
+   * This step priced only a TYPED code, so an automatic sitewide offer that the
+   * product card, bag and delivery step all showed vanished from the last
+   * summary before Place order — and from the COD check below. The server
+   * charged it anyway, so the shopper saw a higher total than they paid.
+   *
+   * Asked only when no code is applied: a coded preview is already
+   * `max(code, automatic)`, so both would count the saving twice.
+   */
+  const automatic = useAutomaticDiscount(discountLines, !discount && discountLines.length > 0);
+  const appliedDiscount = discount ?? automatic;
+  const discountMinor = appliedDiscount?.discountMinor ?? 0;
   /**
    * Both the COD ceiling and the displayed total follow what is actually paid.
    * That is the cash the courier collects, and judging the ceiling on the
@@ -180,7 +194,7 @@ export default function CheckoutPaymentPage() {
             {discountMinor > 0 && (
               <>
                 {' · '}
-                {discount?.code} −{minorToAmount(discountMinor)} {currency}
+                {discount?.code ?? 'Sitewide discount'} −{minorToAmount(discountMinor)} {currency}
               </>
             )}
           </p>
