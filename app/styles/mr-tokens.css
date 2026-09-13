@@ -624,11 +624,11 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
 }
 
 /* ---------------------------------------------------------------------------
-   Order progress on the tracking page (#60)
+   Order progress on the account order page (#60, #125)
    ---------------------------------------------------------------------------
-   MiniRue has no carrier integration, so no shipment row is ever created and
-   the carrier view on that page is for a future that has not arrived. This is
-   the order's own status instead — the four states it really moves through.
+   components/orders/OrderProgress. MiniRue has no carrier integration and no
+   screen creates a shipment, so this is the order's own status — the four
+   states it really moves through.
 
    Reached and current are carried on data- attributes rather than composed
    class names so the markup stays readable, and every visual state has a

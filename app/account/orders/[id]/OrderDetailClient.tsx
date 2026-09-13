@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
+import OrderProgress from '@/components/orders/OrderProgress';
 import {
   formatOrderStatus,
   formatOrderTotal,
@@ -23,9 +24,18 @@ export default function OrderDetailClient() {
     undefined,
   );
 
+  // Kept apart from `order === null` so a wrong or foreign id (an old /track
+  // link now redirects here) says so instead of "Loading order…" forever.
+  const [notFound, setNotFound] = useState(false);
+
   useEffect(() => {
     if (!id) return;
-    void apiGetOrder(id).then(setOrder).catch(() => setOrder(null));
+    void apiGetOrder(id)
+      .then(setOrder)
+      .catch(() => {
+        setOrder(null);
+        setNotFound(true);
+      });
     void apiListMyRefunds()
       .then((res) => setHasRefundTicket(res.data.some((t) => t.orderId === id)))
       .catch(() => setHasRefundTicket(false));
@@ -34,7 +44,19 @@ export default function OrderDetailClient() {
   if (!order) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-16">
-        <p className="text-neutral-600">Loading order…</p>
+        {notFound ? (
+          <>
+            <Link href="/account/orders" className="text-sm underline">
+              ← Back to orders
+            </Link>
+            <p className="mt-4 text-neutral-600">
+              We could not find that order. Check the link, or open it from your
+              orders.
+            </p>
+          </>
+        ) : (
+          <p className="text-neutral-600">Loading order…</p>
+        )}
       </main>
     );
   }
@@ -55,6 +77,12 @@ export default function OrderDetailClient() {
             })}`
           : ''}
       </p>
+
+      {/* "Where is my order" — the progress that used to sit on the
+          /orders/[id]/track page, which could never load an order (#125). */}
+      <div style={{ marginTop: 24 }}>
+        <OrderProgress status={order.status} />
+      </div>
 
       {/* A refunded order used to say nothing beyond the bare status word —
           the amount and date the backend already carries never reached this
