@@ -4,7 +4,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { apiCheckout, guestCheckoutFields } from '@/lib/checkout/checkout-api';
-import { loadAppliedCode, saveAppliedCode } from '@/lib/api/discounts';
+import {
+  codeRefusalAtPlacement,
+  loadAppliedCode,
+  saveAppliedCode,
+} from '@/lib/api/discounts';
 import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
@@ -135,7 +139,10 @@ export default function InstapayCheckoutPage() {
       await clearCart();
       router.replace(`/checkout/confirmation?order=${encodeURIComponent(order.orderNumber)}`);
     } catch (err: unknown) {
-      const message = formatApiError(err, 'Failed to submit receipt.');
+      // A refused code (minirue-backend#120): forgotten, and said plainly —
+      // the transfer they made may not match the new total.
+      const message =
+        codeRefusalAtPlacement(err) ?? formatApiError(err, 'Failed to submit receipt.');
       setError(message);
       track('payment_client_error', { method: 'INSTAPAY', message });
     } finally {

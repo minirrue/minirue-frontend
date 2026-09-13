@@ -3,6 +3,7 @@
 import React from 'react';
 import {
   type DiscountPreview,
+  INVALID_CODE_MESSAGE,
   loadAppliedCode,
   previewDiscount,
   saveAppliedCode,
@@ -11,7 +12,7 @@ import { track } from '@/lib/analytics/track';
 import Button from '@/components/ui/Button';
 
 /**
- * Where a shopper types `MINIRUE-K7P2X4`.
+ * Where a shopper types `MINIRUE-K7P2X4` — or a campaign code like `MINIRUE10`.
  *
  * Lives on the Bag and Payment steps — apply early, or remember at the last
  * moment. Not on Confirmation, which is a receipt with nothing to type into,
@@ -29,15 +30,21 @@ export interface DiscountLine {
   unitPriceMinor: number;
 }
 
+/** How long the bag must stay still before an applied code is re-priced. */
+const RECHECK_DEBOUNCE_MS = 400;
+
 export function DiscountCodeField({
   lines,
   onChange,
   compact = false,
+  guestPhone,
 }: {
   lines: DiscountLine[];
   /** Fires whenever the saving changes, including on removal (0). */
   onChange?: (preview: DiscountPreview | null) => void;
   compact?: boolean;
+  /** A guest's phone once Delivery has it — see previewDiscount. */
+  guestPhone?: string;
 }) {
   const [input, setInput] = React.useState('');
   const [applied, setApplied] = React.useState<DiscountPreview | null>(null);
@@ -75,41 +82,75 @@ export function DiscountCodeField({
     linesRef.current = lines;
   });
 
+  const guestPhoneRef = React.useRef(guestPhone);
+  React.useEffect(() => {
+    guestPhoneRef.current = guestPhone;
+  });
+
   const runPreview = React.useCallback(
     async (code: string, opts?: { silent?: boolean }) => {
       setBusy(true);
       setError(null);
       try {
-        const result = await previewDiscount(linesRef.current, code);
+        const phone = guestPhoneRef.current?.trim();
+        const result = phone
+          ? await previewDiscount(linesRef.current, code, { guestPhone: phone })
+          : await previewDiscount(linesRef.current, code);
         if (result.valid) {
-          setApplied(result);
-          saveAppliedCode(result.code);
+          /**
+           * The STORED code when the server names it (`MINIRUE10`), otherwise
+           * exactly what the shopper typed — never nothing.
+           *
+           * This saved `result.code` alone, and the server echoed null for
+           * every admin-named code, so an accepted `MINIRUE10` left
+           * localStorage empty, Place order sent no code, and the order was
+           * charged full price (minirue-backend#120). The typed text is safe
+           * to keep: the server re-resolves it from scratch at placement.
+           */
+          const kept = result.code ?? code;
+          setApplied({ ...result, code: kept });
+          saveAppliedCode(kept);
           onChangeRef.current?.(result);
           track('promo_applied', {
-            code: result.code ?? code,
+            code: kept,
             discountMinor: result.discountMinor,
           });
         } else {
           setApplied(null);
           saveAppliedCode(null);
           onChangeRef.current?.(null);
-          // Silent when re-checking a code the shopper applied earlier: they
-          // did not just do anything, so an error appearing out of nowhere as
-          // they change quantity reads as the page breaking.
-          if (!opts?.silent) {
-            setError(result.message ?? "This code isn't valid.");
-          }
+          /**
+           * Shown on a silent re-check too. It used to stay quiet, so a code
+           * that expired, or stopped fitting the bag, vanished along with the
+           * saving and the total simply went up with no word why — the same
+           * "charged more than the screen said" the issue was about. It is the
+           * one generic sentence, so it says nothing about the reason.
+           */
+          setError(result.message ?? INVALID_CODE_MESSAGE);
           track('promo_rejected', {
             code,
             reason: result.message ?? 'invalid',
           });
         }
-      } catch {
+      } catch (err: unknown) {
+        const status = (err as { status?: unknown } | null)?.status;
+        if (opts?.silent) {
+          /**
+           * A re-check that could not be answered (rate limited, offline)
+           * says NOTHING about the code, so the code stays applied and saved.
+           * Clearing it here is how a shopper adjusting quantities lost a
+           * valid code to a 429 (minirue-backend#120). Place order
+           * re-validates it regardless, and refuses clearly if it is dead.
+           */
+          return;
+        }
         setApplied(null);
         onChangeRef.current?.(null);
-        if (!opts?.silent) {
-          setError('We could not check that code just now. Please try again.');
-        }
+        setError(
+          status === 429
+            ? 'Too many tries just now. Please wait a few minutes and try again.'
+            : 'We could not check that code just now. Please try again.',
+        );
       } finally {
         setBusy(false);
       }
@@ -123,12 +164,22 @@ export function DiscountCodeField({
    * A percentage of a bag is not a fixed number: add an item and the saving
    * grows, remove one and it shrinks. Showing yesterday's figure against
    * today's bag would mean the summary and the amount charged disagree.
+   *
+   * The first check runs at once; later ones wait for the bag to settle, so
+   * tapping + five times costs one request, not five.
    */
+  const checkedOnce = React.useRef(false);
   React.useEffect(() => {
     const saved = loadAppliedCode();
     if (!saved || lines.length === 0) return;
     setInput(saved);
-    void runPreview(saved, { silent: true });
+    if (!checkedOnce.current) {
+      checkedOnce.current = true;
+      void runPreview(saved, { silent: true });
+      return;
+    }
+    const timer = setTimeout(() => void runPreview(saved, { silent: true }), RECHECK_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
   }, [bagKey, runPreview, lines.length]);
 
   function remove() {
@@ -205,7 +256,9 @@ export function DiscountCodeField({
               setInput(e.target.value);
               if (error) setError(null);
             }}
-            placeholder="MINIRUE-XXXXXX"
+            // Not a MINIRUE-XXXXXX mask: admin-named codes (MINIRUE10) are
+            // just as valid, and a format hint made them look wrong.
+            placeholder="Enter code"
             // Codes are stored uppercase and the field accepts any case, but
             // showing it uppercase as they type means what they see matches
             // what they were sent.

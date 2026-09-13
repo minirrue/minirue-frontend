@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { guestCheckoutFields, apiCheckout, type OrderSummary } from '@/lib/checkout/checkout-api';
-import { loadAppliedCode, saveAppliedCode } from '@/lib/api/discounts';
+import {
+  codeRefusalAtPlacement,
+  loadAppliedCode,
+  saveAppliedCode,
+} from '@/lib/api/discounts';
 import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
@@ -106,8 +110,9 @@ export default function CheckoutConfirmationPage() {
           : { shippingAddressId: session.shippingAddressId }),
         paymentMethod: 'COD',
         // Whatever they applied in the bag or on the payment step. The server
-        // re-resolves it and recomputes the saving; an undefined code simply
-        // means no discount, never an error.
+        // re-resolves it and recomputes the saving; no code means no discount.
+        // A code that no longer applies is refused with a 422 — never
+        // silently charged at full price (minirue-backend#120).
         ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
       },
       checkoutIdempotencyKey(),
@@ -124,7 +129,9 @@ export default function CheckoutConfirmationPage() {
       .catch((err: unknown) => {
         // A 422 carries `message` as an array of {field, issue}; printing it
         // straight gave the customer "[object Object]".
-        const message = formatApiError(err, 'Checkout failed. Please try again.');
+        const message =
+          codeRefusalAtPlacement(err) ??
+          formatApiError(err, 'Checkout failed. Please try again.');
         setError(message);
         track('payment_client_error', { method: 'COD', message });
         submitted.current = false;
