@@ -14,10 +14,45 @@ import { useCart } from './CartContext';
 import CartItemRow from './CartItemRow';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import Sparkle from '@/components/ui/Sparkle';
+import { toPricingLines } from './bag-lines';
+import { useAutomaticDiscount } from './use-bag-pricing';
+import { loadAppliedCode } from '@/lib/api/discounts';
 
 export default function CartDrawer() {
-  const { lines, subtotalAmount, currency, itemCount, loading, error, drawerOpen, closeDrawer, setLineQty, removeLine, clearError } =
+  const { lines, bundleIndex, subtotalAmount, currency, itemCount, loading, error, drawerOpen, closeDrawer, setLineQty, removeLine, clearError } =
     useCart();
+
+  /*
+   * The sitewide discount, in the drawer too (frontend#83).
+   *
+   * The drawer showed a bare Subtotal while the product card struck the price
+   * through and the bag applied the markdown — so the first total a shopper saw
+   * after "Add to bag" was the higher one. This asks the same server preview the
+   * bag page asks (`useAutomaticDiscount` → `priceBag()`), with the same lines,
+   * so the two cannot disagree, and it is not a second copy of the discount
+   * rules.
+   *
+   * Only while the drawer is OPEN: the preview endpoint is throttled to ten
+   * requests per ten minutes per shopper, and a closed drawer spending that
+   * budget would starve the bag and checkout. Results are cached per bag, so
+   * reopening an unchanged bag costs nothing.
+   *
+   * Not when a code is saved: a coded preview already includes the automatic
+   * offer (`max(code, automatic)`), and the bag page shows that figure — the
+   * drawer says so rather than showing a different number.
+   */
+  const [hasSavedCode, setHasSavedCode] = React.useState(false);
+  React.useEffect(() => {
+    if (drawerOpen) setHasSavedCode(Boolean(loadAppliedCode()));
+  }, [drawerOpen]);
+  const pricingLines = React.useMemo(() => toPricingLines(lines, bundleIndex), [lines, bundleIndex]);
+  const automatic = useAutomaticDiscount(
+    pricingLines,
+    drawerOpen && !hasSavedCode && lines.length > 0,
+  );
+  const discountMinor = hasSavedCode ? 0 : automatic?.discountMinor ?? 0;
+  const subtotalMinor = Math.round(parseFloat(subtotalAmount || '0') * 100);
+  const afterDiscountAmount = (Math.max(0, subtotalMinor - discountMinor) / 100).toFixed(2);
 
   const drawerRef = React.useRef<HTMLElement | null>(null);
 
@@ -293,9 +328,54 @@ export default function CartDrawer() {
               <PriceDisplay
                 amount={subtotalAmount}
                 currency={currency}
-                style={{ fontSize: 'var(--mr-text-lg)' }}
+                style={{ fontSize: discountMinor > 0 ? 'var(--mr-text-sm)' : 'var(--mr-text-lg)' }}
               />
             </div>
+
+            {discountMinor > 0 && (
+              <>
+                <div
+                  data-testid="drawer-sitewide-discount"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    marginBottom: 'var(--mr-sp-2)',
+                    fontFamily: 'var(--mr-font-ui)',
+                    fontSize: 'var(--mr-text-sm)',
+                    color: 'var(--mr-gold-700)',
+                  }}
+                >
+                  <span>Sitewide discount</span>
+                  <span>
+                    −<PriceDisplay amount={(discountMinor / 100).toFixed(2)} currency={currency} />
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    marginBottom: 'var(--mr-sp-2)',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--mr-font-ui)',
+                      fontSize: 'var(--mr-text-sm)',
+                      color: 'var(--mr-fg-2)',
+                    }}
+                  >
+                    Total before shipping
+                  </span>
+                  <PriceDisplay
+                    amount={afterDiscountAmount}
+                    currency={currency}
+                    style={{ fontSize: 'var(--mr-text-lg)' }}
+                  />
+                </div>
+              </>
+            )}
 
             <p
               style={{
@@ -305,7 +385,9 @@ export default function CartDrawer() {
                 marginBottom: 'var(--mr-sp-5)',
               }}
             >
-              Shipping &amp; duties calculated at checkout.
+              {hasSavedCode
+                ? 'Your discount code is applied in your bag. Shipping calculated at checkout.'
+                : 'Shipping & duties calculated at checkout.'}
             </p>
 
             {/* Checkout CTA */}
