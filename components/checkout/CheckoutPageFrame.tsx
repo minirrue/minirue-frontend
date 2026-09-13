@@ -2,6 +2,7 @@
 
 import React from 'react';
 import CheckoutSteps from './CheckoutSteps';
+import CheckoutColumns from './CheckoutColumns';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 
 interface Props {
@@ -10,10 +11,13 @@ interface Props {
    * page needs this today. */
   complete?: boolean;
   eyebrow?: string;
-  title: string;
+  title: React.ReactNode;
   subtitle?: React.ReactNode;
   children: React.ReactNode;
   maxWidth?: number;
+  /** Right column level with the stepper — the order summary. */
+  aside?: React.ReactNode;
+  asideWhenStacked?: 'after' | 'between';
 }
 
 export default function CheckoutPageFrame({
@@ -24,6 +28,8 @@ export default function CheckoutPageFrame({
   subtitle,
   children,
   maxWidth = 640,
+  aside,
+  asideWhenStacked,
 }: Props) {
   const { mobile } = useBreakpoint();
 
@@ -38,55 +44,71 @@ export default function CheckoutPageFrame({
           : 'var(--mr-sp-7) var(--mr-gutter) var(--mr-sp-9)',
       }}
     >
-      <CheckoutSteps current={step} complete={complete} />
+      <CheckoutColumns
+        aside={aside}
+        asideWhenStacked={asideWhenStacked}
+        header={
+          <>
+            <CheckoutSteps current={step} complete={complete} />
 
-      {eyebrow && (
-        <p
-          style={{
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: 'var(--mr-gold-500)',
-            margin: '0 0 var(--mr-sp-3)',
-          }}
-        >
-          {eyebrow}
-        </p>
-      )}
+            {eyebrow && (
+              <p
+                style={{
+                  fontFamily: 'var(--mr-font-label)',
+                  fontSize: 'var(--mr-text-xs)',
+                  letterSpacing: '0.22em',
+                  textTransform: 'uppercase',
+                  color: 'var(--mr-gold-500)',
+                  margin: '0 0 var(--mr-sp-3)',
+                }}
+              >
+                {eyebrow}
+              </p>
+            )}
 
-      <h1
-        style={{
-          fontFamily: 'var(--mr-font-serif)',
-          fontSize: mobile ? 'var(--mr-text-xl)' : 'var(--mr-text-2xl)',
-          fontWeight: 400,
-          color: 'var(--mr-fg)',
-          margin: '0 0 var(--mr-sp-3)',
-          letterSpacing: '-0.01em',
-          textWrap: 'balance',
-        }}
+            <h1
+              style={{
+                fontFamily: 'var(--mr-font-serif)',
+                fontSize: mobile ? 'var(--mr-text-xl)' : 'var(--mr-text-2xl)',
+                fontWeight: 400,
+                color: 'var(--mr-fg)',
+                margin: '0 0 var(--mr-sp-3)',
+                letterSpacing: '-0.01em',
+                textWrap: 'balance',
+              }}
+            >
+              {title}
+            </h1>
+
+            {subtitle && (
+              <div
+                style={{
+                  fontFamily: 'var(--mr-font-ui)',
+                  fontSize: 'var(--mr-text-sm)',
+                  color: 'var(--mr-fg-3)',
+                  marginBottom: 'var(--mr-sp-6)',
+                  maxWidth: '52ch',
+                  lineHeight: 1.55,
+                }}
+              >
+                {subtitle}
+              </div>
+            )}
+          </>
+        }
       >
-        {title}
-      </h1>
-
-      {subtitle && (
+        {/* Beside an aside the column is already narrow; centring a capped
+            body inside it would float it away from the header above. */}
         <div
-          style={{
-            fontFamily: 'var(--mr-font-ui)',
-            fontSize: 'var(--mr-text-sm)',
-            color: 'var(--mr-fg-3)',
-            marginBottom: 'var(--mr-sp-6)',
-            maxWidth: '52ch',
-            lineHeight: 1.55,
-          }}
+          style={
+            aside
+              ? { marginTop: subtitle ? undefined : 'var(--mr-sp-5)' }
+              : { maxWidth, margin: subtitle ? undefined : 'var(--mr-sp-5) auto 0' }
+          }
         >
-          {subtitle}
+          {children}
         </div>
-      )}
-
-      <div style={{ maxWidth, margin: subtitle ? undefined : 'var(--mr-sp-5) auto 0' }}>
-        {children}
-      </div>
+      </CheckoutColumns>
     </main>
   );
 }

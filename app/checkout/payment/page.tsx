@@ -158,7 +158,10 @@ export default function CheckoutPaymentPage() {
         title="Payment"
         subtitle="Select how you would like to pay. Instapay orders require a receipt upload on the next screen."
         maxWidth={560}
-      >
+        // The total beside the choice, level with the stepper (#101); on a
+        // phone it sits between the heading and the payment method.
+        asideWhenStacked="between"
+        aside={
         <CheckoutSummaryCard>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--mr-sp-3)', minWidth: 0 }}>
             <span
@@ -199,11 +202,8 @@ export default function CheckoutPaymentPage() {
             )}
           </p>
         </CheckoutSummaryCard>
-
-        <CheckoutSection title="Discount code">
-          <DiscountCodeField lines={discountLines} onChange={setDiscount} compact />
-        </CheckoutSection>
-
+        }
+      >
         <CheckoutSection title="Payment method">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>
             <CheckoutOption
@@ -230,6 +230,13 @@ export default function CheckoutPaymentPage() {
             />
           </div>
         </CheckoutSection>
+
+        {/* After the method, not before it (#101): choosing how to pay is
+            what this step is for. */}
+        <CheckoutSection title="Discount code">
+          <DiscountCodeField lines={discountLines} onChange={setDiscount} compact />
+        </CheckoutSection>
+
 
         <CheckoutActions
           primaryLabel="Continue"
