@@ -138,7 +138,15 @@ export type ResolvedSection =
       eyebrow: string;
       title: string;
       body: string;
+      /** A photo, or a video when `mediaKind` is `'video'`. */
       imageUrl: string | null;
+      /**
+       * backend#89. Optional because a backend that predates it does not send
+       * it — absent means a photo, which is all such a backend could resolve.
+       */
+      mediaKind?: 'image' | 'video';
+      /** First frame of a video, painted before it plays. */
+      posterUrl?: string | null;
       imageSide: 'left' | 'right';
       /** Small overlay label on the image, e.g. "Editorial · N°4". null hides it. */
       badge: string | null;
