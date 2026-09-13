@@ -10,6 +10,7 @@ import ShopFilterPanel, {
 } from '@/components/storefront/ShopFilterPanel';
 import Button from '@/components/ui/Button';
 import MobileSheet from '@/components/ui/MobileSheet';
+import BrandFilterControl from '@/components/storefront/BrandFilterControl';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import {
   activeFilterCount,
@@ -232,6 +233,7 @@ export default function ProductListingClient({
   );
 
   const hasFacets = brands.length > 0 || (showCategories && categories.length > 0);
+  const showBrandControl = brands.length >= 2;
 
   return (
     <div
@@ -249,16 +251,20 @@ export default function ProductListingClient({
       <div style={{ minWidth: 0, order: 1 }}>
         {/* The mobile control bar. On desktop the rail is always visible, so
             a button to reveal it would open something already open. */}
-        {mobile && hasFacets && (
+        {/* The toolbar. Filter & sort only on a phone (on desktop the rail is
+            always open); Brand on every width, beside it (frontend#103). */}
+        {((mobile && hasFacets) || showBrandControl) && (
           <div
+            data-trace-id="PG-STOREFRONT-CAT-003::EL-REGION-listing-toolbar"
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               alignItems: 'center',
-              justifyContent: 'space-between',
               gap: 'var(--mr-sp-3)',
               marginBottom: 'var(--mr-sp-5)',
             }}
           >
+            {mobile && hasFacets && (
             <Button
               variant="outline"
               onClick={() => setSheetOpen(true)}
@@ -289,8 +295,16 @@ export default function ProductListingClient({
                 </span>
               )}
             </Button>
+            )}
+            <BrandFilterControl
+              brands={brands}
+              brandId={state.brandId}
+              onSelect={(brandId) => apply({ ...state, brandId })}
+            />
+            {mobile && (
             <span
               style={{
+                marginLeft: 'auto',
                 fontFamily: 'var(--mr-font-ui)',
                 fontSize: 'var(--mr-text-xs)',
                 color: 'var(--mr-fg-4)',
@@ -301,6 +315,7 @@ export default function ProductListingClient({
             >
               {sortLabel}
             </span>
+            )}
           </div>
         )}
 
