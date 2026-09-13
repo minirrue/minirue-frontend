@@ -3,6 +3,8 @@
 import { ReactLenis } from 'lenis/react';
 import type { ReactNode } from 'react';
 import ScrollRestoration from './ScrollRestoration';
+import { isOwnScroller } from '@/lib/scroll/is-own-scroller';
+
 
 interface LenisProviderProps {
   children: ReactNode;
@@ -16,6 +18,7 @@ export default function LenisProvider({ children }: LenisProviderProps) {
         lerp: 0.1,
         duration: 1.2,
         smoothWheel: true,
+        prevent: isOwnScroller,
       }}
     >
       {/* INSIDE the provider, deliberately — it reads the Lenis instance

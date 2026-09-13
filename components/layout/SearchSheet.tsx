@@ -370,7 +370,7 @@ export default function SearchSheet({ open, onClose, suggestions = [] }: SearchS
         </form>
 
         {/* Body */}
-        <div
+        <div data-lenis-prevent
           style={{
             flex: 1,
             minHeight: 0,

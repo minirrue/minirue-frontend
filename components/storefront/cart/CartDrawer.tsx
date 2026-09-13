@@ -225,7 +225,7 @@ export default function CartDrawer() {
         )}
 
         {/* ── Items ──────────────────────────────────────────────── */}
-        <div
+        <div data-lenis-prevent
           style={{
             flex: 1,
             overflowY: 'auto',
