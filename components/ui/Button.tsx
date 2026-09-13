@@ -4,14 +4,22 @@ import React from 'react';
 import Link from 'next/link';
 import { MR_TX } from '@/lib/motion/presets';
 
-type Variant = 'primary' | 'gold' | 'outline' | 'outlineLight' | 'ghost';
+type Variant = 'primary' | 'gold' | 'outline' | 'outlineLight' | 'ghost' | 'danger' | 'dangerOutline';
 type Size = 'sm' | 'md';
 
 interface ButtonProps {
   variant?: Variant;
+  /**
+   * `sm` is the default and the house shape (frontend#105): the owner asked for
+   * every button to be the same shape as chat's "Start conversation" and
+   * account "Sign out" — Jost 11px, 0.22em, 17px 18px, pill. `md` remains for a
+   * surface that genuinely needs the larger type, and nothing uses it today.
+   */
   size?: Size;
   children: React.ReactNode;
-  onClick?: () => void;
+  /** On a link (`href`) this runs before navigation — e.g. closing the sheet
+   * or drawer the link sits in. */
+  onClick?: (event: React.MouseEvent<HTMLElement>) => void;
   disabled?: boolean;
   style?: React.CSSProperties;
   /**
@@ -47,6 +55,15 @@ interface ButtonProps {
    * "PG-STOREFRONT-IAM-001::EL-BTN-submit-login". Caller-supplied because this component is
    * reused across every screen, each with its own PG-* id. */
   traceId?: string;
+  /** The rendered `<button>`/`<a>`, for callers that observe or focus it (the
+   * sticky buy bar watches the product page's Add to bag). React 19 passes
+   * `ref` to a function component as a plain prop. */
+  ref?: React.Ref<HTMLElement>;
+  title?: string;
+  /** Announces disabled while staying clickable — for a control that says why
+   * it cannot run when pressed. Not swept, like `disabled`. */
+  ariaDisabled?: boolean;
+  testId?: string;
 }
 
 const VARIANTS: Record<Variant, React.CSSProperties> = {
@@ -55,6 +72,9 @@ const VARIANTS: Record<Variant, React.CSSProperties> = {
   outline:      { background: 'transparent',          color: 'var(--mr-ink-900)',   borderColor: 'var(--mr-ink-900)' },
   outlineLight: { background: 'transparent',          color: 'var(--mr-cream-100)', borderColor: 'rgba(253,251,245,0.75)' },
   ghost:        { background: 'transparent',          color: 'var(--mr-ink-900)',   border: '0', borderBottom: '1px solid var(--mr-gold-400)', padding: '8px 0', borderRadius: '0' },
+  // Destructive actions (cancel an order, delete an address) — same shape.
+  danger:        { background: 'var(--mr-danger)',    color: 'var(--mr-cream-100)', boxShadow: 'var(--mr-shadow-md)' },
+  dangerOutline: { background: 'transparent',         color: 'var(--mr-danger)',    borderColor: 'var(--mr-danger)' },
 };
 
 const HOVER_STYLES: Record<Variant, React.CSSProperties> = {
@@ -63,6 +83,8 @@ const HOVER_STYLES: Record<Variant, React.CSSProperties> = {
   outline:      { background: 'var(--mr-ink-900)', color: 'var(--mr-cream-100)' },
   outlineLight: { background: 'rgba(253,251,245,0.15)' },
   ghost:        { color: 'var(--mr-gold-700)' },
+  danger:        { background: '#6F0F12' },
+  dangerOutline: { background: 'var(--mr-danger)', color: 'var(--mr-cream-100)' },
 };
 
 /**
@@ -91,6 +113,9 @@ const SWEEP_FILL: Record<Variant, string> = {
   outlineLight: 'var(--mr-cream-100)',
   // No panel: ghost is an underline, not a surface.
   ghost:        'transparent',
+  // Red button, cream fill; red outline, red fill.
+  danger:        'var(--mr-cream-100)',
+  dangerOutline: 'var(--mr-danger)',
 };
 
 const SWEEP_HOVER: Record<Variant, React.CSSProperties> = {
@@ -99,11 +124,13 @@ const SWEEP_HOVER: Record<Variant, React.CSSProperties> = {
   outline:      { color: 'var(--mr-cream-100)' },
   outlineLight: { color: 'var(--mr-ink-900)' },
   ghost:        { color: 'var(--mr-gold-700)' },
+  danger:        { color: 'var(--mr-danger)' },
+  dangerOutline: { color: 'var(--mr-cream-100)' },
 };
 
 function Button({
   variant = 'primary',
-  size = 'md',
+  size = 'sm',
   children,
   onClick,
   disabled,
@@ -116,7 +143,12 @@ function Button({
   href,
   prefetch,
   ariaLabel,
+  ref,
+  title,
+  ariaDisabled,
+  testId,
 }: ButtonProps) {
+  const inert = disabled || ariaDisabled;
   const [h, setH] = React.useState(false);
   const [p, setP] = React.useState(false);
 
@@ -133,18 +165,18 @@ function Button({
     padding: size === 'sm' ? '17px 18px' : '14px 26px',
     borderRadius: variant === 'ghost' ? 0 : 'var(--mr-radius-pill)',
     border: '1px solid transparent',
-    cursor: disabled ? 'not-allowed' : 'pointer',
+    cursor: disabled || ariaDisabled ? 'not-allowed' : 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    opacity: disabled ? 0.4 : 1,
+    opacity: disabled || ariaDisabled ? 0.4 : 1,
     willChange: h || p ? 'transform' : 'auto',
     lineHeight: 1,
     ...style,
   };
 
-  const scale = p ? 'scale(0.96)' : h && !disabled ? 'scale(var(--mp-scale-hover, 1.02))' : 'scale(1)';
+  const scale = p ? 'scale(0.96)' : h && !inert ? 'scale(var(--mp-scale-hover, 1.02))' : 'scale(1)';
 
   /**
    * `ghost` never sweeps, whatever the caller asks.
@@ -175,7 +207,7 @@ function Button({
   const visualStyle: React.CSSProperties = {
     ...base,
     ...VARIANTS[variant],
-    ...(h && !disabled ? hoverStyle : {}),
+    ...(h && !inert ? hoverStyle : {}),
     ...sweepVars,
     transform: scale,
     transition: p
@@ -199,9 +231,14 @@ function Button({
   if (href) {
     return (
       <Link
+        ref={ref as React.Ref<HTMLAnchorElement>}
         href={href}
         prefetch={prefetch}
         aria-label={ariaLabel}
+        aria-disabled={ariaDisabled || undefined}
+        title={title}
+        data-testid={testId}
+        onClick={onClick}
         data-trace-id={traceId}
         className={swept ? 'mr-btn-sweep' : undefined}
         {...pointerProps}
@@ -214,8 +251,12 @@ function Button({
 
   return (
     <button
+      ref={ref as React.Ref<HTMLButtonElement>}
       type={type}
       aria-label={ariaLabel}
+      aria-disabled={ariaDisabled || undefined}
+      title={title}
+      data-testid={testId}
       data-trace-id={traceId}
       className={swept ? 'mr-btn-sweep' : undefined}
       onClick={disabled ? undefined : onClick}

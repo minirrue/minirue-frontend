@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import Button from '@/components/ui/Button';
 import { useWishlistProducts } from '@/lib/hooks/use-wishlist';
 import ProductCard from '@/components/storefront/ProductCard';
 
@@ -54,25 +54,9 @@ export default function SavedPageClient() {
           <p style={{ margin: '0 0 12px' }}>
             We could not load your saved products just now.
           </p>
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            style={{
-              padding: '12px 20px',
-              minHeight: 44,
-              borderRadius: 'var(--mr-radius-pill)',
-              border: '1px solid var(--mr-border)',
-              background: 'transparent',
-              cursor: 'pointer',
-              fontFamily: 'var(--mr-font-label)',
-              fontSize: 'var(--mr-text-xs)',
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              color: 'var(--mr-fg)',
-            }}
-          >
+          <Button variant="outline" onClick={() => void refetch()}>
             Try again
-          </button>
+          </Button>
         </div>
       )}
 
@@ -83,25 +67,9 @@ export default function SavedPageClient() {
             Nothing saved yet. Tap the heart on anything you want to come back
             to, and it will be waiting here — on this device or any other.
           </p>
-          <Link
-            href="/shop/all"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '12px 22px',
-              minHeight: 44,
-              borderRadius: 'var(--mr-radius-pill)',
-              background: 'var(--mr-ink-900)',
-              color: 'var(--mr-cream-100)',
-              textDecoration: 'none',
-              fontFamily: 'var(--mr-font-label)',
-              fontSize: 'var(--mr-text-xs)',
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-            }}
-          >
+          <Button variant="primary" href="/shop/all">
             Browse the collection
-          </Link>
+          </Button>
         </div>
       )}
 

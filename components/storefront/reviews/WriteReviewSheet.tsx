@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Button from '@/components/ui/Button';
 import MobileSheet from '@/components/ui/MobileSheet';
 import StarRating from '@/components/storefront/StarRating';
 import Icon from '@/components/ui/Icon';
@@ -319,30 +320,15 @@ export default function WriteReviewSheet({
       title={`Review ${productName}`}
       traceId="PG-STOREFRONT-CAT-005::EL-REGION-write-review"
       footer={
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={() => void submit()}
           disabled={submitting || rating < 1}
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-submit-review"
-          style={{
-            width: '100%',
-            padding: '16px 24px',
-            borderRadius: 'var(--mr-radius-pill)',
-            background: 'var(--mr-ink-900)',
-            color: 'var(--mr-cream-100)',
-            border: 0,
-            cursor: submitting || rating < 1 ? 'not-allowed' : 'pointer',
-            opacity: submitting || rating < 1 ? 0.55 : 1,
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            minHeight: 48,
-            transition: 'opacity var(--mr-dur-fast), background var(--mr-dur-fast)',
-          }}
+          traceId="PG-STOREFRONT-CAT-005::EL-BTN-submit-review"
+          style={{ width: '100%' }}
         >
           {submitting ? 'Sending…' : 'Send review'}
-        </button>
+        </Button>
       }
     >
       <div style={{ marginBottom: 24 }}>
@@ -474,30 +460,17 @@ export default function WriteReviewSheet({
           onChange={(e) => addFiles(e.target.files)}
           style={{ display: 'none' }}
         />
-        <button
-          type="button"
+        {/* Dashed, the one departure from the house outline: it reads as a
+            drop target rather than an action. */}
+        <Button
+          variant="outline"
           onClick={() => fileRef.current?.click()}
           disabled={imageCount >= MAX_IMAGES && videoCount >= MAX_VIDEOS}
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-add-review-media"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '12px 18px',
-            minHeight: 44,
-            borderRadius: 'var(--mr-radius-pill)',
-            border: '1px dashed var(--mr-border)',
-            background: 'transparent',
-            color: 'var(--mr-fg-2)',
-            cursor: 'pointer',
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-          }}
+          traceId="PG-STOREFRONT-CAT-005::EL-BTN-add-review-media"
+          style={{ borderStyle: 'dashed' }}
         >
           <Icon name="plus" size={13} /> Add a photo or video
-        </button>
+        </Button>
       </div>
 
       {error ? (

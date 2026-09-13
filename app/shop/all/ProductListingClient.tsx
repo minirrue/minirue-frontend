@@ -8,6 +8,7 @@ import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
 import ShopFilterPanel, {
   type ShopFacetOption,
 } from '@/components/storefront/ShopFilterPanel';
+import Button from '@/components/ui/Button';
 import MobileSheet from '@/components/ui/MobileSheet';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import {
@@ -258,27 +259,10 @@ export default function ProductListingClient({
               marginBottom: 'var(--mr-sp-5)',
             }}
           >
-            <button
-              type="button"
+            <Button
+              variant="outline"
               onClick={() => setSheetOpen(true)}
-              data-trace-id="PG-STOREFRONT-CAT-003::EL-BTN-open-filters"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                minHeight: 44,
-                padding: '0 18px',
-                borderRadius: 'var(--mr-radius-pill)',
-                border: '1px solid var(--mr-border)',
-                background: 'transparent',
-                font: 'inherit',
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 'var(--mr-text-xs)',
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                color: 'var(--mr-fg)',
-                cursor: 'pointer',
-              }}
+              traceId="PG-STOREFRONT-CAT-003::EL-BTN-open-filters"
             >
               Filter &amp; sort
               {count > 0 && (
@@ -293,17 +277,21 @@ export default function ProductListingClient({
                     minWidth: 18,
                     height: 18,
                     padding: '0 5px',
+                    // Button's sweep wraps its children in one span, so its
+                    // flex gap never reaches the badge — space it here.
+                    marginLeft: 8,
                     borderRadius: 9,
                     background: 'var(--mr-fg)',
                     color: 'var(--mr-bg-raised)',
                     fontSize: 11,
                     letterSpacing: 0,
+                    verticalAlign: 'middle',
                   }}
                 >
                   {count}
                 </span>
               )}
-            </button>
+            </Button>
             <span
               style={{
                 fontFamily: 'var(--mr-font-ui)',

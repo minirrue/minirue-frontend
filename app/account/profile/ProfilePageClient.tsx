@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
+import Button from '@/components/ui/Button';
 import ProfileForm from './ProfileForm';
 
 function ProfileSkeleton() {
@@ -48,22 +49,9 @@ export default function ProfilePageClient() {
           <p style={{ color: 'var(--mr-danger)', fontSize: 'var(--mr-text-sm)' }}>
             Unable to load profile. Please try again.
           </p>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            style={{
-              marginTop: 12,
-              background: 'transparent',
-              border: '1px solid var(--mr-border)',
-              borderRadius: 'var(--mr-radius-sm)',
-              padding: '8px 16px',
-              fontSize: 'var(--mr-text-sm)',
-              color: 'var(--mr-fg-2)',
-              cursor: 'pointer',
-            }}
-          >
+          <Button variant="outline" onClick={() => refetch()} style={{ marginTop: 12 }}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
 

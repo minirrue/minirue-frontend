@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiCreateRefund, type RefundMethod } from '@/lib/api/refunds';
+import Button from '@/components/ui/Button';
 
 const METHOD_OPTIONS: Array<{ value: RefundMethod; label: string }> = [
   { value: 'ORIGINAL_PAYMENT', label: 'Original Payment Method' },
@@ -143,25 +144,9 @@ export default function RefundRequestClient({ orderId }: { orderId: string }) {
           <p style={{ color: 'var(--mr-danger)', fontSize: 'var(--mr-text-sm)', margin: 0 }}>{error}</p>
         )}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          style={{
-            padding: '12px 28px',
-            background: 'var(--mr-fg)',
-            color: 'var(--mr-bg)',
-            border: 'none',
-            borderRadius: 'var(--mr-radius-pill)',
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            cursor: submitting ? 'not-allowed' : 'pointer',
-            opacity: submitting ? 0.6 : 1,
-          }}
-        >
+        <Button variant="primary" type="submit" disabled={submitting}>
           {submitting ? 'Submitting…' : 'Submit Request'}
-        </button>
+        </Button>
       </form>
     </div>
   );

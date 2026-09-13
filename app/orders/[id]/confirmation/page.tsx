@@ -11,7 +11,7 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Button from '@/components/ui/Button';
 import { apiGetOrder } from '@/lib/api/orders';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 
@@ -340,47 +340,13 @@ export default async function OrderConfirmationPage({
                 animation: 'mr-fade-up var(--mr-dur-slow) var(--mr-ease-out) 200ms both',
               }}
             >
-              <Link
-                href={`/orders/${id}/track`}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '12px 28px',
-                  background: 'var(--mr-ink-900)',
-                  color: 'var(--mr-cream-100)',
-                  textDecoration: 'none',
-                  fontFamily: 'var(--mr-font-label)',
-                  fontSize: 'var(--mr-text-xs)',
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  borderRadius: 'var(--mr-radius-pill)',
-                  boxShadow: 'var(--mr-shadow-sm)',
-                }}
-              >
+              <Button variant="primary" href={`/orders/${id}/track`}>
                 Track Order
-              </Link>
+              </Button>
 
-              <Link
-                href="/shop/all"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '12px 28px',
-                  background: 'none',
-                  border: '1px solid var(--mr-border)',
-                  color: 'var(--mr-fg-2)',
-                  textDecoration: 'none',
-                  fontFamily: 'var(--mr-font-label)',
-                  fontSize: 'var(--mr-text-xs)',
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  borderRadius: 'var(--mr-radius-pill)',
-                }}
-              >
+              <Button variant="outline" href="/shop/all">
                 Continue Shopping
-              </Link>
+              </Button>
             </div>
           </>
         ) : null}

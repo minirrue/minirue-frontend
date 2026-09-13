@@ -105,7 +105,9 @@ describe('MobileNavSheet — account button dedupe', () => {
     });
 
     const link = screen.getByRole('link', { name: /maximilian/i });
-    const label = link.querySelector('span');
+    // The span holding the name itself — the pill wraps its label in spans of
+    // its own (the sweep layer), so "the first span" is no longer it.
+    const label = screen.getByText('Maximilian-Alessandro-Constantinopoulos');
     expect(label).toHaveStyle({
       overflow: 'hidden',
       textOverflow: 'ellipsis',

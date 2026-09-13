@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Button from "@/components/ui/Button";
 
 export default function Error({
   error,
@@ -37,22 +38,9 @@ export default function Error({
       >
         Something went wrong
       </h2>
-      <button
-        onClick={reset}
-        style={{
-          fontFamily: "var(--mr-font-label)",
-          fontSize: "var(--mr-text-sm)",
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: "var(--mr-ink-900)",
-          background: "transparent",
-          border: "1px solid var(--mr-border)",
-          padding: "var(--mr-sp-3) var(--mr-sp-6)",
-          cursor: "pointer",
-        }}
-      >
+      <Button variant="outline" onClick={reset}>
         Try again
-      </button>
+      </Button>
     </main>
   );
 }

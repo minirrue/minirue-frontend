@@ -8,6 +8,7 @@ import {
   saveAppliedCode,
 } from '@/lib/api/discounts';
 import { track } from '@/lib/analytics/track';
+import Button from '@/components/ui/Button';
 
 /**
  * Where a shopper types `MINIRUE-K7P2X4`.
@@ -193,7 +194,9 @@ export function DiscountCodeField({
             e.preventDefault();
             if (input.trim()) void runPreview(input.trim());
           }}
-          style={{ display: 'flex', gap: 'var(--mr-sp-2)' }}
+          // `stretch` so the input takes the button's height (frontend#105) —
+          // the two read as one control rather than a short box beside a pill.
+          style={{ display: 'flex', alignItems: 'stretch', gap: 'var(--mr-sp-2)' }}
         >
           <input
             id="mr-discount-code"
@@ -209,9 +212,9 @@ export function DiscountCodeField({
             style={{
               flex: 1,
               minWidth: 0,
-              padding: '10px 12px',
+              padding: '0 18px',
               border: '1px solid var(--mr-hairline)',
-              borderRadius: 4,
+              borderRadius: 'var(--mr-radius-pill)',
               background: 'transparent',
               fontFamily: 'var(--mr-font-ui)',
               fontSize: 'var(--mr-text-sm)',
@@ -222,25 +225,16 @@ export function DiscountCodeField({
             autoCapitalize="characters"
             spellCheck={false}
           />
-          <button
+          {/* A floor wide enough for "Checking", so the pill does not jump
+              when the label swaps mid-request. */}
+          <Button
+            variant="outline"
             type="submit"
             disabled={busy || !input.trim()}
-            style={{
-              padding: '10px 16px',
-              border: '1px solid var(--mr-fg)',
-              borderRadius: 4,
-              background: 'transparent',
-              fontFamily: 'var(--mr-font-label)',
-              fontSize: 'var(--mr-text-xs)',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              cursor: busy || !input.trim() ? 'default' : 'pointer',
-              opacity: busy || !input.trim() ? 0.4 : 1,
-              color: 'var(--mr-fg)',
-            }}
+            style={{ flexShrink: 0, minWidth: 116 }}
           >
             {busy ? 'Checking' : 'Apply'}
-          </button>
+          </Button>
         </form>
       )}
 

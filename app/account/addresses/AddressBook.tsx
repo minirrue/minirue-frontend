@@ -11,6 +11,7 @@ import {
   useSetDefaultCustomerAddress,
 } from '@/lib/hooks/use-customer';
 import { formatApiError, type ApiError } from '@/lib/api/client';
+import Button from '@/components/ui/Button';
 
 interface Props {
   addresses: Address[];
@@ -69,11 +70,12 @@ function AddressCard({
         <div>{address.countryCode}</div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 4, alignItems: 'center' }}>
+      {/* Wraps: two house-shape pills plus the hint do not fit one row at 390px. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 4, alignItems: 'center' }}>
         {!address.isDefault && (
-          <button onClick={() => onSetDefault(address.id)} disabled={busy} style={ghostBtnStyle}>
+          <Button variant="outline" onClick={() => onSetDefault(address.id)} disabled={busy}>
             Set as default
-          </button>
+          </Button>
         )}
         {!canDelete && (
           <span
@@ -86,21 +88,16 @@ function AddressCard({
             {SOLE_DEFAULT_HINT}
           </span>
         )}
-        <button
+        <Button
+          variant="dangerOutline"
           onClick={() => onDelete(address.id)}
           disabled={busy || !canDelete}
           title={canDelete ? undefined : SOLE_DEFAULT_HINT}
-          aria-disabled={!canDelete}
-          style={{
-            ...ghostBtnStyle,
-            color: canDelete ? 'var(--mr-danger)' : 'var(--mr-fg-4)',
-            marginLeft: 'auto',
-            cursor: canDelete && !busy ? 'pointer' : 'not-allowed',
-            opacity: canDelete ? 1 : 0.5,
-          }}
+          ariaDisabled={!canDelete}
+          style={{ marginLeft: 'auto' }}
         >
           Delete
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -205,23 +202,9 @@ export default function AddressBook({ addresses }: Props) {
           {addresses.length} / {MAX_ADDRESSES} addresses
         </p>
         {!atMax && !showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            style={{
-              background: 'var(--mr-accent)',
-              color: 'var(--mr-cream-100)',
-              border: 'none',
-              borderRadius: 'var(--mr-radius-sm)',
-              padding: '8px 18px',
-              fontFamily: 'var(--mr-font-label)',
-              fontSize: 'var(--mr-text-xs)',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-            }}
-          >
+          <Button variant="gold" onClick={() => setShowForm(true)}>
             Add Address
-          </button>
+          </Button>
         )}
         {atMax && (
           <p style={{ fontSize: 'var(--mr-text-xs)', color: 'var(--mr-fg-4)', fontFamily: 'var(--mr-font-label)', letterSpacing: '0.08em', margin: 0 }}>
@@ -346,32 +329,15 @@ export default function AddressBook({ addresses }: Props) {
           )}
 
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <button
-              type="submit"
-              disabled={saving}
-              style={{
-                background: 'var(--mr-accent)',
-                color: 'var(--mr-cream-100)',
-                border: 'none',
-                borderRadius: 'var(--mr-radius-sm)',
-                padding: '9px 20px',
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 'var(--mr-text-xs)',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                cursor: saving ? 'not-allowed' : 'pointer',
-                opacity: saving ? 0.6 : 1,
-              }}
-            >
+            <Button variant="gold" type="submit" disabled={saving}>
               {saving ? 'Saving…' : 'Save Address'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => { setShowForm(false); setFormError(null); setForm(BLANK_FORM); }}
-              style={ghostBtnStyle}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -407,16 +373,4 @@ const inputStyle: React.CSSProperties = {
   background: 'var(--mr-bg-raised)',
   width: '100%',
   boxSizing: 'border-box',
-};
-const ghostBtnStyle: React.CSSProperties = {
-  background: 'none',
-  border: '1px solid var(--mr-border)',
-  borderRadius: 'var(--mr-radius-sm)',
-  padding: '8px 16px',
-  fontSize: 'var(--mr-text-xs)',
-  fontFamily: 'var(--mr-font-label)',
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase',
-  color: 'var(--mr-fg-3)',
-  cursor: 'pointer',
 };

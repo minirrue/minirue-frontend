@@ -5,6 +5,7 @@ import type { CustomerProfile } from '@/lib/api/customers';
 import { useUpdateCustomerProfile, useUploadCustomerAvatar } from '@/lib/hooks/use-customer';
 import { formatApiError } from '@/lib/api/client';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
+import Button from '@/components/ui/Button';
 import AvatarCropSheet from '@/components/storefront/AvatarCropSheet';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 
@@ -160,22 +161,13 @@ export default function ProfileForm({ profile }: Props) {
           style={{ display: 'none' }}
           onChange={handleAvatarPick}
         />
-        <button
-          type="button"
+        <Button
+          variant="outline"
           onClick={() => avatarInputRef.current?.click()}
           disabled={uploadAvatar.isPending}
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--mr-border)',
-            borderRadius: 'var(--mr-radius-sm)',
-            padding: '8px 16px',
-            fontSize: 'var(--mr-text-sm)',
-            color: 'var(--mr-fg-2)',
-            cursor: uploadAvatar.isPending ? 'not-allowed' : 'pointer',
-          }}
         >
           {uploadAvatar.isPending ? 'Uploading…' : avatarSrc ? 'Change photo' : 'Add a photo'}
-        </button>
+        </Button>
         {avatarError && (
           <p role="alert" style={{ color: 'var(--mr-danger)', fontSize: 'var(--mr-text-xs)', margin: '6px 0 0' }}>
             {avatarError}
@@ -273,26 +265,9 @@ export default function ProfileForm({ profile }: Props) {
       )}
 
       <div>
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            background: 'var(--mr-accent)',
-            color: 'var(--mr-cream-100)',
-            border: 'none',
-            borderRadius: 'var(--mr-radius-sm)',
-            padding: '10px 24px',
-            fontFamily: 'var(--mr-font-label)',
-            fontSize: 'var(--mr-text-xs)',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            transition: `opacity var(--mr-dur-fast) var(--mr-ease-out)`,
-          }}
-        >
+        <Button variant="gold" type="submit" disabled={loading}>
           {loading ? 'Saving…' : 'Save Changes'}
-        </button>
+        </Button>
       </div>
     </form>
     </>

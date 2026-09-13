@@ -9,11 +9,11 @@
  */
 
 import React from 'react';
-import Link from 'next/link';
 import { useCart } from './CartContext';
 import CartItemRow from './CartItemRow';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import Sparkle from '@/components/ui/Sparkle';
+import Button from '@/components/ui/Button';
 import { toPricingLines } from './bag-lines';
 import { useAutomaticDiscount } from './use-bag-pricing';
 import { loadAppliedCode } from '@/lib/api/discounts';
@@ -265,26 +265,9 @@ export default function CartDrawer() {
               >
                 Begin with a scent.
               </p>
-              <button
-                onClick={closeDrawer}
-                style={{
-                  marginTop: 'var(--mr-sp-5)',
-                  background: 'none',
-                  border: '1px solid var(--mr-border)',
-                  borderRadius: 'var(--mr-radius-pill)',
-                  padding: '10px 24px',
-                  fontFamily: 'var(--mr-font-label)',
-                  fontSize: 'var(--mr-text-xs)',
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: 'var(--mr-fg-2)',
-                  cursor: 'pointer',
-                  transition:
-                    'border-color var(--mr-dur-fast) var(--mr-ease-out), color var(--mr-dur-fast) var(--mr-ease-out)',
-                }}
-              >
+              <Button variant="outline" onClick={closeDrawer} style={{ marginTop: 'var(--mr-sp-5)' }}>
                 Continue Shopping
-              </button>
+              </Button>
             </div>
           ) : (
             lines.map((line) => (
@@ -392,34 +375,9 @@ export default function CartDrawer() {
 
             {/* Checkout CTA */}
             {/* [TBD] — checkout page not yet built; href will update to /checkout */}
-            <Link
-              href="/cart"
-              onClick={closeDrawer}
-              style={{
-                display: 'block',
-                width: '100%',
-                padding: '14px 24px',
-                background: 'var(--mr-ink-900)',
-                color: 'var(--mr-cream-100)',
-                textAlign: 'center',
-                textDecoration: 'none',
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 'var(--mr-text-xs)',
-                letterSpacing: '0.22em',
-                textTransform: 'uppercase',
-                borderRadius: 'var(--mr-radius-pill)',
-                transition: 'background var(--mr-dur-fast) var(--mr-ease-out)',
-                boxShadow: 'var(--mr-shadow-sm)',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLAnchorElement).style.background = 'var(--mr-ink-800)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLAnchorElement).style.background = 'var(--mr-ink-900)';
-              }}
-            >
+            <Button variant="primary" href="/cart" onClick={closeDrawer} style={{ width: '100%' }}>
               View bag &amp; checkout
-            </Link>
+            </Button>
 
             {/* Continue shopping */}
             <button
