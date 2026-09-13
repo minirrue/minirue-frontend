@@ -263,20 +263,143 @@ export default function CheckoutPage() {
         title="Delivery"
         subtitle="Choose where we should send your order. You can manage saved addresses in your account."
         maxWidth={720}
+        // Cart ref is gone from the summary (#102): an internal id means
+        // nothing to a shopper. `cartId` still goes to analytics below.
+        aside={
+          <CheckoutSummaryCard>
+            <p
+              style={{
+                fontFamily: 'var(--mr-font-label)',
+                fontSize: 'var(--mr-text-xs)',
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                color: 'var(--mr-fg)',
+                margin: '0 0 var(--mr-sp-4)',
+              }}
+            >
+              Order summary
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}>
+                <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
+                  Subtotal
+                </span>
+                <PriceDisplay amount={subtotalAmount} currency={currency} />
+              </div>
+              {/*
+                The row this whole issue is about. It used to read
+                `SHIPPING_AMOUNT_MINOR` — a constant that said EGP 50 while the
+                shop charged EGP 100 — and it now follows the governorate the
+                shopper picks, through the same `shippingSummary` the bag uses.
+              */}
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}
+                data-trace-id="PG-STOREFRONT-CHK-002::EL-ROW-shipping"
+              >
+                <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
+                  Shipping
+                  {summary.resolved?.label && (
+                    <span style={{ color: 'var(--mr-fg-4)' }}> · {summary.resolved.label}</span>
+                  )}
+                </span>
+                {summary.free ? (
+                  // "Free", not "EGP 0" — the product page promises
+                  // complimentary delivery in words, and the summary has to
+                  // keep that promise in the same language or it reads as the
+                  // threshold having failed to apply.
+                  <span
+                    style={{
+                      fontFamily: 'var(--mr-font-ui)',
+                      fontSize: 'var(--mr-text-sm)',
+                      color: 'var(--mr-fg-4)',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    Free
+                  </span>
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+                    {summary.fromOnly && (
+                      <span
+                        style={{
+                          fontFamily: 'var(--mr-font-ui)',
+                          fontSize: 'var(--mr-text-xs)',
+                          color: 'var(--mr-fg-4)',
+                        }}
+                      >
+                        from
+                      </span>
+                    )}
+                    <PriceDisplay amount={minorToAmount(summary.feeMinor)} currency={currency} />
+                  </span>
+                )}
+              </div>
+              {/*
+                The discount the bag already showed. Its absence here was half
+                the reason the two screens disagreed.
+              */}
+              {discountMinor > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}>
+                  <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
+                    {automatic?.code ?? 'Discount'}
+                  </span>
+                  <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-2)' }}>
+                    −
+                    <PriceDisplay
+                      amount={minorToAmount(discountMinor)}
+                      currency={currency}
+                      style={{
+                        fontFamily: 'inherit',
+                        fontSize: 'inherit',
+                        color: 'inherit',
+                        fontWeight: 'inherit',
+                      }}
+                    />
+                  </span>
+                </div>
+              )}
+              <div style={{ height: 1, background: 'var(--mr-hairline)', margin: 'var(--mr-sp-1) 0' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--mr-sp-3)', minWidth: 0 }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--mr-font-label)',
+                    fontSize: 'var(--mr-text-xs)',
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    color: 'var(--mr-fg)',
+                  }}
+                >
+                  Total
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, minWidth: 0 }}>
+                  {/*
+                    A total that can still move is labelled as one. Until a
+                    governorate is chosen this figure is built on `minFeeCents`,
+                    so it is a FLOOR — and a floor presented as a price is the
+                    bait the "from" exists to prevent.
+                  */}
+                  {summary.fromOnly && (
+                    <span
+                      style={{
+                        fontFamily: 'var(--mr-font-ui)',
+                        fontSize: 'var(--mr-text-xs)',
+                        color: 'var(--mr-fg-4)',
+                      }}
+                    >
+                      from
+                    </span>
+                  )}
+                  <PriceDisplay
+                    amount={minorToAmount(totalMinor)}
+                    currency={currency}
+                    style={{ fontSize: 'var(--mr-text-lg)', color: 'var(--mr-fg)' }}
+                  />
+                </span>
+              </div>
+            </div>
+          </CheckoutSummaryCard>
+        }
       >
-        <div
-          style={{
-            display: 'grid',
-            // minmax(0, 1fr), not a bare '1fr' — identical bug to /cart, and the
-              // reason the overflow ran the whole checkout flow rather than one
-              // screen. See app/cart/page.tsx for the full explanation.
-              gridTemplateColumns: mobile
-                ? 'minmax(0, 1fr)'
-                : 'minmax(0, 1fr) minmax(240px, 280px)',
-            gap: 'var(--mr-sp-6)',
-            alignItems: 'start',
-          }}
-        >
           <CheckoutSection title="Shipping address">
             {signedIn === false && (
               <>
@@ -419,150 +542,6 @@ export default function CheckoutPage() {
               </CheckoutAlert>
             )}
           </CheckoutSection>
-
-          <CheckoutSummaryCard>
-            <p
-              style={{
-                fontFamily: 'var(--mr-font-label)',
-                fontSize: 'var(--mr-text-xs)',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                color: 'var(--mr-fg)',
-                margin: '0 0 var(--mr-sp-4)',
-              }}
-            >
-              Order summary
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}>
-                <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
-                  Subtotal
-                </span>
-                <PriceDisplay amount={subtotalAmount} currency={currency} />
-              </div>
-              {/*
-                The row this whole issue is about. It used to read
-                `SHIPPING_AMOUNT_MINOR` — a constant that said EGP 50 while the
-                shop charged EGP 100 — and it now follows the governorate the
-                shopper picks, through the same `shippingSummary` the bag uses.
-              */}
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}
-                data-trace-id="PG-STOREFRONT-CHK-002::EL-ROW-shipping"
-              >
-                <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
-                  Shipping
-                  {summary.resolved?.label && (
-                    <span style={{ color: 'var(--mr-fg-4)' }}> · {summary.resolved.label}</span>
-                  )}
-                </span>
-                {summary.free ? (
-                  // "Free", not "EGP 0" — the product page promises
-                  // complimentary delivery in words, and the summary has to
-                  // keep that promise in the same language or it reads as the
-                  // threshold having failed to apply.
-                  <span
-                    style={{
-                      fontFamily: 'var(--mr-font-ui)',
-                      fontSize: 'var(--mr-text-sm)',
-                      color: 'var(--mr-fg-4)',
-                      fontStyle: 'italic',
-                    }}
-                  >
-                    Free
-                  </span>
-                ) : (
-                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
-                    {summary.fromOnly && (
-                      <span
-                        style={{
-                          fontFamily: 'var(--mr-font-ui)',
-                          fontSize: 'var(--mr-text-xs)',
-                          color: 'var(--mr-fg-4)',
-                        }}
-                      >
-                        from
-                      </span>
-                    )}
-                    <PriceDisplay amount={minorToAmount(summary.feeMinor)} currency={currency} />
-                  </span>
-                )}
-              </div>
-              {/*
-                The discount the bag already showed. Its absence here was half
-                the reason the two screens disagreed.
-              */}
-              {discountMinor > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--mr-sp-3)' }}>
-                  <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
-                    {automatic?.code ?? 'Discount'}
-                  </span>
-                  <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-2)' }}>
-                    −
-                    <PriceDisplay
-                      amount={minorToAmount(discountMinor)}
-                      currency={currency}
-                      style={{
-                        fontFamily: 'inherit',
-                        fontSize: 'inherit',
-                        color: 'inherit',
-                        fontWeight: 'inherit',
-                      }}
-                    />
-                  </span>
-                </div>
-              )}
-              <div style={{ height: 1, background: 'var(--mr-hairline)', margin: 'var(--mr-sp-1) 0' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--mr-sp-3)', minWidth: 0 }}>
-                <span
-                  style={{
-                    fontFamily: 'var(--mr-font-label)',
-                    fontSize: 'var(--mr-text-xs)',
-                    letterSpacing: '0.16em',
-                    textTransform: 'uppercase',
-                    color: 'var(--mr-fg)',
-                  }}
-                >
-                  Total
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, minWidth: 0 }}>
-                  {/*
-                    A total that can still move is labelled as one. Until a
-                    governorate is chosen this figure is built on `minFeeCents`,
-                    so it is a FLOOR — and a floor presented as a price is the
-                    bait the "from" exists to prevent.
-                  */}
-                  {summary.fromOnly && (
-                    <span
-                      style={{
-                        fontFamily: 'var(--mr-font-ui)',
-                        fontSize: 'var(--mr-text-xs)',
-                        color: 'var(--mr-fg-4)',
-                      }}
-                    >
-                      from
-                    </span>
-                  )}
-                  <PriceDisplay
-                    amount={minorToAmount(totalMinor)}
-                    currency={currency}
-                    style={{ fontSize: 'var(--mr-text-lg)', color: 'var(--mr-fg)' }}
-                  />
-                </span>
-              </div>
-            </div>
-            <p
-              style={{
-                marginTop: 'var(--mr-sp-4)',
-                fontFamily: 'var(--mr-font-ui)',
-                fontSize: 'var(--mr-text-xs)',
-                color: 'var(--mr-fg-4)',
-              }}
-            >
-              Cart ref · {cartId.slice(0, 8)}
-            </p>
-          </CheckoutSummaryCard>
-        </div>
 
         <CheckoutActions
           primaryLabel="Continue to payment"

@@ -708,3 +708,42 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
   font-size: var(--mr-text-xs);
   color: var(--mr-fg-3);
 }
+
+/* Checkout two columns — see components/checkout/CheckoutColumns.tsx.
+   Stacked: header, body, aside (or header, aside, body). From 900px the aside
+   is a right column spanning the header and body rows, so its top is level with
+   the stepper, and it sticks while the left column scrolls. minmax(0, …) on
+   every track: a bare 1fr refuses to shrink below its content (see cart). */
+.mr-checkout-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--mr-sp-8);
+  align-items: start;
+}
+.mr-checkout-cols__header { order: 1; min-width: 0; }
+.mr-checkout-cols__body { order: 2; min-width: 0; }
+/* Header and body are separate grid items, so the header's bottom margin and
+   the first section's top margin no longer collapse into one gap — they would
+   add up. The header keeps its spacing; the body's first block drops its own
+   (!important: CheckoutSection sets its margin inline). */
+.mr-checkout-cols__body > :first-child,
+.mr-checkout-cols__body > :first-child > :first-child { margin-top: 0 !important; }
+.mr-checkout-cols__aside { order: 3; min-width: 0; margin-top: var(--mr-sp-6); }
+.mr-checkout-cols[data-aside-stacked="between"] .mr-checkout-cols__aside { order: 2; margin: 0 0 var(--mr-sp-6); }
+.mr-checkout-cols[data-aside-stacked="between"] .mr-checkout-cols__body { order: 3; }
+@media (min-width: 900px) {
+  .mr-checkout-cols--aside {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    grid-template-rows: auto 1fr;
+  }
+  .mr-checkout-cols--aside .mr-checkout-cols__header { grid-column: 1; grid-row: 1; }
+  .mr-checkout-cols--aside .mr-checkout-cols__body { grid-column: 1; grid-row: 2; }
+  .mr-checkout-cols--aside .mr-checkout-cols__aside,
+  .mr-checkout-cols[data-aside-stacked="between"] .mr-checkout-cols__aside {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin: 0;
+    position: sticky;
+    top: 96px;
+  }
+}
