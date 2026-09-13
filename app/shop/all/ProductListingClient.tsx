@@ -277,9 +277,6 @@ export default function ProductListingClient({
                     minWidth: 18,
                     height: 18,
                     padding: '0 5px',
-                    // Button's sweep wraps its children in one span, so its
-                    // flex gap never reaches the badge — space it here.
-                    marginLeft: 8,
                     borderRadius: 9,
                     background: 'var(--mr-fg)',
                     color: 'var(--mr-bg-raised)',

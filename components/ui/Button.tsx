@@ -226,7 +226,27 @@ function Button({
   // descendants ABOVE an element's own inline content — so the label has to be
   // wrapped or the fill glides over the words. Same reason EditorialBlock and
   // SlideContent wrap theirs.
-  const label = swept ? <span style={{ position: 'relative', zIndex: 1 }}>{children}</span> : children;
+  //
+  // The wrapper is itself an inline flex row with the button's gap: Tailwind's
+  // preflight makes every `svg` display:block, so inside a plain span an icon
+  // took a line of its own — "Added" sat under its tick (owner, 2026-09-13).
+  const label = swept ? (
+    <span
+      style={{
+        position: 'relative',
+        zIndex: 1,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 'inherit',
+        minWidth: 0,
+      }}
+    >
+      {children}
+    </span>
+  ) : (
+    children
+  );
 
   if (href) {
     return (
