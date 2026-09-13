@@ -4,6 +4,18 @@ import React from 'react';
 import Button from '@/components/ui/Button';
 import { FacetRow, type ShopFacetOption } from './ShopFilterPanel';
 
+const POPOVER_WIDTH = 280;
+const EDGE = 16;
+
+/** px to shift the list from the button's left edge so it fits the viewport. */
+export function popoverOffset(buttonLeft: number, viewportWidth: number): number {
+  const width = Math.min(POPOVER_WIDTH, viewportWidth - 2 * EDGE);
+  const overflowRight = buttonLeft + width - (viewportWidth - EDGE);
+  const shift = overflowRight > 0 ? -overflowRight : 0;
+  // Never past the left edge either.
+  return Math.max(shift, EDGE - buttonLeft);
+}
+
 interface Props {
   brands: ShopFacetOption[];
   /** The applied brand, from the listing's filter state. */
@@ -21,6 +33,11 @@ interface Props {
  */
 export default function BrandFilterControl({ brands, brandId, onSelect }: Props) {
   const [open, setOpen] = React.useState(false);
+  // Horizontal offset of the list from the button, clamped so the list stays
+  // 16px inside the screen on both sides. On a phone the Brand button sits
+  // right of Filter & sort, and a 280px list hung from its left edge ran off
+  // the screen (measured on production at 390px wide).
+  const [offsetX, setOffsetX] = React.useState(0);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const listId = React.useId();
 
@@ -52,7 +69,11 @@ export default function BrandFilterControl({ brands, brandId, onSelect }: Props)
     <div ref={rootRef} style={{ position: 'relative', minWidth: 0 }}>
       <Button
         variant={active ? 'primary' : 'outline'}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          const rect = rootRef.current?.getBoundingClientRect();
+          if (rect) setOffsetX(popoverOffset(rect.left, window.innerWidth));
+          setOpen((v) => !v);
+        }}
         traceId="PG-STOREFRONT-CAT-003::EL-BTN-open-brand"
         ariaLabel={active ? `Brand: ${active.name}. Change brand` : 'Filter by brand'}
         style={{ maxWidth: '100%' }}
@@ -83,9 +104,9 @@ export default function BrandFilterControl({ brands, brandId, onSelect }: Props)
           style={{
             position: 'absolute',
             top: 'calc(100% + 8px)',
-            left: 0,
+            left: offsetX,
             zIndex: 30,
-            width: 'min(280px, calc(100vw - 2 * var(--mr-gutter)))',
+            width: `min(${POPOVER_WIDTH}px, calc(100vw - 2 * var(--mr-gutter)))`,
             maxHeight: 320,
             overflowY: 'auto',
             padding: 'var(--mr-sp-3)',
