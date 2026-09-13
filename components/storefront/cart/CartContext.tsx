@@ -65,6 +65,16 @@ export interface CartContextValue {
   currency: string;
   itemCount: number;
   loading: boolean;
+  /**
+   * True once the bag has been read from the server for the first time (or
+   * there was nothing to read: an unidentified guest).
+   *
+   * Until then `cartId` is `''` and `items` is empty because nothing has
+   * answered yet — NOT because the bag is empty. Checkout step 4 read that
+   * first commit as an empty bag on every hard load, told the shopper so, and
+   * then placed the order anyway when the cart arrived (#121).
+   */
+  hydrated: boolean;
   error: string | null;
   drawerOpen: boolean;
   openDrawer: () => void;
@@ -102,6 +112,7 @@ const CartContext = React.createContext<CartContextValue | null>(null);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = React.useState<CartDto>(EMPTY_CART);
   const [loading, setLoading] = React.useState(false);
+  const [hydrated, setHydrated] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
 
@@ -132,11 +143,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   async function hydrateCart() {
     // Skip API call for unidentified guests — session is created on first add.
-    if (!isAuthenticated() && !getCartSessionId()) return;
+    if (!isAuthenticated() && !getCartSessionId()) {
+      setHydrated(true);
+      return;
+    }
     try {
       setCartFromApi(await apiGetCart());
     } catch {
       // No cart yet — keep empty default.
+    } finally {
+      setHydrated(true);
     }
   }
 
@@ -311,6 +327,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
      */
     itemCount: lines.reduce((n, l) => n + l.qty, 0),
     loading,
+    hydrated,
     error,
     drawerOpen,
     openDrawer: () => {

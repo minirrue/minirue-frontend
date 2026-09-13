@@ -302,29 +302,13 @@ describe('SearchSheet — debounced search', () => {
 // ── purchase must never be client-emitted ────────────────────────────────────
 
 describe('checkout confirmation — purchase is never fired from the browser', () => {
-  // Mounts the confirmation page only once CartContext has actually
-  // hydrated a cartId — mirroring production, where CartProvider lives at
-  // the app root and has long since hydrated by the time a shopper reaches
-  // any checkout route. Mounting the page directly under a brand-new,
-  // not-yet-hydrated CartProvider (cartId === '' on first commit) would hit
-  // its own "your bag is empty" guard before hydration ever resolves, which
-  // is a test-harness race, not real behaviour.
-  //
-  // The latch is one-way and deliberately so: a successful order clears the
-  // cart (see CheckoutConfirmationPage's apiCheckout `.then()`), which drops
-  // cartId back to '' — real routing would never unmount this page for that,
-  // so neither should the harness.
-  function HydratedConfirmationPage() {
-    const { cartId } = useCart();
-    const [ready, setReady] = React.useState(false);
-    React.useEffect(() => {
-      if (cartId) setReady(true);
-    }, [cartId]);
-    if (!ready) return null;
-    return <CheckoutConfirmationPage />;
-  }
-
+  // Mounted directly under a brand-new CartProvider. This used to wait for a
+  // hydrated cartId first, on the belief that an unhydrated bag hitting the
+  // "your bag is empty" guard was a harness race and not real behaviour. It
+  // was real: it is what every refresh of step 4 does (#121). The page now
+  // waits for the bag itself — see __tests__/checkout/confirmation-refresh.
   beforeEach(() => {
+    sessionStorage.clear();
     clearCheckoutSession();
     saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD' });
     mockApiGetCart.mockResolvedValue({
@@ -345,7 +329,7 @@ describe('checkout confirmation — purchase is never fired from the browser', (
   it('never tracks `purchase`, even after a completed order — only payment_initiated', async () => {
     render(
       <CartProvider>
-        <HydratedConfirmationPage />
+        <CheckoutConfirmationPage />
       </CartProvider>,
     );
 

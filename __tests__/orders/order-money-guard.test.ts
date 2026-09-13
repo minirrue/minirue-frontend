@@ -6,7 +6,7 @@ import { join } from 'node:path';
  *
  * Checkout step 4 rendered `{item.lineTotalAmount} {order.totalCurrency}`, so a
  * shopper who had just paid read `399.5000 EGP` — the exact defect #1 closed for
- * product cards. `/orders/[id]/confirmation` had its own `toFixed(2)` helper and
+ * product cards. `/orders/[id]/confirmation` (removed in #121) had its own `toFixed(2)` helper and
  * printed `399.50` with no grouping. Every amount on these screens goes through
  * `formatMoney` (lib/format/money.ts) — directly, via `formatOrderTotal`, or
  * as the `amount` prop of `<PriceDisplay>`.
@@ -24,7 +24,6 @@ const SCREENS = [
   'app/account/orders/[id]/OrderDetailClient.tsx',
   'app/account/orders/[id]/refund/RefundRequestClient.tsx',
   'app/account/refunds/RefundsPageClient.tsx',
-  'app/orders/[id]/confirmation/page.tsx',
   'components/orders/OrderLineList.tsx',
 ];
 

@@ -14,8 +14,16 @@ import { formatApiError } from '@/lib/api/client';
 import {
   clearCheckoutSession,
   loadCheckoutSession,
+  saveCheckoutSession,
   checkoutIdempotencyKey,
 } from '@/lib/checkout/checkout-session';
+import {
+  REPLAY_DELAYS_MS,
+  isCartAlreadyCheckedOut,
+  loadPlacedOrder,
+  placeWithReplay,
+  savePlacedOrder,
+} from '@/lib/checkout/placed-order';
 import { orderTotalMinor } from '@/lib/checkout/checkout-money';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
@@ -27,7 +35,7 @@ import { track } from '@/lib/analytics';
 
 export default function CheckoutConfirmationPage() {
   const router = useRouter();
-  const { cartId, subtotalAmount, clearCart } = useCart();
+  const { cartId, hydrated: cartHydrated, subtotalAmount, clearCart } = useCart();
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   /**
    * The placed order, for the receipt below. Kept beside `orderNumber` rather
@@ -37,6 +45,12 @@ export default function CheckoutConfirmationPage() {
    */
   const [order, setOrder] = useState<OrderSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * The cart was checked out but no order came back for it. Its own screen,
+   * because the generic one says "Return to checkout" — the one thing a
+   * shopper whose order most likely went through must not be told to do.
+   */
+  const [maybePlaced, setMaybePlaced] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const submitted = useRef(false);
   const firedStepView = useRef(false);
@@ -72,8 +86,26 @@ export default function CheckoutConfirmationPage() {
       setSessionChecked(true);
       return;
     }
+    // A settled failure stays on screen. The effect re-runs whenever the cart
+    // provider re-renders, and must not quietly place the order again under
+    // an error the shopper is still reading.
+    if (error) return;
 
     const session = loadCheckoutSession();
+
+    // A refresh AFTER the order was placed (#121). The session was spent by
+    // that success, so without this the check below read a completed purchase
+    // as an abandoned checkout and sent the shopper back to Delivery, to an
+    // empty bag. Shown only when no newer checkout is under way in this tab: a
+    // live session with a different key is a new order, not this one.
+    const placed = loadPlacedOrder();
+    if (placed && (!session || session.idempotencyKey === placed.idempotencyKey)) {
+      setOrder(placed.order);
+      setOrderNumber(placed.order.orderNumber);
+      setSessionChecked(true);
+      return;
+    }
+
     // A guest carries `guest` where a signed-in shopper carries
     // `shippingAddressId`; either one means the Delivery step was completed.
     // Requiring the id alone sent every guest back to /checkout in a loop.
@@ -85,40 +117,68 @@ export default function CheckoutConfirmationPage() {
       return;
     }
     setSessionChecked(true);
+
+    // On a hard load (a refresh, or the URL opened directly) the bag has not
+    // answered yet: `cartId` is '' because nothing has been read, not because
+    // the bag is empty. Deciding here used to print "Your bag is empty" — and
+    // then, when the cart arrived and re-ran this effect, place the order
+    // underneath that message (#121). Wait for the real answer.
+    if (!cartHydrated) return;
+
+    // The live bag if there is one; otherwise the cart a previous load of this
+    // page already SENT the order against. A refresh mid-placement comes back
+    // to a server that has checked that cart out, so GET /v1/cart has no cart
+    // to return — but the order may well exist, and replaying the same key
+    // against the same cart is how to get it back.
+    const placeCartId = cartId || session.placingCartId;
     // Same reason as the Instapay page: an order is placed against a cart, so
     // without one there is nothing to place and the API answers
     // "cartId: Invalid uuid" after the customer has already been told to wait.
-    if (!cartId) {
+    if (!placeCartId) {
       setError('Your bag is empty. Add something to it before placing an order.');
       return;
     }
     submitted.current = true;
+    const isReplay = placeCartId === session.placingCartId;
+    // One key for this checkout, minted once and kept in the session — the
+    // replay below and any refresh send exactly this one.
+    const idempotencyKey = checkoutIdempotencyKey();
+    saveCheckoutSession({ placingCartId: placeCartId });
 
     // Fired immediately before the order POST — never `purchase`, which is
     // emitted server-side only, inside the order transaction, so tracked
-    // revenue reconciles exactly with the `orders` table.
-    track('payment_initiated', {
-      method: 'COD',
-      cartId,
-      totalMinor: orderTotalMinor(subtotalAmount),
-    });
+    // revenue reconciles exactly with the `orders` table. Not fired again for
+    // a replay of an order already sent: that is the same attempt, re-asked.
+    if (!isReplay) {
+      track('payment_initiated', {
+        method: 'COD',
+        cartId: placeCartId,
+        totalMinor: orderTotalMinor(subtotalAmount),
+      });
+    }
 
-    void apiCheckout(
-      {
-        cartId,
-        ...(session.guest
-          ? guestCheckoutFields(session.guest)
-          : { shippingAddressId: session.shippingAddressId }),
-        paymentMethod: 'COD',
-        // Whatever they applied in the bag or on the payment step. The server
-        // re-resolves it and recomputes the saving; no code means no discount.
-        // A code that no longer applies is refused with a 422 — never
-        // silently charged at full price (minirue-backend#120).
-        ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
-      },
-      checkoutIdempotencyKey(),
-    )
+    const body = {
+      cartId: placeCartId,
+      ...(session.guest
+        ? guestCheckoutFields(session.guest)
+        : { shippingAddressId: session.shippingAddressId }),
+      paymentMethod: 'COD' as const,
+      // Whatever they applied in the bag or on the payment step. The server
+      // re-resolves it and recomputes the saving; no code means no discount.
+      // A code that no longer applies is refused with a 422 — never
+      // silently charged at full price (minirue-backend#120).
+      ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
+    };
+
+    // "Cart already checked out" is retried with the SAME key: the server
+    // records the key a moment after it claims the cart, so a replay can land
+    // in between. Repeating it can never create an order — the cart is gone —
+    // only find the one that exists.
+    void placeWithReplay(() => apiCheckout(body, idempotencyKey), REPLAY_DELAYS_MS)
       .then((order) => {
+        // Remembered BEFORE the session is spent, so a refresh from here on
+        // shows this order rather than an abandoned checkout.
+        savePlacedOrder(order, idempotencyKey);
         setOrderNumber(order.orderNumber);
         setOrder(order);
         clearCheckoutSession();
@@ -128,6 +188,17 @@ export default function CheckoutConfirmationPage() {
         void clearCart();
       })
       .catch((err: unknown) => {
+        if (isCartAlreadyCheckedOut(err)) {
+          // Still no order after every replay. The bag was bought, most
+          // likely by this very checkout; the honest screen says so and
+          // points at the orders, never back at Place order.
+          const message =
+            'This bag has already been placed as an order. Check your email or your orders before ordering again.';
+          setMaybePlaced(true);
+          setError(message);
+          track('payment_client_error', { method: 'COD', message });
+          return;
+        }
         // A 422 carries `message` as an array of {field, issue}; printing it
         // straight gave the customer "[object Object]".
         const message =
@@ -141,7 +212,7 @@ export default function CheckoutConfirmationPage() {
     // dependency: adding it would re-run this effect the moment the order
     // lands, which is the re-entrancy the guard exists to absorb.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartId, clearCart, router]);
+  }, [cartId, cartHydrated, clearCart, router]);
 
   if (!sessionChecked && !error) {
     return (
@@ -158,6 +229,19 @@ export default function CheckoutConfirmationPage() {
           >
             Preparing confirmation…
           </div>
+        </CheckoutPageFrame>
+      </CheckoutShell>
+    );
+  }
+
+  if (error && maybePlaced) {
+    return (
+      <CheckoutShell>
+        <CheckoutPageFrame step={4} complete title="Your order may already be placed" maxWidth={480}>
+          <CheckoutAlert variant="warning">{error}</CheckoutAlert>
+          <Button variant="primary" sweep onClick={() => router.push('/account/orders')} style={{ width: '100%' }}>
+            View your orders
+          </Button>
         </CheckoutPageFrame>
       </CheckoutShell>
     );

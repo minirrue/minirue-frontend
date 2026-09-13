@@ -17,15 +17,13 @@ import { groupOrderLines, hasSetSavings, type OrderLine } from '@/lib/orders/ord
  * Every amount goes through `formatMoney` (#1); see
  * __tests__/orders/order-money-guard.test.ts.
  *
- * No hooks and no state (the expander is a native `<details>`), so the server
- * confirmation page can render it too.
+ * No hooks and no state (the expander is a native `<details>`), so a Server
+ * Component can render it too.
  */
 
 type Variant =
   /** Step 4 confirmation: compact, inside the receipt card. */
   | 'receipt'
-  /** /orders/[id]/confirmation: padded rows with hairline dividers. */
-  | 'table'
   /** Account order detail: bordered cards, sets expandable. */
   | 'card';
 
@@ -37,7 +35,6 @@ interface Props {
 
 const IMAGE: Record<Variant, { w: number; h: number }> = {
   receipt: { w: 56, h: 56 },
-  table: { w: 48, h: 48 },
   card: { w: 64, h: 80 },
 };
 
@@ -114,12 +111,6 @@ function Members({ line }: { line: OrderLine }) {
 
 const ROW: Record<Variant, CSSProperties> = {
   receipt: { display: 'flex', gap: 'var(--mr-sp-4)', alignItems: 'center' },
-  table: {
-    display: 'flex',
-    gap: 'var(--mr-sp-4)',
-    alignItems: 'center',
-    padding: '12px 24px',
-  },
   card: {
     display: 'flex',
     gap: 16,
@@ -141,7 +132,6 @@ const LIST: Record<Variant, CSSProperties> = {
     gap: 'var(--mr-sp-4)',
     textAlign: 'left',
   },
-  table: { listStyle: 'none', margin: 0, padding: 0 },
   card: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 },
 };
 
@@ -151,17 +141,8 @@ export default function OrderLineList({ items, currency, variant }: Props) {
 
   return (
     <ul style={LIST[variant]} data-testid="order-lines">
-      {lines.map((line, idx) => (
-        <li
-          key={line.key}
-          data-line-kind={line.kind}
-          style={{
-            ...ROW[variant],
-            ...(variant === 'table' && idx < lines.length - 1
-              ? { borderBottom: '1px solid var(--mr-hairline)' }
-              : {}),
-          }}
-        >
+      {lines.map((line) => (
+        <li key={line.key} data-line-kind={line.kind} style={ROW[variant]}>
           <Thumb line={line} variant={variant} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <p
@@ -169,7 +150,7 @@ export default function OrderLineList({ items, currency, variant }: Props) {
                 margin: 0,
                 fontFamily: variant === 'card' ? undefined : 'var(--mr-font-serif)',
                 fontWeight: variant === 'card' ? 500 : undefined,
-                fontSize: variant === 'table' ? 'var(--mr-text-sm)' : 'var(--mr-text-base)',
+                fontSize: 'var(--mr-text-base)',
                 color: 'var(--mr-fg)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -194,7 +175,7 @@ export default function OrderLineList({ items, currency, variant }: Props) {
               margin: 0,
               fontFamily: variant === 'card' ? undefined : 'var(--mr-font-serif)',
               fontWeight: variant === 'card' ? 500 : undefined,
-              fontSize: variant === 'table' ? 'var(--mr-text-sm)' : 'var(--mr-text-base)',
+              fontSize: 'var(--mr-text-base)',
               color: 'var(--mr-fg)',
               whiteSpace: 'nowrap',
             }}

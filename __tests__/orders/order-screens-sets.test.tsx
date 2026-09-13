@@ -87,8 +87,8 @@ const ORDER: OrderSummary = {
 
 const plain = (s: string | null | undefined) => (s ?? '').replace(/ /g, ' ');
 
-describe('OrderLineList (step 4 and /orders/[id]/confirmation)', () => {
-  it.each(['receipt', 'table'] as const)('%s: two lines, the set with its own image and set price', (variant) => {
+describe('OrderLineList (step 4)', () => {
+  it.each(['receipt'] as const)('%s: two lines, the set with its own image and set price', (variant) => {
     render(<OrderLineList items={ITEMS} currency="EGP" variant={variant} />);
 
     const lines = within(screen.getByTestId('order-lines')).getAllByRole('listitem');

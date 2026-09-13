@@ -31,7 +31,6 @@ const IN_FLOW_SOURCES = [
   'app/error.tsx',
   'app/not-found.tsx',
   'app/account/AccountLayoutClient.tsx',
-  'app/orders/[id]/confirmation/page.tsx',
   'app/orders/[id]/track/page.tsx',
 ];
 
