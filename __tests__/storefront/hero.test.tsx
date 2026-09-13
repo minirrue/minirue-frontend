@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import Hero from '@/components/storefront/Hero';
 import type { ResolvedHeroSlide } from '@/lib/api/storefront';
 
@@ -50,5 +50,35 @@ describe('Hero', () => {
   it('renders nothing for an empty slides array instead of throwing', () => {
     const { container } = render(<Hero slides={[]} autoplayMs={6000} />);
     expect(container.querySelector('section')).toBeNull();
+  });
+  describe('pause on hover (frontend#81)', () => {
+    // React synthesises pointerenter from `pointerover`; jsdom has no
+    // PointerEvent, so the pointer type is stamped on a plain event.
+    function pointerOver(el: Element, pointerType: string) {
+      const e = new Event('pointerover', { bubbles: true });
+      Object.defineProperty(e, 'pointerType', { value: pointerType });
+      act(() => { el.dispatchEvent(e); });
+    }
+
+    let cancel: jest.SpyInstance;
+    beforeEach(() => {
+      jest.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+      cancel = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    it('keeps the carousel running when a finger taps the hero', () => {
+      const { container } = render(<Hero slides={[makeSlide('a'), makeSlide('b')]} autoplayMs={6000} />);
+      cancel.mockClear();
+      pointerOver(container.querySelector('section')!, 'touch');
+      expect(cancel).not.toHaveBeenCalled();
+    });
+
+    it('still pauses for a mouse', () => {
+      const { container } = render(<Hero slides={[makeSlide('a'), makeSlide('b')]} autoplayMs={6000} />);
+      cancel.mockClear();
+      pointerOver(container.querySelector('section')!, 'mouse');
+      expect(cancel).toHaveBeenCalled();
+    });
   });
 });
