@@ -4,8 +4,8 @@
  * Server component — fetches order detail on the server.
  * Rendered after a successful checkout POST.
  *
- * [TBD] Prices come from the Order.total field (assumed minor units / cents).
- *       If backend returns them as plain decimals, divide logic must be removed.
+ * Amounts are decimal strings off the wire (`"399.5000"`) and go straight into
+ * formatMoney via PriceDisplay / OrderLineList — never a local toFixed (#116).
  * [TBD] paymentMethod field not defined in existing orders.ts spec.
  *       Inferred from checkout payload — confirm field name with backend.
  */
@@ -14,17 +14,12 @@ import type { Metadata } from 'next';
 import Button from '@/components/ui/Button';
 import { apiGetOrder } from '@/lib/api/orders';
 import PriceDisplay from '@/components/storefront/PriceDisplay';
+import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
 
 export const metadata: Metadata = {
   title: 'Order Confirmed — MiniRue',
   robots: 'noindex, nofollow',
 };
-
-/** Pass-through — amounts already decimal strings from backend. */
-function minorToDisplay(amount: string | number): string {
-  if (typeof amount === 'number') return amount.toFixed(2);
-  return parseFloat(amount).toFixed(2);
-}
 
 export default async function OrderConfirmationPage({
   params,
@@ -206,57 +201,8 @@ export default async function OrderConfirmationPage({
                 </div>
               </div>
 
-              {/* Items */}
-              {order.items && order.items.length > 0 && (
-                <div>
-                  {order.items.map((item, idx) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 'var(--mr-sp-4)',
-                        padding: '12px 24px',
-                        borderBottom:
-                          idx < order.items!.length - 1
-                            ? '1px solid var(--mr-hairline)'
-                            : 'none',
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            fontSize: 'var(--mr-text-sm)',
-                            fontWeight: 500,
-                            color: 'var(--mr-fg)',
-                            fontFamily: 'var(--mr-font-ui)',
-                          }}
-                        >
-                          {item.productSnapshot.name}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 'var(--mr-text-xs)',
-                            color: 'var(--mr-fg-4)',
-                            fontFamily: 'var(--mr-font-ui)',
-                            marginTop: 2,
-                          }}
-                        >
-                          {item.productSnapshot.brand}
-                          {item.productSnapshot.sizeMl ? ` · ${item.productSnapshot.sizeMl} ml` : ''}
-                          {' · Qty '}{item.qty}
-                        </div>
-                      </div>
-                      <PriceDisplay
-                        amount={minorToDisplay(item.lineTotalAmount)}
-                        currency="EGP"
-                        style={{ fontSize: 'var(--mr-text-sm)', flexShrink: 0 }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Items — one line per thing bought; a set is one line (#116). */}
+              <OrderLineList items={order.items} currency={order.totalCurrency ?? 'EGP'} variant="table" />
 
               {/* Totals footer */}
               <div
@@ -303,6 +249,12 @@ export default async function OrderConfirmationPage({
                   );
                 })()}
 
+                <SetSavingsRow
+                  amount={order.bundleSavingsAmount}
+                  currency={order.totalCurrency ?? 'EGP'}
+                  style={{ marginBottom: 'var(--mr-sp-3)' }}
+                />
+
                 <div
                   style={{
                     display: 'flex',
@@ -323,8 +275,8 @@ export default async function OrderConfirmationPage({
                     Total
                   </span>
                   <PriceDisplay
-                    amount={minorToDisplay(order.totalAmount)}
-                    currency="EGP"
+                    amount={order.totalAmount}
+                    currency={order.totalCurrency ?? 'EGP'}
                     style={{ fontSize: 'var(--mr-text-lg)' }}
                   />
                 </div>

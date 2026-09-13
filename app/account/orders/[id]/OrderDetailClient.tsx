@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import RemoteImage from '@/components/ui/RemoteImage';
+import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
 import {
   formatOrderStatus,
   formatOrderTotal,
@@ -114,80 +114,17 @@ export default function OrderDetailClient() {
       )}
 
       {/* Lines said only "Qty 1" and a raw amount — nothing about WHAT was
-          bought, which is the one thing a customer opens this page for. */}
-      <ul style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 32 }}>
-        {order.items.map((item) => {
-          const snap = item.productSnapshot;
-          const detail = Object.entries(snap?.variantValues ?? {})
-            .map(([k, v]) => `${v} ${k}`)
-            .join(' · ');
-          return (
-            <li
-              key={item.id}
-              style={{
-                display: 'flex',
-                gap: 16,
-                alignItems: 'center',
-                padding: 16,
-                border: '1px solid var(--mr-border)',
-                borderRadius: 'var(--mr-radius-md)',
-                background: 'var(--mr-bg-raised)',
-              }}
-            >
-              {snap?.imageUrl ? (
-                // Optimized (#11) — one per line item on the order.
-                <RemoteImage
-                  src={snap.imageUrl}
-                  alt=""
-                  width={64}
-                  height={80}
-                  style={{
-                    width: 64,
-                    height: 80,
-                    objectFit: 'cover',
-                    borderRadius: 'var(--mr-radius-sm)',
-                    border: '1px solid var(--mr-border)',
-                    flexShrink: 0,
-                  }}
-                />
-              ) : (
-                <div
-                  aria-hidden
-                  style={{
-                    width: 64,
-                    height: 80,
-                    borderRadius: 'var(--mr-radius-sm)',
-                    border: '1px solid var(--mr-border)',
-                    background: 'var(--mr-bg-sunken)',
-                    flexShrink: 0,
-                  }}
-                />
-              )}
+          bought, which is the one thing a customer opens this page for. A set
+          is one line that opens to "What's in this set" (#116). */}
+      <div style={{ marginTop: 32 }}>
+        <OrderLineList items={order.items} currency={order.totalCurrency} variant="card" />
+      </div>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 500 }}>{snap?.name ?? 'Item'}</div>
-                {snap?.brand && (
-                  <div style={{ fontSize: 'var(--mr-text-xs)', color: 'var(--mr-fg-4)', marginTop: 2 }}>
-                    {snap.brand}
-                  </div>
-                )}
-                {detail && (
-                  <div style={{ fontSize: 'var(--mr-text-xs)', color: 'var(--mr-fg-3)', marginTop: 4 }}>
-                    {detail}
-                  </div>
-                )}
-                <div style={{ fontSize: 'var(--mr-text-xs)', color: 'var(--mr-fg-4)', marginTop: 4 }}>
-                  Qty {item.qty}
-                </div>
-              </div>
-
-              <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
-                {formatOrderTotal(item.lineTotalAmount, order.totalCurrency)}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      <SetSavingsRow
+        amount={order.bundleSavingsAmount}
+        currency={order.totalCurrency}
+        style={{ marginTop: 20 }}
+      />
 
       <div
         style={{

@@ -24,6 +24,7 @@
 
 import type { CartItemDto } from '@/lib/api/cart';
 import type { Bundle } from '@/lib/api/bundles';
+import { groupRowsByBundle, setQtyFromRows } from '@/lib/bundles/group-by-bundle';
 
 /** BR-CART-002: the backend rejects any single cart row above this. */
 export const POLICY_MAX = 10;
@@ -109,44 +110,22 @@ function toAmount(minor: number): string {
 /**
  * Group the cart's rows into the lines the bag renders.
  *
- * Sets are grouped by `bundleId`, NOT by `bundleLineKey`. The key identifies
- * one add; adding the same set twice produces two keys, and grouping by it
- * would put the same set in the bag twice — which is the bug from the
- * shopper's side even though the rows are correct. By `bundleId`, a second
- * add simply reads as quantity 2, and `setLineQty` collapses the duplicate
- * rows the first time the stepper is touched.
- *
- * Order is preserved: a line appears where its first underlying row appears,
- * so nothing jumps around when a quantity changes.
+ * The folding itself is `groupRowsByBundle`, shared with the order screens
+ * (#116) so a set reads as one line before AND after checkout. It groups by
+ * `bundleId`, NOT by `bundleLineKey`: adding the same set twice reads as
+ * quantity 2, and `setLineQty` collapses the duplicate rows the first time the
+ * stepper is touched. Order is preserved, so nothing jumps around when a
+ * quantity changes.
  */
 export function groupBagLines(
   items: CartItemDto[],
   bundleIndex: BundleIndex = new Map(),
 ): BagLine[] {
-  const lines: BagLine[] = [];
-  const bundleSlots = new Map<string, number>();
-
-  for (const item of items) {
-    const bundleId = item.bundleId ?? null;
-    if (!bundleId) {
-      lines.push(standaloneLine(item));
-      continue;
-    }
-    const slot = bundleSlots.get(bundleId);
-    if (slot === undefined) {
-      bundleSlots.set(bundleId, lines.length);
-      // Placeholder; every bundle slot is rebuilt below once all its rows are
-      // known. Pushing here is what keeps the set where the shopper put it.
-      lines.push(standaloneLine(item));
-    }
-  }
-
-  for (const [bundleId, slot] of bundleSlots) {
-    const rows = items.filter((i) => (i.bundleId ?? null) === bundleId);
-    lines[slot] = bundleLine(bundleId, rows, bundleIndex.get(bundleId));
-  }
-
-  return lines;
+  return groupRowsByBundle(items).map((group) =>
+    group.kind === 'item'
+      ? standaloneLine(group.row)
+      : bundleLine(group.bundleId, group.rows, bundleIndex.get(group.bundleId)),
+  );
 }
 
 function standaloneLine(item: CartItemDto): BagLine {
@@ -206,11 +185,8 @@ function bundleLine(
     if (!unitsPerVariant.has(row.variantId)) unitsPerVariant.set(row.variantId, 1);
   }
 
-  // Totals per member variant, summed across every add of this set.
-  const qtyByVariant = new Map<string, number>();
   const availableByVariant = new Map<string, number>();
   for (const row of rows) {
-    qtyByVariant.set(row.variantId, (qtyByVariant.get(row.variantId) ?? 0) + row.qty);
     const available =
       typeof row.availableQuantity === 'number' ? row.availableQuantity : POLICY_MAX;
     availableByVariant.set(
@@ -219,15 +195,11 @@ function bundleLine(
     );
   }
 
-  // The set quantity is whatever every member agrees on. `min` rather than a
-  // single member's ratio so a half-edited legacy bag reads DOWN, never up:
-  // showing 2 sets when only one is fully stocked is the version that
-  // overcharges.
-  let qty = Infinity;
+  // The set quantity is whatever every member agrees on — the same rule the
+  // order screens use, so a bag of 2 sets is a receipt of 2 sets.
+  const qty = setQtyFromRows(rows, unitsPerVariant);
   let maxQty = POLICY_MAX;
   for (const [variantId, perSet] of unitsPerVariant) {
-    const total = qtyByVariant.get(variantId) ?? 0;
-    qty = Math.min(qty, Math.floor(total / perSet));
     const available = availableByVariant.get(variantId) ?? POLICY_MAX;
     // A single cart ROW is capped at 10 by the backend, so a member that takes
     // two units per set caps the set at 5.
@@ -237,7 +209,6 @@ function bundleLine(
       Math.floor(available / perSet),
     );
   }
-  qty = Math.max(1, Number.isFinite(qty) ? qty : 1);
   maxQty = Math.max(qty, maxQty);
 
   // The price is what the server charged for these rows — the set price,

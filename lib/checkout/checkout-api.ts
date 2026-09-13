@@ -53,7 +53,29 @@ export interface OrderItemSummary {
     imageUrl?: string | null;
     sku?: string;
     variantValues?: Record<string, string>;
+    /** Set members only, resolved at read time (backend 0.113.0) — for a product-page link. */
+    productSlug?: string | null;
+    categorySlug?: string | null;
   };
+  /**
+   * The set this row is a member of (#116). A set is stored as one row per
+   * member; `lib/orders/order-lines.ts` folds them back into one line. Optional
+   * throughout: an older backend sends none of these.
+   */
+  bundleId?: string | null;
+  bundleLineKey?: string;
+  bundle?: OrderItemBundle | null;
+}
+
+/** The set as bought — name, slug and picture frozen at checkout. */
+export interface OrderItemBundle {
+  id: string;
+  /** Null when the set is gone and the order predates the snapshot. */
+  name: string | null;
+  slug: string | null;
+  imageUrl: string | null;
+  /** Sets held by this row's add; null on orders without a snapshot. */
+  setQty: number | null;
 }
 
 export interface OrderSummary {
@@ -63,6 +85,11 @@ export interface OrderSummary {
   status: string;
   totalAmount: string;
   totalCurrency: string;
+  /**
+   * What the sets saved against their parts. Display only — already inside the
+   * line prices and the total. Absent on an older backend.
+   */
+  bundleSavingsAmount?: string;
   items: OrderItemSummary[];
   createdAt: string;
   /**
