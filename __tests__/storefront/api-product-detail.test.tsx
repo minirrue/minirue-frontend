@@ -190,4 +190,16 @@ describe('ApiProductDetail', () => {
     expect(Number.isNaN(reviewsOrder)).toBe(false);
     expect(infoOrder).toBeLessThan(reviewsOrder);
   });
+  it('centres the description text under the centred quote', () => {
+    render(
+      <ApiProductDetail
+        product={{ ...PRODUCT_FIXTURE, description: 'First paragraph.\n\nSecond paragraph.' }}
+        perks={[]}
+        onBack={() => {}}
+        onAddToBag={() => {}}
+      />,
+    );
+    const region = byTrace('PG-STOREFRONT-CAT-005::EL-REGION-product-description');
+    expect(region.style.textAlign).toBe('center');
+  });
 });
