@@ -103,6 +103,16 @@ const nextConfig: NextConfig = {
       { source: "/categories", destination: "/shop", permanent: true },
       { source: "/categories/:slug", destination: "/shop/:slug", permanent: true },
       { source: "/products", destination: "/shop/all", permanent: true },
+      /**
+       * `/orders/[id]/confirmation` retired (#121). It was a Server Component
+       * that called a client-only function on every order and so printed
+       * "We could not load your order details" for all of them — and, running
+       * on the storefront host, it never had the shopper's API cookies to ask
+       * with. Nothing has linked to it since checkout moved to
+       * /checkout/confirmation. An old link still means "show me that order",
+       * which the account order page does, by the same id.
+       */
+      { source: "/orders/:id/confirmation", destination: "/account/orders/:id", permanent: true },
     ];
   },
   reactCompiler: true,

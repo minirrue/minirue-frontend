@@ -4,8 +4,8 @@
  * The backend keeps a set as one `order_items` row per member — right for
  * stock, fulfilment and refunds, which all work on real products. A shopper did
  * not buy two products, though; they bought "Evening Set". So every screen that
- * lists what was bought (step 4 confirmation, the Orders tab, the order detail,
- * /orders/[id]/confirmation) renders these lines, never the rows.
+ * lists what was bought (step 4 confirmation, the Orders tab, the order detail)
+ * renders these lines, never the rows.
  *
  * Grouping is the bag's (`lib/bundles/group-by-bundle.ts`), so the bag and the
  * receipt agree on what one line is. Degrades on an API that does not send the

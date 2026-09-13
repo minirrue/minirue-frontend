@@ -53,6 +53,14 @@ export interface CheckoutSession {
    * so a RETRY sends the same one -- see checkoutIdempotencyKey below.
    */
   idempotencyKey?: string;
+  /**
+   * The cart the order was SENT against, written just before Place order goes
+   * out (#121). A refresh while the order is in flight comes back to a server
+   * that has already checked that cart out, so GET /v1/cart answers with no
+   * cart at all — and a guest's idempotency record is scoped to this id. The
+   * replay needs it to find the order it already made.
+   */
+  placingCartId?: string;
 }
 
 const STORAGE_KEY = 'mr-checkout';
