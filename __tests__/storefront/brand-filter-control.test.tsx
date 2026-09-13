@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import BrandFilterControl from '@/components/storefront/BrandFilterControl';
+import BrandFilterControl, { popoverOffset } from '@/components/storefront/BrandFilterControl';
 
 /**
  * The Brand filter beside Filter & sort (frontend#103).
@@ -46,5 +46,15 @@ describe('BrandFilterControl', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Filter by brand' }));
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('radiogroup')).toBeNull();
+  });
+
+  it('keeps the list inside a phone screen (production: Brand button at x=172 on 390px)', () => {
+    const left = 172;
+    const offset = popoverOffset(left, 390);
+    const listLeft = left + offset;
+    expect(listLeft).toBeGreaterThanOrEqual(16);
+    expect(listLeft + 280).toBeLessThanOrEqual(390 - 16);
+    // Room to spare on desktop: no shift.
+    expect(popoverOffset(900, 1440)).toBe(0);
   });
 });
