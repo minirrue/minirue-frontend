@@ -163,7 +163,13 @@ function Button({
   // Per-variant fill, so an outline button no longer sweeps cream under a
   // cream label. An explicit `sweepColor` still wins.
   const sweepVars = swept
-    ? ({ '--sweep-color': sweepColor ?? SWEEP_FILL[variant] } as React.CSSProperties)
+    ? ({
+        '--sweep-color': sweepColor ?? SWEEP_FILL[variant],
+        // The label colour against the swept panel, applied by the stylesheet on
+        // the same `:hover:not(:disabled)` that runs the panel (frontend#79), so
+        // the two can never disagree.
+        '--sweep-ink': sweepInk ?? String(SWEEP_HOVER[variant].color ?? 'inherit'),
+      } as React.CSSProperties)
     : {};
 
   const visualStyle: React.CSSProperties = {

@@ -291,7 +291,24 @@
   transform: scaleX(0); transform-origin: right center;
   transition: transform 480ms var(--mr-ease-out); will-change: transform;
 }
-.mr-btn-sweep:hover::before { transform: scaleX(1); transform-origin: left center; }
+/*
+ * The panel and the label colour flip on ONE condition (frontend#79).
+ *
+ * The panel used to sweep on plain `:hover`, while the label's inverse colour
+ * came from Button's JS hover state, which is deliberately off for a disabled
+ * button. So a DISABLED button under the pointer swept its panel in and kept
+ * its resting label colour — cream on cream, contrast 1.0, measured on every
+ * variant. That is the empty "Sign in" pill after tapping it (disabled while
+ * the request is pending) and the empty "Start conversation" pill in chat
+ * (disabled until a message is typed).
+ *
+ * Now a disabled button never sweeps, and the label colour is set here from
+ * `--sweep-ink` on exactly the same selector as the panel, so the two cannot
+ * disagree — including after a tap on a touch screen, where `:hover` sticks
+ * without the JS state following it.
+ */
+.mr-btn-sweep:hover:not(:disabled):not([aria-disabled="true"])::before { transform: scaleX(1); transform-origin: left center; }
+.mr-btn-sweep:hover:not(:disabled):not([aria-disabled="true"]) { color: var(--sweep-ink, inherit) !important; }
 
 /* Footer newsletter input */
 .mr-underline-input { position: relative; display: flex; align-items: center; }
@@ -462,19 +479,29 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
    outlined button disappears the moment someone picks a pale background.
    The hairline border keeps the edge defined if the chosen background happens
    to be cream too. */
+/*
+ * Same SHAPE as the house button (frontend#79, owner: the hero buttons must be
+ * the identical shape to chat support's and Sign out's). Those are
+ * `<Button size="sm">` — Jost 11px, 0.22em tracking, 17px/18px padding, pill,
+ * 1px border, weight 400 — and these values mirror Button.tsx's `base` for
+ * `sm` exactly. Only the COLOURS differ: a cream pill that stays legible on any
+ * hero photograph. Change one without the other and they stop matching;
+ * hero-cta-shape.test.ts pins it.
+ */
 .mr-hero-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5em;
-  padding: 0.85em 2.2em;
-  border-radius: 999px;
+  gap: 10px;
+  padding: 17px 18px;
+  border-radius: var(--mr-radius-pill);
   border: 1px solid var(--mr-cream-100);
   background: var(--mr-cream-100);
   color: var(--mr-ink-900);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
+  font-family: Jost, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   text-decoration: none;
   line-height: 1;
