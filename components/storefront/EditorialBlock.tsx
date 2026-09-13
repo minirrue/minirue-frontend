@@ -59,7 +59,38 @@ export default function EditorialBlock({ section }: { section: JournalSection })
             boxShadow: 'var(--mr-shadow-crimson)',
           }}
         >
-          {section.imageUrl ? (
+          {section.imageUrl && section.mediaKind === 'video' ? (
+            /*
+             * A journal video (backend#89). Not autoplaying, on purpose: this
+             * block sits below the fold and is not the LCP element, and #7
+             * measured the product page as bandwidth-bound — a clip that starts
+             * downloading on its own competes with everything above it. The
+             * shopper presses play.
+             *
+             * `preload="none"` when there is a poster, so the page pays zero
+             * video bytes until then. Without one, `metadata` fetches just
+             * enough for the browser to paint a first frame instead of an empty
+             * crimson box.
+             *
+             * No `mr-hero-drift` — the slow drift that suits a still would move
+             * the video's own controls out from under the pointer.
+             */
+            <video
+              src={section.imageUrl}
+              poster={section.posterUrl ?? undefined}
+              controls
+              playsInline
+              preload={section.posterUrl ? 'none' : 'metadata'}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+              }}
+            />
+          ) : section.imageUrl ? (
             // Never a bare image tag — an editorial photograph is swapped from
             // the dashboard's storefront editor, landing on a brand-new
             // uuid-suffixed key whose first request is a guaranteed cold miss.
@@ -112,6 +143,9 @@ export default function EditorialBlock({ section }: { section: JournalSection })
                 position: 'absolute',
                 top: 16,
                 left: 16,
+                // Over a video the badge sits on top of the player; it must
+                // never swallow a click meant for it.
+                pointerEvents: 'none',
                 fontFamily: 'Jost, sans-serif',
                 fontSize: 10,
                 letterSpacing: '0.22em',
