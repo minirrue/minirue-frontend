@@ -50,10 +50,10 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   // "perfumes and cosmetics" clause is a page-vs-description mismatch on any
   // search whose results aren't perfume (e.g. a "jewellery" query). This is
   // the highest-traffic indexed surface on the site, so the mismatch here
-  // matters more than anywhere else it was found. "Free worldwide shipping"
-  // stays — true of the whole catalogue, not a guess about the query.
+  // matters more than anywhere else it was found. No delivery claim: orders
+  // pay a delivery fee, so the old "free worldwide shipping" was false (#139).
   const description = indexable
-    ? `${outcome.total} product${outcome.total === 1 ? '' : 's'} matching “${term}” at MiniRue, with free worldwide shipping.`
+    ? `${outcome.total} product${outcome.total === 1 ? '' : 's'} matching “${term}” at MiniRue.`
     : `Search results for “${term}” at MiniRue.`;
   // Canonical is built from the NORMALISED term, not the one in the address
   // bar. ?q=Dior and ?q=dior therefore both point at ?q=dior — one page

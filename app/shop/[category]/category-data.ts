@@ -95,8 +95,9 @@ export function representativeBrandNames(products: ApiProduct[], max = 3): strin
  * jewellery category like /helia/jewellery is a live example), and
  * hardcoding a product line into every category's description is the same
  * mistake BreadcrumbSchema.tsx's removed "Perfumes" crumb was, one layer
- * down. "Free worldwide shipping" stays: it's true of the whole catalogue,
- * not a guess about what a given category contains.
+ * down. No delivery claim either: orders pay a delivery fee set in the
+ * dashboard, so "free worldwide shipping" (which this used to say) was false
+ * (minirue-frontend#139).
  */
 export function buildCategoryDescription(name: string, outcome: CategoryListingOutcome): string {
   if (!outcome.ok || outcome.total === 0) {
@@ -104,5 +105,5 @@ export function buildCategoryDescription(name: string, outcome: CategoryListingO
   }
   const brands = representativeBrandNames(outcome.products);
   const brandPhrase = brands.length ? ` from ${brands.join(', ')}` : '';
-  return `${outcome.total} product${outcome.total === 1 ? '' : 's'} in ${name}${brandPhrase} at MiniRue, with free worldwide shipping.`;
+  return `${outcome.total} product${outcome.total === 1 ? '' : 's'} in ${name}${brandPhrase} at MiniRue.`;
 }

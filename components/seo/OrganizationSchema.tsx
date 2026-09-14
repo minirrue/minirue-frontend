@@ -39,13 +39,14 @@ const organization: Record<string, unknown> = {
   description:
     "MiniRue (Mini Rue) — worldwide e-commerce for high-premium, original-quality perfume.",
   slogan: "Original quality perfumes",
-  // Broad, not a country list: the site's own copy (app/layout.tsx) only ever
-  // claims "Free worldwide shipping" and "duty-paid to 62 countries" — it
-  // never names which 62. lib/auth/dial-codes.ts is a curated ~49-country
+  // Broad, not a country list. lib/auth/dial-codes.ts is a curated ~49-country
   // phone-signup select ("deliberately not the full ISO list", per its own
   // comment), not a shipping-destination list, so treating it as one here
   // would be inventing structured data the site doesn't actually assert.
-  // "Worldwide" is the literal claim already on every page.
+  // The page copy that used to back "Worldwide" ("free worldwide shipping,
+  // duty-paid to 62 countries") was false and is gone (#139); delivery is
+  // priced per governorate. Whether MiniRue ships outside Egypt is the
+  // owner's call — asked on #139 — so this stays as it was until answered.
   areaServed: "Worldwide",
   brand: {
     "@type": "Brand",

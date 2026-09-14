@@ -105,8 +105,19 @@ describe('buildCategoryDescription', () => {
       cursor: 'c1',
     };
     expect(buildCategoryDescription('Rings', outcome)).toBe(
-      `12 products in Rings from ${PRODUCT_FIXTURE.brandName} at MiniRue, with free worldwide shipping.`,
+      `12 products in Rings from ${PRODUCT_FIXTURE.brandName} at MiniRue.`,
     );
+  });
+
+  it('makes no delivery promise — orders pay a delivery fee (#139)', () => {
+    const outcome: CategoryListingOutcome = {
+      ok: true,
+      products: [PRODUCT_FIXTURE],
+      total: 3,
+      hasMore: false,
+      cursor: null,
+    };
+    expect(buildCategoryDescription('Rings', outcome)).not.toMatch(/free|shipping|delivery|countries/i);
   });
 
   it('singularises "product" for a count of exactly one', () => {

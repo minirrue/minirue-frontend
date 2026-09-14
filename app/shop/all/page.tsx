@@ -199,7 +199,8 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   // kind of product (see BreadcrumbSchema.tsx's note on the hardcoded
   // "Perfumes" crumb removed for the same reason), so this stays true of any
   // brand's or category's listing rather than naming a line it may not sell.
-  const description = `${outcome.total} product${outcome.total === 1 ? '' : 's'} from ${contextName} at ${shopName}, with free worldwide shipping.`;
+  // No delivery claim: orders pay a delivery fee (#139).
+  const description = `${outcome.total} product${outcome.total === 1 ? '' : 's'} from ${contextName} at ${shopName}.`;
 
   return {
     title,

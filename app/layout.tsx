@@ -77,7 +77,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: "%s | MiniRue (Mini Rue)",
     },
     description:
-      "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
+      "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics, in luxury packaging.",
     applicationName: "MiniRue",
     authors: [{ name: "MiniRue" }],
     // NOTE: Google has ignored <meta keywords> since 2009 — these are here for the non-Google
@@ -123,7 +123,7 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: "MiniRue",
       title: "MiniRue — Original Quality Perfumes | Mini Rue Shop",
       description:
-        "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics. Free worldwide shipping, luxury packaging, duty-paid to 62 countries.",
+        "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics, in luxury packaging.",
       url: BASE_URL,
       // No `images` override here: app/opengraph-image.tsx (edge ImageResponse)
       // is the Next.js file-convention OG image and is resolved automatically.
