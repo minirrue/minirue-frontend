@@ -21,6 +21,7 @@ import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import PageLoader from "@/components/layout/PageLoader";
 import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
 import MetaPixel from "@/components/seo/MetaPixel";
+import { META_PIXEL_ID, metaPixelBaseCode } from "@/lib/analytics/meta-pixel";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { buildIcons } from "@/lib/seo/icons";
 
@@ -171,6 +172,27 @@ export default function RootLayout({
       className={`${cormorant.variable} ${jost.variable} ${interTight.variable}`}
       suppressHydrationWarning
     >
+      {META_PIXEL_ID && (
+        <head>
+          {/* Meta Pixel Code — placed in <head> on every page, as Events
+              Manager instructs. Route-change PageViews: components/seo/MetaPixel.tsx. */}
+          <script
+            id="meta-pixel"
+            dangerouslySetInnerHTML={{ __html: metaPixelBaseCode(META_PIXEL_ID) }}
+          />
+          <noscript>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              height="1"
+              width="1"
+              style={{ display: "none" }}
+              alt=""
+              src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
+            />
+          </noscript>
+          {/* End Meta Pixel Code */}
+        </head>
+      )}
       <body
         suppressHydrationWarning
         style={
