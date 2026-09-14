@@ -388,6 +388,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         >
           <VariantPicker
             variants={activeVariants}
+            isMinirueOwned={product.isMinirueOwned ?? false}
             selectedId={selectedVariant?.id ?? null}
             onChange={onSelectVariant}
             // The label inherits the panel's alignment, but the pills are a

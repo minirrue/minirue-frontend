@@ -1,7 +1,13 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import VariantPicker from '@/components/storefront/VariantPicker';
+import { SitewideDiscountProvider } from '@/lib/hooks/use-sitewide-discount';
 import { IN_STOCK_VARIANT, SOLD_OUT_VARIANT } from './fixtures/product';
+
+let mockPercent: number | null = null;
+jest.mock('@/lib/api/client', () => ({
+  apiFetch: jest.fn(async () => ({ percent: mockPercent })),
+}));
 
 /**
  * A sold-out size used to be drawn with a strikethrough AND at 40% opacity —
@@ -13,6 +19,7 @@ describe('VariantPicker', () => {
     render(
       <VariantPicker
         variants={[IN_STOCK_VARIANT, SOLD_OUT_VARIANT]}
+        isMinirueOwned
         selectedId={IN_STOCK_VARIANT.id}
         onChange={() => {}}
       />,
@@ -29,6 +36,7 @@ describe('VariantPicker', () => {
     render(
       <VariantPicker
         variants={[IN_STOCK_VARIANT, SOLD_OUT_VARIANT]}
+        isMinirueOwned
         selectedId={IN_STOCK_VARIANT.id}
         onChange={() => {}}
       />,
@@ -37,5 +45,43 @@ describe('VariantPicker', () => {
     const sellablePill = screen.getByRole('button', { name: /50 ML/i });
     expect(sellablePill).toBeEnabled();
     expect(sellablePill).toHaveTextContent('400');
+  });
+
+  /**
+   * #140: during a sale the pills printed the full price while the panel above
+   * showed the discounted one — two prices for one size on one screen.
+   */
+  it('prices a pill by the running markdown, like the panel', async () => {
+    mockPercent = 25;
+    render(
+      <SitewideDiscountProvider>
+        <VariantPicker
+          variants={[IN_STOCK_VARIANT, SOLD_OUT_VARIANT]}
+          isMinirueOwned
+          selectedId={IN_STOCK_VARIANT.id}
+          onChange={() => {}}
+        />
+      </SitewideDiscountProvider>,
+    );
+    const pill = screen.getByRole('button', { name: /50 ML/i });
+    await waitFor(() => expect(pill).toHaveTextContent('300'));
+    mockPercent = null;
+  });
+
+  it("never cuts a partner's pill", async () => {
+    mockPercent = 25;
+    render(
+      <SitewideDiscountProvider>
+        <VariantPicker
+          variants={[IN_STOCK_VARIANT, SOLD_OUT_VARIANT]}
+          isMinirueOwned={false}
+          selectedId={IN_STOCK_VARIANT.id}
+          onChange={() => {}}
+        />
+      </SitewideDiscountProvider>,
+    );
+    const pill = screen.getByRole('button', { name: /50 ML/i });
+    await waitFor(() => expect(pill).toHaveTextContent('400'));
+    mockPercent = null;
   });
 });

@@ -26,7 +26,7 @@ import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
 import IconButton from '@/components/ui/IconButton';
 import Button from '@/components/ui/Button';
-import PriceDisplay from '@/components/storefront/PriceDisplay';
+import CardPrice from '@/components/storefront/CardPrice';
 import { catalog, mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { searchCanonicalPath } from '@/lib/search/query';
@@ -768,7 +768,8 @@ function SearchRow({
           </span>
         )}
       </span>
-      {price && <PriceDisplay amount={price.amount} currency={price.currency} />}
+      {/* The card rule, not a raw price: a sale must read the same here (#140). */}
+      {price && <CardPrice price={price} product={product} />}
     </Link>
   );
 }

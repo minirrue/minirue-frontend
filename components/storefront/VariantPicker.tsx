@@ -3,10 +3,30 @@
 import React from 'react';
 import type { ProductVariant } from '@/lib/api/catalog';
 import { variantLabel, variantInStock } from '@/lib/api/catalog';
+import { useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
 import PriceDisplay from './PriceDisplay';
+
+/**
+ * One pill's price under the running markdown, by the same rule cards use
+ * (#140). Only the price paid — no struck-through figure: the product panel
+ * right above already shows it struck, and a second strike inside a pill is
+ * noise at that size.
+ */
+function VariantPrice({ variant, isMinirueOwned }: { variant: ProductVariant; isMinirueOwned: boolean }) {
+  const shown = useDiscountedPrice(variant.priceAmount, isMinirueOwned, variant.id);
+  return (
+    <PriceDisplay
+      amount={shown.amount}
+      currency={variant.priceCurrency}
+      style={{ fontSize: 'inherit', fontFamily: 'inherit', color: 'inherit' }}
+    />
+  );
+}
 
 interface VariantPickerProps {
   variants: ProductVariant[];
+  /** The server's `product.isMinirueOwned` — required, same rule as `useDiscountedPrice`. */
+  isMinirueOwned: boolean;
   selectedId: string | null;
   onChange: (variant: ProductVariant) => void;
   /** RULEBOOK §27 — data-trace-id PREFIX for each variant toggle, e.g.
@@ -31,7 +51,7 @@ interface VariantPickerProps {
   align?: 'left' | 'center' | 'center-until-lg';
 }
 
-export default function VariantPicker({ variants, selectedId, onChange, traceIdPrefix, align = 'left' }: VariantPickerProps) {
+export default function VariantPicker({ variants, isMinirueOwned, selectedId, onChange, traceIdPrefix, align = 'left' }: VariantPickerProps) {
   const active = variants.filter((v) => v.isActive);
 
   if (!active.length) return null;
@@ -150,11 +170,7 @@ export default function VariantPicker({ variants, selectedId, onChange, traceIdP
                   }}
                 >
                   {label ? <>·{' '}</> : null}
-                  <PriceDisplay
-                    amount={v.priceAmount}
-                    currency={v.priceCurrency}
-                    style={{ fontSize: 'inherit', fontFamily: 'inherit', color: 'inherit' }}
-                  />
+                  <VariantPrice variant={v} isMinirueOwned={isMinirueOwned} />
                 </span>
               ) : (
                 // A price you cannot act on is noise. The reason takes its place.

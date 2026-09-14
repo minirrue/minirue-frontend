@@ -14,7 +14,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ApiProduct } from '@/lib/api/catalog';
 import { mediaImageUrl, primaryMedia, lowestPrice, productByline } from '@/lib/api/catalog';
-import PriceDisplay from '@/components/storefront/PriceDisplay';
+import CardPrice from '@/components/storefront/CardPrice';
 import { productPath } from '@/lib/routes';
 
 interface NavProductTileProps {
@@ -116,11 +116,7 @@ export default function NavProductTile({
             </span>
           )}
           {price && (
-            <PriceDisplay
-              amount={price.amount}
-              currency={price.currency}
-              style={{ fontSize: 'var(--mr-text-base)' }}
-            />
+            <CardPrice price={price} product={product} style={{ fontSize: 'var(--mr-text-base)' }} />
           )}
         </span>
       </Link>
@@ -172,11 +168,7 @@ export default function NavProductTile({
         {product.name}
       </span>
       {price && (
-        <PriceDisplay
-          amount={price.amount}
-          currency={price.currency}
-          style={{ fontSize: 'var(--mr-text-base)', marginTop: 2 }}
-        />
+        <CardPrice price={price} product={product} style={{ fontSize: 'var(--mr-text-base)', marginTop: 2 }} />
       )}
     </Link>
   );
