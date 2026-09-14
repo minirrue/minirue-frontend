@@ -7,6 +7,7 @@ import Icon from '@/components/ui/Icon';
 import type { Bundle } from '@/lib/api/bundles';
 import type { BundleIndex } from '@/components/storefront/cart/bag-lines';
 import { useBundleIndex } from '@/components/storefront/cart/use-bundle-catalog';
+import { formatMoney } from '@/lib/format/money';
 
 /**
  * "Also part of these sets" — the sets a product on screen belongs to.
@@ -110,10 +111,6 @@ export function bundlesForProduct(
   return matches.slice(0, cap);
 }
 
-function minorToAmount(minor: number): string {
-  return (minor / 100).toFixed(2);
-}
-
 /** One card in the rail. */
 const SetCard = React.memo(function SetCard({ bundle }: { bundle: Bundle }) {
   return (
@@ -185,7 +182,7 @@ const SetCard = React.memo(function SetCard({ bundle }: { bundle: Bundle }) {
             margin: 0,
           }}
         >
-          {minorToAmount(bundle.priceMinor)} {bundle.currency}
+          {formatMoney(bundle.priceMinor / 100, bundle.currency)}
         </p>
 
         {bundle.savingMinor > 0 && (
@@ -200,8 +197,8 @@ const SetCard = React.memo(function SetCard({ bundle }: { bundle: Bundle }) {
               margin: 'var(--mr-sp-1) 0 0',
             }}
           >
-            Instead of {minorToAmount(bundle.listTotalMinor)} {bundle.currency} bought
-            separately — you save {minorToAmount(bundle.savingMinor)} {bundle.currency}.
+            Instead of {formatMoney(bundle.listTotalMinor / 100, bundle.currency)} bought
+            separately — you save {formatMoney(bundle.savingMinor / 100, bundle.currency)}.
           </p>
         )}
 

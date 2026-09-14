@@ -8,10 +8,7 @@ import Button from '@/components/ui/Button';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import type { Bundle } from '@/lib/api/bundles';
 import { productPath } from '@/lib/routes';
-
-function minorToAmount(minor: number): string {
-  return (minor / 100).toFixed(2);
-}
+import { formatMoney } from '@/lib/format/money';
 
 /**
  * One set: what is in it, what it costs, and one button.
@@ -151,7 +148,7 @@ export default function BundleDetail({ bundle }: { bundle: Bundle }) {
               margin: '0 0 var(--mr-sp-1)',
             }}
           >
-            {minorToAmount(bundle.priceMinor)} {bundle.currency}
+            {formatMoney(bundle.priceMinor / 100, bundle.currency)}
           </p>
 
           {bundle.savingMinor > 0 && (
@@ -165,8 +162,8 @@ export default function BundleDetail({ bundle }: { bundle: Bundle }) {
                 margin: '0 0 var(--mr-sp-5)',
               }}
             >
-              Instead of {minorToAmount(bundle.listTotalMinor)} {bundle.currency} bought
-              separately — you save {minorToAmount(bundle.savingMinor)} {bundle.currency}.
+              Instead of {formatMoney(bundle.listTotalMinor / 100, bundle.currency)} bought
+              separately — you save {formatMoney(bundle.savingMinor / 100, bundle.currency)}.
             </p>
           )}
 
@@ -230,7 +227,7 @@ export default function BundleDetail({ bundle }: { bundle: Bundle }) {
                   <span style={{ color: 'var(--mr-fg-4)' }}> · {m.brandName}</span>
                 </Link>
                 <span style={{ color: 'var(--mr-fg-4)', whiteSpace: 'nowrap' }}>
-                  {minorToAmount(m.unitMinor)} {bundle.currency}
+                  {formatMoney(m.unitMinor / 100, bundle.currency)}
                 </span>
               </li>
             ))}

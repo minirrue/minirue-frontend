@@ -7,6 +7,7 @@ import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import Icon from '@/components/ui/Icon';
 import { listBundles, type Bundle } from '@/lib/api/bundles';
+import { formatMoney } from '@/lib/format/money';
 
 /**
  * `/bundles` — sets of products sold together at one price.
@@ -24,10 +25,6 @@ export const metadata: Metadata = {
   description: 'Sets of MiniRue pieces, chosen together and priced as one.',
   alternates: { canonical: '/bundles' },
 };
-
-function minorToAmount(minor: number): string {
-  return (minor / 100).toFixed(2);
-}
 
 export default async function BundlesIndexPage() {
   await connection();
@@ -176,7 +173,7 @@ export default async function BundlesIndexPage() {
                       margin: 0,
                     }}
                   >
-                    {minorToAmount(bundle.priceMinor)} {bundle.currency}
+                    {formatMoney(bundle.priceMinor / 100, bundle.currency)}
                   </p>
                   {bundle.savingMinor > 0 && (
                     <p
@@ -187,7 +184,7 @@ export default async function BundlesIndexPage() {
                         margin: 'var(--mr-sp-1) 0 0',
                       }}
                     >
-                      Instead of {minorToAmount(bundle.listTotalMinor)} {bundle.currency} separately
+                      Instead of {formatMoney(bundle.listTotalMinor / 100, bundle.currency)} separately
                     </p>
                   )}
                 </Link>

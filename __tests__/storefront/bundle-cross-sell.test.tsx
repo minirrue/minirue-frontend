@@ -143,9 +143,9 @@ describe('BundleCrossSellSection', () => {
 
     expect(screen.getByRole('heading', { name: /also part of these sets/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Karseell Duo' })).toBeInTheDocument();
-    expect(screen.getByText('1600.00 EGP')).toBeInTheDocument();
+    expect(screen.getByText('EGP 1,600')).toBeInTheDocument();
     expect(
-      screen.getByText(/Instead of 1700\.00 EGP bought separately — you save 100\.00 EGP\./),
+      screen.getByText(/Instead of EGP 1,700 bought separately — you save EGP 100\./),
     ).toBeInTheDocument();
   });
 

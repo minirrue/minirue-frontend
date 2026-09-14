@@ -61,3 +61,35 @@ describe('order screens never render a raw amount', () => {
     expect(RAW_AMOUNT_CHILD.test('<PriceDisplay amount={order.totalAmount} />')).toBe(false);
   });
 });
+
+/**
+ * #141 — sets had their own copy of the same defect: a private
+ * `minorToAmount(minor) => (minor / 100).toFixed(2)` helper, printing
+ * `"774.00 EGP"` where every other screen prints `"EGP 774"` via `formatMoney`
+ * (lib/format/money.ts). Same class of bug as #1/#116, now on the bundle
+ * screens rather than the order screens.
+ *
+ * `minorToAmount`/`.toFixed(2)` output is always concatenated with a currency
+ * code as a JSX sibling text node (`{minorToAmount(x)} {bundle.currency}`),
+ * not a single `{…Amount}` interpolation, so the RAW_AMOUNT_CHILD regex above
+ * does not catch it — this needs its own guard.
+ */
+const BUNDLE_SCREENS = [
+  'app/bundles/page.tsx',
+  'app/bundles/[slug]/BundleDetail.tsx',
+  'components/storefront/BundleCrossSell.tsx',
+];
+
+describe('bundle screens never render a raw amount', () => {
+  it.each(BUNDLE_SCREENS)('%s has no private minorToAmount/toFixed price helper', (file) => {
+    const offending = read(file)
+      .split('\n')
+      .map((text, i) => ({ line: i + 1, text: text.trim() }))
+      .filter(({ text }) => /toFixed\(/.test(text) || /function minorToAmount/.test(text));
+    expect(offending).toEqual([]);
+  });
+
+  it.each(BUNDLE_SCREENS)('%s uses formatMoney for prices, not string-concatenated minor amounts', (file) => {
+    expect(read(file)).toMatch(/formatMoney\(/);
+  });
+});
