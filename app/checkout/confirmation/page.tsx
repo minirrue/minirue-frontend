@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { guestCheckoutFields, apiCheckout, type OrderSummary } from '@/lib/checkout/checkout-api';
 import {
@@ -32,6 +32,34 @@ import Button from '@/components/ui/Button';
 import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
 import { formatMoney } from '@/lib/format/money';
 import { track } from '@/lib/analytics';
+import { isAuthenticated } from '@/lib/auth/tokens';
+import { orderBuyer, type OrderBuyer } from '@/lib/checkout/order-buyer';
+
+const NOTE_STYLE: CSSProperties = {
+  margin: '0 0 var(--mr-sp-5)',
+  fontFamily: 'var(--mr-font-sans)',
+  fontSize: 'var(--mr-text-sm)',
+  lineHeight: 1.6,
+  color: 'var(--mr-fg-2)',
+  textAlign: 'left',
+};
+
+/** What a guest is told instead of "your orders" (#134). */
+function GuestEmailNote({ maskedEmail }: { maskedEmail: string | null }) {
+  return (
+    <p style={NOTE_STYLE}>
+      {`We'll email your order confirmation to ${maskedEmail ?? 'the address you gave at checkout'}. We'll email you again when it ships.`}
+    </p>
+  );
+}
+
+function ContinueShoppingButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button variant="primary" sweep onClick={onClick} style={{ width: '100%' }}>
+      Continue shopping
+    </Button>
+  );
+}
 
 export default function CheckoutConfirmationPage() {
   const router = useRouter();
@@ -52,6 +80,8 @@ export default function CheckoutConfirmationPage() {
    */
   const [maybePlaced, setMaybePlaced] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
+  /** The email a guest typed at checkout, kept past the session being spent. */
+  const [guestEmail, setGuestEmail] = useState<string | null>(null);
   const submitted = useRef(false);
   const firedStepView = useRef(false);
 
@@ -66,6 +96,14 @@ export default function CheckoutConfirmationPage() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('order');
     if (fromQuery) {
+      // The Instapay step remembers the order it placed; with it, the page can
+      // show the receipt and tell a guest from a signed-in shopper (#134).
+      const placedByInstapay = loadPlacedOrder();
+      // Kept once set: this effect re-runs, and a freshly parsed copy each
+      // time would be a new object, a re-render and another run — forever.
+      if (placedByInstapay?.order.orderNumber === fromQuery) {
+        setOrder((prev) => prev ?? placedByInstapay.order);
+      }
       setOrderNumber(fromQuery);
       setSessionChecked(true);
       return;
@@ -117,6 +155,9 @@ export default function CheckoutConfirmationPage() {
       return;
     }
     setSessionChecked(true);
+    // Read now: placing the order spends the session, and the guest's email
+    // is still needed for the "we'll email you" line after that (#134).
+    setGuestEmail(session.guest?.email ?? null);
 
     // On a hard load (a refresh, or the URL opened directly) the bag has not
     // answered yet: `cartId` is '' because nothing has been read, not because
@@ -191,9 +232,11 @@ export default function CheckoutConfirmationPage() {
         if (isCartAlreadyCheckedOut(err)) {
           // Still no order after every replay. The bag was bought, most
           // likely by this very checkout; the honest screen says so and
-          // points at the orders, never back at Place order.
-          const message =
-            'This bag has already been placed as an order. Check your email or your orders before ordering again.';
+          // points at the orders (or, for a guest, their email), never back
+          // at Place order.
+          const message = session.guest
+            ? "This bag has already been placed as an order. Please don't order it again."
+            : 'This bag has already been placed as an order. Check your email or your orders before ordering again.';
           setMaybePlaced(true);
           setError(message);
           track('payment_client_error', { method: 'COD', message });
@@ -234,14 +277,25 @@ export default function CheckoutConfirmationPage() {
     );
   }
 
+  // Only read once an effect has settled the page (every branch below), so
+  // the server render never sees the sign-in cookie.
+  const buyer: OrderBuyer = orderBuyer(order, { guestEmail, signedIn: isAuthenticated() });
+
   if (error && maybePlaced) {
     return (
       <CheckoutShell>
         <CheckoutPageFrame step={4} complete title="Your order may already be placed" maxWidth={480}>
           <CheckoutAlert variant="warning">{error}</CheckoutAlert>
-          <Button variant="primary" sweep onClick={() => router.push('/account/orders')} style={{ width: '100%' }}>
-            View your orders
-          </Button>
+          {buyer.kind === 'guest' ? (
+            <>
+              <GuestEmailNote maskedEmail={buyer.maskedEmail} />
+              <ContinueShoppingButton onClick={() => router.push('/shop/all')} />
+            </>
+          ) : (
+            <Button variant="primary" sweep onClick={() => router.push('/account/orders')} style={{ width: '100%' }}>
+              View your orders
+            </Button>
+          )}
         </CheckoutPageFrame>
       </CheckoutShell>
     );
@@ -269,7 +323,10 @@ export default function CheckoutConfirmationPage() {
         title={orderNumber ? 'Order confirmed' : 'Placing your order…'}
         subtitle={
           orderNumber
-            ? 'Thank you for shopping with MiniRue. A confirmation email will arrive shortly.'
+            ? buyer.kind === 'guest'
+              ? // The email line below says where it goes; not twice.
+                'Thank you for shopping with MiniRue.'
+              : 'Thank you for shopping with MiniRue. A confirmation email will arrive shortly.'
             : undefined
         }
         maxWidth={520}
@@ -387,38 +444,55 @@ export default function CheckoutConfirmationPage() {
               at the door with their hand out, and it is the single most common
               support message this shop gets after an order.
             */}
-            <p
-              style={{
-                margin: '0 0 var(--mr-sp-5)',
-                fontFamily: 'var(--mr-font-sans)',
-                fontSize: 'var(--mr-text-sm)',
-                lineHeight: 1.6,
-                color: 'var(--mr-fg-2)',
-                textAlign: 'left',
-              }}
-            >
-              We&apos;re preparing your order now. You&apos;ll get a message when it
-              ships, and you can follow it any time from your orders.
-            </p>
+            {/*
+              A guest has no account and no order page (#134, backend#135):
+              they hear where the order emails go, and are offered the shop.
+              "We'll email", not "we've emailed" — the checkout response does
+              not say an email was sent.
+            */}
+            {buyer.kind === 'guest' ? (
+              <>
+                <GuestEmailNote maskedEmail={buyer.maskedEmail} />
+                <ContinueShoppingButton onClick={() => router.push('/shop/all')} />
+              </>
+            ) : (
+              <>
+                <p style={NOTE_STYLE}>
+                  We&apos;re preparing your order now. You&apos;ll get a message when it
+                  ships, and you can follow it any time from your orders.
+                </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>
-              <Button variant="primary" sweep onClick={() => router.push('/account/orders')} style={{ width: '100%' }}>
-                Track your order
-              </Button>
-              <Link
-                href="/shop/all"
-                style={{
-                  fontFamily: 'var(--mr-font-label)',
-                  fontSize: 'var(--mr-text-xs)',
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: 'var(--mr-fg-3)',
-                  textDecoration: 'none',
-                }}
-              >
-                Continue shopping <span className="mr-link-arrow">→</span>
-              </Link>
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-3)' }}>
+                  <Button
+                    variant="primary"
+                    sweep
+                    onClick={() =>
+                      router.push(
+                        buyer.orderId
+                          ? `/account/orders/${encodeURIComponent(buyer.orderId)}`
+                          : '/account/orders',
+                      )
+                    }
+                    style={{ width: '100%' }}
+                  >
+                    Track your order
+                  </Button>
+                  <Link
+                    href="/shop/all"
+                    style={{
+                      fontFamily: 'var(--mr-font-label)',
+                      fontSize: 'var(--mr-text-xs)',
+                      letterSpacing: '0.18em',
+                      textTransform: 'uppercase',
+                      color: 'var(--mr-fg-3)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Continue shopping <span className="mr-link-arrow">→</span>
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
         )}
       </CheckoutPageFrame>

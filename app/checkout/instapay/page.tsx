@@ -17,6 +17,7 @@ import {
   saveCheckoutSession,
 } from '@/lib/checkout/checkout-session';
 import { orderTotalMinor } from '@/lib/checkout/checkout-money';
+import { savePlacedOrder } from '@/lib/checkout/placed-order';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import {
@@ -33,7 +34,7 @@ const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
 export default function InstapayCheckoutPage() {
   const router = useRouter();
-  const { cartId, items, subtotalAmount, loading: cartLoading, clearCart } = useCart();
+  const { cartId, items, subtotalAmount, hydrated: cartHydrated, clearCart } = useCart();
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Set the moment the order is accepted. The success path clears the cart, which
@@ -47,7 +48,9 @@ export default function InstapayCheckoutPage() {
   // cart, and Submit posted an empty cartId — the customer uploaded a receipt and
   // got back "cartId: Invalid uuid" for their trouble. Wait for the cart to load
   // first, or this would bounce every genuine visit on the first render.
-  const cartEmpty = !cartLoading && !placed && (!cartId || items.length === 0);
+  // `hydrated`, not `!loading`: `loading` is false before the bag has been asked
+  // for at all, so a refresh of this step was sent to /cart (same trap as #121).
+  const cartEmpty = cartHydrated && !placed && (!cartId || items.length === 0);
 
   useEffect(() => {
     const session = loadCheckoutSession();
@@ -118,6 +121,7 @@ export default function InstapayCheckoutPage() {
       cartId,
       totalMinor: orderTotalMinor(subtotalAmount),
     });
+    const idempotencyKey = checkoutIdempotencyKey();
     try {
       const order = await apiCheckout(
         {
@@ -129,11 +133,15 @@ export default function InstapayCheckoutPage() {
           receiptDataUrl: preview,
           ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
         },
-        checkoutIdempotencyKey(),
+        idempotencyKey,
       );
       // Before clearing anything: from here on an empty cart is the expected
       // outcome, not a reason to redirect.
       setPlaced(true);
+      // The confirmation gets only `?order=` in the URL. Remembering the order
+      // body lets it show the receipt and tell a guest from a signed-in
+      // shopper — a guest must never be sent to "your orders" (#134).
+      savePlacedOrder(order, idempotencyKey);
       clearCheckoutSession();
       saveAppliedCode(null);
       await clearCart();

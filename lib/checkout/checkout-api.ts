@@ -82,6 +82,13 @@ export interface OrderSummary {
   id: string;
   orderNumber: string;
   orderSeq: number;
+  /**
+   * Who bought it (backend `toOrderDto`): `userId` on an account order,
+   * `guestContact` on a guest one — the other is null. Optional because an
+   * older response, or a test fixture, may carry neither.
+   */
+  userId?: string | null;
+  guestContact?: { fullName: string; phone: string; email?: string } | null;
   status: string;
   totalAmount: string;
   totalCurrency: string;
