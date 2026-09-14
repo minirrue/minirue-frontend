@@ -9,7 +9,8 @@ import CatalogProductGrid from '@/components/storefront/CatalogProductGrid';
 import SearchSheet from '@/components/layout/SearchSheet';
 import CheckoutConfirmationPage from '@/app/checkout/confirmation/page';
 import { saveCheckoutSession, clearCheckoutSession } from '@/lib/checkout/checkout-session';
-import { PRODUCT_FIXTURE } from '../storefront/fixtures/product';
+import { saveAppliedCode } from '@/lib/api/discounts';
+import { PRODUCT_FIXTURE, IN_STOCK_VARIANT } from '../storefront/fixtures/product';
 import type { CartDto } from '@/lib/api/cart';
 
 /**
@@ -60,10 +61,12 @@ const EMPTY_CART_DTO: CartDto = {
 
 const mockApiGetCart = jest.fn();
 const mockApiAddItem = jest.fn();
+const mockApiAddBundle = jest.fn();
 jest.mock('@/lib/api/cart', () => ({
   ...jest.requireActual('@/lib/api/cart'),
   apiGetCart: (...args: unknown[]) => mockApiGetCart(...args),
   apiAddItem: (...args: unknown[]) => mockApiAddItem(...args),
+  apiAddBundle: (...args: unknown[]) => mockApiAddBundle(...args),
   apiUpdateItem: jest.fn(),
   apiRemoveItem: jest.fn(),
   apiClearCart: jest.fn(),
@@ -76,6 +79,24 @@ jest.mock('@/lib/api/cart', () => ({
 const mockApiCheckout = jest.fn();
 jest.mock('@/lib/checkout/checkout-api', () => ({
   apiCheckout: (...args: unknown[]) => mockApiCheckout(...args),
+}));
+
+const mockLoadShippingPolicy = jest.fn();
+jest.mock('@/lib/api/settings', () => ({
+  ...jest.requireActual('@/lib/api/settings'),
+  loadShippingPolicy: (...args: unknown[]) => mockLoadShippingPolicy(...args),
+}));
+
+const mockPreviewDiscount = jest.fn();
+jest.mock('@/lib/api/discounts', () => ({
+  ...jest.requireActual('@/lib/api/discounts'),
+  previewDiscount: (...args: unknown[]) => mockPreviewDiscount(...args),
+}));
+
+const mockUseDiscountedPrice = jest.fn();
+jest.mock('@/lib/hooks/use-sitewide-discount', () => ({
+  ...jest.requireActual('@/lib/hooks/use-sitewide-discount'),
+  useDiscountedPrice: (...args: unknown[]) => mockUseDiscountedPrice(...args),
 }));
 
 jest.mock('@/components/checkout/CheckoutShell', () => ({
@@ -93,7 +114,22 @@ beforeEach(() => {
   mockCatalogSearch.mockReset();
   mockApiGetCart.mockReset().mockResolvedValue(EMPTY_CART_DTO);
   mockApiAddItem.mockReset();
+  mockApiAddBundle.mockReset();
   mockApiCheckout.mockReset();
+  mockLoadShippingPolicy.mockReset().mockResolvedValue({ flatMinor: 5000, freeOverMinor: 0 });
+  mockPreviewDiscount.mockReset().mockResolvedValue({
+    valid: false,
+    code: null,
+    discountMinor: 0,
+    eligibleSubtotalMinor: 0,
+    appliesToMinirueOnly: false,
+    winner: null,
+    bundleSavingsMinor: 0,
+    message: null,
+  });
+  // Pass-through by default — the same behaviour every OTHER test in this
+  // file relies on. Overridden per-test where the discounted price matters.
+  mockUseDiscountedPrice.mockReset().mockImplementation((amount: string) => ({ amount }));
 });
 
 // ── add_to_cart ──────────────────────────────────────────────────────────────
@@ -163,6 +199,74 @@ describe('CartContext — add_to_cart', () => {
   });
 });
 
+// ── add_to_cart for a set (#142) ─────────────────────────────────────────────
+
+describe('CartContext — add_to_cart for a set line', () => {
+  function AddBundleButton() {
+    const { addBundle } = useCart();
+    return <button onClick={() => void addBundle('gift-set')}>add set</button>;
+  }
+
+  function renderCart() {
+    return render(
+      <CartProvider>
+        <AddBundleButton />
+      </CartProvider>,
+    );
+  }
+
+  it('fires add_to_cart with the bundleId once a set is added — it used to fire nothing', async () => {
+    // Two member rows, both stamped with the set's bundleId, exactly as the
+    // backend writes a set into the cart (bag-lines.ts's own description of
+    // `CartItemDto`).
+    mockApiAddBundle.mockResolvedValue({
+      id: 'cart-1',
+      status: 'ACTIVE',
+      currency: 'EGP',
+      items: [
+        {
+          id: 'item-1',
+          variantId: 'variant-a',
+          qty: 1,
+          unitPriceAmount: '300.00',
+          unitPriceCurrency: 'EGP',
+          lineTotalAmount: '300.00',
+          bundleId: 'bundle-1',
+          bundleLineKey: 'add-1',
+        },
+        {
+          id: 'item-2',
+          variantId: 'variant-b',
+          qty: 1,
+          unitPriceAmount: '250.00',
+          unitPriceCurrency: 'EGP',
+          lineTotalAmount: '250.00',
+          bundleId: 'bundle-1',
+          bundleLineKey: 'add-1',
+        },
+      ],
+      totals: { subtotalAmount: '550.00', currency: 'EGP', itemCount: 2, uniqueItemCount: 2 },
+      expiresAt: null,
+    });
+
+    renderCart();
+    await userEvent.click(screen.getByRole('button', { name: 'add set' }));
+
+    await waitFor(() => {
+      expect(mockTrack.mock.calls.filter(([name]) => name === 'add_to_cart')).toHaveLength(1);
+    });
+
+    const [, props] = mockTrack.mock.calls.find(([name]) => name === 'add_to_cart')!;
+    expect(props).toEqual({
+      productId: 'bundle-1',
+      variantId: 'bundle-1',
+      qty: 1,
+      priceMinor: 55000,
+      source: 'pdp',
+    });
+  });
+});
+
 // ── product_view ─────────────────────────────────────────────────────────────
 
 describe('ApiProductDetail — product_view', () => {
@@ -181,6 +285,32 @@ describe('ApiProductDetail — product_view', () => {
     const calls = mockTrack.mock.calls.filter(([name]) => name === 'product_view');
     expect(calls).toHaveLength(1);
     expect(calls[0][1]).toMatchObject({ productId: PRODUCT_FIXTURE.id });
+  });
+
+  it('sends the DISPLAYED price, after a markdown — never the list price (#142)', () => {
+    // The default variant (IN_STOCK_VARIANT) lists at "400". A running
+    // markdown drops what is actually shown to "250" — `useDiscountedPrice`
+    // is the one source of that figure everywhere else on this page (the
+    // panel's own `shownPrice`, the sticky bar, VariantPicker), so
+    // product_view has to read the same answer rather than the variant's
+    // raw `priceAmount`.
+    mockUseDiscountedPrice.mockImplementation((amount: string) =>
+      amount === IN_STOCK_VARIANT.priceAmount ? { amount: '250.00', wasAmount: amount } : { amount },
+    );
+
+    renderWithQueryClient(
+      <ApiProductDetail
+        product={PRODUCT_FIXTURE}
+        perks={[]}
+        onBack={() => {}}
+        onAddToBag={() => {}}
+      />,
+    );
+
+    const calls = mockTrack.mock.calls.filter(([name]) => name === 'product_view');
+    expect(calls).toHaveLength(1);
+    // 250.00 EGP, not the list price's 40000 (400.00 EGP).
+    expect(calls[0][1]).toMatchObject({ priceMinor: 25000 });
   });
 });
 
@@ -337,5 +467,65 @@ describe('checkout confirmation — purchase is never fired from the browser', (
 
     expect(mockTrack.mock.calls.some(([name]) => name === 'purchase')).toBe(false);
     expect(mockTrack.mock.calls.some(([name]) => name === 'payment_initiated')).toBe(true);
+  });
+});
+
+// ── payment_initiated total (#142) ───────────────────────────────────────────
+
+describe('checkout confirmation — payment_initiated.totalMinor is the real order total', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    clearCheckoutSession();
+    window.localStorage.clear();
+    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD' });
+    saveAppliedCode('SAVE30');
+    mockApiGetCart.mockResolvedValue({
+      id: 'cart-1',
+      status: 'ACTIVE',
+      currency: 'EGP',
+      items: [{ id: 'item-1', variantId: 'variant-1', qty: 1, unitPriceAmount: '400.00', unitPriceCurrency: 'EGP', lineTotalAmount: '400.00' }],
+      totals: { subtotalAmount: '400.00', currency: 'EGP', itemCount: 1, uniqueItemCount: 1 },
+      expiresAt: null,
+    });
+    mockApiCheckout.mockResolvedValue({ orderNumber: 'ORD-100' });
+    // The real flat rate (EGP 100), not the EGP 50 fallback `orderTotalMinor`
+    // falls back to with no options.
+    mockLoadShippingPolicy.mockResolvedValue({ flatMinor: 10000, freeOverMinor: 0 });
+    mockPreviewDiscount.mockResolvedValue({
+      valid: true,
+      code: 'SAVE30',
+      discountMinor: 3000,
+      eligibleSubtotalMinor: 40000,
+      appliesToMinirueOnly: false,
+      winner: 'CODE',
+      bundleSavingsMinor: 0,
+      message: null,
+    });
+  });
+
+  afterEach(() => {
+    clearCheckoutSession();
+    window.localStorage.clear();
+  });
+
+  it('is subtotal − discount + the real shipping fee, not subtotal + the EGP 50 fallback', async () => {
+    render(
+      <CartProvider>
+        <CheckoutConfirmationPage />
+      </CartProvider>,
+    );
+
+    await screen.findByText(/order confirmed/i);
+
+    await waitFor(() => {
+      expect(mockTrack.mock.calls.some(([name]) => name === 'payment_initiated')).toBe(true);
+    });
+
+    const [, props] = mockTrack.mock.calls.find(([name]) => name === 'payment_initiated')!;
+    // 40000 (subtotal) − 3000 (discount) + 10000 (real fee) = 47000.
+    // The old code sent 40000 + 5000 (default fallback, no discount) = 45000.
+    expect(props).toMatchObject({ totalMinor: 47000 });
+    expect(mockLoadShippingPolicy).toHaveBeenCalled();
+    expect(mockPreviewDiscount).toHaveBeenCalledWith(expect.anything(), 'SAVE30');
   });
 });

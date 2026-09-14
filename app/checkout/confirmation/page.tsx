@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
+import { toPricingLines } from '@/components/storefront/cart/bag-lines';
 import { guestCheckoutFields, apiCheckout, type OrderSummary } from '@/lib/checkout/checkout-api';
 import {
   codeRefusalAtPlacement,
@@ -24,7 +25,7 @@ import {
   placeWithReplay,
   savePlacedOrder,
 } from '@/lib/checkout/placed-order';
-import { orderTotalMinor } from '@/lib/checkout/checkout-money';
+import { realOrderTotalMinor } from '@/lib/checkout/real-order-total';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import { CheckoutAlert } from '@/components/checkout/checkout-ui';
@@ -63,7 +64,7 @@ function ContinueShoppingButton({ onClick }: { onClick: () => void }) {
 
 export default function CheckoutConfirmationPage() {
   const router = useRouter();
-  const { cartId, hydrated: cartHydrated, subtotalAmount, clearCart } = useCart();
+  const { cartId, hydrated: cartHydrated, subtotalAmount, lines, bundleIndex, clearCart } = useCart();
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   /**
    * The placed order, for the receipt below. Kept beside `orderNumber` rather
@@ -191,11 +192,14 @@ export default function CheckoutConfirmationPage() {
     // revenue reconciles exactly with the `orders` table. Not fired again for
     // a replay of an order already sent: that is the same attempt, re-asked.
     if (!isReplay) {
-      track('payment_initiated', {
-        method: 'COD',
-        cartId: placeCartId,
-        totalMinor: orderTotalMinor(subtotalAmount),
-      });
+      // Fired asynchronously so a slow settings/discount read never delays
+      // Place order itself — the event lands a beat later with the real
+      // total, never at the cost of holding up the actual checkout call.
+      void realOrderTotalMinor(subtotalAmount, toPricingLines(lines, bundleIndex)).then(
+        (totalMinor) => {
+          track('payment_initiated', { method: 'COD', cartId: placeCartId, totalMinor });
+        },
+      );
     }
 
     const body = {

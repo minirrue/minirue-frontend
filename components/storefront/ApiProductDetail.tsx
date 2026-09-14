@@ -846,6 +846,25 @@ export default function ApiProductDetail({
     setTimeout(() => setAdded(false), 2400);
   };
 
+  /**
+   * The DISPLAYED price for `product_view`, not the list price.
+   *
+   * `defaultVariant?.priceAmount` is what the product costs before a running
+   * markdown; `shownPrice` above already runs the same variant through the
+   * same floor-capped offer the panel prints on screen for the shopper looking
+   * at this exact page (#142). Same hook, same inputs shape as `shownPrice`,
+   * just for the default variant rather than whichever one is selected.
+   *
+   * The event schema has no second field for the list price (`priceMinor` is
+   * the only money field `product_view` carries), so there is nothing to send
+   * it as without failing the collector's strict prop check.
+   */
+  const defaultVariantPrice = useDiscountedPrice(
+    defaultVariant?.priceAmount ?? '0',
+    product.isMinirueOwned ?? false,
+    defaultVariant?.id,
+  );
+
   // product_view fires exactly once per mount — the ref (not a dependency
   // array) is what survives React StrictMode's dev-only double-invoke of this
   // effect, and it deliberately never reruns on a variant change.
@@ -856,7 +875,7 @@ export default function ApiProductDetail({
     track('product_view', {
       productId: product.id,
       variantId: defaultVariant?.id,
-      priceMinor: subtotalToMinor(defaultVariant?.priceAmount ?? '0'),
+      priceMinor: subtotalToMinor(defaultVariantPrice.amount),
       brand: productBrand(product) ?? undefined,
       categoryId: product.categoryId,
       inStock: defaultVariant ? variantInStock(defaultVariant) : !allSoldOut,

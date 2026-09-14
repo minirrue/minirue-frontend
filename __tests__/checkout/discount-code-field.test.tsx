@@ -20,7 +20,8 @@ jest.mock('@/lib/api/discounts', () => {
     previewDiscount: (...args: unknown[]) => previewDiscount(...args),
   };
 });
-jest.mock('@/lib/analytics/track', () => ({ track: jest.fn() }));
+const mockTrack = jest.fn();
+jest.mock('@/lib/analytics/track', () => ({ track: (...args: unknown[]) => mockTrack(...args) }));
 
 import DiscountCodeField from '@/components/checkout/DiscountCodeField';
 import { loadAppliedCode, saveAppliedCode } from '@/lib/api/discounts';
@@ -49,6 +50,7 @@ async function apply(text: string) {
 
 beforeEach(() => {
   previewDiscount.mockReset();
+  mockTrack.mockClear();
   window.localStorage.clear();
   jest.useRealTimers();
 });
@@ -121,6 +123,36 @@ describe('DiscountCodeField (backend#120)', () => {
     const message = codeRefusalAtPlacement({ status: 422, message: "This code isn't valid." });
     expect(message).toMatch(/^This code isn't valid\. .*not placed/);
     expect(loadAppliedCode()).toBeNull();
+  });
+
+  it('fires promo_applied exactly once for a user-initiated apply, and never for the silent re-check (#142)', async () => {
+    previewDiscount.mockResolvedValue(valid('MINIRUE10'));
+    render(<DiscountCodeField lines={LINES} />);
+
+    await apply('minirue10');
+
+    await waitFor(() => expect(loadAppliedCode()).toBe('MINIRUE10'));
+    const applies = mockTrack.mock.calls.filter(([name]) => name === 'promo_applied');
+    expect(applies).toHaveLength(1);
+    expect(applies[0][1]).toEqual({ code: 'MINIRUE10', discountMinor: 1000 });
+  });
+
+  it('never fires promo_applied on the silent mount/bag-change re-check of an already-applied code (#142)', async () => {
+    // Mirrors DiscountCodeField's own re-check effect: a code already saved
+    // from an earlier screen, re-priced quietly on mount — never a shopper
+    // pressing Apply.
+    saveAppliedCode('MINIRUE10');
+    previewDiscount.mockResolvedValue(valid('MINIRUE10'));
+
+    const { rerender } = render(<DiscountCodeField lines={LINES} />);
+    await waitFor(() => expect(screen.getByText('MINIRUE10')).toBeInTheDocument());
+
+    // The bag changes, re-triggering the silent re-check — the over-counting
+    // bug fired promo_applied on this too, not only on the mount check above.
+    rerender(<DiscountCodeField lines={[{ variantId: 'v1', qty: 2, unitPriceMinor: 10000 }]} />);
+    await waitFor(() => expect(previewDiscount).toHaveBeenCalledTimes(2), { timeout: 2000 });
+
+    expect(mockTrack.mock.calls.some(([name]) => name === 'promo_applied')).toBe(false);
   });
 
   it("sends a guest's phone so a per-customer limit is judged in preview", async () => {

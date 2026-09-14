@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
+import { toPricingLines } from '@/components/storefront/cart/bag-lines';
 import { apiCheckout, guestCheckoutFields } from '@/lib/checkout/checkout-api';
 import {
   codeRefusalAtPlacement,
@@ -16,7 +17,7 @@ import {
   checkoutIdempotencyKey,
   saveCheckoutSession,
 } from '@/lib/checkout/checkout-session';
-import { orderTotalMinor } from '@/lib/checkout/checkout-money';
+import { realOrderTotalMinor } from '@/lib/checkout/real-order-total';
 import { savePlacedOrder } from '@/lib/checkout/placed-order';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
@@ -34,7 +35,7 @@ const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
 export default function InstapayCheckoutPage() {
   const router = useRouter();
-  const { cartId, items, subtotalAmount, hydrated: cartHydrated, clearCart } = useCart();
+  const { cartId, items, lines, bundleIndex, subtotalAmount, hydrated: cartHydrated, clearCart } = useCart();
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Set the moment the order is accepted. The success path clears the cart, which
@@ -116,11 +117,13 @@ export default function InstapayCheckoutPage() {
     // Fired immediately before the order POST, not after — this is a
     // "the customer tried to pay" signal, distinct from `purchase` (emitted
     // server-side only, inside the order transaction, never from the browser).
-    track('payment_initiated', {
-      method: 'INSTAPAY',
-      cartId,
-      totalMinor: orderTotalMinor(subtotalAmount),
-    });
+    // Fired asynchronously so a slow settings/discount read never delays the
+    // order POST below — the event lands a beat later with the real total.
+    void realOrderTotalMinor(subtotalAmount, toPricingLines(lines, bundleIndex)).then(
+      (totalMinor) => {
+        track('payment_initiated', { method: 'INSTAPAY', cartId, totalMinor });
+      },
+    );
     const idempotencyKey = checkoutIdempotencyKey();
     try {
       const order = await apiCheckout(

@@ -207,10 +207,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     // this resolves, and it needs the set's NAME, which lives in a different
     // endpoint (see use-bundle-catalog.ts).
     primeBundleIndex();
+    // Read before the mutation: the rows this add creates are whichever ones
+    // are NOT already in the bag once the server answers.
+    const before = new Set(cart.items.map((i) => i.id));
     try {
       const data = await apiAddBundle(slug);
       setCartFromApi(data);
       setDrawerOpen(true);
+      /**
+       * A set has no single product or variant to report, so this used to fire
+       * no `add_to_cart` at all — every set add was invisible to the cart
+       * funnel (#142). The schema has no field for a bundle beyond
+       * productId/variantId, so the set's own id — the `bundleId` every member
+       * row is stamped with — stands in for both: it is the one identifier the
+       * set actually has.
+       */
+      const newRows = data.items.filter((i) => i.bundleId && !before.has(i.id));
+      const bundleId = newRows[0]?.bundleId;
+      if (bundleId) {
+        track('add_to_cart', {
+          productId: bundleId,
+          variantId: bundleId,
+          qty: 1,
+          priceMinor: newRows.reduce((sum, r) => sum + subtotalToMinor(r.lineTotalAmount), 0),
+          source: 'pdp',
+        });
+      }
     } catch (e) {
       const message = extractErrorMessage(e, 'Failed to add this set');
       setError(message);

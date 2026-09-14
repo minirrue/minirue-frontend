@@ -111,10 +111,17 @@ export function DiscountCodeField({
           setApplied({ ...result, code: kept });
           saveAppliedCode(kept);
           onChangeRef.current?.(result);
-          track('promo_applied', {
-            code: kept,
-            discountMinor: result.discountMinor,
-          });
+          // Only for a shopper typing Apply, never for the silent re-check
+          // that runs on mount and on every bag change — that re-check fires
+          // this same success branch on an already-applied code, so counting
+          // it here over-counted "applied a promo" many times per checkout
+          // for one actual apply (#142).
+          if (!opts?.silent) {
+            track('promo_applied', {
+              code: kept,
+              discountMinor: result.discountMinor,
+            });
+          }
         } else {
           setApplied(null);
           saveAppliedCode(null);
