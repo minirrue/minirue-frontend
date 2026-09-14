@@ -1,12 +1,26 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { apiFetch } from '@/lib/api/client';
+import CardPrice from '@/components/storefront/CardPrice';
+import type { ApiProduct } from '@/lib/api/catalog';
 import { SitewideDiscountProvider, useDiscountedPrice } from '@/lib/hooks/use-sitewide-discount';
 
-// The provider fetches the live percentage on mount; this decides what it gets.
+// The provider fetches the live offer on mount; this decides what it gets.
+// `mockCapped` undefined = an API that predates floor caps (sends no map).
 let mockPercent: number | null = null;
+let mockCapped: Record<string, number> | undefined;
 jest.mock('@/lib/api/client', () => ({
-  apiFetch: jest.fn(async () => ({ percent: mockPercent })),
+  apiFetch: jest.fn(async () =>
+    mockCapped === undefined
+      ? { percent: mockPercent }
+      : { percent: mockPercent, cappedOffers: mockCapped },
+  ),
 }));
+
+beforeEach(() => {
+  mockCapped = undefined;
+  (apiFetch as jest.Mock).mockClear();
+});
 
 /**
  * A price shown is a price charged.
@@ -30,11 +44,13 @@ jest.mock('@/lib/api/client', () => ({
 function Price({
   amount,
   eligible,
+  variantId,
 }: {
   amount: string;
   eligible: boolean;
+  variantId?: string;
 }) {
-  const shown = useDiscountedPrice(amount, eligible);
+  const shown = useDiscountedPrice(amount, eligible, variantId);
   return (
     <div>
       <span data-testid="shown">{shown.amount}</span>
@@ -47,11 +63,12 @@ async function renderAt(
   percent: number | null,
   eligible: boolean,
   amount = '100.00',
+  variantId?: string,
 ) {
   mockPercent = percent;
   const view = render(
     <SitewideDiscountProvider>
-      <Price amount={amount} eligible={eligible} />
+      <Price amount={amount} eligible={eligible} variantId={variantId} />
     </SitewideDiscountProvider>,
   );
   // The percentage arrives in an effect, so wait for the first paint that has it
@@ -107,5 +124,92 @@ describe('sitewide discount eligibility', () => {
     await waitFor(() =>
       expect(screen.getByTestId('shown')).toHaveTextContent('6.69'),
     );
+  });
+});
+
+/**
+ * Floor caps (Accounting epic, backend#155). Checkout never lets a markdown
+ * take a product below its floor; for those variants the server sends the
+ * price it will charge. A card showing the plain percentage there would
+ * advertise 606.75 and charge 659.
+ */
+describe('sitewide discount floor caps', () => {
+  it('shows the price checkout charges for a floor-capped variant', async () => {
+    mockCapped = { v1: 65900 };
+    await renderAt(25, true, '809.00', 'v1');
+    await waitFor(() => expect(screen.getByTestId('shown')).toHaveTextContent('659.00'));
+    expect(screen.getByTestId('was')).toHaveTextContent('809.00');
+  });
+
+  it('keeps the plain percentage for a variant the floor does not cap', async () => {
+    mockCapped = { v1: 65900 };
+    await renderAt(25, true, '809.00', 'v2');
+    await waitFor(() => expect(screen.getByTestId('shown')).toHaveTextContent('606.75'));
+  });
+
+  it('never lets a cap make a price cheaper than the percentage itself', async () => {
+    mockCapped = { v1: 100 };
+    await renderAt(10, true, '809.00', 'v1');
+    // 10% off 809.00 = 728.10; a malformed low cap must not undercut that.
+    await waitFor(() => expect(screen.getByTestId('shown')).toHaveTextContent('728.10'));
+  });
+
+  it('strikes nothing through when the cap holds the full price', async () => {
+    mockCapped = { v1: 80900 };
+    await renderAt(25, true, '809.00', 'v1');
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('shown')).toHaveTextContent('809.00'));
+    expect(screen.getByTestId('was')).toHaveTextContent('');
+  });
+
+  it('ignores the variant id entirely when the API sends no cap map', async () => {
+    await renderAt(25, true, '809.00', 'v1');
+    await waitFor(() => expect(screen.getByTestId('shown')).toHaveTextContent('606.75'));
+  });
+
+  it('re-reads the offer when the window regains focus, at most every 30s', async () => {
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(1_000_000);
+    await renderAt(10, true);
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+
+    now.mockReturnValue(1_010_000); // 10s later: too soon
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+
+    now.mockReturnValue(1_031_000); // 31s after the first read
+    mockPercent = 20;
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId('shown')).toHaveTextContent('80.00'));
+    now.mockRestore();
+  });
+
+  it('a card quotes the variant that is cheapest AFTER the offer', async () => {
+    // v1 is cheaper before the offer but held at its floor (659); v2 drops to
+    // 621.75 under 25% off, so the card must say 621.75, not 659.
+    mockPercent = 25;
+    mockCapped = { v1: 65900 };
+    const product = {
+      id: 'p1',
+      slug: 'p1',
+      name: 'Serum',
+      isMinirueOwned: true,
+      variants: [
+        { id: 'v1', sku: 'A', priceAmount: '809.0000', priceCurrency: 'EGP', isActive: true },
+        { id: 'v2', sku: 'B', priceAmount: '829.0000', priceCurrency: 'EGP', isActive: true },
+      ],
+    } as unknown as ApiProduct;
+    render(
+      <SitewideDiscountProvider>
+        <CardPrice price={{ amount: '809.0000', currency: 'EGP' }} product={product} />
+      </SitewideDiscountProvider>,
+    );
+    await waitFor(() => expect(screen.getByText(/621\.75/)).toBeInTheDocument());
+    expect(screen.queryByText(/659/)).not.toBeInTheDocument();
   });
 });

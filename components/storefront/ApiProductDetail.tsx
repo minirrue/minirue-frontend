@@ -236,6 +236,8 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
     // "no discount" — a discount shown but not honoured is worse than one
     // missed.
     product.isMinirueOwned ?? false,
+    // A floor-capped variant is charged the server's figure (backend#155).
+    selectedVariant?.id,
   );
 
   /**
@@ -795,6 +797,8 @@ export default function ApiProductDetail({
     // "no discount" — a discount shown but not honoured is worse than one
     // missed.
     product.isMinirueOwned ?? false,
+    // A floor-capped variant is charged the server's figure (backend#155).
+    selectedVariant?.id,
   );
 
   // The crossfade label follows what is actually shown — animating from the
