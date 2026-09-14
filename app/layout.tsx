@@ -20,6 +20,7 @@ import { AnnouncementBarProvider } from "@/components/layout/AnnouncementBar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import PageLoader from "@/components/layout/PageLoader";
 import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
+import MetaPixel from "@/components/seo/MetaPixel";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { buildIcons } from "@/lib/seo/icons";
 
@@ -290,6 +291,7 @@ export default function RootLayout({
           <Analytics />
           <AnalyticsProvider />
           <SpeedInsights />
+          <MetaPixel />
         </Suspense>
         </div>
       </body>
