@@ -31,7 +31,12 @@ interface MobileChromeState {
   searchOpen: boolean;
 }
 
-let state: MobileChromeState = { menuOpen: false, searchOpen: false };
+// One object, not a fresh literal per call: React compares getServerSnapshot
+// results during hydration and warns "should be cached" on every page
+// otherwise (frontend#136). Also the starting client state.
+const CLOSED: MobileChromeState = Object.freeze({ menuOpen: false, searchOpen: false });
+
+let state: MobileChromeState = CLOSED;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -48,7 +53,7 @@ function getSnapshot(): MobileChromeState {
 }
 
 function getServerSnapshot(): MobileChromeState {
-  return { menuOpen: false, searchOpen: false };
+  return CLOSED;
 }
 
 export function openMobileMenu(): void {
