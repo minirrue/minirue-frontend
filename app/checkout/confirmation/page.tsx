@@ -323,7 +323,7 @@ export default function CheckoutConfirmationPage() {
       <CheckoutPageFrame
         step={4}
         complete
-        eyebrow="Thank you"
+        eyebrow="Merci"
         title={orderNumber ? 'Order confirmed' : 'Placing your order…'}
         subtitle={
           orderNumber
