@@ -15,8 +15,10 @@
  * True on the day the order is placed, and a lie once it has been delivered or
  * cancelled.
  */
-const ORDER_STEPS: Array<{ status: string; label: string; note: string }> = [
-  { status: 'CONFIRMED', label: 'Confirmed', note: 'We have your order and your payment.' },
+const ORDER_STEPS: Array<{ status: string; label: string; currentLabel?: string; note: string }> = [
+  // While it is the current (yellow) step it is still happening, so it reads
+  // "Confirming"; once a later step is reached it is done: "Confirmed" (owner).
+  { status: 'CONFIRMED', label: 'Confirmed', currentLabel: 'Confirming', note: 'We have your order and your payment.' },
   { status: 'PROCESSING', label: 'Being prepared', note: 'Your order is being packed.' },
   { status: 'SHIPPED', label: 'On its way', note: 'Your order has left us.' },
   { status: 'DELIVERED', label: 'Delivered', note: 'Your order has arrived.' },
@@ -53,7 +55,7 @@ export default function OrderProgress({ status }: { status: string }) {
           >
             <span className="mr-track-step-dot" aria-hidden="true" />
             <span className="mr-track-step-body">
-              <span className="mr-track-step-label">{step.label}</span>
+              <span className="mr-track-step-label">{current ? (step.currentLabel ?? step.label) : step.label}</span>
               {reached && <span className="mr-track-step-note">{step.note}</span>}
             </span>
           </li>

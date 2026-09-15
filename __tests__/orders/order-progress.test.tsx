@@ -50,13 +50,21 @@ function steps() {
 
 describe('OrderProgress: what it says at each point', () => {
   it('covers the four states an order really moves through, in order', () => {
-    render(<OrderProgress status="CONFIRMED" />);
+    render(<OrderProgress status="PROCESSING" />);
     expect(steps().map((s) => s.label)).toEqual([
       'Confirmed',
       'Being prepared',
       'On its way',
       'Delivered',
     ]);
+  });
+
+  it('the current (yellow) confirmation step reads "Confirming", then "Confirmed" once passed (owner)', () => {
+    const { unmount } = render(<OrderProgress status="CONFIRMED" />);
+    expect(steps()[0]).toMatchObject({ label: 'Confirming', current: true });
+    unmount();
+    render(<OrderProgress status="SHIPPED" />);
+    expect(steps()[0]).toMatchObject({ label: 'Confirmed', current: false });
   });
 
   it.each([
