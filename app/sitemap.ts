@@ -8,7 +8,8 @@ import {
 } from "@/lib/search/query";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { productSitemapEntry } from "@/lib/seo/product-seo";
-import { SHOP_ROOT, SHOP_ALL, categoryPath } from '@/lib/routes';
+import { listBundles } from "@/lib/api/bundles";
+import { SHOP_ROOT, SHOP_ALL, categoryPath, spacePath } from '@/lib/routes';
 import { CATALOG_REVALIDATE_SECONDS } from '@/lib/seo/llms-response';
 
 /**
@@ -114,16 +115,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] catalog.listCategories FAILED — no category URLs in sitemap:", err);
   }
 
+  // Public sets, at /bundles/<slug> (#155). A set is a real, indexable,
+  // self-canonical page with its own price, and the SEO audit found all of
+  // them missing. The endpoint returns only active sets, so a retired set
+  // drops out the next time the sitemap is built.
   try {
-    // Partners live at /<slug> now, not /brands/<slug> — a root-level path is
-    // the whole reason that address was chosen, and indexing the old one would
-    // point Google at a permanent redirect. Their own categories are listed
-    // too: /helia/jewellery is a real page with its own products.
+    const bundles = await listBundles();
+    for (const bundle of bundles) {
+      entries.push({
+        url: `${BASE_URL}/bundles/${bundle.slug}`,
+        lastModified: new Date(),
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    }
+  } catch (err) {
+    console.error("[sitemap] listBundles FAILED — no set URLs in sitemap:", err);
+  }
+
+  try {
+    // Partners live at /collab/<slug> (spacePath). The root /<slug> address
+    // 308s there, and the page's canonical is /collab/<slug>, so listing the
+    // root address submitted a redirect whose canonical disagreed with the
+    // sitemap (#155). Their own categories are listed too:
+    // /collab/helia/jewellery is a real page with its own products.
     const spaces = await fetchSpaces();
     for (const space of spaces) {
       if (space.kind === 'HOUSE') continue; // the house IS the domain root
       entries.push({
-        url: `${BASE_URL}/${space.slug}`,
+        url: `${BASE_URL}${spacePath(space.slug)}`,
         lastModified: new Date(),
         changeFrequency: "weekly",
         priority: 0.7,
@@ -134,7 +154,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         const detail = await fetchSpace(space.slug);
         for (const category of detail?.categories ?? []) {
           entries.push({
-            url: `${BASE_URL}/${space.slug}/${category.slug}`,
+            url: `${BASE_URL}${spacePath(space.slug)}/${category.slug}`,
             lastModified: new Date(),
             changeFrequency: "weekly",
             priority: 0.6,
