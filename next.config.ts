@@ -64,6 +64,18 @@ const nextConfig: NextConfig = {
   // with no upside.
   async redirects() {
     return [
+      /**
+       * One host (#155). www.minirueshop.com served the whole site with 200,
+       * so search engines saw two copies and split the ranking between them.
+       * Every www request now 308s to the same path on the apex, which is the
+       * canonical host every canonical, sitemap and JSON-LD URL already uses.
+       */
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.minirueshop.com" }],
+        destination: "https://minirueshop.com/:path*",
+        permanent: true,
+      },
       { source: "/pages/:slug", destination: "/:slug", permanent: true },
       // A partner used to live at /brands/<slug>; they now own /<slug>
       // outright. Permanent so anything already shared — a link in an
