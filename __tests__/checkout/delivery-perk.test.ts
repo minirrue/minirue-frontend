@@ -41,6 +41,10 @@ describe('deliveryPerkText', () => {
   });
 });
 
+it('before the policy loads it quotes no fee (the fallback is not the shop fee)', () => {
+  expect(deliveryPerkText(null)).toBe('Delivery across Egypt');
+});
+
 describe('isDeliveryPerk', () => {
   it('matches the shipping perk by id or truck icon only', () => {
     expect(isDeliveryPerk({ id: 'perk-shipping', icon: 'gift' })).toBe(true);

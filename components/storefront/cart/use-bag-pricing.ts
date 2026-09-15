@@ -84,6 +84,15 @@ export function useShippingPolicy(): ShippingPolicy {
  * first paint is a plain fee and a text field, and the select appears only once
  * the shop has actually said it has governorates.
  */
+/**
+ * The published policy, or null until it has loaded. For copy that must not
+ * quote the fallback fee as if it were the shop's (#162).
+ */
+export function useLoadedShipping(): EffectiveShipping | null {
+  const effective = useEffectiveShipping();
+  return effective === DEFAULT_EFFECTIVE_SHIPPING ? null : effective;
+}
+
 export function useEffectiveShipping(): EffectiveShipping {
   const [effective, setEffective] = React.useState<EffectiveShipping>(
     DEFAULT_EFFECTIVE_SHIPPING,

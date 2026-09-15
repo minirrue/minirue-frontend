@@ -1,6 +1,6 @@
 {
   "name": "minirue-frontend",
-  "version": "0.60.16",
+  "version": "0.60.17",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

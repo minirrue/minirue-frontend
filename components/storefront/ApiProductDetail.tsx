@@ -45,7 +45,7 @@ const ProductGallery = dynamic(() => import('./ProductGallery'));
  */
 const ProductReviews = dynamic(() => import('./reviews/ProductReviews'));
 import TrustpilotTrust from './TrustpilotTrust';
-import { useEffectiveShipping } from './cart/use-bag-pricing';
+import { useLoadedShipping } from './cart/use-bag-pricing';
 import { deliveryPerkText, isDeliveryPerk } from '@/lib/checkout/delivery-perk';
 
 /**
@@ -225,7 +225,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
   // The delivery perk's words come from the shipping settings checkout uses,
   // not from the stored text, so the page can't promise a threshold that
   // doesn't exist (#162).
-  const shipping = useEffectiveShipping();
+  const shipping = useLoadedShipping();
   const deliveryLine = deliveryPerkText(shipping);
   /**
    * The price under the running sitewide markdown, or the plain price when

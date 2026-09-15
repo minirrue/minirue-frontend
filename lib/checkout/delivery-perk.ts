@@ -10,7 +10,11 @@ import type { EffectiveShipping } from './governorate-rates';
  * now derived from the same published policy checkout uses, so it cannot say
  * anything checkout does not do.
  */
-export function deliveryPerkText(s: EffectiveShipping): string {
+export function deliveryPerkText(s: EffectiveShipping | null): string {
+  // Not loaded yet (server render, first paint): no number at all. The code's
+  // fallback fee is not the shop's fee, and a wrong one in the HTML is what
+  // Google would index.
+  if (!s) return 'Delivery across Egypt';
   const egp = (cents: number) => `EGP ${Math.round(cents / 100).toLocaleString('en-US')}`;
   if (s.freeOverCents > 0) {
     return `Free delivery across Egypt over ${egp(s.freeOverCents)}`;
