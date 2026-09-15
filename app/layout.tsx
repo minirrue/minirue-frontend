@@ -103,9 +103,14 @@ export async function generateMetadata(): Promise<Metadata> {
     // code change needed. Google: Search Console → Add property → HTML tag → copy the content value.
     verification: {
       google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
-      other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
-        ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
-        : undefined,
+      other: {
+        // Trustpilot business profile domain claim (owner, 2026-09-15). A public
+        // verification id, not a secret; keep it so the claim stays verified.
+        "trustpilot-one-time-domain-verification-id": "617ba373-7a07-4eac-867d-438a349fbba9",
+        ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+          ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+          : {}),
+      },
     },
     referrer: "origin-when-cross-origin",
     creator: "MiniRue",
