@@ -68,7 +68,10 @@ describe('OrderProgress: what it says at each point', () => {
     render(<OrderProgress status={status} />);
     const s = steps();
     expect(s.map((x) => x.reached)).toEqual([0, 1, 2, 3].map((i) => i <= at));
-    expect(s.map((x) => x.current)).toEqual([0, 1, 2, 3].map((i) => i === at));
+    // Delivered is the end, so it shows as done (green), not in progress (#159).
+    expect(s.map((x) => x.current)).toEqual(
+      [0, 1, 2, 3].map((i) => i === at && status !== 'DELIVERED'),
+    );
     // A reached step explains itself; an unreached one does not claim anything.
     expect(screen.getAllByText(/./, { selector: '.mr-track-step-note' })).toHaveLength(at + 1);
   });
@@ -152,6 +155,14 @@ describe('the state is not carried by colour alone', () => {
     expect(CSS).toMatch(
       /\.mr-track-step\[data-reached='true'\] \.mr-track-step-dot \{[^}]*background:/,
     );
+  });
+
+  it('colours each block: green done, yellow current, red stopped (#159)', () => {
+    expect(CSS).toMatch(/\.mr-track-step\[data-reached='true'\] \{[^}]*var\(--mr-st-ok-bg\)/);
+    expect(CSS).toMatch(/\.mr-track-step\[data-current='true'\] \{[^}]*var\(--mr-st-warn-bg\)/);
+    expect(CSS).toMatch(/\.mr-track-empty\[data-tone='danger'\] \{[^}]*var\(--mr-st-danger-bg\)/);
+    const { container } = render(<OrderProgress status="CANCELLED" />);
+    expect(container.querySelector('.mr-track-empty')).toHaveAttribute('data-tone', 'danger');
   });
 
   it('ships the classes the component renders', () => {

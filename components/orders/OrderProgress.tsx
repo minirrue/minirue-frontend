@@ -25,7 +25,7 @@ const ORDER_STEPS: Array<{ status: string; label: string; note: string }> = [
 export default function OrderProgress({ status }: { status: string }) {
   if (status === 'CANCELLED' || status === 'REFUNDED') {
     return (
-      <div className="mr-track-empty">
+      <div className="mr-track-empty" data-tone="danger">
         This order was {status === 'CANCELLED' ? 'cancelled' : 'refunded'}.
         There is nothing on its way.
       </div>
@@ -39,7 +39,8 @@ export default function OrderProgress({ status }: { status: string }) {
     <ol className="mr-track-steps" aria-label="Order progress">
       {ORDER_STEPS.map((step, i) => {
         const reached = reachedIndex >= i;
-        const current = reachedIndex === i;
+        // Delivered is the end, not a step in progress: it shows as done (#159).
+        const current = reachedIndex === i && step.status !== 'DELIVERED';
         return (
           <li
             key={step.status}

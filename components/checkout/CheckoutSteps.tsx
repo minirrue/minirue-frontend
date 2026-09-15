@@ -37,7 +37,9 @@ export default function CheckoutSteps({ current, complete = false }: Props) {
       >
         {STEPS.map((step, i) => {
           const done = step.n < current || (complete && step.n === current);
-          const active = step.n === current;
+          // Done wins over active: on the confirmation page step 4 is both, and the
+          // active colours put a cream tick on a pale fill, so it looked unticked (#159).
+          const active = step.n === current && !done;
           const canLink = done && step.href;
 
           const content = (
@@ -68,13 +70,15 @@ export default function CheckoutSteps({ current, complete = false }: Props) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 11,
-                  border: active
-                    ? '1px solid var(--mr-ink-900)'
-                    : done
+                  // Green done, MiniRue yellow current, neutral later (#159).
+                  border: done
+                    ? '1px solid var(--mr-success)'
+                    : active
                       ? '1px solid var(--mr-gold-400)'
                       : '1px solid var(--mr-hairline)',
-                  background: done ? 'var(--mr-gold-100)' : active ? 'var(--mr-ink-900)' : 'transparent',
-                  color: active ? 'var(--mr-cream-100)' : done ? 'var(--mr-ink-700)' : 'var(--mr-ink-400)',
+                  background: done ? 'var(--mr-success)' : active ? 'var(--mr-st-warn-bg)' : 'transparent',
+                  color: done ? 'var(--mr-cream-100)' : active ? 'var(--mr-st-warn-fg)' : 'var(--mr-ink-400)',
+                  fontWeight: 600,
                 }}
               >
                 {done ? '✓' : step.n}
@@ -98,7 +102,7 @@ export default function CheckoutSteps({ current, complete = false }: Props) {
                   style={{
                     width: mobile ? 12 : 24,
                     height: 1,
-                    background: step.n < current ? 'var(--mr-gold-300)' : 'var(--mr-hairline)',
+                    background: step.n < current ? 'var(--mr-success)' : 'var(--mr-hairline)',
                   }}
                 />
               )}

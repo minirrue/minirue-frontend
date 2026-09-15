@@ -699,6 +699,19 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
   color: var(--mr-fg-3);
 }
 
+/* Status colour per block (#159): green done, MiniRue yellow current, red for
+   an order that stopped (cancelled / refunded / rejected). Status tokens only;
+   every fg/bg pair is >= 7:1. */
+.mr-track-step[data-reached='true'] { background: var(--mr-st-ok-bg); }
+.mr-track-step[data-reached='true'] .mr-track-step-dot { background: var(--mr-success); border-color: var(--mr-success); }
+.mr-track-step[data-reached='true'] .mr-track-step-label,
+.mr-track-step[data-reached='true'] .mr-track-step-note { color: var(--mr-st-ok-fg); }
+.mr-track-step[data-current='true'] { background: var(--mr-st-warn-bg); }
+.mr-track-step[data-current='true'] .mr-track-step-dot { background: var(--mr-gold-400); border-color: var(--mr-st-warn-fg); }
+.mr-track-step[data-current='true'] .mr-track-step-label,
+.mr-track-step[data-current='true'] .mr-track-step-note { color: var(--mr-st-warn-fg); }
+.mr-track-empty[data-tone='danger'] { background: var(--mr-st-danger-bg); border-color: color-mix(in srgb, var(--mr-st-danger-fg) 25%, transparent); color: var(--mr-st-danger-fg); }
+
 /* Checkout two columns — see components/checkout/CheckoutColumns.tsx.
    Stacked: header, body, aside (or header, aside, body). From 900px the aside
    is a right column spanning the header and body rows, so its top is level with

@@ -37,3 +37,31 @@ describe('CheckoutSteps (W3.6)', () => {
     expect(screen.getByText('2', { exact: true })).toBeInTheDocument();
   });
 });
+
+/**
+ * #159: the text above was right while the tick was invisible. Step 4 was both
+ * done and active, and the active colours (a cream tick) won over the done fill
+ * (pale gold). Colours are asserted now: green done, yellow current, neutral later.
+ */
+describe('CheckoutSteps colours (#159)', () => {
+  function dot(container: HTMLElement, n: number): HTMLElement {
+    return container.querySelectorAll('li')[n - 1].querySelector('span[aria-hidden]') as HTMLElement;
+  }
+
+  it('confirmation: all four ticks are filled green with a light tick', () => {
+    const { container } = render(<CheckoutSteps current={4} complete />);
+    for (const n of [1, 2, 3, 4]) {
+      expect(dot(container, n).textContent).toBe('✓');
+      expect(dot(container, n).style.background).toBe('var(--mr-success)');
+      expect(dot(container, n).style.color).toBe('var(--mr-cream-100)');
+    }
+  });
+
+  it('delivery step: done green, current yellow, later neutral', () => {
+    const { container } = render(<CheckoutSteps current={2} />);
+    expect(dot(container, 1).style.background).toBe('var(--mr-success)');
+    expect(dot(container, 2).style.background).toBe('var(--mr-st-warn-bg)');
+    expect(dot(container, 2).style.color).toBe('var(--mr-st-warn-fg)');
+    expect(dot(container, 3).style.background).toBe('transparent');
+  });
+});
