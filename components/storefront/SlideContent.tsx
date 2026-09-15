@@ -228,6 +228,11 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
 
   const textDelay = isActive ? 200 : 0;
 
+  // The hero is content, not decoration, so it always has alt text (#155). An
+  // admin who leaves `imageAlt` blank gets the slide's headline, then the brand.
+  const heroAlt =
+    slide.imageAlt?.trim() || slide.headline?.replace(/\s+/g, ' ').trim() || 'MiniRue';
+
   // Pick the device-appropriate crop: the portrait image on phones (falling back
   // to the landscape one when no mobile crop was set), the landscape image on
   // larger screens.
@@ -346,7 +351,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
       {/* Background */}
       {slide.mode === 'image' ? (
         artDirected ? (
-          <ArtDirectedHeroImage key={artDirected.desktopSrc} alt={slide.imageAlt} {...artDirected} />
+          <ArtDirectedHeroImage key={artDirected.desktopSrc} alt={heroAlt} {...artDirected} />
         ) : heroSrc && heroKind === 'video' ? (
           reduceMotion ? (
             /*
@@ -358,7 +363,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
               <Image
                 key={heroPoster}
                 src={heroPoster}
-                alt={slide.imageAlt}
+                alt={heroAlt}
                 fill
                 priority
                 sizes="100vw"
@@ -376,7 +381,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
               src={heroSrc}
               poster={heroPoster}
               active={isActive}
-              label={slide.imageAlt}
+              label={heroAlt}
               objectPosition={heroObjectPosition}
             />
           )
@@ -384,7 +389,7 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
           <Image
             key={heroSrc}
             src={heroSrc}
-            alt={slide.imageAlt}
+            alt={heroAlt}
             fill
             priority
             sizes="100vw"

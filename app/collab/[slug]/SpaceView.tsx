@@ -101,7 +101,7 @@ function Tile({
           // cold miss. See app/brands/BrandsGrid.tsx's Tile for the full note.
           <UploadPreviewImage
             src={imageUrl}
-            alt=""
+            alt={label}
             fill
             /*
               Same grid as `app/collab/CollabGrid.tsx` — `<main>` at max 1280px
@@ -213,7 +213,7 @@ export default async function SpaceView({
           {space.logoUrl ? (
             <UploadPreviewImage
               src={space.logoUrl}
-              alt=""
+              alt={`${space.name} logo`}
               // 96, not 64 (owner, 2026-07-31: "make it bigger like 50% more").
               // Kept in lockstep with the house shop panel's ShopLogo in
               // app/categories/CategoriesGrid.tsx — the two are meant to be
@@ -371,7 +371,7 @@ export default async function SpaceView({
               {genericBrand.imageUrl ? (
                 <UploadPreviewImage
                   src={genericBrand.imageUrl}
-                  alt=""
+                  alt={genericHeading}
                   // A fixed 96px box at every viewport — the same pixel count
                   // the space logo above uses — so the optimizer needs no
                   // `sizes` judgement, only the intrinsic pair (#11).

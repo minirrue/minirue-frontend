@@ -98,7 +98,7 @@ export default function EditorialBlock({ section }: { section: JournalSection })
             // broken square, it is the whole block (owner, 2026-07-31).
             <UploadPreviewImage
               src={section.imageUrl}
-              alt=""
+              alt={section.title || 'MiniRue'}
               className="mr-hero-drift"
               fill
               /*

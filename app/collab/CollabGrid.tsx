@@ -42,7 +42,7 @@ function CollabCard({ brand }: { brand: PublicCollaboratorBrand }) {
           // BrandsGrid.tsx's Tile for the full note.
           <UploadPreviewImage
             src={brand.logoUrl}
-            alt=""
+            alt={`${brand.brandName} logo`}
             fill
             /*
               Geometry, read back off the rendered page: `<main>` is

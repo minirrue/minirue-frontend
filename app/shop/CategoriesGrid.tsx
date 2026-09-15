@@ -125,7 +125,7 @@ function Tile({
           // broken for every shopper (owner, 2026-07-31).
           <UploadPreviewImage
             src={imageUrl}
-            alt=""
+            alt={label}
             fill
             /*
               The biggest tile on /shop, and the one this page is mostly made

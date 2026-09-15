@@ -178,7 +178,7 @@ export default function CollabShowcase({
           // first time any shopper asks for it.
           <UploadPreviewImage
             src={tab.logoUrl}
-            alt=""
+            alt={`${tab.label} logo`}
             // A fixed 56px box at every viewport, so no `sizes` judgement is
             // involved — Next builds the 1x/2x ladder from the pixel count and
             // a retina screen gets the 128px rung instead of a full imgproxy
