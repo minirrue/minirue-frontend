@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Collab — MiniRue',
-  description: 'Every maison and partner atelier MiniRue collaborates with.',
+  description: 'Every brand and partner MiniRue collaborates with.',
   alternates: { canonical: '/collab' },
 };
 

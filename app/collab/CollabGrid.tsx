@@ -165,7 +165,7 @@ export default function CollabGrid({ brands }: { brands: PublicCollaboratorBrand
           Collab
         </h1>
         <p style={{ color: 'var(--mr-fg-3)', maxWidth: '60ch', margin: 0 }}>
-          Every maison and partner atelier MiniRue collaborates with, each with its own shop.
+          Every brand and partner MiniRue collaborates with, each with its own shop.
         </p>
       </header>
 

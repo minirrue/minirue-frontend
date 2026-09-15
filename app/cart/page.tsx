@@ -434,7 +434,7 @@ export default function CartPage() {
                 marginBottom: 'var(--mr-sp-5)',
               }}
             >
-              Your bag is empty — the maison awaits.
+              Your bag is empty — your next favourite is waiting.
             </p>
             <Button variant="primary" sweep onClick={() => router.push('/shop/all')}>
               Explore fragrances
