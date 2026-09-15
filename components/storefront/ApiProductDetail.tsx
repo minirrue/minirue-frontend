@@ -354,6 +354,10 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
               style={{ fontSize: 'var(--mr-text-xl)' }}
             />
           </span>
+          {/* Availability as text in the served HTML, for screen readers and
+              for AI crawlers that read no JS or JSON-LD (#150). The page shows
+              it visually through the buy button. */}
+          <span className="sr-only">{allSoldOut ? ' Out of stock' : ' In stock'}</span>
         </div>
       )}
 
