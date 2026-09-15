@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Button from '@/components/ui/Button';
 
 /** The shop's Trustpilot profile — the clean address, no tracking params. */
 export const TRUSTPILOT_PROFILE_URL = 'https://www.trustpilot.com/review/minirueshop.com';
@@ -53,33 +54,25 @@ function ExternalArrow() {
   );
 }
 
-const linkClass =
-  'inline-flex items-center gap-2 border border-[var(--mr-fg)] text-[var(--mr-fg)] no-underline ' +
-  'transition-colors duration-200 ease-out hover:bg-[var(--mr-fg)] hover:text-[var(--mr-cream-100)] ' +
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--mr-fg)]';
-
-const linkStyle: React.CSSProperties = {
-  fontFamily: 'var(--mr-font-label)',
-  fontSize: 'var(--mr-text-xs)',
-  letterSpacing: '0.18em',
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-};
-
-function ReviewLink({ padding }: { padding: string }) {
+/**
+ * The site's own pill Button (owner, 2026-09-15: "the button doesn't follow the
+ * same theme as MiniRue"). It was a square hand-rolled outline link; now it's
+ * the same shape, type, hover sweep and press as every other CTA.
+ */
+function ReviewLink({ variant }: { variant: 'outline' | 'primary' }) {
   return (
-    <a
+    <Button
+      variant={variant}
+      size="md"
       href={TRUSTPILOT_PROFILE_URL}
       target="_blank"
-      rel="noopener noreferrer"
-      className={linkClass}
-      style={{ ...linkStyle, padding }}
-      data-trace-id="EL-LINK-trustpilot-review"
+      prefetch={false}
+      traceId="EL-LINK-trustpilot-review"
     >
       Review us on Trustpilot
       <ExternalArrow />
       <span className="sr-only">(opens in a new tab)</span>
-    </a>
+    </Button>
   );
 }
 
@@ -120,7 +113,7 @@ export default function TrustpilotTrust({ variant }: { variant: Variant }) {
               </span>
             </p>
           </div>
-          <ReviewLink padding="11px 18px" />
+          <ReviewLink variant="outline" />
         </div>
       </section>
     );
@@ -167,7 +160,7 @@ export default function TrustpilotTrust({ variant }: { variant: Variant }) {
           We are a verified business on Trustpilot. Read what customers say about us, or leave a
           review of your own.
         </p>
-        <ReviewLink padding="15px 28px" />
+        <ReviewLink variant="primary" />
       </div>
     </section>
   );
