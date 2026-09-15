@@ -50,6 +50,8 @@ interface ButtonProps {
   href?: string;
   /** Link only — forwarded to next/link. */
   prefetch?: boolean;
+  /** Link only — `_blank` opens a new tab, with `rel="noopener noreferrer"`. */
+  target?: '_blank';
   ariaLabel?: string;
   /** RULEBOOK §27 — full data-trace-id for this button, e.g.
    * "PG-STOREFRONT-IAM-001::EL-BTN-submit-login". Caller-supplied because this component is
@@ -142,6 +144,7 @@ function Button({
   traceId,
   href,
   prefetch,
+  target,
   ariaLabel,
   ref,
   title,
@@ -254,6 +257,8 @@ function Button({
         ref={ref as React.Ref<HTMLAnchorElement>}
         href={href}
         prefetch={prefetch}
+        target={target}
+        rel={target === '_blank' ? 'noopener noreferrer' : undefined}
         aria-label={ariaLabel}
         aria-disabled={ariaDisabled || undefined}
         title={title}

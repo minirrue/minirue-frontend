@@ -107,6 +107,74 @@ export interface PublicShippingSettings {
  */
 export interface PublicPaymentSettings {
   codMaxOrderMinor?: number | null;
+  /** The InstaPay guide (#147, minirue-backend#170). Optional: older backends omit it. */
+  instapay?: PublicInstapaySettings | null;
+}
+
+/** As `/settings/public` publishes it — every field nullable. */
+export interface PublicInstapaySettings {
+  payLink?: string | null;
+  handle?: string | null;
+  qrMediaUrl?: string | null;
+  exampleMediaUrl?: string | null;
+}
+
+/** What the InstaPay step renders, every field resolved. */
+export interface InstapayGuide {
+  payLink: string;
+  handle: string;
+  qrUrl: string;
+  exampleUrl: string;
+}
+
+/**
+ * The owner's own account and the two bundled images (public/instapay). Used
+ * field by field whenever the shop has not published a value, so the guide
+ * ships before minirue-backend#170 and keeps working after it.
+ */
+export const DEFAULT_INSTAPAY_GUIDE: InstapayGuide = {
+  payLink: 'https://ipn.eg/S/rueragab/instapay/2XqchK',
+  handle: 'rueragab@instapay',
+  qrUrl: '/instapay/instapay-qr.png',
+  exampleUrl: '/instapay/instapay-example.png',
+};
+
+function httpsUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return /^https:\/\/[^\s]+$/i.test(trimmed) ? trimmed : null;
+}
+
+function imageUrl(value: unknown): string | null {
+  if (typeof value === 'string' && /^\/[^/\s][^\s]*$/.test(value.trim())) return value.trim();
+  return httpsUrl(value);
+}
+
+/**
+ * The pure half of `loadInstapayGuide`. A pay link must be https (it becomes
+ * an `href` on the page that takes money, so `javascript:` never passes); an
+ * image may be https or a path on this site; a blank handle is no handle.
+ */
+export function resolveInstapayGuide(
+  settings: Pick<PublicSettings, 'payments'>,
+): InstapayGuide {
+  const published = settings.payments?.instapay;
+  const handle = typeof published?.handle === 'string' ? published.handle.trim() : '';
+  return {
+    payLink: httpsUrl(published?.payLink) ?? DEFAULT_INSTAPAY_GUIDE.payLink,
+    handle: handle || DEFAULT_INSTAPAY_GUIDE.handle,
+    qrUrl: imageUrl(published?.qrMediaUrl) ?? DEFAULT_INSTAPAY_GUIDE.qrUrl,
+    exampleUrl: imageUrl(published?.exampleMediaUrl) ?? DEFAULT_INSTAPAY_GUIDE.exampleUrl,
+  };
+}
+
+/** A failed read is the defaults, never a thrown error. */
+export async function loadInstapayGuide(): Promise<InstapayGuide> {
+  try {
+    return resolveInstapayGuide(await apiGetPublicSettings());
+  } catch {
+    return DEFAULT_INSTAPAY_GUIDE;
+  }
 }
 
 export interface PublicSettings {

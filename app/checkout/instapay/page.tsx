@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '@/components/storefront/cart/CartContext';
 import { toPricingLines } from '@/components/storefront/cart/bag-lines';
 import { apiCheckout, guestCheckoutFields } from '@/lib/checkout/checkout-api';
@@ -29,13 +29,71 @@ import {
 } from '@/components/checkout/checkout-ui';
 import { track } from '@/lib/analytics';
 import { RECEIPT_ACCEPT, RECEIPT_HINT } from '@/lib/checkout/receipt-formats';
+import InstapayGuide, { useInstapayGuide } from '@/components/checkout/InstapayGuide';
+import { useEffectiveShipping } from '@/components/storefront/cart/use-bag-pricing';
+import { previewDiscount } from '@/lib/api/discounts';
+import { subtotalToMinor } from '@/lib/checkout/checkout-money';
+import { shippingSummary } from '@/lib/checkout/shipping-summary';
+import { formatMoney } from '@/lib/format/money';
+
+/**
+ * The figure to transfer, worked out the way the Payment step's "Order total"
+ * is: the governorate's delivery fee and the discount the server would apply.
+ * One discount preview per visit — a coded preview already folds in any
+ * automatic offer — and `null` until it has answered, so the amount a shopper
+ * copies into their bank app never changes under them.
+ */
+function useTransferAmountMinor(
+  subtotalAmount: string,
+  pricingLines: ReturnType<typeof toPricingLines>,
+): number | null {
+  const effective = useEffectiveShipping();
+  const [priced, setPriced] = useState<{ governorate?: string; discountMinor: number } | null>(null);
+  const hasLines = pricingLines.length > 0;
+  const linesRef = useRef(pricingLines);
+  useEffect(() => {
+    linesRef.current = pricingLines;
+  });
+
+  useEffect(() => {
+    if (!hasLines) return;
+    const session = loadCheckoutSession();
+    const governorate = session?.shippingGovernorate;
+    let cancelled = false;
+    previewDiscount(linesRef.current, loadAppliedCode(), { guestPhone: session?.guest?.phone })
+      .then((preview) => (preview.valid ? preview.discountMinor : 0))
+      // Same fallback as the Payment step: no discount row. The server
+      // recomputes the real total at Place order either way.
+      .catch(() => 0)
+      .then((discountMinor) => {
+        if (!cancelled) setPriced({ governorate, discountMinor });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasLines]);
+
+  if (priced === null) return null;
+  return shippingSummary({
+    effective,
+    subtotalMinor: subtotalToMinor(subtotalAmount),
+    discountMinor: priced.discountMinor,
+    governorate: priced.governorate,
+  }).totalMinor;
+}
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
 export default function InstapayCheckoutPage() {
   const router = useRouter();
-  const { cartId, items, lines, bundleIndex, subtotalAmount, hydrated: cartHydrated, clearCart } = useCart();
+  const { cartId, items, lines, bundleIndex, subtotalAmount, currency, hydrated: cartHydrated, clearCart } = useCart();
+  const guide = useInstapayGuide();
+  const pricingLines = useMemo(
+    () => toPricingLines(lines ?? [], bundleIndex ?? new Map()),
+    [lines, bundleIndex],
+  );
+  const amountMinor = useTransferAmountMinor(subtotalAmount, pricingLines);
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Set the moment the order is accepted. The success path clears the cart, which
@@ -166,10 +224,16 @@ export default function InstapayCheckoutPage() {
       <CheckoutPageFrame
         step={3}
         eyebrow="Instapay"
-        title="Upload your receipt"
-        subtitle="Complete the transfer in your banking app, then upload a clear screenshot or photo of the confirmation."
+        title="Pay with InstaPay"
+        subtitle="Send the amount below, then upload a screenshot of the confirmation to place your order."
         maxWidth={520}
       >
+        <InstapayGuide
+          guide={guide}
+          amount={amountMinor === null ? null : formatMoney(amountMinor / 100, currency)}
+          amountNote="Includes delivery and any discount. Send the exact amount."
+        />
+
         <CheckoutSection title="Payment proof">
           <CheckoutFileDrop
             accept={RECEIPT_ACCEPT}
