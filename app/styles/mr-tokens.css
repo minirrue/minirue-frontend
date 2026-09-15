@@ -310,16 +310,6 @@
 .mr-btn-sweep:hover:not(:disabled):not([aria-disabled="true"])::before { transform: scaleX(1); transform-origin: left center; }
 .mr-btn-sweep:hover:not(:disabled):not([aria-disabled="true"]) { color: var(--sweep-ink, inherit) !important; }
 
-/* Footer newsletter input */
-.mr-underline-input { position: relative; display: flex; align-items: center; }
-.mr-underline-input::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
-  height: 1px; background: var(--mr-gold-400);
-  transform: scaleX(0); transform-origin: left center;
-  transition: transform 380ms var(--mr-ease-out);
-}
-.mr-underline-input:focus-within::after { transform: scaleX(1); }
-
 /* Link arrow slide */
 .mr-link-arrow { display: inline-block; transition: transform 260ms var(--mr-ease-out); }
 a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px); }

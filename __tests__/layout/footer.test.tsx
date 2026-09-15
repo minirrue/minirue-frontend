@@ -316,27 +316,23 @@ describe('Footer brand row — wordmark left, payment marks right (Task 15d)', (
  * cannot silently drift apart again in a future edit.
  */
 describe('Footer section rhythm — single shared gap (Owner request 2026-07-31)', () => {
-  it('gives the newsletter, columns, socials, and bottom-bar sections the identical marginTop', () => {
+  it('gives the columns, socials, and bottom-bar sections the identical marginTop', () => {
     const configWithEverything = {
       ...FALLBACK_CHROME.footer,
-      newsletterEnabled: true,
-      newsletterEyebrow: 'Newsletter',
-      newsletterBlurb: 'Blurb.',
       columns: [{ id: 'c1', title: 'Shop', links: [{ id: 'l1', label: 'All', href: '/shop' }] }],
       socials: [{ id: 's1', network: 'instagram' as const, url: 'https://instagram.com' }],
     };
     render(<Footer config={configWithEverything} />);
 
-    const newsletter = screen.getByTestId('footer-newsletter');
     const columns = screen.getByTestId('footer-columns');
     const socials = screen.getByTestId('footer-socials');
     const bottomBar = screen.getByTestId('footer-bottom-bar');
 
-    const gaps = [newsletter, columns, socials, bottomBar].map((el) => el.style.marginTop);
+    const gaps = [columns, socials, bottomBar].map((el) => el.style.marginTop);
 
-    // All four must be the exact same CSS value...
+    // All three must be the exact same CSS value...
     expect(new Set(gaps).size).toBe(1);
-    // ...and it must actually be a real, non-empty value, not four empty strings.
+    // ...and it must actually be a real, non-empty value, not three empty strings.
     expect(gaps[0]).toBeTruthy();
   });
 
@@ -352,6 +348,32 @@ describe('Footer section rhythm — single shared gap (Owner request 2026-07-31)
     const socials = screen.getByTestId('footer-socials');
     const columns = screen.getByTestId('footer-columns');
     expect(socials.style.marginTop).toBe(columns.style.marginTop);
+  });
+});
+
+/**
+ * #144 — the newsletter form submitted nothing (`onSubmit` only called
+ * preventDefault; the backend has no newsletter list). A visitor who typed an
+ * email got silence. The owner approved removing it, so the footer must not
+ * render a signup — not even when the dashboard's newsletterEnabled toggle is
+ * still on — until there is somewhere real to send the address.
+ */
+describe('Footer newsletter (#144)', () => {
+  it('renders no newsletter block, email field or subscribe button, even when enabled in settings', () => {
+    render(
+      <Footer
+        config={{
+          ...FALLBACK_CHROME.footer,
+          newsletterEnabled: true,
+          newsletterEyebrow: 'Letters from MiniRue',
+          newsletterBlurb: 'Occasional notes.',
+        }}
+      />,
+    );
+    expect(screen.queryByTestId('footer-newsletter')).toBeNull();
+    expect(screen.queryByPlaceholderText('you@address.com')).toBeNull();
+    expect(screen.queryByRole('button', { name: /subscribe/i })).toBeNull();
+    expect(screen.queryByText('Letters from MiniRue')).toBeNull();
   });
 });
 

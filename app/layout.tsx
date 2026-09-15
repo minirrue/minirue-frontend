@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Cormorant_Garamond, Jost, Inter_Tight } from "next/font/google";
 import "./globals.css";
 import LenisProvider from "@/components/providers/LenisProvider";
@@ -309,10 +307,11 @@ export default function RootLayout({
             PageLoader.tsx. */}
         <PageLoader />
         <Suspense fallback={null}>
-          {/* telemetry only */}
-          <Analytics />
+          {/* telemetry only. Vercel Analytics + Speed Insights were removed
+              (#144): the storefront runs as a Docker image on Dokploy, where
+              their /_vercel/* endpoints do not exist, so they shipped JS and
+              collected nothing. */}
           <AnalyticsProvider />
-          <SpeedInsights />
           <MetaPixel />
         </Suspense>
         </div>

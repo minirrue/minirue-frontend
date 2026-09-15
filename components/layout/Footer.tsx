@@ -219,81 +219,11 @@ export default function Footer({
             ))}
           </div>
         </div>
-        {config.newsletterEnabled && (
-          <div
-            data-testid="footer-newsletter"
-            style={{ maxWidth: 460, margin: `${FOOTER_SECTION_GAP} auto 0` }}
-          >
-            <div
-              style={{
-                fontFamily: 'Jost, sans-serif',
-                fontSize: 10,
-                letterSpacing: '0.22em',
-                textTransform: 'uppercase',
-                marginBottom: 16,
-                color: 'var(--mr-gold-300)',
-              }}
-            >
-              {config.newsletterEyebrow}
-            </div>
-            <p
-              style={{
-                fontFamily: 'Cormorant Garamond, serif',
-                fontStyle: 'italic',
-                fontSize: 20,
-                lineHeight: 1.4,
-                color: 'var(--mr-cream-200)',
-                margin: '0 0 24px',
-              }}
-            >
-              {config.newsletterBlurb}
-              {config.tagline ? ` ${config.tagline}` : ''}
-            </p>
-            <form
-              className="mr-underline-input"
-              style={{
-                display: 'flex',
-                paddingBottom: 8,
-                gap: 12,
-                alignItems: 'center',
-                borderBottom: '1px solid rgba(238,230,209,.2)',
-              }}
-              onSubmit={(e) => e.preventDefault()}
-            >
-              <input
-                placeholder="you@address.com"
-                style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 0,
-                  color: 'var(--mr-cream-100)',
-                  fontFamily: 'Inter Tight, sans-serif',
-                  fontSize: 14,
-                  padding: '8px 0',
-                  outline: 'none',
-                }}
-              />
-              <button
-                style={{
-                  background: 'none',
-                  border: 0,
-                  color: 'var(--mr-gold-300)',
-                  cursor: 'pointer',
-                  fontFamily: 'Jost, sans-serif',
-                  fontSize: 10,
-                  letterSpacing: '0.22em',
-                  textTransform: 'uppercase',
-                  transition: 'color 200ms var(--mr-ease-out)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--mr-gold-500)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mr-gold-300)')}
-              >
-                Subscribe <span className="mr-link-arrow">→</span>
-              </button>
-            </form>
-          </div>
-        )}
-
+        {/* #144: the newsletter signup is gone. Its form only called
+            preventDefault — the backend has no newsletter list — so a visitor
+            who typed an email got silence. It stays out, whatever the
+            dashboard's newsletterEnabled toggle says, until there is somewhere
+            real to send the address. */}
         <div
           data-testid="footer-columns"
           style={{
