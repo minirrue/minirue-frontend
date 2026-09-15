@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import Image from 'next/image';
 import RemoteImage from '@/components/ui/RemoteImage';
+import nextConfig from '../../next.config';
 
 /**
  * #11 — the nine fixed-size remote images that used to be raw `<img>` all
@@ -27,10 +29,20 @@ describe('RemoteImage', () => {
     const img = screen.getByAltText('A thing') as HTMLImageElement;
     expect(img.src).toContain('/_next/image');
     expect(img.src).toContain(encodeURIComponent(SRC));
-    // Deliberate, not inherited (#11's "quality set deliberately"). 75 is the
-    // only value in Next 16's default `images.qualities`, so a different one
-    // needs next.config.ts changed too — which is why it is pinned here.
-    expect(img.src).toContain('q=75');
+    // Deliberate, not inherited (#11's "quality set deliberately"). #153: q=75
+    // is AVIF at sharp quality 55, which smeared glitter, gold gradients and
+    // label edges and shipped a 384px photo in ~2 KB. 90 is the single value in
+    // `images.qualities` (next.config.ts), so the two are pinned together.
+    expect(img.src).toContain('q=90');
+    expect(img.src).not.toContain('q=75');
+  });
+
+  it('#153: a plain next/image with no quality prop is also requested at q=90', () => {
+    // The product gallery, cards, nav tiles, search and cart render
+    // `next/image` directly and pass no `quality`. They follow the config's
+    // closest allowed quality, so one list covers every photo on the site.
+    render(<Image src={SRC} alt="Direct" width={384} height={384} />);
+    expect((screen.getByAltText('Direct') as HTMLImageElement).src).toContain('q=90');
   });
 
   it('falls back to the original URL on a plain tag when the optimizer fails', () => {
@@ -82,6 +94,20 @@ describe('RemoteImage', () => {
  * `fill` without one makes Next assume full viewport width and a 146px tile
  * would pull the 1920px rung, which is worse than the raw tag it replaced.
  */
+/**
+ * #153 decided the photo pipeline by measurement (three live photos, three
+ * widths, control vs AVIF q90 vs WebP q90 vs imgproxy's own srcset). This pins
+ * the result: AVIF first, and 90 as the ONLY allowed quality, so a stray
+ * `quality={75}` cannot quietly bring back the soft encode (the optimizer
+ * refuses a quality outside the list).
+ */
+describe('#153 image pipeline config', () => {
+  it('encodes photos as AVIF (WebP fallback) at quality 90 only', () => {
+    expect(nextConfig.images?.formats).toEqual(['image/avif', 'image/webp']);
+    expect(nextConfig.images?.qualities).toEqual([90]);
+  });
+});
+
 describe('RemoteImage — fill mode', () => {
   const SIZES = '(max-width: 500px) calc(100vw - 40px), 320px';
 

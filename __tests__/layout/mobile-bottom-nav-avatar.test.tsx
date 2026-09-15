@@ -119,7 +119,7 @@ describe('MobileBottomNav — account tab avatar', () => {
     // quality are the deliberate ones.
     expect(img.src).toContain('/_next/image');
     expect(img.src).toContain(encodeURIComponent('https://cdn.example/avatars/cust-1.webp'));
-    expect(img.src).toContain('q=75');
+    expect(img.src).toContain('q=90');
     expect(screen.queryByTestId('avatar-generic')).toBeNull();
   });
 

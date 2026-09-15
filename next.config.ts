@@ -190,7 +190,14 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    // #153, decided by measurement. The pipeline is written up in
+    // components/ui/RemoteImage.tsx. In short: AVIF stays first, and 90 is the
+    // ONLY allowed quality. Every next/image with no `quality` prop resolves
+    // to the closest allowed value, so the gallery, cards, nav, search and
+    // cart all get 90 from this one line, and the optimizer refuses a stray
+    // q=75 URL instead of serving the soft encode again.
     formats: ["image/avif", "image/webp"],
+    qualities: [90],
     remotePatterns: [
       { protocol: "https", hostname: "picsum.photos" },
       { protocol: "https", hostname: "images.unsplash.com" },

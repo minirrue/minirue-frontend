@@ -64,7 +64,43 @@ import Image from 'next/image';
  * `fill` needs `position: relative` (or absolute/fixed) on the parent, exactly
  * as `next/image` does. The plain-`<img>` fallback reproduces the same
  * absolutely-positioned geometry, so degrading never reflows the page.
+ *
+ * ## The photo pipeline, and why it is this one (#153)
+ *
+ * **imgproxy → `/_next/image` AVIF at q=90**, with WebP for browsers without
+ * AVIF. `images.qualities` is `[90]`, so this also covers every direct
+ * `next/image` (gallery, cards, nav, search, cart).
+ *
+ * Until #153 the second encode was AVIF at q=75. Next's optimizer maps that
+ * to sharp's AVIF quality 55 (`quality - 20`, effort 3), and at that setting
+ * glitter lost flecks, gold gradients smeared, and a 384px photo shipped in
+ * about 2 KB. The owner saw it. #153 measured three live photos (a label
+ * packshot, a glitter perfume bottle, a dark lifestyle shot) at 384/828/1920
+ * against the top imgproxy rung as the reference:
+ *
+ *  - **A, AVIF q90 (chosen).** Luma PSNR 43–47 dB, up from 30–43 for the
+ *    control. Indistinguishable from the reference at 1x, side by side. About
+ *    1.6–2.3x the control's bytes (a Next-sharp estimate, since Vercel's
+ *    encoder differs).
+ *  - **B, WebP q90.** Slightly higher PSNR, but larger than A at every width
+ *    on every photo, up to 4x on dark gradients. No visible gain at 1x.
+ *  - **C, imgproxy's own `srcSet` (`f:webp/q:95/dpr:1`), no second encode.**
+ *    Sharpest, but the ladder's rungs are 640/1024/1600/2560/3840 at q95. A
+ *    DPR-3 phone asking for 1200 gets the 1600 rung, 352 KB for the perfume
+ *    against 78 KB before. It also opens a second origin. Replayed on the live
+ *    perfume page (Slow 4G, 4x CPU, cold cache, twice), LCP went from
+ *    4.9/4.5 s to 6.7/5.9 s. Rejected on LCP, not on looks.
+ *
+ * Why not let imgproxy pick AVIF by `Accept`? Cloudflare in front of it
+ * ignores `Vary: Accept`, so the first client to warm an edge entry fixes
+ * that URL's format for everyone (backend#77, re-checked for #153: an
+ * `Accept: image/avif` request gets `image/webp`, and AVIF detection is off).
+ * A negotiated AVIF would then reach clients that cannot decode it.
+ * Revisit C once the backend ladder has phone-sized rungs at a lower q, or
+ * once the CDN varies on `Accept`.
  */
+export const PHOTO_QUALITY = 90;
+
 interface RemoteImageCommon {
   src: string;
   alt: string;
@@ -81,8 +117,9 @@ interface RemoteImageCommon {
   onLoad?: React.ReactEventHandler<HTMLImageElement>;
   /**
    * Set deliberately rather than left implicit (#11's "quality set
-   * deliberately"). 75 is Next's default and the only value in Next 16's
-   * default `images.qualities`, so raising it needs a config change too.
+   * deliberately"). Defaults to {@link PHOTO_QUALITY}, the only value in
+   * `images.qualities`; any other number is snapped to it by Next, so passing
+   * one changes nothing but a dev warning.
    */
   quality?: number;
   'data-testid'?: string;
@@ -124,7 +161,7 @@ export default function RemoteImage(props: RemoteImageProps) {
     style,
     onError,
     onLoad,
-    quality = 75,
+    quality = PHOTO_QUALITY,
     'data-testid': testId,
   } = props;
   const fill = props.fill === true;

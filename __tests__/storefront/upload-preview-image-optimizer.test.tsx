@@ -44,7 +44,7 @@ describe('UploadPreviewImage — the remote branch and the optimizer', () => {
 
     const img = screen.getByAltText('A logo') as HTMLImageElement;
     expect(img.src).toContain('/_next/image');
-    expect(img.src).toContain('q=75');
+    expect(img.src).toContain('q=90');
     expect(img.width).toBe(56);
   });
 
