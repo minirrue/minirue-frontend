@@ -3,6 +3,7 @@ import type { ApiProduct } from '@/lib/api/catalog';
 import { carouselMedia, mediaImageUrl, primaryMedia, productBrand } from '@/lib/api/catalog';
 import { productPath } from '@/lib/routes';
 import { SITE_URL } from '@/lib/seo/config';
+import { clipText, fitSeoTitle, SEO_DESCRIPTION_MAX } from '@/lib/seo/page-seo';
 
 /**
  * Product-page SEO, as pure functions of the API product (#148).
@@ -15,7 +16,7 @@ import { SITE_URL } from '@/lib/seo/config';
  */
 
 /** Google truncates meta descriptions at roughly this many characters. */
-export const PRODUCT_DESCRIPTION_MAX = 155;
+export const PRODUCT_DESCRIPTION_MAX = SEO_DESCRIPTION_MAX;
 
 const BRAND_PHRASE = 'MiniRue (Mini Rue)';
 const DESCRIPTION_TAIL = 'Shop at minirueshop.com.';
@@ -28,27 +29,23 @@ function distinctBrand(p: ApiProduct): string | null {
 }
 
 /**
- * "Name — Brand | MiniRue (Mini Rue) · minirueshop". Used as an ABSOLUTE
- * title, because the root layout template would otherwise append its own
- * "| MiniRue (Mini Rue)" suffix after this one.
+ * "Name — Brand | MiniRue (Mini Rue) · minirueshop" when it fits 60 characters,
+ * else the longest shorter form (#155): the "· minirueshop" handle goes first,
+ * then "(Mini Rue)", then the product brand. The description always carries
+ * every spelling and the brand, so nothing the title drops is lost to search.
+ * Used as an ABSOLUTE title, because the root layout template would otherwise
+ * append its own "| MiniRue (Mini Rue)" suffix after this one.
  */
 export function productSeoTitle(p: ApiProduct): string {
   const brand = distinctBrand(p);
-  const head = brand ? `${p.name} — ${brand}` : p.name;
-  return `${head} | ${BRAND_PHRASE} · minirueshop`;
+  return fitSeoTitle(brand ? [`${p.name} — ${brand}`, p.name] : [p.name]);
 }
 
 function plainText(s: string | undefined): string {
   return (s ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** Cuts `text` to at most `max` characters at a word boundary, ending in "…". */
-function clip(text: string, max: number): string {
-  if (text.length <= max) return text;
-  const cut = text.slice(0, max - 1);
-  const atWord = cut.slice(0, Math.max(cut.lastIndexOf(' '), 0)) || cut;
-  return `${atWord.replace(/[\s,;:.—–-]+$/, '')}…`;
-}
+const clip = clipText;
 
 /**
  * "{Product} by {Brand} at MiniRue (Mini Rue). {Description…} Shop at

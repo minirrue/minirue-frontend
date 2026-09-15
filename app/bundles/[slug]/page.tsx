@@ -5,6 +5,8 @@ import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import { getBundle, type Bundle } from '@/lib/api/bundles';
+import { SITE_URL } from '@/lib/seo/config';
+import { bundleSeoDescription, fitSeoTitle, SITE_OG_IMAGE } from '@/lib/seo/page-seo';
 import BundleDetail from './BundleDetail';
 
 export const dynamic = 'force-dynamic';
@@ -17,12 +19,27 @@ export async function generateMetadata({
   const { slug } = await params;
   try {
     const bundle = await getBundle(slug);
+    // Absolute and fitted to 60 characters (#155): the layout template would
+    // otherwise append a second brand suffix after "— MiniRue". The
+    // description names the set, which the SEO audit checks for.
+    const title = fitSeoTitle([bundle.name]);
+    const description = bundleSeoDescription(bundle);
+    const image = bundle.imageUrl
+      ? { url: bundle.imageUrl, alt: bundle.name }
+      : SITE_OG_IMAGE;
     return {
-      title: `${bundle.name} — MiniRue`,
-      description:
-        bundle.description ??
-        `${bundle.members.length} pieces, priced as one set.`,
+      title: { absolute: title },
+      description,
       alternates: { canonical: `/bundles/${bundle.slug}` },
+      openGraph: {
+        type: 'website',
+        siteName: 'MiniRue',
+        title,
+        description,
+        url: `${SITE_URL}/bundles/${bundle.slug}`,
+        images: [image],
+      },
+      twitter: { card: 'summary_large_image', title, description, images: [image.url] },
     };
   } catch {
     // A set that has been retired should not carry a title claiming it exists.

@@ -40,8 +40,8 @@ describe('productSeoTitle', () => {
   });
 
   it('does not repeat a brand the product name already starts with', () => {
-    expect(productSeoTitle(SHAMPOO)).toBe(
-      'Karseell Collagen Hair Shampoo | MiniRue (Mini Rue) · minirueshop',
+    expect(productSeoTitle({ ...SHAMPOO, name: 'Karseell Hair Mask' })).toBe(
+      'Karseell Hair Mask | MiniRue (Mini Rue) · minirueshop',
     );
   });
 
@@ -49,6 +49,51 @@ describe('productSeoTitle', () => {
     expect(productSeoTitle({ ...PRODUCT_FIXTURE, brandName: null, brand: null })).toBe(
       'No.1 | MiniRue (Mini Rue) · minirueshop',
     );
+  });
+
+  // #155: titles over 60 characters are truncated in results. The handle goes
+  // first, then "(Mini Rue)", then the product brand; the name always leads
+  // and a brand spelling always closes.
+  it('drops "· minirueshop" first when the full title is over 60 characters', () => {
+    expect(productSeoTitle(SHAMPOO)).toBe('Karseell Collagen Hair Shampoo | MiniRue (Mini Rue)');
+  });
+
+  it('keeps the product brand before the longer brand phrase', () => {
+    expect(
+      productSeoTitle({ ...SHAMPOO, name: 'Eilish Intense Eau de Parfum', brandName: 'Billie Eillish', brand: 'Billie Eillish' }),
+    ).toBe('Eilish Intense Eau de Parfum — Billie Eillish | MiniRue');
+  });
+
+  it('drops the product brand only when name and brand cannot fit together', () => {
+    expect(
+      productSeoTitle({ ...SHAMPOO, name: 'Deep-Restoring Hair Conditioner for Damaged Hair', brandName: 'Karseell', brand: 'Karseell' }),
+    ).toBe('Deep-Restoring Hair Conditioner for Damaged Hair | MiniRue');
+  });
+
+  it('still leads with the full name and closes with MiniRue when the name alone is too long', () => {
+    const name = 'Karseell Maca Essence Oil Moroccan Argan Oil for Hair Healing';
+    expect(productSeoTitle({ ...SHAMPOO, name })).toBe(`${name} | MiniRue`);
+  });
+
+  it('never exceeds 60 characters when the name leaves room for "| MiniRue"', () => {
+    for (let n = 1; n <= 50; n++) {
+      const name = 'x'.repeat(n);
+      const t = productSeoTitle({ ...PRODUCT_FIXTURE, name });
+      expect(t.length).toBeLessThanOrEqual(60);
+      expect(t.startsWith(name)).toBe(true);
+      expect(t).toMatch(/MiniRue/);
+    }
+  });
+
+  it('title plus description always carry all three spellings', () => {
+    for (const p of [
+      PRODUCT_FIXTURE,
+      SHAMPOO,
+      { ...SHAMPOO, name: 'Karseell Maca Essence Oil Moroccan Argan Oil for Hair Healing' },
+    ]) {
+      const both = `${productSeoTitle(p)} ${productSeoDescription(p)}`;
+      for (const s of SPELLINGS) expect(both).toContain(s);
+    }
   });
 });
 

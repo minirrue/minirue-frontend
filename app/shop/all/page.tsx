@@ -19,21 +19,32 @@ import {
 } from './products-data';
 import { SITE_URL as BASE_URL } from '@/lib/seo/config';
 import { SHOP_ALL, SHOP_ROOT } from '@/lib/routes';
+import { SITE_OG_IMAGE } from '@/lib/seo/page-seo';
 
 // This is the shop's main area — every product regardless of category or
 // brand. Nothing about what it sells is fixed to one kind of product, so the
 // copy stays neutral rather than naming a category the shop may not even
 // carry any more.
+//
+// The description is long enough to be a real snippet (50+ characters, #155),
+// and every `openGraph` below names the share image: a child route's
+// `openGraph` replaces the root layout's wholesale, so leaving it out ships
+// the page with no og:image at all.
+function allProductsDescription(shopName: string): string {
+  return `Browse the full ${shopName} collection: every product in every category, in one place.`;
+}
+
 function defaultMetadata(shopName: string): Metadata {
   return {
     title: 'All Products',
-    description: `Browse the full ${shopName} collection.`,
+    description: allProductsDescription(shopName),
     alternates: {
       canonical: SHOP_ALL,
     },
     openGraph: {
       title: `All Products | ${shopName}`,
-      description: `Browse the full ${shopName} collection.`,
+      description: allProductsDescription(shopName),
+      images: [SITE_OG_IMAGE],
     },
   };
 }
@@ -147,7 +158,8 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       robots: { index: false, follow: true },
       openGraph: {
         title: `${collection} | ${shopName}`,
-        description: `Browse the full ${shopName} collection.`,
+        description: allProductsDescription(shopName),
+        images: [SITE_OG_IMAGE],
       },
     };
   }
@@ -211,6 +223,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       title,
       description,
       url: `${BASE_URL}${canonical}`,
+      images: [SITE_OG_IMAGE],
     },
   };
 }

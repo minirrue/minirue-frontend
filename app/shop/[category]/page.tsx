@@ -7,6 +7,7 @@ import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema'
 import CollectionSchema from '@/components/seo/CollectionSchema';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import { categoryPath } from '@/lib/routes';
+import { SITE_OG_IMAGE } from '@/lib/seo/page-seo';
 import { catalog } from '@/lib/api/catalog';
 import CategoryClient from './CategoryClient';
 import { CategoryBreadcrumb } from './category-breadcrumb';
@@ -43,9 +44,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: {
       canonical: categoryPath(slug),
     },
+    // A child route's `openGraph` replaces the root layout's wholesale, so the
+    // share image is named here or there is none (#155): the category's own
+    // picture, else the site image.
     openGraph: {
       title: `${cat.name} | MiniRue`,
       description,
+      images: [cat.imageUrl ? { url: cat.imageUrl, alt: cat.name } : SITE_OG_IMAGE],
     },
   };
 }

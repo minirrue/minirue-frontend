@@ -53,7 +53,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   // matters more than anywhere else it was found. No delivery claim: orders
   // pay a delivery fee, so the old "free worldwide shipping" was false (#139).
   const description = indexable
-    ? `${outcome.total} product${outcome.total === 1 ? '' : 's'} matching “${term}” at MiniRue.`
+    ? // Long enough to be a real snippet (50+ characters, #155), with every
+      // brand spelling.
+      `${outcome.total} product${outcome.total === 1 ? '' : 's'} matching “${term}” at MiniRue (Mini Rue). Shop them at minirueshop.com.`
     : `Search results for “${term}” at MiniRue.`;
   // Canonical is built from the NORMALISED term, not the one in the address
   // bar. ?q=Dior and ?q=dior therefore both point at ?q=dior — one page

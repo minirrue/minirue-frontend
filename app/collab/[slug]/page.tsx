@@ -11,6 +11,7 @@ import HeaderWrapper from '@/app/shop/HeaderWrapper';
 import SpaceView from './SpaceView';
 import { spacePath } from '@/lib/routes';
 import { fetchSpace } from '@/lib/api/storefront';
+import { SITE_OG_IMAGE, spaceSeoDescription } from '@/lib/seo/page-seo';
 import { apiGetPublicSettings } from '@/lib/api/settings';
 
 /**
@@ -49,8 +50,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const space = await fetchSpace(slug).catch(() => null);
   if (!space) return { title: 'Page not found' };
 
-  const description =
-    space.space.description?.trim() || `Shop ${space.space.name} at MiniRue.`;
+  const description = spaceSeoDescription(space.space.name, space.space.description);
   return {
     title: `${space.space.name} — MiniRue`,
     description,
@@ -61,6 +61,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${space.space.name} | MiniRue`,
       description,
       type: 'website',
+      // Named explicitly (#155): this `openGraph` replaces the root layout's
+      // wholesale, so without it the page shipped with no og:image.
+      images: [SITE_OG_IMAGE],
     },
   };
 }
