@@ -21,7 +21,7 @@ const ALTERNATE_NAMES = [
   "minirue",
 ];
 
-const organization: Record<string, unknown> = {
+export const organizationSchema: Record<string, unknown> = {
   "@context": "https://schema.org",
   // OnlineStore in addition to Organization: this is a storefront, and the
   // extra type is accurate and low-risk (Google ignores types it doesn't use
@@ -37,17 +37,13 @@ const organization: Record<string, unknown> = {
   // validate at all; it was pointing at a 404 before this.
   logo: `${BASE_URL}/logo.png`,
   description:
-    "MiniRue (Mini Rue) — worldwide e-commerce for high-premium, original-quality perfume.",
+    "MiniRue (Mini Rue) — online store in Egypt for high-premium, original-quality perfume.",
   slogan: "Original quality perfumes",
-  // Broad, not a country list. lib/auth/dial-codes.ts is a curated ~49-country
-  // phone-signup select ("deliberately not the full ISO list", per its own
-  // comment), not a shipping-destination list, so treating it as one here
-  // would be inventing structured data the site doesn't actually assert.
-  // The page copy that used to back "Worldwide" ("free worldwide shipping,
-  // duty-paid to 62 countries") was false and is gone (#139); delivery is
-  // priced per governorate. Whether MiniRue ships outside Egypt is the
-  // owner's call — asked on #139 — so this stays as it was until answered.
-  areaServed: "Worldwide",
+  // Egypt only. The owner confirmed on #146 that MiniRue does not deliver
+  // outside Egypt — delivery is priced per Egyptian governorate. The old
+  // "Worldwide" value rested on "free worldwide shipping, duty-paid to 62
+  // countries" copy that was false and is gone (#139).
+  areaServed: { "@type": "Country", name: "Egypt" },
   brand: {
     "@type": "Brand",
     name: "MiniRue",
@@ -77,7 +73,7 @@ const organization: Record<string, unknown> = {
  *  - declares the real on-site search endpoint (/search?q=), which is what makes the site eligible
  *    for a sitelinks searchbox under the brand result. `/search` is a real, shipped route.
  */
-const website: Record<string, unknown> = {
+export const websiteSchema: Record<string, unknown> = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   "@id": `${BASE_URL}/#website`,
@@ -98,8 +94,8 @@ const website: Record<string, unknown> = {
 export default function OrganizationSchema() {
   return (
     <>
-      <JsonLd data={organization} />
-      <JsonLd data={website} />
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
     </>
   );
 }
