@@ -2,12 +2,11 @@ import { JsonLd } from "./JsonLd";
 import type { ApiProduct } from "@/lib/api/catalog";
 import {
   cheapestActiveVariant,
-  mediaImageUrl,
   lowestPrice,
-  primaryMedia,
   productBrand,
   productInStock,
 } from "@/lib/api/catalog";
+import { productImageUrls, productSeoDescription } from "@/lib/seo/product-seo";
 import type { PublicReview } from "@/lib/api/reviews";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { productPath } from '@/lib/routes';
@@ -31,9 +30,10 @@ export function buildProductSchema(
   p: ApiProduct,
   reviews: PublicReview[] = [],
 ): Record<string, unknown> {
-  const media = primaryMedia(p);
   const price = lowestPrice(p);
-  const imgUrl = media ? mediaImageUrl(media, { w: 800, h: 1000 }) ?? undefined : undefined;
+  // Every gallery image, cover first. Google recommends several images for a
+  // Product, and `image` as an array is what its Product rich result reads.
+  const images = productImageUrls(p);
   // The SKU of the variant the offer actually describes — never the product id.
   const offerVariant = cheapestActiveVariant(p);
   const hasRating =
@@ -55,12 +55,14 @@ export function buildProductSchema(
     "@type": "Product",
     "@id": `${BASE_URL}${productPath(p)}#product`,
     name: p.name,
-    description: p.description,
+    // The product's own copy. The meta-description sentence is only a
+    // fallback, so a product with no description still validates.
+    description: p.description || productSeoDescription(p),
     ...(offerVariant?.sku ? { sku: offerVariant.sku } : {}),
     ...(productBrand(p)
       ? { brand: { "@type": "Brand", name: productBrand(p) } }
       : {}),
-    ...(imgUrl ? { image: imgUrl } : {}),
+    ...(images.length ? { image: images } : {}),
     ...(hasRating
       ? {
           aggregateRating: {
@@ -90,6 +92,8 @@ export function buildProductSchema(
           availability: productInStock(p)
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
+          // MiniRue sells only new, sealed stock.
+          itemCondition: "https://schema.org/NewCondition",
           url: `${BASE_URL}${productPath(p)}`,
         }
       : undefined,

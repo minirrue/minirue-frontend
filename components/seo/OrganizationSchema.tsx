@@ -10,6 +10,9 @@ import { SITE_URL as BASE_URL } from "@/lib/seo/config";
  * schema.org Organization/WebSite does — it is how the Knowledge Graph learns a brand's aliases.
  */
 const ALTERNATE_NAMES = [
+  // `name` is already "MiniRue"; it is repeated here so the alias list alone
+  // carries every spelling people search (#148).
+  "MiniRue",
   "Mini Rue",
   "Mini Rue Shop",
   "MiniRue Shop",

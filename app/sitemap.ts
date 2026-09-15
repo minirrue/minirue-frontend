@@ -7,7 +7,8 @@ import {
   searchCanonicalPath,
 } from "@/lib/search/query";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
-import { SHOP_ROOT, SHOP_ALL, categoryPath, productPath } from '@/lib/routes';
+import { productSitemapEntry } from "@/lib/seo/product-seo";
+import { SHOP_ROOT, SHOP_ALL, categoryPath } from '@/lib/routes';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [
@@ -64,16 +65,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // every deploy.
     const result = await catalog.listProducts({ limit: 1000, revalidate: 3600 });
     for (const p of result.data) {
-      entries.push({
-        // productPath nests the product under its own category. A product
-        // whose category the API did not return falls back to the legacy flat
-        // path, which permanently redirects — so the sitemap never carries a
-        // URL that 404s, only at worst one that costs a hop.
-        url: `${BASE_URL}${productPath(p)}`,
-        lastModified: new Date(),
-        changeFrequency: "weekly",
-        priority: 0.8,
-      });
+      // productPath nests the product under its own category. A product
+      // whose category the API did not return falls back to the legacy flat
+      // path, which permanently redirects — so the sitemap never carries a
+      // URL that 404s, only at worst one that costs a hop. lastmod is the
+      // product's real updatedAt, not the build time (#148).
+      entries.push(productSitemapEntry(p));
     }
     if (result.data.length === 0) {
       console.warn("[sitemap] catalog.listProducts returned 0 products — sitemap has NO product URLs.");

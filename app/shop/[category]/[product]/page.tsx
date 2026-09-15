@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { catalog, primaryMedia, mediaImageUrl, productBrand } from '@/lib/api/catalog';
+import { catalog } from '@/lib/api/catalog';
+import { buildProductMetadata } from '@/lib/seo/product-seo';
 import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
 import ProductPageClient from './ProductPageClient';
 import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema, { SHOP_CRUMB } from '@/components/seo/BreadcrumbSchema';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
-import { SITE_URL } from '@/lib/seo/config';
 import { getProductReviewsForSchema } from './product-data';
 import { productPath, SHOP_ROOT } from '@/lib/routes';
 
@@ -28,37 +28,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { product: slug } = await params;
   try {
     const p = await catalog.getProductBySlug(slug);
-    const media = primaryMedia(p);
-    const imgUrl = media ? mediaImageUrl(media, { w: 1200, h: 1200 }) ?? undefined : undefined;
-    const brand = productBrand(p);
-    return {
-      title: brand ? `${p.name} — ${brand}` : p.name,
-      // p.tagline is never populated for products (Task 7 already removed
-      // this dead read from ProductSchema — see buildProductSchema — it
-      // only exists on storefront hero slides), so it's never read here
-      // either.
-      description: p.description ?? (brand ? `${p.name} by ${brand}` : p.name),
-      alternates: {
-        // Always the product's OWN category, never the one in the URL — a
-        // request that arrives under the wrong category is redirected below,
-        // and a canonical must not echo a path the site refuses to serve.
-        canonical: productPath(p),
-      },
-      openGraph: {
-        title: p.name,
-        description: p.description,
-        type: 'website',
-        siteName: 'MiniRue',
-        url: `${SITE_URL}${productPath(p)}`,
-        ...(imgUrl ? { images: [{ url: imgUrl, width: 1200, height: 1200, alt: p.name }] } : {}),
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: p.name,
-        description: p.description,
-        images: imgUrl ? [imgUrl] : [],
-      },
-    };
+    // Title, description (with every brand spelling, #148), canonical,
+    // OpenGraph and Twitter all come from one pure, tested builder.
+    return buildProductMetadata(p);
   } catch {
     return { title: 'Product not found' };
   }

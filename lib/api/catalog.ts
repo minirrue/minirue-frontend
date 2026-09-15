@@ -166,6 +166,8 @@ export interface ApiProduct {
    * reviewed it — which is not the same as everyone giving it zero. */
   reviewsAverage?: number | null;
   reviewsCount?: number;
+  /** ISO timestamp of the product's last edit. The sitemap's lastmod uses it. */
+  updatedAt?: string;
 }
 
 /** A brand as the shop's filter rail needs it — id, name, picture, nothing else. */
