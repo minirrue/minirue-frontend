@@ -9,6 +9,17 @@ import {
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { productSitemapEntry } from "@/lib/seo/product-seo";
 import { SHOP_ROOT, SHOP_ALL, categoryPath } from '@/lib/routes';
+import { CATALOG_REVALIDATE_SECONDS } from '@/lib/seo/llms-response';
+
+/**
+ * Rendered per request, never prerendered (#152). A prerendered or ISR sitemap
+ * is frozen at build time or served stale for as long as nobody requests it,
+ * so a new product could miss it for hours. Per request, the only cache in
+ * front of the catalog is the short Data Cache window on the fetches below.
+ * (Production was already dynamic in practice: the search-term check uses a
+ * no-store fetch.)
+ */
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [
@@ -58,12 +69,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 5 links is worse than a build error — it tells Google the site is empty (RULEBOOK §32: a
   // swallowed failure is a falsified success). Now every miss is logged in the build output.
   try {
-    // Cached, unlike every other catalogue read. This route is PRERENDERED,
-    // and Next refuses to prerender anything containing a no-store fetch — so
-    // without opting back in the build silently produced a sitemap with no
-    // product URLs at all. Freshness is worthless here: the file is rebuilt on
-    // every deploy.
-    const result = await catalog.listProducts({ limit: 1000, revalidate: 3600 });
+    // Cached, unlike most catalogue reads, but only briefly: a newly published
+    // product must be listed within 5 minutes with no deploy (#152). The route
+    // is rendered per request (see `dynamic` above), so this Data Cache window
+    // is the only thing between a publish and the sitemap. The window and the
+    // reasoning (time-based, not on-demand revalidation) live with
+    // CATALOG_REVALIDATE_SECONDS.
+    const result = await catalog.listProducts({ limit: 1000, revalidate: CATALOG_REVALIDATE_SECONDS });
     for (const p of result.data) {
       // productPath nests the product under its own category. A product
       // whose category the API did not return falls back to the legacy flat
@@ -88,7 +100,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const searchTerms = new Set<string>();
 
   try {
-    const categories = await catalog.listCategories({ revalidate: 3600 });
+    const categories = await catalog.listCategories({ revalidate: CATALOG_REVALIDATE_SECONDS });
     for (const cat of categories) {
       entries.push({
         url: `${BASE_URL}${categoryPath(cat.slug)}`,
