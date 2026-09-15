@@ -44,6 +44,7 @@ const ProductGallery = dynamic(() => import('./ProductGallery'));
  * straight to it.
  */
 const ProductReviews = dynamic(() => import('./reviews/ProductReviews'));
+import TrustpilotTrust from './TrustpilotTrust';
 
 /**
  * Split for the third time, and for the sharpest reason of the three: this
@@ -1041,6 +1042,10 @@ export default function ApiProductDetail({
             initialAverage={product.reviewsAverage ?? null}
             initialCount={product.reviewsCount ?? 0}
           />
+
+          {/* Trustpilot trust row (#156): directly under the reviews, static and
+              server-rendered so it is always in the HTML. */}
+          <TrustpilotTrust variant="compact" />
 
           {/* BETWEEN the reviews and the closing photograph, deliberately —
               not appended.

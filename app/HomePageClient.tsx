@@ -4,6 +4,7 @@ import HomeView from '@/components/storefront/HomeView';
 import Header from '@/components/layout/Header';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import Footer from '@/components/layout/Footer';
+import TrustpilotTrust from '@/components/storefront/TrustpilotTrust';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
 import type { ResolvedHome } from '@/lib/api/storefront';
 import { useStorefrontHome, useStorefrontChrome } from '@/lib/hooks/use-storefront';
@@ -50,6 +51,8 @@ export default function HomePageClient() {
           transparent={heroLeadsPage}
         />
         <HomeView home={home} />
+        {/* Trustpilot band (#156): last thing on the page, right before the footer. */}
+        <TrustpilotTrust variant="band" />
       </div>
 
       {/* The footer band — AFTER the page sheet, which is where it was before
