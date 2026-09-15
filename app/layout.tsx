@@ -73,11 +73,11 @@ export async function generateMetadata(): Promise<Metadata> {
       // The spaced alias is deliberate: users search "mini rue shop" and the site never surfaced,
       // because no on-page text or entity ever spelled the brand with a space. The title is the
       // strongest on-page signal, so it carries the exact queried phrase once, naturally.
-      default: "MiniRue — Original Quality Perfumes | Mini Rue Shop",
+      default: "MiniRue — Original Cosmetics & Perfumes | Mini Rue Shop",
       template: "%s | MiniRue (Mini Rue)",
     },
     description:
-      "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics, in luxury packaging.",
+      "Discover MiniRue (Mini Rue) — original cosmetics & perfumes, in luxury packaging.",
     applicationName: "MiniRue",
     authors: [{ name: "MiniRue" }],
     // NOTE: Google has ignored <meta keywords> since 2009 — these are here for the non-Google
@@ -121,9 +121,9 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       locale: "en_US",
       siteName: "MiniRue",
-      title: "MiniRue — Original Quality Perfumes | Mini Rue Shop",
+      title: "MiniRue — Original Cosmetics & Perfumes | Mini Rue Shop",
       description:
-        "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics, in luxury packaging.",
+        "Discover MiniRue (Mini Rue) — original cosmetics & perfumes, in luxury packaging.",
       url: BASE_URL,
       // No `images` override here: app/opengraph-image.tsx (edge ImageResponse)
       // is the Next.js file-convention OG image and is resolved automatically.
@@ -131,9 +131,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: "MiniRue — Original Quality Perfumes | Mini Rue Shop",
+      title: "MiniRue — Original Cosmetics & Perfumes | Mini Rue Shop",
       description:
-        "Discover MiniRue (Mini Rue) — original quality perfumes and cosmetics.",
+        "Discover MiniRue (Mini Rue) — original cosmetics & perfumes.",
       // No `images` override — falls back to app/opengraph-image.tsx, same as
       // openGraph above (there is no separate twitter-image.tsx).
     },

@@ -41,7 +41,7 @@ export const organizationSchema: Record<string, unknown> = {
   logo: `${BASE_URL}/logo.png`,
   description:
     "MiniRue (Mini Rue) — online store in Egypt for high-premium, original-quality perfume.",
-  slogan: "Original quality perfumes",
+  slogan: "Original cosmetics & perfumes",
   // Egypt only. The owner confirmed on #146 that MiniRue does not deliver
   // outside Egypt — delivery is priced per Egyptian governorate. The old
   // "Worldwide" value rested on "free worldwide shipping, duty-paid to 62
