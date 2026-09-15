@@ -45,6 +45,8 @@ const ProductGallery = dynamic(() => import('./ProductGallery'));
  */
 const ProductReviews = dynamic(() => import('./reviews/ProductReviews'));
 import TrustpilotTrust from './TrustpilotTrust';
+import { useEffectiveShipping } from './cart/use-bag-pricing';
+import { deliveryPerkText, isDeliveryPerk } from '@/lib/checkout/delivery-perk';
 
 /**
  * Split for the third time, and for the sharpest reason of the three: this
@@ -220,6 +222,11 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
   ctaDisplay,
   addToBagRef,
 }: ProductInfoPanelProps) {
+  // The delivery perk's words come from the shipping settings checkout uses,
+  // not from the stored text, so the page can't promise a threshold that
+  // doesn't exist (#162).
+  const shipping = useEffectiveShipping();
+  const deliveryLine = deliveryPerkText(shipping);
   /**
    * The price under the running sitewide markdown, or the plain price when
    * none is running. Computed once and used by BOTH the main price and the
@@ -581,7 +588,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
             data-trace-id={`PG-STOREFRONT-CAT-005::EL-TEXT-product-perk@${perk.id}`}
             style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}
           >
-            <Icon name={perk.icon} size={14} /> {perk.text}
+            <Icon name={perk.icon} size={14} /> {isDeliveryPerk(perk) ? deliveryLine : perk.text}
           </span>
         ))}
       </div>
