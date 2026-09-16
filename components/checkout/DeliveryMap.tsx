@@ -10,6 +10,11 @@ const DEFAULT_CENTER = { lat: 30.0444, lng: 31.2357 };
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const GEO_OPTIONS: PositionOptions = { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 };
 
+// MapLibre v6's ESM worker imports a shared sibling module. Next/Turbopack
+// cannot infer that pair from the package import, so predev/prebuild copy both
+// matching files to this same-origin location before the map is constructed.
+maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
+
 export interface DeliveryMapPin { lat: number; lng: number }
 interface DeliveryMapProps { pin: DeliveryMapPin | null; onChange: (pin: DeliveryMapPin | null) => void; onConfirmedMapsUrlChange?: (url: string) => void }
 function mapsUrl(pin: DeliveryMapPin) { return `https://www.google.com/maps?q=${pin.lat.toFixed(6)},${pin.lng.toFixed(6)}`; }

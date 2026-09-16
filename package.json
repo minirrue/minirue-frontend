@@ -3,7 +3,9 @@
   "version": "0.60.21",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-maplibre-worker.mjs",
     "dev": "next dev --turbopack",
+    "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "build": "next build && npm run seo-check",
     "seo-check": "node scripts/seo-check.mjs",
     "start": "next start",

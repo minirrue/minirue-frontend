@@ -7,6 +7,7 @@ let center = { lat: 30.0444, lng: 31.2357 };
 const jumpTo = jest.fn(({ center: next }: { center: [number, number] }) => { center = { lng: next[0], lat: next[1] }; });
 
 jest.mock('maplibre-gl', () => ({
+  setWorkerUrl: jest.fn(),
   Map: class {
       constructor(options: { center: [number, number] }) { center = { lng: options.center[0], lat: options.center[1] }; }
       addControl() {}

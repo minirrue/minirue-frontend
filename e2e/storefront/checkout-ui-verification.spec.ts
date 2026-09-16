@@ -23,8 +23,17 @@ async function mockCheckout(page: Page) {
 
 test('MiniRue governorate, delivery copy, and confirmable map work on desktop and mobile', async ({ page, context }) => {
   const browserErrors: string[] = [];
+  const mapNetworkErrors: string[] = [];
+  const vectorTileResponses: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error' && /content security policy|worker|maplibre/i.test(message.text())) browserErrors.push(message.text());
+  });
+  page.on('requestfailed', (request) => {
+    if (/openfreemap|maplibre/i.test(request.url())) mapNetworkErrors.push(`${request.url()} :: ${request.failure()?.errorText}`);
+  });
+  page.on('response', (response) => {
+    if (/tiles\.openfreemap\.org\/planet\/.+\.pbf/.test(response.url()) && response.status() === 200) vectorTileResponses.push(response.url());
+    if (/openfreemap|maplibre/i.test(response.url()) && response.status() >= 400) mapNetworkErrors.push(`${response.status()} ${response.url()}`);
   });
   await context.grantPermissions(['geolocation'], { origin: 'http://localhost:3000' });
   await context.setGeolocation({ latitude: 30.0131, longitude: 31.2089 });
@@ -39,6 +48,9 @@ test('MiniRue governorate, delivery copy, and confirmable map work on desktop an
   await expect(page.getByText('Same-day delivery')).toBeVisible();
   await expect(page.getByText(/7 PM–12 AM/)).toBeVisible();
   await page.getByRole('radio', { name: /same-day delivery/i }).click();
+  await expect.poll(() => vectorTileResponses.length, { timeout: 15_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(9_000);
+  await expect(page.getByText(/the map could not load/i)).toBeHidden();
   await page.getByRole('button', { name: /use my location/i }).click();
   await page.getByRole('button', { name: /confirm drop-off location/i }).click();
   await expect(page.getByText(/location confirmed/i)).toBeVisible();
@@ -61,5 +73,6 @@ test('MiniRue governorate, delivery copy, and confirmable map work on desktop an
   await expect(page.getByLabel('Or paste a Google Maps link')).toHaveValue(/^https:\/\/www\.google\.com\/maps\?q=/);
   await page.waitForTimeout(1_000);
   await page.screenshot({ path: 'test-results/checkout-mobile-confirmed.png', fullPage: true });
+  expect(mapNetworkErrors).toEqual([]);
   expect(browserErrors).toEqual([]);
 });
