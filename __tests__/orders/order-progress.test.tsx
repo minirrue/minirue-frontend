@@ -159,7 +159,7 @@ describe('the "On its way" step shows the delivery method (frontend#163)', () =>
     );
     const text = shippedStepText();
     expect(text).toMatch(/method:\s*same-day/i);
-    expect(text).toMatch(/window:.*19:00–24:00/i);
+    expect(text).toMatch(/window:.*7 PM–12 AM/i);
     expect(text).toMatch(/same-day.*fee pending/i);
   });
 

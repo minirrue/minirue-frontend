@@ -6,6 +6,8 @@ import {
   resolveDeliveryLocation,
   resolveDeliverySettings,
   sameDayFeeCopy,
+  formatDeliveryTime,
+  formatDeliveryTimeRange,
   sameDayWindow,
   type DeliverySettings,
 } from '@/lib/checkout/delivery';
@@ -102,7 +104,7 @@ describe('sameDayWindow — Today/Tomorrow with a fixed Cairo clock', () => {
     const w = sameDayWindow(settings, new Date());
     expect(w.which).toBe('today');
     expect(w.date).toBe('2026-09-15');
-    expect(w.label).toBe('Today, 19:00–24:00');
+    expect(w.label).toBe('Today, 7 PM–12 AM');
   });
 
   it('17:00 Cairo (exactly at cutoff) labels Tomorrow', () => {
@@ -110,7 +112,7 @@ describe('sameDayWindow — Today/Tomorrow with a fixed Cairo clock', () => {
     const w = sameDayWindow(settings, new Date());
     expect(w.which).toBe('tomorrow');
     expect(w.date).toBe('2026-09-16');
-    expect(w.label).toBe('Tomorrow, 19:00–24:00');
+    expect(w.label).toBe('Tomorrow, 7 PM–12 AM');
   });
 
   it('UTC-vs-Cairo midnight edge: 01:00 Cairo is still the SAME UTC calendar day at 22:00 UTC the day before', () => {
@@ -127,6 +129,15 @@ describe('sameDayWindow — Today/Tomorrow with a fixed Cairo clock', () => {
     const w = sameDayWindow(settings, new Date());
     expect(w.which).toBe('today');
     expect(w.date).toBe('2026-09-16');
+  });
+});
+
+describe('Egypt-local delivery time copy for the English storefront', () => {
+  it('uses 12-hour customer-facing time and renders midnight naturally', () => {
+    expect(formatDeliveryTimeRange('19:00', '24:00')).toBe('7 PM–12 AM');
+    expect(formatDeliveryTime('19:30')).toBe('7:30 PM');
+    expect(formatDeliveryTime('00:00')).toBe('12 AM');
+    expect(formatDeliveryTimeRange('19:00', '24:00')).not.toContain('24');
   });
 });
 

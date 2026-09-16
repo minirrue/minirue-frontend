@@ -139,8 +139,8 @@ describe('checkout delivery step — guest', () => {
     await user.type(screen.getByLabelText(/^phone$/i), '+201012431350');
     await user.type(screen.getByLabelText(/^address$/i), '12 Nile Street');
     await user.type(screen.getByLabelText(/^city$/i), 'Al Giza');
-    // Closed-list select since frontend#158 — no longer free text.
-    await user.selectOptions(screen.getByLabelText(/^governorate$/i), 'Giza');
+    await user.click(screen.getByRole('combobox', { name: /^governorate$/i }));
+    await user.click(screen.getByRole('option', { name: 'Giza' }));
 
     await user.click(screen.getByRole('button', { name: /continue to payment/i }));
 

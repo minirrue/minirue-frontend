@@ -22,7 +22,7 @@ describe('formatDeliveryDate / formatDeliveryWindow', () => {
 
   it('joins the date with the start/end window', () => {
     expect(formatDeliveryWindow({ date: '2026-09-20', start: '19:00', end: '24:00' })).toBe(
-      'Sun, 20 Sep · 19:00–24:00',
+      'Sun, 20 Sep · 7 PM–12 AM',
     );
   });
 
@@ -105,7 +105,7 @@ describe('OrderDeliveryInfo', () => {
       />,
     );
     expect(screen.getByText(/Same-day delivery/)).toBeInTheDocument();
-    expect(screen.getByText(/19:00–24:00/)).toBeInTheDocument();
+    expect(screen.getByText(/7 PM–12 AM/)).toBeInTheDocument();
     expect(screen.getByText('Same-day · fee pending')).toBeInTheDocument();
   });
 

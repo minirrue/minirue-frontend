@@ -1,108 +1,102 @@
 'use client';
 
 import React from 'react';
-import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-// Leaflet's own stylesheet. Safe to import here because this whole module is
-// only ever reached through a `next/dynamic(..., { ssr: false })` wrapper at
-// the call site (DeliveryMethodStep.tsx) — it never touches the server
-// bundle or the root layout's critical CSS path.
-import 'leaflet/dist/leaflet.css';
+import * as maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import Button from '@/components/ui/Button';
+import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 
-/**
- * The Leaflet pin-drop map for same-day delivery (frontend#163).
- *
- * Deliberately does NOT do its own `next/dynamic` — the instruction (and the
- * reason `ssr: false` works at all) is that the dynamic import lives at the
- * CALL SITE, so this file can be a perfectly normal client component and the
- * caller decides when Leaflet's JS ever reaches the browser.
- */
+const DEFAULT_CENTER = { lat: 30.0444, lng: 31.2357 };
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+const GEO_OPTIONS: PositionOptions = { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 };
 
-/** Egypt's rough centre — Cairo — used only until a pin exists. */
-const DEFAULT_CENTER: [number, number] = [30.0444, 31.2357];
-const DEFAULT_ZOOM = 12;
-const PIN_ZOOM = 15;
+export interface DeliveryMapPin { lat: number; lng: number }
+interface DeliveryMapProps { pin: DeliveryMapPin | null; onChange: (pin: DeliveryMapPin | null) => void; onConfirmedMapsUrlChange?: (url: string) => void }
+function mapsUrl(pin: DeliveryMapPin) { return `https://www.google.com/maps?q=${pin.lat.toFixed(6)},${pin.lng.toFixed(6)}`; }
 
-/**
- * A drawn pin rather than Leaflet's default marker image. The default relies
- * on `marker-icon.png` etc. resolving through whatever asset pipeline the
- * host app uses, which breaks under Next's bundler unless every consumer
- * remembers to patch `L.Icon.Default` — a divIcon has no asset path to get
- * wrong.
- */
-const pinIcon = L.divIcon({
-  className: 'mr-delivery-pin',
-  html:
-    '<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-    '<path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 27 15 27s15-16.5 15-27c0-8.284-6.716-15-15-15z" fill="#1a1a1a"/>' +
-    '<circle cx="15" cy="15" r="6" fill="#fff"/>' +
-    '</svg>',
-  iconSize: [30, 42],
-  iconAnchor: [15, 42],
-});
+export default function DeliveryMap({ pin, onChange, onConfirmedMapsUrlChange }: DeliveryMapProps) {
+  const hostRef = React.useRef<HTMLDivElement>(null);
+  const mapRef = React.useRef<maplibregl.Map | null>(null);
+  const [draft, setDraft] = React.useState<DeliveryMapPin>(pin ?? DEFAULT_CENTER);
+  const [confirmedPin, setConfirmedPin] = React.useState<DeliveryMapPin | null>(pin);
+  const [editing, setEditing] = React.useState(!pin);
+  const [ready, setReady] = React.useState(false);
+  const [mapError, setMapError] = React.useState<string | null>(null);
+  const [geoError, setGeoError] = React.useState<string | null>(null);
+  const [locating, setLocating] = React.useState(false);
 
-export interface DeliveryMapPin {
-  lat: number;
-  lng: number;
-}
+  React.useEffect(() => {
+    if (!hostRef.current) return;
+    const map = new maplibregl.Map({ container: hostRef.current, style: MAP_STYLE, center: [draft.lng, draft.lat], zoom: pin ? 16 : 12, attributionControl: false });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+    map.addControl(new maplibregl.AttributionControl({ compact: true }));
+    const syncCenter = () => {
+      const center = map.getCenter();
+      setDraft({ lat: center.lat, lng: center.lng });
+    };
+    setReady(true);
+    const loadTimeout = window.setTimeout(() => setMapError('The map could not load. Paste a Google Maps link below to continue.'), 8_000);
+    map.on('load', () => { window.clearTimeout(loadTimeout); setMapError(null); });
+    map.on('moveend', syncCenter);
+    mapRef.current = map;
+    return () => { window.clearTimeout(loadTimeout); map.remove(); mapRef.current = null; };
+  }, []);
 
-interface DeliveryMapProps {
-  /** The dropped pin, or `null` before the shopper has placed one. */
-  pin: DeliveryMapPin | null;
-  /** Fired on click-to-drop and on drag-end, with the new coordinates. */
-  onChange: (pin: DeliveryMapPin) => void;
-}
+  React.useEffect(() => {
+    if (!pin || !mapRef.current) return;
+    mapRef.current.setCenter([pin.lng, pin.lat]);
+    setDraft(pin);
+    setConfirmedPin(pin);
+  }, [pin]);
 
-/** Click anywhere on the map to drop (or move) the pin. */
-function ClickToDrop({ onChange }: { onChange: (pin: DeliveryMapPin) => void }) {
-  useMapEvents({
-    click(e) {
-      onChange({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
-  });
-  return null;
-}
+  function useMyLocation() {
+    if (!navigator.geolocation) {
+      setGeoError('Location is unavailable in this browser. Move the map or paste a Google Maps link.');
+      return;
+    }
+    setLocating(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const next = { lat: coords.latitude, lng: coords.longitude };
+        mapRef.current?.jumpTo({ center: [next.lng, next.lat], zoom: 17 });
+        setDraft(next);
+        setEditing(true);
+        setConfirmedPin(null);
+        onChange(null);
+        setLocating(false);
+      },
+      (error) => {
+        const message = error.code === error.PERMISSION_DENIED ? 'Location permission was denied. Allow access, move the map, or paste a Google Maps link.' : error.code === error.TIMEOUT ? 'Finding your location timed out. Try again, move the map, or paste a link.' : 'Your location is unavailable. Move the map or paste a Google Maps link.';
+        setGeoError(message);
+        setLocating(false);
+      },
+      GEO_OPTIONS,
+    );
+  }
 
-export default function DeliveryMap({ pin, onChange }: DeliveryMapProps) {
-  const center: [number, number] = pin ? [pin.lat, pin.lng] : DEFAULT_CENTER;
+  function confirm() {
+    onChange(draft);
+    onConfirmedMapsUrlChange?.(mapsUrl(draft));
+    setConfirmedPin(draft);
+    setEditing(false);
+  }
 
   return (
-    <div
-      style={{
-        borderRadius: 'var(--mr-radius-md)',
-        overflow: 'hidden',
-        border: '1px solid var(--mr-hairline)',
-        // Leaflet needs an explicit height; a percentage height with no
-        // sized ancestor collapses to 0 and shows a grey box.
-        height: 280,
-      }}
-    >
-      <MapContainer
-        center={center}
-        zoom={pin ? PIN_ZOOM : DEFAULT_ZOOM}
-        style={{ width: '100%', height: '100%' }}
-        scrollWheelZoom
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <ClickToDrop onChange={onChange} />
-        {pin && (
-          <Marker
-            position={[pin.lat, pin.lng]}
-            icon={pinIcon}
-            draggable
-            eventHandlers={{
-              dragend: (e) => {
-                const marker = e.target as L.Marker;
-                const { lat, lng } = marker.getLatLng();
-                onChange({ lat, lng });
-              },
-            }}
-          />
-        )}
-      </MapContainer>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ position: 'relative', height: 300, overflow: 'hidden', borderRadius: 'var(--mr-radius-md)', border: '1px solid var(--mr-hairline)', background: 'var(--mr-cream-200)' }}>
+        <div ref={hostRef} aria-label="Drop-off map" style={{ width: '100%', height: '100%' }} />
+        {ready && editing && <svg aria-hidden="true" width="34" height="46" viewBox="0 0 34 46" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -100%)', pointerEvents: 'none', filter: 'drop-shadow(0 5px 6px rgb(0 0 0 / 24%))' }}><path d="M17 1C8.16 1 1 8.16 1 17c0 11.2 16 28 16 28s16-16.8 16-28C33 8.16 25.84 1 17 1Z" fill="var(--mr-fg)" stroke="var(--mr-bg-raised, #fff)" strokeWidth="2" /><circle cx="17" cy="17" r="6" fill="var(--mr-bg-raised, #fff)" /></svg>}
+        {ready && !editing && <div data-testid="delivery-map-lock" aria-hidden="true" style={{ position: 'absolute', inset: 0, cursor: 'not-allowed', background: 'transparent' }} />}
+      </div>
+      {mapError && <CheckoutAlert variant="info">{mapError}</CheckoutAlert>}
+      {geoError && <CheckoutAlert variant="info">{geoError}</CheckoutAlert>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <Button type="button" variant="outline" size="sm" onClick={useMyLocation} disabled={locating || !ready} style={{ minWidth: 168 }}>{locating ? 'Finding your location…' : 'Use my location'}</Button>
+        {editing ? <Button type="button" size="sm" onClick={confirm} disabled={!ready} style={{ minWidth: 214 }}>Confirm drop-off location</Button> : <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)} style={{ minWidth: 168 }}>Adjust location</Button>}
+      </div>
+      {!editing && confirmedPin && <div aria-live="polite" style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-2)' }}>Location confirmed · <a href={mapsUrl(confirmedPin)} target="_blank" rel="noreferrer">Open in Google Maps</a></div>}
+      <output hidden data-testid="delivery-map-center" data-lat={draft.lat} data-lng={draft.lng} data-confirmed={!editing && !!confirmedPin} />
     </div>
   );
 }

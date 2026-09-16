@@ -71,9 +71,8 @@ async function fillGuestBasics(user: ReturnType<typeof userEvent.setup>, governo
   fireEvent.change(screen.getByLabelText(/^phone$/i), { target: { value: '+201012431350' } });
   fireEvent.change(screen.getByLabelText(/^address$/i), { target: { value: '12 Nile Street' } });
   fireEvent.change(screen.getByLabelText(/^city$/i), { target: { value: 'Al Giza' } });
-  // The governorate field is a closed-list `<select>` since frontend#158 —
-  // select by its visible English label, not typed text.
-  await user.selectOptions(screen.getByLabelText(/^governorate$/i), governorate);
+  await user.click(screen.getByRole('combobox', { name: /^governorate$/i }));
+  await user.click(screen.getByRole('option', { name: governorate }));
 }
 
 beforeEach(() => {

@@ -19,6 +19,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
+  "worker-src 'self' blob:",
   `connect-src 'self' https:${isProd ? "" : " ws: wss: http:"}`,
   "frame-src 'self'",
   "upgrade-insecure-requests",
@@ -31,7 +32,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+    value: "camera=(), microphone=(), geolocation=(self), browsing-topics=()",
   },
   // HSTS only in production — browsers ignore it on localhost, but keep it out
   // of dev responses to avoid pinning a stale policy on shared dev hosts.

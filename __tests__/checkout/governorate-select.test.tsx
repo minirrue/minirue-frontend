@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CheckoutDeliveryPage from '@/app/checkout/page';
 import type { EffectiveShipping } from '@/lib/checkout/governorate-rates';
@@ -136,16 +136,19 @@ function shippingRowText(): string {
   return row?.textContent ?? '';
 }
 
+async function chooseGovernorate(name: string) {
+  await userEvent.click(await screen.findByRole('combobox', { name: /governorate/i }));
+  await userEvent.click(screen.getByRole('option', { name }));
+}
+
 describe('the governorate field is the closed 27-key select (#158/#163)', () => {
-  it('is a SELECT of all 27 governorates, with a rate table published', async () => {
+  it('is a themed combobox of all 27 governorates, with a rate table published', async () => {
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
 
-    const select = await screen.findByLabelText(/governorate/i);
-    expect(select.tagName).toBe('SELECT');
-
-    const options = within(select as HTMLSelectElement)
-      .getAllByRole('option')
+    const select = await screen.findByRole('combobox', { name: /governorate/i });
+    await userEvent.click(select);
+    const options = screen.getAllByRole('option')
       .map((o) => o.textContent);
     expect(options).toEqual(
       expect.arrayContaining(['Cairo', 'Giza', 'Aswan', 'North Sinai']),
@@ -160,23 +163,18 @@ describe('the governorate field is the closed 27-key select (#158/#163)', () => 
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
 
-    const select = await screen.findByLabelText(/governorate/i);
-    expect(
-      within(select as HTMLSelectElement).getByRole('option', { name: 'North Sinai' }),
-    ).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('combobox', { name: /governorate/i }));
+    expect(screen.getByRole('option', { name: 'North Sinai' })).toBeInTheDocument();
   });
 
-  it('is still a SELECT of all 27 governorates when the shop publishes no table', async () => {
+  it('is still a combobox of all 27 governorates when the shop publishes no table', async () => {
     // Every deploy today. Unlike the retired widget, there is no free-text
     // fallback any more — the closed enum applies with or without a table.
     mockEffective = DEFAULT_EFFECTIVE_SHIPPING;
     render(<CheckoutDeliveryPage />);
 
-    const select = await screen.findByLabelText(/governorate/i);
-    expect(select.tagName).toBe('SELECT');
-    expect(
-      within(select as HTMLSelectElement).getAllByRole('option').length,
-    ).toBeGreaterThanOrEqual(27);
+    await userEvent.click(await screen.findByRole('combobox', { name: /governorate/i }));
+    expect(screen.getAllByRole('option').length).toBeGreaterThanOrEqual(27);
   });
 });
 
@@ -185,19 +183,17 @@ describe('the summary follows the select', () => {
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
 
-    const select = await screen.findByLabelText(/governorate/i);
-
     // Before a choice: the shop's published floor, labelled "from", because the
     // bag said the same thing and neither screen can know the fee yet.
     expect(shippingRowText()).toMatch(/from/i);
     expect(shippingRowText()).toContain('60');
 
-    await userEvent.selectOptions(select, 'Cairo');
+    await chooseGovernorate('Cairo');
     await waitFor(() => expect(shippingRowText()).toContain('60'));
     expect(shippingRowText()).not.toMatch(/from/i);
     expect(shippingRowText()).toContain('Cairo');
 
-    await userEvent.selectOptions(select, 'Aswan');
+    await chooseGovernorate('Aswan');
     await waitFor(() => expect(shippingRowText()).toContain('120'));
     expect(shippingRowText()).toContain('Aswan');
   });
@@ -208,9 +204,8 @@ describe('the summary follows the select', () => {
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
 
-    const select = (await screen.findByLabelText(/governorate/i)) as HTMLSelectElement;
-    await userEvent.selectOptions(select, 'Giza');
-    expect(select.value).toBe('GIZA');
+    await chooseGovernorate('Giza');
+    expect(screen.getByRole('combobox', { name: /governorate/i })).toHaveAttribute('data-value', 'GIZA');
   });
 });
 
@@ -242,8 +237,8 @@ describe('a legacy session with an unmatched governorate (pre-#158)', () => {
 
     render(<CheckoutDeliveryPage />);
 
-    const select = (await screen.findByLabelText(/governorate/i)) as HTMLSelectElement;
-    await waitFor(() => expect(select.value).toBe(''));
+    const select = await screen.findByRole('combobox', { name: /governorate/i });
+    await waitFor(() => expect(select).toHaveAttribute('data-value', ''));
   });
 
   it('blocks Continue until a real governorate is chosen, then proceeds', async () => {
@@ -266,13 +261,14 @@ describe('a legacy session with an unmatched governorate (pre-#158)', () => {
     );
 
     render(<CheckoutDeliveryPage />);
-    const select = (await screen.findByLabelText(/governorate/i)) as HTMLSelectElement;
+    await screen.findByRole('combobox', { name: /governorate/i });
 
     await user.click(screen.getByRole('button', { name: /continue to payment/i }));
     expect(mockPush).not.toHaveBeenCalledWith('/checkout/payment');
     expect(await screen.findByText(/select your governorate/i)).toBeInTheDocument();
 
-    await user.selectOptions(select, 'Giza');
+    await user.click(screen.getByRole('combobox', { name: /governorate/i }));
+    await user.click(screen.getByRole('option', { name: 'Giza' }));
     await user.click(screen.getByRole('button', { name: /continue to payment/i }));
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/checkout/payment'));
 
@@ -301,12 +297,12 @@ describe('cash on delivery, at the address step', () => {
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
 
-    const select = await screen.findByLabelText(/governorate/i);
+    await screen.findByRole('combobox', { name: /governorate/i });
 
     // 450 + 60 = 510 > 500. The warning names the place, not just the number,
     // because "your order is too big" is not actionable and "Aswan costs more"
     // is.
-    await userEvent.selectOptions(select, 'Cairo');
+    await chooseGovernorate('Cairo');
     const alerts = await screen.findAllByRole('alert');
     const cod = alerts.find((a) => /cash on delivery/i.test(a.textContent ?? ''));
     expect(cod).toBeDefined();
@@ -338,9 +334,9 @@ describe('cash on delivery, at the address step', () => {
     mockCodLimit = null;
     render(<CheckoutDeliveryPage />);
 
-    const select = await screen.findByLabelText(/governorate/i);
-    await userEvent.selectOptions(select, 'Cairo');
-    await waitFor(() => expect(select).toHaveValue('CAIRO'));
+    const select = await screen.findByRole('combobox', { name: /governorate/i });
+    await chooseGovernorate('Cairo');
+    await waitFor(() => expect(select).toHaveAttribute('data-value', 'CAIRO'));
     // The same selection renders the COD alert within this window when a limit
     // IS set (the first test above), so its absence here is not a timing fluke.
     await new Promise((resolve) => setTimeout(resolve, 100));

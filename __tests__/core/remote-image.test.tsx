@@ -4,6 +4,16 @@ import Image from 'next/image';
 import RemoteImage from '@/components/ui/RemoteImage';
 import nextConfig from '../../next.config';
 
+describe('browser security policy', () => {
+  it('allows same-origin geolocation without adding a third-party script origin', async () => {
+    const rules = await nextConfig.headers?.();
+    const headers = rules?.[0]?.headers ?? [];
+    expect(headers.find((item) => item.key === 'Content-Security-Policy')?.value).not.toContain('maps.googleapis.com');
+    expect(headers.find((item) => item.key === 'Permissions-Policy')?.value).toContain('geolocation=(self)');
+    expect(headers.find((item) => item.key === 'Content-Security-Policy')?.value).toContain("worker-src 'self' blob:");
+  });
+});
+
 /**
  * #11 — the nine fixed-size remote images that used to be raw `<img>` all
  * render through this. Two things have to be true at once and they pull in

@@ -82,7 +82,8 @@ describe('AddressBook add form', () => {
 
     await userEvent.type(screen.getByLabelText(/address line 1/i), '10 Nile St');
     await userEvent.type(screen.getByLabelText(/city/i), 'Giza');
-    await userEvent.selectOptions(screen.getByLabelText(/governorate/i), 'Giza');
+    await userEvent.click(screen.getByRole('combobox', { name: /governorate/i }));
+    await userEvent.click(screen.getByRole('option', { name: 'Giza' }));
     await userEvent.click(screen.getByRole('button', { name: /save address/i }));
 
     await waitFor(() => expect(mockApiCreateAddress).toHaveBeenCalledTimes(1));

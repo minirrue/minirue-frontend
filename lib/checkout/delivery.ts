@@ -206,8 +206,21 @@ export interface SameDayWindow {
   date: string;
   start: string;
   end: string;
-  /** "Today, 19:00–24:00" / "Tomorrow, 19:00–24:00" — the owner's exact copy. */
+  /** Customer-facing Egypt-local, 12-hour window label. */
   label: string;
+}
+
+/** Formats backend `HH:mm` values for the English Egypt storefront. */
+export function formatDeliveryTime(value: string): string {
+  const { h, m } = parseHHmm(value);
+  const hour = h === 24 ? 0 : h;
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const twelveHour = hour % 12 || 12;
+  return `${twelveHour}${m ? `:${String(m).padStart(2, '0')}` : ''} ${suffix}`;
+}
+
+export function formatDeliveryTimeRange(start: string, end: string): string {
+  return `${formatDeliveryTime(start)}–${formatDeliveryTime(end)}`;
 }
 
 /**
@@ -226,7 +239,7 @@ export function sameDayWindow(settings: DeliverySettings, now: Date = new Date()
   const isAfterCutoff = minutesOfDay >= cutoffMinutes;
   const which: 'today' | 'tomorrow' = isAfterCutoff ? 'tomorrow' : 'today';
   const date = isAfterCutoff ? addDaysISO(dateISO, 1) : dateISO;
-  const label = `${which === 'today' ? 'Today' : 'Tomorrow'}, ${sameDay.windowStart}–${sameDay.windowEnd}`;
+  const label = `${which === 'today' ? 'Today' : 'Tomorrow'}, ${formatDeliveryTimeRange(sameDay.windowStart, sameDay.windowEnd)}`;
 
   return { which, date, start: sameDay.windowStart, end: sameDay.windowEnd, label };
 }

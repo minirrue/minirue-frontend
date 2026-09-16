@@ -1,5 +1,6 @@
 import type { OrderSummary } from '@/lib/checkout/checkout-api';
 import { formatMoney } from '@/lib/format/money';
+import { formatDeliveryTimeRange } from '@/lib/checkout/delivery';
 
 /**
  * Delivery method and window, on the two screens that show an order after
@@ -40,10 +41,10 @@ export function formatDeliveryDate(dateISO: string): string {
   return `${WEEKDAYS[dt.getUTCDay()]}, ${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]}`;
 }
 
-/** "Fri, 19 Sep · 19:00–24:00" */
+/** "Fri, 19 Sep · 7 PM–12 AM" */
 export function formatDeliveryWindow(window: OrderDelivery['window']): string | null {
   if (!window) return null;
-  return `${formatDeliveryDate(window.date)} · ${window.start}–${window.end}`;
+  return `${formatDeliveryDate(window.date)} · ${formatDeliveryTimeRange(window.start, window.end)}`;
 }
 
 /**

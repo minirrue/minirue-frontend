@@ -10,18 +10,14 @@ import {
   type DeliverySettings,
 } from '@/lib/checkout/delivery';
 import { CheckoutAlert, CheckoutOption } from '@/components/checkout/checkout-ui';
-import Button from '@/components/ui/Button';
 import type { DeliveryMapPin } from './DeliveryMap';
 
 /**
  * The delivery-method choice (frontend#163) — Standard / Same-day, tied to
  * the governorate the address step already resolved.
  *
- * THE dynamic import lives here, at the call site of `DeliveryMap`, not
- * inside that file — `DeliveryMap` imports `leaflet`/`react-leaflet` at its
- * top level, so the only way those never reach the server bundle (or a
- * browser that never picks Same-day) is to wrap the import itself in
- * `next/dynamic(..., { ssr: false })`, here, where it is actually used.
+ * The map stays dynamically loaded at its call site so shoppers who never
+ * choose Same-day do not pay for the keyless vector-map integration.
  */
 const DeliveryMap = dynamic(() => import('./DeliveryMap'), {
   ssr: false,
@@ -87,35 +83,7 @@ export default function DeliveryMethodStep({
   locationError,
   now,
 }: DeliveryMethodStepProps) {
-  const [geoError, setGeoError] = React.useState<string | null>(null);
-  const [locating, setLocating] = React.useState(false);
   const window_ = sameDayWindow(settings, now);
-
-  function useMyLocation() {
-    if (!navigator.geolocation) {
-      setGeoError('Your browser does not support location — drop a pin or paste a link instead.');
-      return;
-    }
-    setGeoError(null);
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false);
-        onPinChange({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      (err) => {
-        setLocating(false);
-        // Permission denied, position unavailable, or timeout — every case
-        // is handled the same way: an inline message, never a thrown error.
-        setGeoError(
-          err.code === err.PERMISSION_DENIED
-            ? 'Location access was denied. Drop a pin on the map or paste a Google Maps link instead.'
-            : 'Could not get your location. Drop a pin on the map or paste a Google Maps link instead.',
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10_000 },
-    );
-  }
 
   if (!available.standard && !available.sameDay) return null;
 
@@ -191,20 +159,7 @@ export default function DeliveryMethodStep({
                 Exact drop-off location
               </p>
 
-              <DeliveryMap pin={pin} onChange={onPinChange} />
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={useMyLocation}
-                disabled={locating}
-                style={{ alignSelf: 'flex-start' }}
-              >
-                {locating ? 'Locating…' : 'Use my location'}
-              </Button>
-
-              {geoError && <CheckoutAlert variant="info">{geoError}</CheckoutAlert>}
+              <DeliveryMap pin={pin} onChange={onPinChange} onConfirmedMapsUrlChange={onPastedMapsUrlChange} />
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label

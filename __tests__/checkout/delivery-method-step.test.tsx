@@ -140,4 +140,21 @@ describe('DeliveryMethodStep', () => {
 
     expect(screen.getByText('Add your delivery location.')).toBeInTheDocument();
   });
+
+  it('keeps the pasted Google Maps link fallback visible when the map has no browser key', () => {
+    render(
+      <DeliveryMethodStep
+        settings={SETTINGS}
+        available={{ standard: true, sameDay: true, standardOnly: false }}
+        method="SAME_DAY"
+        onMethodChange={jest.fn()}
+        standardFeeLabel="100.00 EGP"
+        pin={null}
+        onPinChange={jest.fn()}
+        pastedMapsUrl=""
+        onPastedMapsUrlChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByLabelText(/paste a google maps link/i)).toBeVisible();
+  });
 });
