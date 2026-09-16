@@ -15,6 +15,7 @@
 import React from 'react';
 import BottleSVG from '@/components/ui/BottleSVG';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
+import StorefrontVideo from '@/components/storefront/StorefrontVideo';
 import { useScrollReveal } from '@/lib/motion/hooks';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import type { ResolvedSection } from '@/lib/api/storefront';
@@ -61,34 +62,23 @@ export default function EditorialBlock({ section }: { section: JournalSection })
         >
           {section.imageUrl && section.mediaKind === 'video' ? (
             /*
-             * A journal video (backend#89). Not autoplaying, on purpose: this
-             * block sits below the fold and is not the LCP element, and #7
-             * measured the product page as bandwidth-bound — a clip that starts
-             * downloading on its own competes with everything above it. The
-             * shopper presses play.
+             * A journal video (backend#89), in the storefront player (#135):
+             * it starts on its own, plays once and offers replay.
              *
-             * `preload="none"` when there is a poster, so the page pays zero
-             * video bytes until then. Without one, `metadata` fetches just
-             * enough for the browser to paint a first frame instead of an empty
-             * crimson box.
+             * This block used to wait for the shopper to press play, because it
+             * sits below the fold on a page #7 measured as bandwidth-bound. The
+             * player keeps that reason whole — nothing but the poster loads
+             * until the block is within half a viewport — so the owner's
+             * "autoplay, like Apple" costs nothing above the fold.
              *
              * No `mr-hero-drift` — the slow drift that suits a still would move
-             * the video's own controls out from under the pointer.
+             * the ring out from under the pointer.
              */
-            <video
+            <StorefrontVideo
+              key={section.imageUrl}
               src={section.imageUrl}
-              poster={section.posterUrl ?? undefined}
-              controls
-              playsInline
-              preload={section.posterUrl ? 'none' : 'metadata'}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-              }}
+              poster={section.posterUrl}
+              label={section.title}
             />
           ) : section.imageUrl ? (
             // Never a bare image tag — an editorial photograph is swapped from

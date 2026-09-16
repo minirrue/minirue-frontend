@@ -1,14 +1,21 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import EditorialBlock from '@/components/storefront/EditorialBlock';
 import type { ResolvedSection } from '@/lib/api/storefront';
+import { installMockIO, nearObserver, viewObserver } from './fixtures/intersection-observer';
 
 /**
  * A journal block can hold a video (backend#89).
  *
  * The dashboard's gallery picker always offered videos, and the backend
  * resolved one to a signed movie URL — which this block then painted into an
- * image tag. It now plays it, and a photo block is untouched.
+ * image tag. It plays it now, through the storefront player (#135): the owner
+ * wants every storefront video to start on its own like apple.com's.
+ *
+ * That reverses this block's earlier "the shopper presses play" rule, whose
+ * reason was bandwidth: the block sits below the fold on a page #7 measured as
+ * bandwidth-bound. The player keeps that reason intact — nothing but the poster
+ * loads until the block is near the viewport — and that is what is pinned here.
  */
 
 type Journal = Extract<ResolvedSection, { type: 'journal' }>;
@@ -26,40 +33,52 @@ const base: Journal = {
   ctaHref: null,
 };
 
+const clip: Journal = {
+  ...base,
+  imageUrl: 'https://s3.test/clip.mp4?signed',
+  mediaKind: 'video',
+  posterUrl: 'https://img.test/clip-poster.webp',
+};
+
+let restoreIO: () => void;
+let play: jest.SpyInstance;
+beforeEach(() => {
+  restoreIO = installMockIO();
+  play = jest.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+  jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+});
+afterEach(() => {
+  restoreIO();
+  jest.restoreAllMocks();
+});
+
 describe('EditorialBlock media', () => {
-  it('plays a video — with controls, no autoplay, and its poster', () => {
-    const { container } = render(
-      <EditorialBlock
-        section={{
-          ...base,
-          imageUrl: 'https://s3.test/clip.mp4?signed',
-          mediaKind: 'video',
-          posterUrl: 'https://img.test/clip-poster.webp',
-        }}
-      />,
-    );
+  it('shows a video poster-first, with the ring control and no browser controls', () => {
+    const { container } = render(<EditorialBlock section={clip} />);
 
     const video = container.querySelector('video');
     expect(video).not.toBeNull();
-    expect(video).toHaveAttribute('src', 'https://s3.test/clip.mp4?signed');
     expect(video).toHaveAttribute('poster', 'https://img.test/clip-poster.webp');
-    expect(video).toHaveAttribute('controls');
-    // Below the fold on a bandwidth-bound page (#7): the shopper starts it.
-    expect(video).not.toHaveAttribute('autoplay');
-    // With a poster to show, not a single video byte before play.
+    expect(video).not.toHaveAttribute('controls');
+    // Below the fold on a bandwidth-bound page (#7): not a byte before it is near.
+    expect(video).not.toHaveAttribute('src');
     expect(video).toHaveAttribute('preload', 'none');
+    expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument();
     // And the movie is never handed to an image element.
     expect(container.querySelector('img[src*="clip.mp4"]')).toBeNull();
   });
 
-  it('fetches just enough to paint a first frame when there is no poster', () => {
-    const { container } = render(
-      <EditorialBlock
-        section={{ ...base, imageUrl: 'https://s3.test/bare.mp4', mediaKind: 'video', posterUrl: null }}
-      />,
-    );
+  it('loads when scrolled near, and plays once in view — without looping', () => {
+    const { container } = render(<EditorialBlock section={clip} />);
+    const video = container.querySelector('video') as HTMLVideoElement;
 
-    expect(container.querySelector('video')).toHaveAttribute('preload', 'metadata');
+    act(() => nearObserver().fire(true));
+    expect(video.getAttribute('src')).toBe('https://s3.test/clip.mp4?signed');
+    expect(play).not.toHaveBeenCalled();
+
+    act(() => viewObserver().fire(true));
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(video.loop).toBe(false);
   });
 
   it('renders a photo as before, including from a backend that sends no kind', () => {
@@ -67,5 +86,6 @@ describe('EditorialBlock media', () => {
     const { container } = render(<EditorialBlock section={base} />);
 
     expect(container.querySelector('video')).toBeNull();
+    expect(screen.queryByRole('button', { name: /video/ })).toBeNull();
   });
 });

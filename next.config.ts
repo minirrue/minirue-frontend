@@ -18,6 +18,10 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
+  // Without this, default-src 'self' governs <video>: every storefront clip
+  // (object storage, another https host) and every blob: review preview was
+  // refused before a byte loaded (#135).
+  "media-src 'self' blob: https:",
   `connect-src 'self' https:${isProd ? "" : " ws: wss: http:"}`,
   "frame-src 'self'",
   "upgrade-insecure-requests",

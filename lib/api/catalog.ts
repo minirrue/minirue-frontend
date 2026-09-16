@@ -107,6 +107,22 @@ export interface MediaAsset {
   role?: 'COVER' | 'CAROUSEL' | 'CLOSING';
   /** Set when this image belongs to one variant rather than the product. */
   variantId?: string | null;
+  /**
+   * The linked gallery item's real kind (dashboard#51). Absent from a legacy
+   * row — read that as `image`. For a READY video, `url` is the movie itself,
+   * so anything drawing an image must go through `mediaImageUrl()`.
+   */
+  kind?: 'image' | 'video';
+  /** A video's poster frame (an image). Null for a photo or a poster-less video. */
+  posterUrl?: string | null;
+  /** `processing` / `failed` only for a video still (or never) converted to MP4;
+   * then `url` is its still, not a movie. Absent means ready. */
+  status?: 'ready' | 'processing' | 'failed';
+}
+
+/** A product video the storefront player can play now (#135). */
+export function isPlayableVideo(media: MediaAsset): media is MediaAsset & { url: string } {
+  return media.kind === 'video' && (media.status ?? 'ready') === 'ready' && Boolean(media.url);
 }
 
 export interface ApiProduct {
@@ -253,6 +269,10 @@ export function mediaImageUrl(
   media: MediaAsset,
   opts: { w?: number; h?: number; q?: number } = {},
 ): string | null {
+  // A ready video's `url` is the movie: every image surface (cards, cart,
+  // search, SEO) gets its poster instead, or nothing (#135). A converting one
+  // is already served as its still, so its `url` stands.
+  if (isPlayableVideo(media)) return media.posterUrl ?? null;
   if (media.url) return media.url;
   if (media.cloudinaryPublicId) return cloudinaryUrl(media.cloudinaryPublicId, opts);
   return null;

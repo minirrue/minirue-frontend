@@ -4,8 +4,9 @@ import React from 'react';
 import Image from 'next/image';
 import Icon from '@/components/ui/Icon';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import StorefrontVideo from '@/components/storefront/StorefrontVideo';
 import type { ApiProduct, MediaAsset } from '@/lib/api/catalog';
-import { mediaImageUrl } from '@/lib/api/catalog';
+import { isPlayableVideo, mediaImageUrl } from '@/lib/api/catalog';
 
 interface ProductGalleryProps {
   product: ApiProduct;
@@ -255,8 +256,9 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
           // as-is — live for the legacy Cloudinary-linked assets that still
           // fall through to it.) 1600 matches the `rs:fit:1600` the gallery
           // pipeline asks imgproxy for, so the two sources agree.
-          const src = mediaImageUrl(m, { w: 1600 });
-          if (!src) return null;
+          const video = isPlayableVideo(m) ? m : null;
+          const src = video ? null : mediaImageUrl(m, { w: 1600 });
+          if (!video && !src) return null;
           return (
             <div
               key={m.id}
@@ -267,8 +269,25 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                 data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
                 className="relative aspect-[4/5] w-full lg:aspect-square"
               >
+                {video ? (
+                  /*
+                   * A product video, in the storefront player (#135). The
+                   * strip clips its slides, so a video one swipe away is not
+                   * "near" to the player's observer and costs nothing but its
+                   * poster until it is swiped in. The ring clears the dots
+                   * pill, which floats centred over the same bottom edge.
+                   */
+                  <StorefrontVideo
+                    key={video.url}
+                    src={video.url}
+                    poster={video.posterUrl}
+                    label={m.altText || product.name}
+                    preloadPoster={i === 0}
+                    controlStyle={{ bottom: 'max(14px, env(safe-area-inset-bottom))' }}
+                  />
+                ) : (
                 <Image
-                  src={src}
+                  src={src ?? ''}
                   alt={m.altText ?? product.name}
                   fill
                   priority={i === 0}
@@ -307,6 +326,7 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                   // instead of the strip.
                   draggable={false}
                 />
+                )}
               </div>
             </div>
           );

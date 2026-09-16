@@ -2,8 +2,9 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProductGallery from '@/components/storefront/ProductGallery';
-import { carouselMedia } from '@/lib/api/catalog';
+import { carouselMedia, mediaImageUrl, type MediaAsset } from '@/lib/api/catalog';
 import { PRODUCT_FIXTURE } from './fixtures/product';
+import { installMockIO } from './fixtures/intersection-observer';
 
 /**
  * Before this, a phone got a scroll-snap strip with nothing on screen to say a
@@ -103,5 +104,68 @@ describe('ProductGallery', () => {
     expect(screen.queryByRole('button', { name: /go to photo/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /next slide/i })).toBeNull();
     expect(screen.queryByText(/1 \/ 1/)).toBeNull();
+  });
+
+  /**
+   * #135 — a product video plays in the storefront player.
+   *
+   * The API has sent `kind`, `posterUrl` and `status` on gallery media since
+   * dashboard#51, but the storefront read `url` only, so a ready product video
+   * — whose `url` IS the movie — was handed to an image tag.
+   */
+  describe('video items (#135)', () => {
+    const clip: MediaAsset = {
+      ...items[1],
+      id: 'm-clip',
+      url: 'https://s3.test/clip.mp4?signed',
+      kind: 'video',
+      status: 'ready',
+      posterUrl: 'https://img.test/clip-poster.webp',
+    };
+    let restoreIO: () => void;
+    beforeEach(() => {
+      restoreIO = installMockIO();
+      jest.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+      jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    });
+    afterEach(() => {
+      restoreIO();
+      jest.restoreAllMocks();
+    });
+
+    it('renders a ready video as a player with its poster and ring, never as an image', () => {
+      const { container } = render(
+        <ProductGallery product={PRODUCT_FIXTURE} items={[items[0], clip, items[2]]} />,
+      );
+
+      const video = container.querySelector('video');
+      expect(video).toHaveAttribute('poster', 'https://img.test/clip-poster.webp');
+      expect(video).not.toHaveAttribute('controls');
+      expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument();
+      expect(container.querySelector('img[src*="clip.mp4"]')).toBeNull();
+      expect(screen.getAllByRole('img')).toHaveLength(2);
+    });
+
+    it('shows a video that is still converting as its still', () => {
+      const converting: MediaAsset = { ...clip, status: 'processing', url: 'https://img.test/clip-poster.webp' };
+      const { container } = render(
+        <ProductGallery product={PRODUCT_FIXTURE} items={[items[0], converting]} />,
+      );
+
+      expect(container.querySelector('video')).toBeNull();
+      expect(screen.getAllByRole('img')).toHaveLength(2);
+    });
+
+    it('gives every image surface the poster, not the movie', () => {
+      expect(mediaImageUrl(clip)).toBe('https://img.test/clip-poster.webp');
+      // Still converting: `url` is already the still.
+      expect(mediaImageUrl({ ...clip, status: 'processing', url: 'https://img.test/still.webp', posterUrl: null })).toBe(
+        'https://img.test/still.webp',
+      );
+      // Ready with no poster: nothing an image tag can show.
+      expect(mediaImageUrl({ ...clip, posterUrl: null })).toBeNull();
+      // A photo is untouched.
+      expect(mediaImageUrl({ ...items[1], url: 'https://img.test/p.webp' })).toBe('https://img.test/p.webp');
+    });
   });
 });
