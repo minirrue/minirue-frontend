@@ -4,9 +4,31 @@
  * changing it). Anything that is not all digits disables the pixel rather
  * than being interpolated into an inline script.
  */
-const raw = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || '1734924024399668';
+const raw = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || '2165922481025159';
 
 export const META_PIXEL_ID: string | null = /^\d+$/.test(raw) ? raw : null;
+
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void;
+  }
+}
+
+type MetaStandardEvent = 'ViewContent' | 'AddToCart' | 'InitiateCheckout' | 'Purchase';
+
+/** Send a standard ecommerce event without ever affecting the shopping flow. */
+export function trackMetaPixelEvent(
+  name: MetaStandardEvent,
+  params: Record<string, unknown>,
+  eventId: string,
+): void {
+  try {
+    if (!META_PIXEL_ID || typeof window === 'undefined') return;
+    window.fbq?.('track', name, params, { eventID: eventId });
+  } catch {
+    // Advertising telemetry must never break the storefront.
+  }
+}
 
 /** Meta's base code, verbatim from Events Manager, with the ID filled in. */
 export function metaPixelBaseCode(id: string): string {

@@ -34,6 +34,7 @@ import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList'
 import OrderDeliveryInfo from '@/components/orders/OrderDeliveryInfo';
 import { formatMoney } from '@/lib/format/money';
 import { track } from '@/lib/analytics';
+import { trackMetaPixelEvent } from '@/lib/analytics/meta-pixel';
 import { isAuthenticated } from '@/lib/auth/tokens';
 import { orderBuyer, type OrderBuyer } from '@/lib/checkout/order-buyer';
 
@@ -232,6 +233,17 @@ export default function CheckoutConfirmationPage() {
     // only find the one that exists.
     void placeWithReplay(() => apiCheckout(body, idempotencyKey), REPLAY_DELAYS_MS)
       .then((order) => {
+        trackMetaPixelEvent(
+          'Purchase',
+          {
+            value: Number(order.totalAmount),
+            currency: order.totalCurrency,
+            content_ids: (order.items ?? []).map((item) => item.variantId),
+            content_type: 'product',
+            num_items: (order.items ?? []).reduce((sum, item) => sum + item.qty, 0),
+          },
+          `purchase:${order.id}`,
+        );
         // Remembered BEFORE the session is spent, so a refresh from here on
         // shows this order rather than an abandoned checkout.
         savePlacedOrder(order, idempotencyKey);

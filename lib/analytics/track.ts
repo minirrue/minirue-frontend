@@ -9,6 +9,7 @@ import { ANALYTICS_DISABLED, MAX_BATCH_SIZE } from './config';
 import { dequeueAll, enqueue, requeue, shouldFlushForSize } from './queue';
 import { getTabSessionId } from './session';
 import { sendBeacon, sendFetch } from './transport';
+import { trackMetaPixelEvent } from './meta-pixel';
 
 const PAYLOAD_VERSION = 1 as const;
 
@@ -56,6 +57,41 @@ export function track<K extends AnalyticsEventName>(name: K, props: AnalyticsPro
     };
 
     enqueue(event);
+
+    const metaProps = props as Record<string, unknown>;
+    if (name === 'product_view') {
+      trackMetaPixelEvent(
+        'ViewContent',
+        {
+          content_ids: [metaProps.productId],
+          content_type: 'product',
+          value: Number(metaProps.priceMinor) / 100,
+          currency: 'EGP',
+        },
+        event.id,
+      );
+    } else if (name === 'add_to_cart') {
+      trackMetaPixelEvent(
+        'AddToCart',
+        {
+          content_ids: [metaProps.productId],
+          content_type: 'product',
+          value: (Number(metaProps.priceMinor) * Number(metaProps.qty)) / 100,
+          currency: 'EGP',
+        },
+        event.id,
+      );
+    } else if (name === 'begin_checkout') {
+      trackMetaPixelEvent(
+        'InitiateCheckout',
+        {
+          value: Number(metaProps.subtotalMinor) / 100,
+          currency: 'EGP',
+          num_items: Number(metaProps.itemCount),
+        },
+        event.id,
+      );
+    }
 
     if (shouldFlushForSize(MAX_BATCH_SIZE)) {
       void flush();
