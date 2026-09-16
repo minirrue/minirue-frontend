@@ -9,6 +9,11 @@ import {
   resolveGovernorateRates,
   type EffectiveShipping,
 } from '@/lib/checkout/governorate-rates';
+import {
+  DEFAULT_DELIVERY_SETTINGS,
+  resolveDeliverySettings,
+  type DeliverySettings,
+} from '@/lib/checkout/delivery';
 
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
 
@@ -194,6 +199,14 @@ export interface PublicSettings {
   shipping?: PublicShippingSettings | null;
   /** Present since #83's backend half. Optional for the same reason. */
   payments?: PublicPaymentSettings | null;
+  /**
+   * Standard / Same-day delivery (frontend#163, backend#186) — the block
+   * `resolveDeliverySettings` guards. Typed `unknown` deliberately, same
+   * reasoning as `shipping.rates`: the stored document may not match the
+   * write schema that produced it, and `resolveDeliverySettings` is the only
+   * thing allowed to decide what is usable.
+   */
+  delivery?: unknown;
 }
 
 export async function apiGetPublicSettings(): Promise<PublicSettings> {
@@ -350,6 +363,21 @@ export async function loadCodMaxOrderMinor(): Promise<number | null> {
       : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Standard / Same-day delivery settings (frontend#163), read the same way as
+ * every other block on this endpoint: a failed request, an older backend
+ * with no `delivery` key, or a payload that does not match the shape are all
+ * `DEFAULT_DELIVERY_SETTINGS` — never a thrown error. The server recomputes
+ * the real eligibility and fee at Place order either way.
+ */
+export async function loadDeliverySettings(): Promise<DeliverySettings> {
+  try {
+    return resolveDeliverySettings((await apiGetPublicSettings()).delivery);
+  } catch {
+    return DEFAULT_DELIVERY_SETTINGS;
   }
 }
 

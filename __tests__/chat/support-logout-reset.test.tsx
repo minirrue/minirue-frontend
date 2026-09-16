@@ -130,6 +130,9 @@ describe('SupportWidget — logout clears the widget completely (Task 15b)', () 
     await waitFor(() =>
       expect(screen.queryByText('Old account message')).not.toBeInTheDocument(),
     );
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: /live support chat/i })).not.toHaveAttribute('inert'),
+    );
 
     await user.type(screen.getByLabelText(/type your message/i), 'hello');
     await user.click(screen.getByRole('button', { name: /^send message$/i }));

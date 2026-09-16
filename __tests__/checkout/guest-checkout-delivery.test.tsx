@@ -37,6 +37,7 @@ jest.mock('@/lib/hooks/use-auth', () => ({
 const mockUseCustomerAddresses = jest.fn();
 jest.mock('@/lib/hooks/use-customer', () => ({
   useCustomerAddresses: () => mockUseCustomerAddresses(),
+  useUpdateCustomerAddress: () => ({ mutateAsync: jest.fn() }),
 }));
 
 jest.mock('@/components/storefront/cart/CartContext', () => ({
@@ -138,7 +139,8 @@ describe('checkout delivery step — guest', () => {
     await user.type(screen.getByLabelText(/^phone$/i), '+201012431350');
     await user.type(screen.getByLabelText(/^address$/i), '12 Nile Street');
     await user.type(screen.getByLabelText(/^city$/i), 'Al Giza');
-    await user.type(screen.getByLabelText(/^governorate$/i), 'Giza');
+    // Closed-list select since frontend#158 — no longer free text.
+    await user.selectOptions(screen.getByLabelText(/^governorate$/i), 'Giza');
 
     await user.click(screen.getByRole('button', { name: /continue to payment/i }));
 
@@ -155,7 +157,7 @@ describe('checkout delivery step — guest', () => {
       phone: '+201012431350',
       line1: '12 Nile Street',
       city: 'Al Giza',
-      governorate: 'Giza',
+      governorate: 'GIZA',
     });
     expect(saved.shippingAddressId).toBeUndefined();
   });

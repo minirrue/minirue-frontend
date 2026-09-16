@@ -94,6 +94,26 @@ export async function apiCreateAddress(input: AddressInput): Promise<Address> {
   });
 }
 
+/**
+ * Full update of a saved address — frontend#163's fix for the owner's
+ * "a signed-in user can edit ANY saved address, not only the default one"
+ * requirement. `PATCH /v1/customers/me/addresses/:id` already existed on the
+ * backend (confirmed: an unauthenticated PATCH returns 401, not 404) with no
+ * frontend client for it — only the narrower `set-default` PATCH was wired
+ * up. `Partial<AddressInput>` because an edit form may send only the fields
+ * it actually changed.
+ */
+export async function apiUpdateAddress(
+  id: string,
+  input: Partial<AddressInput>,
+): Promise<Address> {
+  return apiFetch<Address>(`/customers/me/addresses/${id}`, {
+    method: 'PATCH',
+    auth: true,
+    body: JSON.stringify(input),
+  });
+}
+
 export async function apiDeleteAddress(id: string): Promise<void> {
   return apiFetch<void>(`/customers/me/addresses/${id}`, {
     method: 'DELETE',

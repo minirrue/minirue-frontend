@@ -6,20 +6,30 @@ import type { EffectiveShipping } from '@/lib/checkout/governorate-rates';
 import { DEFAULT_EFFECTIVE_SHIPPING } from '@/lib/checkout/governorate-rates';
 
 /**
- * #83, storefront half — the governorate becomes a `<select>` and the summary
- * follows it.
+ * #83 + #158/#163 — the governorate field, on the storefront.
  *
- * The unit tests next door pin the arithmetic. These pin the three things a
- * shopper can actually be harmed by, and that no amount of correct arithmetic
- * prevents on its own:
+ * This file used to pin `GovernorateSelect` (components/checkout/GovernorateSelect.tsx),
+ * a free-text box that upgraded to a `<select>` sourced from the admin's
+ * per-governorate rate TABLE, with an unmatched value kept verbatim as a
+ * fallback option. Frontend#158/#163 retired that widget for the guest
+ * checkout field specifically: the governorate is now always one of the 27
+ * CLOSED keys (`lib/checkout/governorates.ts`), via `GovernorateKeySelect`,
+ * independent of whatever the admin's rate table does or does not contain —
+ * free text is gone, full stop. That change closed a live production
+ * incident (a guest's raw typed text, "1111111", reaching checkout as the
+ * governorate and being rejected by the backend's enum validation).
  *
- *  1. the summary must MOVE when the select does, or the shop has a picker
- *     that changes the invoice and nothing else;
- *  2. an address whose free text matches nothing must still check out, and
- *     must be able to SEE that it matched nothing — the silent global-rate
- *     fallback is the defect the issue is about;
- *  3. a shop with no rate table (which is every deploy today) must get the
- *     field it has always had.
+ * These cases now pin:
+ *
+ *  1. the field is ALWAYS the closed 27-key select — with a rate table
+ *     published or not, and whether or not a given key has its own rate row;
+ *  2. the summary still follows the selected governorate, because the rate
+ *     table lookup (#83) is unchanged — only the INPUT widget that feeds it
+ *     changed, from free text to a closed key;
+ *  3. a session left over from before this shipped, carrying legacy free
+ *     text that does not resolve to any of the 27 keys, is never silently
+ *     kept — the shopper is forced to pick a real governorate before they
+ *     can continue.
  */
 
 const mockPush = jest.fn();
@@ -34,6 +44,7 @@ jest.mock('@/lib/hooks/use-auth', () => ({
 
 jest.mock('@/lib/hooks/use-customer', () => ({
   useCustomerAddresses: () => ({ data: undefined, isLoading: false }),
+  useUpdateCustomerAddress: () => ({ mutateAsync: jest.fn() }),
 }));
 
 jest.mock('@/components/storefront/cart/CartContext', () => ({
@@ -53,6 +64,12 @@ jest.mock('@/components/checkout/CheckoutShell', () => ({
 }));
 
 jest.mock('@/lib/analytics', () => ({ track: jest.fn() }));
+
+const mockLoadDeliverySettings = jest.fn();
+jest.mock('@/lib/api/settings', () => ({
+  ...jest.requireActual('@/lib/api/settings'),
+  loadDeliverySettings: (...args: unknown[]) => mockLoadDeliverySettings(...args),
+}));
 
 /**
  * The policy is injected rather than fetched.
@@ -90,6 +107,19 @@ beforeEach(() => {
   jest.clearAllMocks();
   window.sessionStorage.clear();
   mockEffective = DEFAULT_EFFECTIVE_SHIPPING;
+  mockLoadDeliverySettings.mockResolvedValue({
+    standard: { enabled: true, etaLabel: '2–5 working days' },
+    sameDay: {
+      enabled: false,
+      governorates: [],
+      windowStart: '19:00',
+      windowEnd: '24:00',
+      cutoff: '17:00',
+      feeRangeMinor: { min: 9000, max: 16000 },
+      disclaimer: '',
+      timezone: 'Africa/Cairo',
+    },
+  });
 });
 
 /**
@@ -106,8 +136,8 @@ function shippingRowText(): string {
   return row?.textContent ?? '';
 }
 
-describe('the governorate field', () => {
-  it('is a SELECT of the shop’s own governorates, not a text box', async () => {
+describe('the governorate field is the closed 27-key select (#158/#163)', () => {
+  it('is a SELECT of all 27 governorates, with a rate table published', async () => {
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
 
@@ -118,37 +148,35 @@ describe('the governorate field', () => {
       .getAllByRole('option')
       .map((o) => o.textContent);
     expect(options).toEqual(
-      expect.arrayContaining(['Cairo', 'Giza', 'Aswan']),
+      expect.arrayContaining(['Cairo', 'Giza', 'Aswan', 'North Sinai']),
     );
   });
 
-  it('does not offer a DISABLED governorate', async () => {
-    // `minFeeCents` excludes disabled rows, so offering one would let a shopper
-    // pick a fee the bag's "from EGP X" never counted. DECISION 3 says the
-    // backend still charges that row if an address already names it — hiding it
-    // from this list must not, and does not, change that.
+  it('offers a governorate even when its OWN rate row is disabled', async () => {
+    // The closed enum is independent of the admin's rate table (#158): a
+    // disabled row still means "no special price", never "not deliverable".
+    // The old widget hid it from the picker; this one never does, and the
+    // global rate applies (DECISION 3 of #83, unchanged).
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
 
     const select = await screen.findByLabelText(/governorate/i);
     expect(
-      within(select as HTMLSelectElement).queryByRole('option', {
-        name: 'North Sinai',
-      }),
-    ).not.toBeInTheDocument();
+      within(select as HTMLSelectElement).getByRole('option', { name: 'North Sinai' }),
+    ).toBeInTheDocument();
   });
 
-  it('stays a free-text input when the shop publishes no table', async () => {
-    // Every deploy today. The back-compat guarantee of #83 is a code path here,
-    // not a promise in a comment.
+  it('is still a SELECT of all 27 governorates when the shop publishes no table', async () => {
+    // Every deploy today. Unlike the retired widget, there is no free-text
+    // fallback any more — the closed enum applies with or without a table.
     mockEffective = DEFAULT_EFFECTIVE_SHIPPING;
     render(<CheckoutDeliveryPage />);
 
-    const field = await screen.findByLabelText(/governorate/i);
-    expect(field.tagName).toBe('INPUT');
-
-    await userEvent.type(field, 'Cairo');
-    expect(field).toHaveValue('Cairo');
+    const select = await screen.findByLabelText(/governorate/i);
+    expect(select.tagName).toBe('SELECT');
+    expect(
+      within(select as HTMLSelectElement).getAllByRole('option').length,
+    ).toBeGreaterThanOrEqual(27);
   });
 });
 
@@ -164,38 +192,38 @@ describe('the summary follows the select', () => {
     expect(shippingRowText()).toMatch(/from/i);
     expect(shippingRowText()).toContain('60');
 
-    await userEvent.selectOptions(select, 'cairo');
+    await userEvent.selectOptions(select, 'Cairo');
     await waitFor(() => expect(shippingRowText()).toContain('60'));
     expect(shippingRowText()).not.toMatch(/from/i);
     expect(shippingRowText()).toContain('Cairo');
 
-    await userEvent.selectOptions(select, 'aswan');
+    await userEvent.selectOptions(select, 'Aswan');
     await waitFor(() => expect(shippingRowText()).toContain('120'));
     expect(shippingRowText()).toContain('Aswan');
   });
 
-  it('stores the LABEL as free text, so the server matches it', async () => {
-    // Not the key: `north-sinai` is not something to print on a parcel, and the
-    // backend sweeps KEY then LABEL across the whole table, so a label is
-    // unambiguous.
+  it('stores the closed KEY, not free text', async () => {
+    // Frontend#158: the value the guest's governorate field carries — and
+    // sends to checkout — is now the enum key, e.g. "GIZA", never a label.
     mockEffective = RATES;
     render(<CheckoutDeliveryPage />);
 
     const select = (await screen.findByLabelText(/governorate/i)) as HTMLSelectElement;
-    await userEvent.selectOptions(select, 'giza');
-    expect(select.value).toBe('giza');
-    expect(within(select).getByRole('option', { name: 'Giza' })).toBeInTheDocument();
+    await userEvent.selectOptions(select, 'Giza');
+    expect(select.value).toBe('GIZA');
   });
 });
 
-describe('free text that matches nothing', () => {
+describe('a legacy session with an unmatched governorate (pre-#158)', () => {
   /**
-   * The case #83 calls "the same invisible class of defect as the hardcoded
-   * EGP 50 that #79 removed". A saved address holding "Cairo Governorate"
-   * matches via normalisation; one holding something the admin never mapped
-   * does not — and what happens then is the whole decision.
+   * The case this closed: a session saved before #158 shipped (or a stale
+   * tab) can still carry free text — "Sixth of October" is a real place, but
+   * not one of the 27 governorate keys. The old widget kept it as a visible,
+   * checkout-able "Other" option. The new one never does: the select simply
+   * shows no selection, and `validateGuest` (now `resolveGovernorateKey`-
+   * backed, not a length check) blocks Continue until a real key is picked.
    */
-  it('keeps the shopper’s own words as a selected option', async () => {
+  it('renders with nothing selected, rather than keeping the stale text', async () => {
     mockEffective = RATES;
     window.sessionStorage.setItem(
       'mr-checkout',
@@ -215,48 +243,11 @@ describe('free text that matches nothing', () => {
     render(<CheckoutDeliveryPage />);
 
     const select = (await screen.findByLabelText(/governorate/i)) as HTMLSelectElement;
-    await waitFor(() => expect(select.value).toBe('__unmatched__'));
-
-    // It is THEIR text on the option, not a generic "Other" — and it is not
-    // the first option in the list, which is the silent snap this avoids.
-    const chosen = within(select).getByRole('option', { selected: true });
-    expect(chosen.textContent).toContain('Sixth of October');
-    expect(chosen.textContent).toMatch(/not in our delivery list/i);
+    await waitFor(() => expect(select.value).toBe(''));
   });
 
-  it('says out loud that the standard rate applies, and shows the figure', async () => {
-    mockEffective = RATES;
-    window.sessionStorage.setItem(
-      'mr-checkout',
-      JSON.stringify({
-        guest: {
-          fullName: 'Nour Hassan',
-          email: 'nour@example.com',
-          phone: '01000000000',
-          line1: '12 Sharia Qasr al-Nil',
-          city: 'Sheikh Zayed',
-          governorate: 'Sixth of October',
-        },
-      }),
-    );
-
-    render(<CheckoutDeliveryPage />);
-
-    await screen.findByLabelText(/governorate/i);
-    expect(
-      await screen.findByText(/not in our delivery list/i, { selector: 'span' }),
-    ).toBeInTheDocument();
-
-
-    // The global rate, shown as a firm number — because it IS firm: this is
-    // what the server will charge for this exact text.
-    await waitFor(() => expect(shippingRowText()).toContain('100'));
-    expect(shippingRowText()).not.toMatch(/from/i);
-  });
-
-  it('still checks out', async () => {
-    // The line that matters more than any of the copy above. An address that
-    // has existed since before the rate table must not be blocked by it.
+  it('blocks Continue until a real governorate is chosen, then proceeds', async () => {
+    const user = userEvent.setup();
     mockEffective = RATES;
     window.sessionStorage.setItem(
       'mr-checkout',
@@ -275,19 +266,18 @@ describe('free text that matches nothing', () => {
     );
 
     render(<CheckoutDeliveryPage />);
-    await screen.findByLabelText(/governorate/i);
+    const select = (await screen.findByLabelText(/governorate/i)) as HTMLSelectElement;
 
-    await userEvent.click(
-      screen.getByRole('button', { name: /continue to payment/i }),
-    );
+    await user.click(screen.getByRole('button', { name: /continue to payment/i }));
+    expect(mockPush).not.toHaveBeenCalledWith('/checkout/payment');
+    expect(await screen.findByText(/select your governorate/i)).toBeInTheDocument();
 
+    await user.selectOptions(select, 'Giza');
+    await user.click(screen.getByRole('button', { name: /continue to payment/i }));
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/checkout/payment'));
 
-    // And the text reaches the next step unchanged — not normalised, not
-    // swapped for a key, not silently replaced with the first option.
     const saved = JSON.parse(window.sessionStorage.getItem('mr-checkout') ?? '{}');
-    expect(saved.guest.governorate).toBe('Sixth of October');
-    expect(saved.shippingGovernorate).toBe('Sixth of October');
+    expect(saved.guest.governorate).toBe('GIZA');
   });
 });
 
@@ -316,7 +306,7 @@ describe('cash on delivery, at the address step', () => {
     // 450 + 60 = 510 > 500. The warning names the place, not just the number,
     // because "your order is too big" is not actionable and "Aswan costs more"
     // is.
-    await userEvent.selectOptions(select, 'cairo');
+    await userEvent.selectOptions(select, 'Cairo');
     const alerts = await screen.findAllByRole('alert');
     const cod = alerts.find((a) => /cash on delivery/i.test(a.textContent ?? ''));
     expect(cod).toBeDefined();
@@ -349,8 +339,8 @@ describe('cash on delivery, at the address step', () => {
     render(<CheckoutDeliveryPage />);
 
     const select = await screen.findByLabelText(/governorate/i);
-    await userEvent.selectOptions(select, 'cairo');
-    await waitFor(() => expect(select).toHaveValue('cairo'));
+    await userEvent.selectOptions(select, 'Cairo');
+    await waitFor(() => expect(select).toHaveValue('CAIRO'));
     // The same selection renders the COD alert within this window when a limit
     // IS set (the first test above), so its absence here is not a timing fluke.
     await new Promise((resolve) => setTimeout(resolve, 100));

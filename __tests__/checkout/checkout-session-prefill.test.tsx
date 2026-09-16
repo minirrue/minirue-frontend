@@ -46,6 +46,7 @@ jest.mock('@/components/storefront/cart/CartContext', () => ({
 const mockUseCustomerAddresses = jest.fn();
 jest.mock('@/lib/hooks/use-customer', () => ({
   useCustomerAddresses: () => mockUseCustomerAddresses(),
+  useUpdateCustomerAddress: () => ({ mutateAsync: jest.fn() }),
 }));
 
 jest.mock('@/components/checkout/CheckoutShell', () => ({

@@ -127,7 +127,7 @@ beforeEach(() => {
   mockPush.mockClear();
   mockApiGetCart.mockReset();
   mockApiCheckout.mockReset();
-  saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD' });
+  saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD', deliveryMethod: 'STANDARD' });
 });
 
 afterEach(() => {
@@ -220,7 +220,7 @@ describe('checkout step 4 on a cold load (#121)', () => {
     first.unmount();
 
     // Shopping again in the same tab: a fresh session, a fresh bag.
-    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD' });
+    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD', deliveryMethod: 'STANDARD' });
     mockApiCheckout.mockResolvedValueOnce({ ...ORDER, id: 'order-2', orderNumber: 'MR-10002' });
     hardLoad();
 

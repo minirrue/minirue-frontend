@@ -11,7 +11,8 @@ import {
   useEffectiveShipping,
 } from '@/components/storefront/cart/use-bag-pricing';
 import { shippingSummary } from '@/lib/checkout/shipping-summary';
-import { useCustomerAddresses } from '@/lib/hooks/use-customer';
+import { useCustomerAddresses, useUpdateCustomerAddress } from '@/lib/hooks/use-customer';
+import GovernorateKeySelect from '@/components/checkout/GovernorateKeySelect';
 import { useUser } from '@/lib/hooks/use-auth';
 import {
   loadCheckoutSession,
@@ -37,6 +38,18 @@ import Button from '@/components/ui/Button';
 import { subtotalToMinor } from '@/lib/checkout/checkout-money';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { track } from '@/lib/analytics';
+import { loadDeliverySettings } from '@/lib/api/settings';
+import {
+  DEFAULT_DELIVERY_SETTINGS,
+  availableDeliveryMethods,
+  resolveDeliveryLocation,
+  type DeliveryMethod,
+  type DeliverySettings,
+} from '@/lib/checkout/delivery';
+import { resolveGovernorateKey } from '@/lib/checkout/governorates';
+import { SAME_DAY_SHIPPING_LABEL, totalMinorForDelivery } from '@/lib/checkout/delivery-summary';
+import DeliveryMethodStep from '@/components/checkout/DeliveryMethodStep';
+import type { DeliveryMapPin } from '@/components/checkout/DeliveryMap';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -48,6 +61,16 @@ export default function CheckoutPage() {
   const { data: addresses, isLoading } = useCustomerAddresses();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { mobile } = useBreakpoint();
+  const updateAddress = useUpdateCustomerAddress();
+  /**
+   * #158/#163: a saved address whose governorate is legacy free text that
+   * does not resolve to one of the 27 closed keys blocks same-day
+   * eligibility (and, per the coordinator's 2026-09-15 note, was the exact
+   * shape of a live incident — garbage text reaching checkout). Fixed
+   * in-place here rather than only linked to /account/addresses, so the
+   * shopper is never sent away mid-checkout to fix it.
+   */
+  const [fixGovernorateError, setFixGovernorateError] = useState<string | null>(null);
 
   /**
    * The shop's delivery policy, including the per-governorate table (#83).
@@ -170,6 +193,68 @@ export default function CheckoutPage() {
   const automatic = useAutomaticDiscount(discountLines, itemCount > 0);
   const discountMinor = automatic?.discountMinor ?? 0;
 
+  const selectedAddress = addresses?.find((a) => a.id === selectedId);
+
+  /**
+   * The free text that will actually reach the server — and `undefined` when
+   * there is not one yet, which is a different thing from an empty one. See
+   * the fuller comment this used to sit under, below where it is used for
+   * the summary.
+   */
+  const governorate: string | undefined =
+    signedIn === false
+      ? guest.governorate.trim()
+        ? guest.governorate
+        : undefined
+      : (selectedAddress?.governorate ?? undefined);
+
+  /**
+   * Standard / Same-day delivery (frontend#163). The shop's policy, loaded
+   * once — a failed read is `DEFAULT_DELIVERY_SETTINGS`, never a thrown
+   * error, same guarantee as every other settings read on this screen.
+   */
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySettings>(
+    DEFAULT_DELIVERY_SETTINGS,
+  );
+  useEffect(() => {
+    let cancelled = false;
+    void loadDeliverySettings().then((settings) => {
+      if (!cancelled) setDeliverySettings(settings);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | null>(null);
+  const [deliveryPin, setDeliveryPin] = useState<DeliveryMapPin | null>(null);
+  const [deliveryPastedMapsUrl, setDeliveryPastedMapsUrl] = useState('');
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
+
+  // The 27-key enum `delivery.ts` speaks, resolved from the free text the
+  // rest of this screen still uses (#83 predates #163 and the two systems
+  // are not unified here).
+  const governorateKey = resolveGovernorateKey(governorate ?? null);
+  const availableMethods = availableDeliveryMethods(deliverySettings, governorateKey);
+
+  /**
+   * The owner's one exception: Standard MAY be auto-selected when it is the
+   * only method offered. Every other case requires an explicit choice, so
+   * a method this effect set itself is un-set the moment Same-day becomes
+   * offered too — a governorate typed after Standard was auto-picked must
+   * not leave that pick standing in for a choice the shopper never made.
+   */
+  const autoSelectedStandard = useRef(false);
+  useEffect(() => {
+    if (availableMethods.standardOnly) {
+      setDeliveryMethod('STANDARD');
+      autoSelectedStandard.current = true;
+    } else if (autoSelectedStandard.current) {
+      setDeliveryMethod(null);
+      autoSelectedStandard.current = false;
+    }
+  }, [availableMethods.standardOnly, governorateKey]);
+
   if (itemCount === 0) {
     return (
       <CheckoutShell>
@@ -187,29 +272,6 @@ export default function CheckoutPage() {
     );
   }
 
-  const selectedAddress = addresses?.find((a) => a.id === selectedId);
-
-  /**
-   * The free text that will actually reach the server — and `undefined` when
-   * there is not one yet, which is a different thing from an empty one.
-   *
-   * A GUEST with a blank field has not answered: `validateGuest` will not let
-   * them continue, so quoting the global rate at them would be firm about a
-   * value that cannot be submitted. `undefined` makes the summary read "from",
-   * exactly as the bag does.
-   *
-   * A SIGNED-IN shopper's saved address is submittable whatever it holds —
-   * including the literal '—' a manual order writes. That resolves (to
-   * `NO_GOVERNORATE`), is billed the global rate, and is shown as the firm
-   * number it is, with the miss stated below rather than swallowed.
-   */
-  const governorate: string | undefined =
-    signedIn === false
-      ? guest.governorate.trim()
-        ? guest.governorate
-        : undefined
-      : (selectedAddress?.governorate ?? undefined);
-
   const subtotalMinor = subtotalToMinor(subtotalAmount);
   const summary = shippingSummary({
     effective,
@@ -217,7 +279,12 @@ export default function CheckoutPage() {
     discountMinor,
     governorate,
   });
-  const totalMinor = summary.totalMinor;
+  const goodsMinor = Math.max(0, subtotalMinor - discountMinor);
+  // SAME_DAY charges goods only through checkout — the delivery fee is
+  // confirmed after the order and paid in cash on delivery, never added to
+  // the total here (frontend#163).
+  const sameDaySelected = deliveryMethod === 'SAME_DAY';
+  const totalMinor = totalMinorForDelivery(deliveryMethod, goodsMinor, summary.totalMinor);
 
   /**
    * DECISION 4 of #83, surfaced where the issue asks for it.
@@ -298,11 +365,27 @@ export default function CheckoutPage() {
               >
                 <span style={{ fontFamily: 'var(--mr-font-ui)', fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-3)' }}>
                   Shipping
-                  {summary.resolved?.label && (
+                  {!sameDaySelected && summary.resolved?.label && (
                     <span style={{ color: 'var(--mr-fg-4)' }}> · {summary.resolved.label}</span>
                   )}
                 </span>
-                {summary.free ? (
+                {sameDaySelected ? (
+                  // The owner's binding decision: never "0 EGP" with no
+                  // explanation. The fee is confirmed after the order and
+                  // paid in cash on delivery, so the total above never
+                  // includes it either.
+                  <span
+                    style={{
+                      fontFamily: 'var(--mr-font-ui)',
+                      fontSize: 'var(--mr-text-sm)',
+                      color: 'var(--mr-fg-4)',
+                      fontStyle: 'italic',
+                      textAlign: 'right',
+                    }}
+                  >
+                    {SAME_DAY_SHIPPING_LABEL}
+                  </span>
+                ) : summary.free ? (
                   // "Free", not "EGP 0" — the product page promises
                   // complimentary delivery in words, and the summary has to
                   // keep that promise in the same language or it reads as the
@@ -378,7 +461,7 @@ export default function CheckoutPage() {
                     so it is a FLOOR — and a floor presented as a price is the
                     bait the "from" exists to prevent.
                   */}
-                  {summary.fromOnly && (
+                  {!sameDaySelected && summary.fromOnly && (
                     <span
                       style={{
                         fontFamily: 'var(--mr-font-ui)',
@@ -416,7 +499,6 @@ export default function CheckoutPage() {
                   }}
                   errors={guestErrors}
                   mobile={mobile}
-                  effective={effective}
                   governorateHint={governorateHint}
                 />
                 <p
@@ -528,6 +610,41 @@ export default function CheckoutPage() {
             )}
 
             {/*
+              #158/#163: the CLOSED-ENUM concern, separate from #83's rate-table
+              one above. A saved address can match a shipping rate row (or have
+              none configured at all) and still carry free text that is not one
+              of the 27 governorate keys — which blocks same-day eligibility and
+              was the exact shape of a live incident (garbage text reaching
+              checkout). Fixed in place, not just linked away to /account.
+            */}
+            {signedIn === true && selectedAddress && !resolveGovernorateKey(selectedAddress.governorate) && (
+              <CheckoutAlert variant="warning">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mr-sp-2)' }}>
+                  <span>
+                    This address&apos;s governorate (&ldquo;{selectedAddress.governorate || '—'}
+                    &rdquo;) isn&apos;t one of our delivery areas. Choose it below to continue.
+                  </span>
+                  <GovernorateKeySelect
+                    label="Choose your governorate"
+                    value=""
+                    onChange={async (key) => {
+                      setFixGovernorateError(null);
+                      try {
+                        await updateAddress.mutateAsync({
+                          id: selectedAddress.id,
+                          input: { governorate: key },
+                        });
+                      } catch {
+                        setFixGovernorateError('Could not update this address. Please try again.');
+                      }
+                    }}
+                    error={fixGovernorateError ?? undefined}
+                  />
+                </div>
+              </CheckoutAlert>
+            )}
+
+            {/*
               DECISION 4 of #83. Raised HERE, at the address step, and not as a
               payment failure after the shopper has filled everything in.
             */}
@@ -543,6 +660,44 @@ export default function CheckoutPage() {
             )}
           </CheckoutSection>
 
+          {/*
+            Standard / Same-day (frontend#163), tied to the governorate above.
+            The customer must explicitly choose before purchase — the one
+            exception is `standardOnly`, where Standard auto-selects with a
+            one-line note, per the owner's binding decision.
+          */}
+          <CheckoutSection title="Delivery method">
+            <DeliveryMethodStep
+              settings={deliverySettings}
+              available={availableMethods}
+              method={deliveryMethod}
+              onMethodChange={(next) => {
+                setDeliveryMethod(next);
+                autoSelectedStandard.current = false;
+                setDeliveryError(null);
+              }}
+              standardFeeLabel={
+                summary.free ? 'Free' : summary.fromOnly ? `from ${money(summary.feeMinor)}` : money(summary.feeMinor)
+              }
+              pin={deliveryPin}
+              onPinChange={(pin) => {
+                setDeliveryPin(pin);
+                setDeliveryError(null);
+              }}
+              pastedMapsUrl={deliveryPastedMapsUrl}
+              onPastedMapsUrlChange={(url) => {
+                setDeliveryPastedMapsUrl(url);
+                setDeliveryError(null);
+              }}
+            />
+            {/*
+              Shown for BOTH failure modes — no method chosen at all, and
+              SAME_DAY with nothing usable yet — because the first can happen
+              before the Same-day card's own location block ever renders.
+            */}
+            {deliveryError && <CheckoutAlert variant="error">{deliveryError}</CheckoutAlert>}
+          </CheckoutSection>
+
         <CheckoutActions
           primaryLabel="Continue to payment"
           /**
@@ -553,6 +708,27 @@ export default function CheckoutPage() {
            */
           primaryDisabled={signedIn === null || (signedIn && !selectedId)}
           onPrimary={() => {
+            // Standard / Same-day (frontend#163). Checked before either
+            // branch below: the customer must explicitly choose before
+            // purchase, and SAME_DAY must carry a usable location — blocked
+            // here with an inline message, never sent as a silent gap.
+            const resolvedLocation = resolveDeliveryLocation(deliveryPin, deliveryPastedMapsUrl);
+            if (!deliveryMethod) {
+              setDeliveryError('Choose a delivery method before continuing.');
+              return;
+            }
+            if (deliveryMethod === 'SAME_DAY' && !resolvedLocation) {
+              setDeliveryError(
+                'Add your delivery location — drop a pin, use your location, or paste a Google Maps link.',
+              );
+              return;
+            }
+            setDeliveryError(null);
+            const deliveryFields =
+              deliveryMethod === 'SAME_DAY'
+                ? { deliveryMethod, deliveryLocation: resolvedLocation ?? undefined }
+                : { deliveryMethod, deliveryLocation: undefined };
+
             if (signedIn === false) {
               const errors = validateGuest(guest, hasRateTable);
               if (Object.keys(errors).length) {
@@ -569,6 +745,7 @@ export default function CheckoutPage() {
                 shippingAddressId: undefined,
                 // The text, not the resolved key — see checkout-session.ts.
                 shippingGovernorate: guest.governorate,
+                ...deliveryFields,
               });
               track('checkout_address_entered', { cartId, hasAddress: true });
               // The resolved governorate key and match status are deliberately
@@ -588,6 +765,7 @@ export default function CheckoutPage() {
               shippingAddressId: selectedId,
               guest: undefined,
               shippingGovernorate: selectedAddress?.governorate,
+              ...deliveryFields,
             });
             track('checkout_address_entered', { cartId, hasAddress: true });
             // One shipping METHOD, still — there is no express option and no

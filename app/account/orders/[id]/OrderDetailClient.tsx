@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
+import OrderDeliveryInfo from '@/components/orders/OrderDeliveryInfo';
 import OrderProgress from '@/components/orders/OrderProgress';
 import {
   formatOrderStatus,
@@ -81,8 +82,12 @@ export default function OrderDetailClient() {
       {/* "Where is my order" — the progress that used to sit on the
           /orders/[id]/track page, which could never load an order (#125). */}
       <div style={{ marginTop: 24 }}>
-        <OrderProgress status={order.status} />
+        <OrderProgress status={order.status} delivery={order.delivery} currency={order.totalCurrency} />
       </div>
+
+      {/* Method, window and same-day fee status — absent for an order placed
+          before #163, or from a backend that hasn't sent it yet. */}
+      <OrderDeliveryInfo delivery={order.delivery} currency={order.totalCurrency} />
 
       {/* A refunded order used to say nothing beyond the bare status word —
           the amount and date the backend already carries never reached this

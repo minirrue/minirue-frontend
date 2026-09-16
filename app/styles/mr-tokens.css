@@ -699,17 +699,41 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
   color: var(--mr-fg-3);
 }
 
+/* Delivery method/window/fee, inside the "On its way" step (frontend#163) —
+   shown whether or not that step is reached, so the ETA is visible from the
+   moment the page loads. Follows the same step colouring as the label/note
+   it sits beside, never a colour of its own. */
+.mr-track-step-delivery {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--mr-hairline);
+  font-size: var(--mr-text-xs);
+  color: var(--mr-fg-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mr-track-step-delivery > div:first-child {
+  font-family: var(--mr-font-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mr-fg-4);
+}
+
 /* Status colour per block (#159): green done, MiniRue yellow current, red for
    an order that stopped (cancelled / refunded / rejected). Status tokens only;
    every fg/bg pair is >= 7:1. */
 .mr-track-step[data-reached='true'] { background: var(--mr-st-ok-bg); }
 .mr-track-step[data-reached='true'] .mr-track-step-dot { background: var(--mr-success); border-color: var(--mr-success); }
 .mr-track-step[data-reached='true'] .mr-track-step-label,
-.mr-track-step[data-reached='true'] .mr-track-step-note { color: var(--mr-st-ok-fg); }
+.mr-track-step[data-reached='true'] .mr-track-step-note,
+.mr-track-step[data-reached='true'] .mr-track-step-delivery { color: var(--mr-st-ok-fg); }
 .mr-track-step[data-current='true'] { background: var(--mr-st-warn-bg); }
 .mr-track-step[data-current='true'] .mr-track-step-dot { background: var(--mr-gold-400); border-color: var(--mr-st-warn-fg); }
 .mr-track-step[data-current='true'] .mr-track-step-label,
-.mr-track-step[data-current='true'] .mr-track-step-note { color: var(--mr-st-warn-fg); }
+.mr-track-step[data-current='true'] .mr-track-step-note,
+.mr-track-step[data-current='true'] .mr-track-step-delivery { color: var(--mr-st-warn-fg); }
 .mr-track-empty[data-tone='danger'] { background: var(--mr-st-danger-bg); border-color: color-mix(in srgb, var(--mr-st-danger-fg) 25%, transparent); color: var(--mr-st-danger-fg); }
 
 /* Checkout two columns — see components/checkout/CheckoutColumns.tsx.
