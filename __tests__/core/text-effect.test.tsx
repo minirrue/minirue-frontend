@@ -18,6 +18,26 @@ describe('TextEffect', () => {
     expect(screen.getByText('Powered by Ebneely', { selector: '.sr-only' })).toBeInTheDocument();
   });
 
+  it('keeps every animated word intact so narrow screens only wrap at spaces', () => {
+    const { container } = render(
+      <TextEffect per="char" preset="fade">Powered by Ebneely · © 2026 All rights reserved</TextEffect>,
+    );
+
+    const words = Array.from(container.querySelectorAll('[data-mr-text-word]'));
+    expect(words.map((word) => word.textContent)).toEqual([
+      'Powered ',
+      'by ',
+      'Ebneely ',
+      '· ',
+      '© ',
+      '2026 ',
+      'All ',
+      'rights ',
+      'reserved',
+    ]);
+    words.forEach((word) => expect(word).toHaveStyle({ whiteSpace: 'nowrap' }));
+  });
+
   it('renders as plain, unsplit text under prefers-reduced-motion', () => {
     const original = window.matchMedia;
     window.matchMedia = ((query: string) => ({

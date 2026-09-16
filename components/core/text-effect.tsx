@@ -97,6 +97,10 @@ ${(Object.keys(PRESET_FROM) as TextEffectPreset[])
   animation-timing-function:var(--mr-ease-out,cubic-bezier(.22,1,.36,1));
   animation-fill-mode:backwards;
 }
+.mr-te-word{
+  display:inline-block;
+  white-space:nowrap;
+}
 `;
 
 function splitSegments(text: string, per: TextEffectPer): string[] {
@@ -172,6 +176,7 @@ export function TextEffect({
   }
 
   const segments = splitSegments(children, per);
+  let charIndex = 0;
 
   // `as` only decides the reduced-motion fallback tag above; the animated
   // wrapper is always a <span>. A footer signature and similar inline
@@ -181,18 +186,45 @@ export function TextEffect({
       <style>{STYLES}</style>
       <span className="sr-only">{children}</span>
       <span aria-hidden="true">
-        {segments.map((segment, i) => (
-          <span
-            key={`${per}-${i}-${segment}`}
-            className="mr-te-seg"
-            style={{
-              animationName: `mr-te-${preset}`,
-              animationDelay: `${delay + i * speedReveal}s`,
-            }}
-          >
-            {segment}
-          </span>
-        ))}
+        {per === 'char'
+          ? children.split(' ').map((word, wordIndex, words) => {
+              const chars = [...word, ...(wordIndex < words.length - 1 ? [' '] : [])];
+              return (
+                <span
+                  key={`word-${wordIndex}-${word}`}
+                  className="mr-te-word"
+                  data-mr-text-word=""
+                >
+                  {chars.map((segment) => {
+                    const i = charIndex++;
+                    return (
+                      <span
+                        key={`char-${i}-${segment}`}
+                        className="mr-te-seg"
+                        style={{
+                          animationName: `mr-te-${preset}`,
+                          animationDelay: `${delay + i * speedReveal}s`,
+                        }}
+                      >
+                        {segment}
+                      </span>
+                    );
+                  })}
+                </span>
+              );
+            })
+          : segments.map((segment, i) => (
+              <span
+                key={`${per}-${i}-${segment}`}
+                className="mr-te-seg"
+                style={{
+                  animationName: `mr-te-${preset}`,
+                  animationDelay: `${delay + i * speedReveal}s`,
+                }}
+              >
+                {segment}
+              </span>
+            ))}
       </span>
     </span>
   );
