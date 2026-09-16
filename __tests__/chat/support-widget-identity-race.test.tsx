@@ -62,6 +62,8 @@ jest.mock('@/lib/support/session', () => ({
 
 const mockApiStartSupport = jest.fn();
 const mockApiSupportMine = jest.fn();
+const mockApiSupportUnread = jest.fn();
+const mockApiMarkSupportRead = jest.fn();
 const mockApiSupportClaim = jest.fn();
 const mockApiSupportMessages = jest.fn();
 const mockApiSendSupport = jest.fn();
@@ -72,6 +74,8 @@ const mockApiSupportUpload = jest.fn();
 jest.mock('@/lib/api/support', () => ({
   apiStartSupport: (...args: unknown[]) => mockApiStartSupport(...args),
   apiSupportMine: (...args: unknown[]) => mockApiSupportMine(...args),
+  apiSupportUnread: (...args: unknown[]) => mockApiSupportUnread(...args),
+  apiMarkSupportRead: (...args: unknown[]) => mockApiMarkSupportRead(...args),
   apiSupportClaim: (...args: unknown[]) => mockApiSupportClaim(...args),
   apiSupportMessages: (...args: unknown[]) => mockApiSupportMessages(...args),
   apiSendSupport: (...args: unknown[]) => mockApiSendSupport(...args),
@@ -99,6 +103,8 @@ describe('SupportWidget — identity race conditions', () => {
     mockApiSupportMeta.mockResolvedValue(null);
     mockApiSupportHeartbeat.mockResolvedValue(undefined);
     mockApiSupportClaim.mockResolvedValue(null);
+    mockApiSupportUnread.mockResolvedValue(0);
+    mockApiMarkSupportRead.mockResolvedValue(undefined);
   });
 
   it('a resumeConversation response that resolves AFTER logout does not repaint the old messages', async () => {

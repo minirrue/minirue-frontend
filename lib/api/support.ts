@@ -138,6 +138,29 @@ export async function apiSupportMine(): Promise<SupportConversationDto[]> {
   }
 }
 
+/** Server-authoritative unread total for the signed-in customer. */
+export async function apiSupportUnread(): Promise<number> {
+  const res = await fetch(`${BASE}/storefront/support/unread`, {
+    headers: headers(),
+    credentials: CREDS,
+  });
+  if (!res.ok) throw await supportError(res, 'unread count failed');
+  const data = (await res.json()) as { unreadCount?: unknown };
+  return typeof data.unreadCount === 'number' && Number.isFinite(data.unreadCount)
+    ? Math.max(0, Math.floor(data.unreadCount))
+    : 0;
+}
+
+/** Marks one visible conversation read; ownership is enforced by the API. */
+export async function apiMarkSupportRead(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/storefront/support/conversations/${id}/read`, {
+    method: 'POST',
+    headers: headers(),
+    credentials: CREDS,
+  });
+  if (!res.ok) throw await supportError(res, 'mark read failed');
+}
+
 /**
  * Merges the guest thread into the logged-in customer's existing thread and
  * resolves to the surviving conversation's id. Resolves to `null` on any

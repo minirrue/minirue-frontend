@@ -15,7 +15,7 @@ import {
 
 interface ChatButtonProps {
   onClick: () => void;
-  hasUnread?: boolean;
+  unreadCount?: number;
   /** Whether the chat panel is open — on mobile the button lifts with the panel. */
   open?: boolean;
   /**
@@ -52,7 +52,7 @@ function distance(ax: number, ay: number, bx: number, by: number): number {
 
 export default function ChatButton({
   onClick,
-  hasUnread = false,
+  unreadCount = 0,
   open = false,
   // Accepted and deliberately ignored. The launcher shows the chat glyph, not
   // the shop logo — reversed 2026-08-03 at the owner's request (see the glyph's
@@ -287,7 +287,11 @@ export default function ChatButton({
       type="button"
       ref={buttonRef}
       data-testid="chat-button"
-      aria-label="Open live support chat"
+      aria-label={
+        unreadCount > 0
+          ? `Open live support chat, ${unreadCount} unread ${unreadCount === 1 ? 'message' : 'messages'}`
+          : 'Open live support chat'
+      }
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setPressed(false); }}
@@ -360,16 +364,27 @@ export default function ChatButton({
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
 
-      {hasUnread && (
+      {unreadCount > 0 && (
         <span
+          data-testid="support-unread-badge"
+          aria-hidden="true"
           style={{
-            position: 'absolute', top: 8, right: 8,
-            width: 9, height: 9, borderRadius: '50%',
-            background: 'var(--mr-gold-400)',
+            position: 'absolute', top: -4, right: -4,
+            minWidth: 21, height: 21, borderRadius: 999,
+            padding: '0 5px',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--mr-danger)',
+            color: 'var(--mr-cream-100)',
             border: '2px solid var(--mr-ink-900)',
-            animation: 'mr-breath 2.4s cubic-bezier(0.25,0.46,0.45,0.94) infinite',
+            boxSizing: 'border-box',
+            fontFamily: 'var(--mr-font-ui, "Inter Tight", sans-serif)',
+            fontSize: 10,
+            fontWeight: 700,
+            lineHeight: 1,
           }}
-        />
+        >
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
       )}
     </button>
   );

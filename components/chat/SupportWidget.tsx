@@ -23,6 +23,8 @@ import {
   apiSupportUpload,
   apiSupportClaim,
   apiSupportMine,
+  apiSupportUnread,
+  apiMarkSupportRead,
   apiSupportHeartbeat,
   type SupportConversationDto,
   type SupportMessageDto,
@@ -128,7 +130,7 @@ export default function SupportWidget() {
   // choice has to survive until the guest form is submitted.
 
   const [open, setOpen] = React.useState(false);
-  const [hasUnread, setHasUnread] = React.useState(false);
+  const [unreadCount, setUnreadCount] = React.useState(0);
   const [subjectChoice, setSubjectChoice] = React.useState<SubjectChoice>({ type: 'GENERAL' });
   const [conversationId, setConversationId] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<ChatDisplayMessage[]>([]);
@@ -265,7 +267,7 @@ export default function SupportWidget() {
     // The unread dot lives on the floating button, outside the panel, so it
     // survived every other reset here — a signed-out visitor kept seeing a
     // badge for a reply addressed to the previous account.
-    setHasUnread(false);
+    setUnreadCount(0);
     seenIdsRef.current = new Set();
     lastMessageIdRef.current = undefined;
     retryPayloadsRef.current = new Map();
@@ -302,7 +304,7 @@ export default function SupportWidget() {
       setConversations([]);
       setView('thread');
       setError(null);
-      setHasUnread(false);
+      setUnreadCount(0);
       seenIdsRef.current = new Set();
       lastMessageIdRef.current = undefined;
       retryPayloadsRef.current = new Map();
@@ -413,10 +415,34 @@ export default function SupportWidget() {
     fresh.forEach((d) => seenIdsRef.current.add(d.id));
     lastMessageIdRef.current = fresh[fresh.length - 1].id;
     setMessages((prev) => [...prev, ...fresh.map(mapMessage)]);
-    if (markUnreadIfClosed && fresh.some((d) => d.senderType !== 'CUSTOMER')) {
-      setHasUnread(true);
+    if (markUnreadIfClosed) {
+      const incomingCount = fresh.filter((d) => d.senderType !== 'CUSTOMER').length;
+      if (incomingCount > 0) setUnreadCount((count) => count + incomingCount);
     }
   }, []);
+
+  const refreshUnread = React.useCallback(async () => {
+    if (!isLoggedIn) return;
+    const requestToken = identityTokenRef.current;
+    try {
+      const count = await apiSupportUnread();
+      if (identityTokenRef.current === requestToken) setUnreadCount(count);
+    } catch {
+      // Keep the last known total through a transient network failure.
+    }
+  }, [isLoggedIn]);
+
+  // The count comes from the account, not this mounted page, so navigation,
+  // reloads and replies in any one of several conversations cannot lose it.
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+    const initial = window.setTimeout(() => void refreshUnread(), 0);
+    const interval = window.setInterval(() => void refreshUnread(), POLL_INTERVAL_MS);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [isLoggedIn, refreshUnread]);
 
   const loadConversations = React.useCallback(async () => {
     setListLoading(true);
@@ -472,14 +498,14 @@ export default function SupportWidget() {
       apiSupportMessages(conversationId, lastMessageIdRef.current)
         .then((dtos) => {
           if (identityTokenRef.current !== requestToken) return;
-          appendMessages(dtos, !open);
+          appendMessages(dtos, !(open && view === 'thread'));
         })
         .catch(() => {
           // Transient network errors are fine to skip; next tick retries.
         });
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [conversationId, open, appendMessages]);
+  }, [conversationId, open, view, appendMessages]);
 
   // Presence heartbeat: once a conversation exists, tell the backend whether
   // this customer's tab is focused ('active') or backgrounded ('idle') so the
@@ -679,10 +705,7 @@ export default function SupportWidget() {
     [conversationId, startConversation, markSent, markFailed],
   );
 
-  const toggleOpen = () => {
-    setOpen((o) => !o);
-    setHasUnread(false);
-  };
+  const toggleOpen = () => setOpen((o) => !o);
 
   const handleNewChat = React.useCallback(
     (draft: NewChatDraft) => {
@@ -762,6 +785,20 @@ export default function SupportWidget() {
 
   const { mod: parts, armed: panelArmed } = useIdleImport(loadPanelParts, open);
 
+  // Opening the launcher is not enough: the list may be showing another
+  // thread. Clear only after the actual conversation is visible to the shopper.
+  React.useEffect(() => {
+    if (!open || !panelArmed || view !== 'thread' || !conversationId) return;
+    const requestToken = identityTokenRef.current;
+    apiMarkSupportRead(conversationId)
+      .then(() => {
+        if (identityTokenRef.current === requestToken) void refreshUnread();
+      })
+      .catch(() => {
+        // Leave the badge intact if the receipt did not reach the server.
+      });
+  }, [open, panelArmed, view, conversationId, messages.length, refreshUnread]);
+
   const panelBody = !parts ? undefined : guestBlocked ? (
     <parts.SignInToChat />
   ) : !canMessage ? (
@@ -796,7 +833,7 @@ export default function SupportWidget() {
     <>
       <ChatButton
         onClick={toggleOpen}
-        hasUnread={hasUnread}
+        unreadCount={unreadCount}
         open={open}
         shopAvatarUrl={shopAvatarUrl}
         shopName={shopName ?? undefined}
