@@ -31,6 +31,7 @@ import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 import Button from '@/components/ui/Button';
 import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
+import OrderDeliveryInfo from '@/components/orders/OrderDeliveryInfo';
 import { formatMoney } from '@/lib/format/money';
 import { track } from '@/lib/analytics';
 import { isAuthenticated } from '@/lib/auth/tokens';
@@ -148,9 +149,15 @@ export default function CheckoutConfirmationPage() {
     // A guest carries `guest` where a signed-in shopper carries
     // `shippingAddressId`; either one means the Delivery step was completed.
     // Requiring the id alone sent every guest back to /checkout in a loop.
+    // The Delivery step is not complete without a chosen method — and, for
+    // SAME_DAY, a resolved location — the same requirement the Payment and
+    // InstaPay pages enforce before they will call `apiCheckout`. A session
+    // missing either is an interrupted checkout, not a placeable one.
     if (
       !(session?.shippingAddressId || session?.guest) ||
-      session.paymentMethod !== 'COD'
+      session.paymentMethod !== 'COD' ||
+      !session.deliveryMethod ||
+      (session.deliveryMethod === 'SAME_DAY' && !session.deliveryLocation)
     ) {
       router.replace('/checkout');
       return;
@@ -213,6 +220,10 @@ export default function CheckoutConfirmationPage() {
       // A code that no longer applies is refused with a 422 — never
       // silently charged at full price (minirue-backend#120).
       ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
+      // The Delivery step's choice, carried through the session — the guard
+      // above already refused to reach this point without it.
+      deliveryMethod: session.deliveryMethod!,
+      ...(session.deliveryLocation ? { deliveryLocation: session.deliveryLocation } : {}),
     };
 
     // "Cart already checked out" is retried with the SAME key: the server
@@ -405,6 +416,15 @@ export default function CheckoutConfirmationPage() {
               currency={order?.totalCurrency ?? 'EGP'}
               style={{ padding: 'var(--mr-sp-3) 0', borderTop: '1px solid var(--mr-hairline)' }}
             />
+
+            {/*
+              What was chosen at the Delivery step, shown right after purchase
+              rather than only once the shopper opens their orders (#163's
+              "Fixed when": order status shows delivery info immediately).
+              Absent when the order predates this or the backend hasn't sent
+              it yet — `OrderDeliveryInfo` renders nothing in that case.
+            */}
+            <OrderDeliveryInfo delivery={order?.delivery} currency={order?.totalCurrency ?? 'EGP'} />
 
             {order?.totalAmount && (
               <div

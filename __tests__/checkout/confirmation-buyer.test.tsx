@@ -163,7 +163,7 @@ describe('maskEmail', () => {
 
 describe('checkout confirmation for a guest (#134)', () => {
   it('says where the confirmation will be emailed, and offers the shop instead of an account', async () => {
-    saveCheckoutSession({ guest: GUEST_DETAILS, paymentMethod: 'COD' });
+    saveCheckoutSession({ guest: GUEST_DETAILS, paymentMethod: 'COD', deliveryMethod: 'STANDARD' });
     cartAnswers(ACTIVE_CART);
     mockApiCheckout.mockResolvedValue(GUEST_ORDER);
 
@@ -227,6 +227,7 @@ describe('checkout confirmation for a guest (#134)', () => {
     saveCheckoutSession({
       guest: GUEST_DETAILS,
       paymentMethod: 'COD',
+      deliveryMethod: 'STANDARD',
       idempotencyKey: 'key-1',
       placingCartId: CART_ID,
     });
@@ -245,7 +246,7 @@ describe('checkout confirmation for a guest (#134)', () => {
 describe('checkout confirmation for a signed-in shopper (#134)', () => {
   it('keeps the account wording, and Track your order opens this order', async () => {
     mockSignedIn = true;
-    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD' });
+    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD', deliveryMethod: 'STANDARD' });
     cartAnswers(ACTIVE_CART);
     mockApiCheckout.mockResolvedValue(ACCOUNT_ORDER);
 
@@ -264,6 +265,7 @@ describe('checkout confirmation for a signed-in shopper (#134)', () => {
     saveCheckoutSession({
       shippingAddressId: 'addr-1',
       paymentMethod: 'COD',
+      deliveryMethod: 'STANDARD',
       idempotencyKey: 'key-1',
       placingCartId: CART_ID,
     });

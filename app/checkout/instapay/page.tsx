@@ -35,6 +35,8 @@ import { previewDiscount } from '@/lib/api/discounts';
 import { subtotalToMinor } from '@/lib/checkout/checkout-money';
 import { shippingSummary } from '@/lib/checkout/shipping-summary';
 import { formatMoney } from '@/lib/format/money';
+import { totalMinorForDelivery } from '@/lib/checkout/delivery-summary';
+import type { DeliveryMethod } from '@/lib/checkout/delivery';
 
 /**
  * The figure to transfer, worked out the way the Payment step's "Order total"
@@ -74,12 +76,17 @@ function useTransferAmountMinor(
   }, [hasLines]);
 
   if (priced === null) return null;
-  return shippingSummary({
+  const summary = shippingSummary({
     effective,
     subtotalMinor: subtotalToMinor(subtotalAmount),
     discountMinor: priced.discountMinor,
     governorate: priced.governorate,
-  }).totalMinor;
+  });
+  // SAME_DAY transfers goods only — the delivery fee is confirmed after the
+  // order and paid in cash on delivery, never transferred up front
+  // (frontend#163).
+  const goodsMinor = Math.max(0, subtotalToMinor(subtotalAmount) - priced.discountMinor);
+  return totalMinorForDelivery(loadCheckoutSession()?.deliveryMethod, goodsMinor, summary.totalMinor);
 }
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -94,6 +101,12 @@ export default function InstapayCheckoutPage() {
     [lines, bundleIndex],
   );
   const amountMinor = useTransferAmountMinor(subtotalAmount, pricingLines);
+  // The Delivery step's choice (frontend#163), read once for the transfer
+  // note below — same sessionStorage read as the amount hook above.
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | undefined>(undefined);
+  useEffect(() => {
+    setDeliveryMethod(loadCheckoutSession()?.deliveryMethod);
+  }, []);
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Set the moment the order is accepted. The success path clears the cart, which
@@ -193,6 +206,13 @@ export default function InstapayCheckoutPage() {
           paymentMethod: 'INSTAPAY',
           receiptDataUrl: preview,
           ...(loadAppliedCode() ? { discountCode: loadAppliedCode()! } : {}),
+          // Standard / Same-day (frontend#163) — sent explicitly whenever the
+          // Delivery step recorded one; `deliveryLocation` only ever travels
+          // alongside SAME_DAY.
+          ...(session.deliveryMethod ? { deliveryMethod: session.deliveryMethod } : {}),
+          ...(session.deliveryMethod === 'SAME_DAY' && session.deliveryLocation
+            ? { deliveryLocation: session.deliveryLocation }
+            : {}),
         },
         idempotencyKey,
       );
@@ -231,7 +251,11 @@ export default function InstapayCheckoutPage() {
         <InstapayGuide
           guide={guide}
           amount={amountMinor === null ? null : formatMoney(amountMinor / 100, currency)}
-          amountNote="Includes delivery and any discount. Send the exact amount."
+          amountNote={
+            deliveryMethod === 'SAME_DAY'
+              ? 'Goods only. Same-day delivery is confirmed after your order and paid in cash on delivery.'
+              : 'Includes delivery and any discount. Send the exact amount.'
+          }
         />
 
         <CheckoutSection title="Payment proof">

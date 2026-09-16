@@ -440,7 +440,7 @@ describe('checkout confirmation — purchase is never fired from the browser', (
   beforeEach(() => {
     sessionStorage.clear();
     clearCheckoutSession();
-    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD' });
+    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD', deliveryMethod: 'STANDARD' });
     mockApiGetCart.mockResolvedValue({
       id: 'cart-1',
       status: 'ACTIVE',
@@ -477,7 +477,7 @@ describe('checkout confirmation — payment_initiated.totalMinor is the real ord
     sessionStorage.clear();
     clearCheckoutSession();
     window.localStorage.clear();
-    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD' });
+    saveCheckoutSession({ shippingAddressId: 'addr-1', paymentMethod: 'COD', deliveryMethod: 'STANDARD' });
     saveAppliedCode('SAVE30');
     mockApiGetCart.mockResolvedValue({
       id: 'cart-1',

@@ -1,3 +1,5 @@
+import type { DeliveryLocation, DeliveryMethod } from './delivery';
+
 export type CheckoutPaymentMethod = 'COD' | 'INSTAPAY';
 
 /** A guest's own details, typed at checkout. Never an account. */
@@ -46,6 +48,15 @@ export interface CheckoutSession {
    * showed before #83.
    */
   shippingGovernorate?: string;
+  /**
+   * The delivery step's choice (frontend#163) — set the moment the shopper
+   * commits to Delivery, same as `shippingGovernorate`, so Payment and
+   * InstaPay can send it explicitly without re-asking. `deliveryLocation` is
+   * only ever set alongside `SAME_DAY`; `resolveDeliveryLocation` in
+   * `lib/checkout/delivery.ts` is what decided it was usable.
+   */
+  deliveryMethod?: DeliveryMethod;
+  deliveryLocation?: DeliveryLocation;
   paymentMethod: CheckoutPaymentMethod;
   receiptDataUrl?: string;
   /**

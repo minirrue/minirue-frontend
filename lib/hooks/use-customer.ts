@@ -6,6 +6,7 @@ import {
   apiUploadMyAvatar,
   apiGetAddresses,
   apiCreateAddress,
+  apiUpdateAddress,
   apiDeleteAddress,
   apiSetDefaultAddress,
   type CustomerProfile,
@@ -59,6 +60,18 @@ export function useCreateCustomerAddress() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: AddressInput) => apiCreateAddress(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CUSTOMER_ADDRESSES_KEY });
+      queryClient.invalidateQueries({ queryKey: CUSTOMER_PROFILE_KEY });
+    },
+  });
+}
+
+export function useUpdateCustomerAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<AddressInput> }) =>
+      apiUpdateAddress(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CUSTOMER_ADDRESSES_KEY });
       queryClient.invalidateQueries({ queryKey: CUSTOMER_PROFILE_KEY });

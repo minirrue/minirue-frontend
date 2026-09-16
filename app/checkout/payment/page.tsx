@@ -25,6 +25,8 @@ import {
 import PriceDisplay from '@/components/storefront/PriceDisplay';
 import DiscountCodeField from '@/components/checkout/DiscountCodeField';
 import type { DiscountPreview } from '@/lib/api/discounts';
+import { SAME_DAY_SHIPPING_LABEL, totalMinorForDelivery } from '@/lib/checkout/delivery-summary';
+import type { DeliveryMethod } from '@/lib/checkout/delivery';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -49,10 +51,13 @@ export default function CheckoutPaymentPage() {
   // A guest's phone, for the code preview's per-customer limit
   // (minirue-backend#120). Same sessionStorage read, same reason for the effect.
   const [guestPhone, setGuestPhone] = useState<string | undefined>(undefined);
+  // The Delivery step's choice (frontend#163), same sessionStorage read.
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | undefined>(undefined);
   useEffect(() => {
     const session = loadCheckoutSession();
     setGovernorate(session?.shippingGovernorate);
     setGuestPhone(session?.guest?.phone);
+    setDeliveryMethod(session?.deliveryMethod);
   }, []);
 
   /**
@@ -136,7 +141,11 @@ export default function CheckoutPaymentPage() {
     discountMinor,
     governorate,
   });
-  const totalMinor = summary.totalMinor;
+  const sameDaySelected = deliveryMethod === 'SAME_DAY';
+  const goodsMinor = Math.max(0, subtotalToMinor(subtotalAmount) - discountMinor);
+  // SAME_DAY charges goods only — the delivery fee is confirmed after the
+  // order and paid in cash on delivery (frontend#163).
+  const totalMinor = totalMinorForDelivery(deliveryMethod, goodsMinor, summary.totalMinor);
   /**
    * DECISION 4 of #83 again, as the backstop rather than as the announcement.
    *
@@ -194,11 +203,13 @@ export default function CheckoutPaymentPage() {
               color: 'var(--mr-fg-4)',
             }}
           >
-            {summary.free
-              ? 'Includes free delivery'
-              : `Includes shipping${
-                  summary.resolved?.label ? ` to ${summary.resolved.label}` : ''
-                } (${minorToAmount(summary.feeMinor)} ${currency})`}
+            {sameDaySelected
+              ? SAME_DAY_SHIPPING_LABEL
+              : summary.free
+                ? 'Includes free delivery'
+                : `Includes shipping${
+                    summary.resolved?.label ? ` to ${summary.resolved.label}` : ''
+                  } (${minorToAmount(summary.feeMinor)} ${currency})`}
             {discountMinor > 0 && (
               <>
                 {' · '}

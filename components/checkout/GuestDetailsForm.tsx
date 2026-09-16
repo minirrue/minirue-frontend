@@ -2,8 +2,8 @@
 
 import React from 'react';
 import type { GuestCheckoutDetails } from '@/lib/checkout/checkout-session';
-import type { EffectiveShipping } from '@/lib/checkout/governorate-rates';
-import GovernorateSelect from '@/components/checkout/GovernorateSelect';
+import GovernorateKeySelect from '@/components/checkout/GovernorateKeySelect';
+import { resolveGovernorateKey } from '@/lib/checkout/governorates';
 
 /**
  * Who a guest is, and where their order goes.
@@ -53,16 +53,15 @@ export type GuestFieldErrors = Partial<Record<keyof GuestCheckoutDetails, string
 export function validateGuest(
   v: GuestCheckoutDetails,
   /**
-   * Whether the shop publishes a governorate table (#83), which decides only
-   * the WORDING of the governorate error — "select" beside a `<select>`,
-   * "enter" beside the free-text box the shop still falls back to.
-   *
-   * The rule itself does not change with it, and deliberately does not become
-   * "must be one of the rates": free text has been valid on every address since
-   * the schema was written, an unmatched value still checks out, and a client
-   * that rejected one would be inventing a constraint the server does not have.
+   * Kept for callers still passing it — no longer changes anything here.
+   * Before frontend#158 this decided the governorate error's WORDING
+   * ("select" vs. "enter") depending on whether the shop published a rate
+   * table. Free text is gone now regardless of that table: the governorate
+   * is always one of the 27 closed keys, so there is exactly one error and
+   * one wording.
+   * @deprecated no longer read; retained for call-site compatibility only.
    */
-  hasRateTable = false,
+  _hasRateTable = false,
 ): GuestFieldErrors {
   const errors: GuestFieldErrors = {};
   const digits = (v.phone.match(/\d/g) ?? []).length;
@@ -75,10 +74,13 @@ export function validateGuest(
     errors.phone = 'Use digits only, optionally starting with +.';
   if (v.line1.trim().length < 3) errors.line1 = 'Enter your street address.';
   if (v.city.trim().length < 2) errors.city = 'Enter your city.';
-  if (v.governorate.trim().length < 2)
-    errors.governorate = hasRateTable
-      ? 'Select your governorate — it sets the delivery fee.'
-      : 'Enter your governorate.';
+  // frontend#158/#163: free text is gone. A guest's governorate must resolve
+  // to one of the 27 closed keys — the exact production incident this closes
+  // was garbage text ("1111111") reaching checkout because this check only
+  // looked at string length.
+  if (!resolveGovernorateKey(v.governorate)) {
+    errors.governorate = 'Select your governorate.';
+  }
 
   return errors;
 }
@@ -226,7 +228,6 @@ export default function GuestDetailsForm({
   onChange,
   errors,
   mobile,
-  effective,
   governorateHint,
 }: {
   value: GuestCheckoutDetails;
@@ -235,13 +236,11 @@ export default function GuestDetailsForm({
   errors: GuestFieldErrors;
   mobile: boolean;
   /**
-   * The shop's delivery policy, so the governorate field can be the enum the
-   * admin owns (#83) rather than a box. With an empty `rates` table —
-   * the live shop today — `GovernorateSelect` renders the same free-text input
-   * this form has always rendered.
+   * What this governorate costs, phrased by the page that owns the shipping
+   * summary — still driven by the shop's rate table (#83), independent of
+   * the closed-enum `GovernorateKeySelect` below (#158/#163) that now
+   * decides the VALUE stored.
    */
-  effective: EffectiveShipping;
-  /** What this governorate costs, phrased by the page that owns the summary. */
   governorateHint?: React.ReactNode;
 }) {
   const set = (patch: Partial<GuestCheckoutDetails>) =>
@@ -327,19 +326,42 @@ export default function GuestDetailsForm({
           autoComplete="address-level2"
         />
         {/*
-          The one field on this form whose value costs money. It is a
-          `<select>` sourced from the shop's own table when there is one, and
-          the free-text input it has always been when there is not — see
-          GovernorateSelect for both states and for what happens to an address
-          whose stored text matches nothing.
+          Frontend#158/#163: the governorate is one of the 27 closed keys, no
+          free text — a guest who typed garbage here ("1111111") is exactly
+          the production incident that made this urgent. `GovernorateKeySelect`
+          only ever emits a real `GovernorateKey`; the fee hint below still
+          comes from the page's own `effective` shipping-rate lookup, which
+          matches a `GovernorateKey` (e.g. "CAIRO") the same way it always
+          matched free text, via `normaliseGovernorate`.
         */}
-        <GovernorateSelect
-          value={value.governorate}
-          onChange={(v) => set({ governorate: v })}
-          effective={effective}
-          error={errors.governorate}
-          hint={governorateHint}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          <GovernorateKeySelect
+            /*
+             * A value that is not a real key — legacy free text on a session
+             * saved before this shipped — must NOT reach the native
+             * `<select>` as-is: with no option matching it, the browser
+             * silently falls back to selecting the first non-disabled
+             * option (Alexandria), which is exactly the "silent snap to a
+             * different city" failure this closed enum exists to prevent.
+             * Resolve first; an unmatched value renders as the blank
+             * placeholder instead.
+             */
+            value={resolveGovernorateKey(value.governorate) ?? ''}
+            onChange={(key) => set({ governorate: key })}
+            error={errors.governorate}
+          />
+          {governorateHint && (
+            <span
+              style={{
+                fontFamily: 'var(--mr-font-ui)',
+                fontSize: 'var(--mr-text-xs)',
+                color: 'var(--mr-fg-4)',
+              }}
+            >
+              {governorateHint}
+            </span>
+          )}
+        </div>
       </div>
       <Field
         id="postalCode"

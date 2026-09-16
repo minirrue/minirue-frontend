@@ -50,9 +50,12 @@ function steps() {
 
 describe('OrderProgress: what it says at each point', () => {
   it('covers the four states an order really moves through, in order', () => {
+    // CONFIRMED is the CURRENT step here, so it reads "Confirming" — it is
+    // still happening. "Confirmed" (past tense) is what a LATER step reaching
+    // it would show; see the CONFIRMED-vs-PROCESSING case below.
     render(<OrderProgress status="CONFIRMED" />);
     expect(steps().map((s) => s.label)).toEqual([
-      'Confirmed',
+      'Confirming',
       'Being prepared',
       'On its way',
       'Delivered',
@@ -98,6 +101,85 @@ describe('OrderProgress: what it says at each point', () => {
       expect(container.textContent).not.toMatch(/tracking information will appear/i);
       unmount();
     }
+  });
+});
+
+describe('the "On its way" step shows the delivery method (frontend#163)', () => {
+  /**
+   * Coordinator request, 2026-09-15: the delivery method/window/fee lines
+   * render INSIDE the SHIPPED step's block, using `order.delivery`, and are
+   * shown regardless of whether that step has been reached — so a shopper
+   * whose order is only CONFIRMED still sees what to expect once it ships.
+   */
+  function shippedStepText(): string {
+    const list = screen.getByRole('list', { name: 'Order progress' });
+    const shipped = within(list)
+      .getAllByRole('listitem')
+      .find((li) => li.querySelector('.mr-track-step-label')?.textContent?.match(/on its way/i));
+    return shipped?.querySelector('.mr-track-step-delivery')?.textContent ?? '';
+  }
+
+  it('STANDARD: shows the method and the ETA label, even before SHIPPED', () => {
+    render(
+      <OrderProgress
+        status="CONFIRMED"
+        delivery={{
+          method: 'STANDARD',
+          etaLabel: '2–5 working days',
+          window: null,
+          location: null,
+          sameDayFee: null,
+        }}
+        currency="EGP"
+      />,
+    );
+    const text = shippedStepText();
+    expect(text).toMatch(/method:\s*standard/i);
+    expect(text).toMatch(/eta:\s*2–5 working days/i);
+  });
+
+  it('SAME_DAY, fee pending: shows the method, window and pending fee', () => {
+    render(
+      <OrderProgress
+        status="CONFIRMED"
+        delivery={{
+          method: 'SAME_DAY',
+          etaLabel: null,
+          window: { date: '2026-09-16', start: '19:00', end: '24:00' },
+          location: null,
+          sameDayFee: { status: 'PENDING', amountMinor: null },
+        }}
+        currency="EGP"
+      />,
+    );
+    const text = shippedStepText();
+    expect(text).toMatch(/method:\s*same-day/i);
+    expect(text).toMatch(/window:.*19:00–24:00/i);
+    expect(text).toMatch(/same-day.*fee pending/i);
+  });
+
+  it('SAME_DAY, fee set: shows the confirmed amount, cash on delivery', () => {
+    render(
+      <OrderProgress
+        status="SHIPPED"
+        delivery={{
+          method: 'SAME_DAY',
+          etaLabel: null,
+          window: { date: '2026-09-16', start: '19:00', end: '24:00' },
+          location: null,
+          sameDayFee: { status: 'SET', amountMinor: 12000 },
+        }}
+        currency="EGP"
+      />,
+    );
+    const text = shippedStepText();
+    expect(text).toMatch(/EGP\s*120(\.00)?/);
+    expect(text).toMatch(/cash on delivery/i);
+  });
+
+  it('renders nothing extra when the order has no delivery object (a pre-#163 order)', () => {
+    render(<OrderProgress status="CONFIRMED" />);
+    expect(shippedStepText()).toBe('');
   });
 });
 

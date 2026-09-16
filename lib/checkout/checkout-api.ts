@@ -6,11 +6,27 @@ import { attributionHeaders } from '../analytics/attribution';
 import { getCartSessionId } from '../api/cart';
 import { isAuthenticated } from '../auth/tokens';
 import type { GuestCheckoutDetails } from './checkout-session';
+import type { DeliveryLocation, DeliveryMethod } from './delivery';
 
 export type PaymentMethod = 'COD' | 'INSTAPAY';
 
 export interface CheckoutRequest {
   cartId: string;
+  /**
+   * Standard / Same-day (frontend#163, backend#186). The backend defaults to
+   * STANDARD when this is omitted, but every submission path that has run
+   * through the Delivery step's method choice must send it explicitly —
+   * omitting it here is only for a caller that has not been updated yet.
+   *
+   * Declared optional rather than required so this interface does not break
+   * a submission path this change does not own (`app/checkout/confirmation
+   * /page.tsx`'s COD placement, another workstream's file) — but every path
+   * this change DOES own (Delivery step → session → Payment/InstaPay) always
+   * sets it before calling `apiCheckout`.
+   */
+  deliveryMethod?: DeliveryMethod;
+  /** Required by the backend when `deliveryMethod` is SAME_DAY; omitted otherwise. */
+  deliveryLocation?: DeliveryLocation;
   /** Signed-in shopper: one of their saved addresses. Omitted by a guest. */
   shippingAddressId?: string;
   /**
@@ -107,6 +123,21 @@ export interface OrderSummary {
    */
   refundedAt: string | null;
   refundedAmountCents: number | null;
+  /**
+   * Fulfillment delivery type and window (frontend#163, backend#186).
+   * Optional: an order placed before this shipped, or a response from an
+   * older backend, carries neither field nor block — same convention as
+   * `bundleSavingsAmount` above.
+   */
+  delivery?: {
+    method: 'STANDARD' | 'SAME_DAY';
+    /** STANDARD only. */
+    etaLabel: string | null;
+    /** SAME_DAY only. `date` is 'YYYY-MM-DD', Africa/Cairo. */
+    window: { date: string; start: string; end: string } | null;
+    location: { lat: number; lng: number } | { mapsUrl: string } | null;
+    sameDayFee: { status: 'PENDING' | 'SET'; amountMinor: number | null } | null;
+  };
 }
 
 export interface OrderListResponse {
