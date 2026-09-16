@@ -23,6 +23,7 @@ const mockApiSendSupport = jest.fn();
 const mockApiSupportMeta = jest.fn();
 const mockApiSupportHeartbeat = jest.fn();
 const mockApiSupportUpload = jest.fn();
+const mockApiListOrders = jest.fn();
 
 jest.mock('@/lib/api/support', () => ({
   apiStartSupport: (...args: unknown[]) => mockApiStartSupport(...args),
@@ -35,6 +36,10 @@ jest.mock('@/lib/api/support', () => ({
   apiSupportMeta: (...args: unknown[]) => mockApiSupportMeta(...args),
   apiSupportHeartbeat: (...args: unknown[]) => mockApiSupportHeartbeat(...args),
   apiSupportUpload: (...args: unknown[]) => mockApiSupportUpload(...args),
+}));
+
+jest.mock('@/lib/checkout/checkout-api', () => ({
+  apiListOrders: (...args: unknown[]) => mockApiListOrders(...args),
 }));
 
 jest.mock('@/lib/hooks/use-auth', () => ({
@@ -93,6 +98,7 @@ describe('SupportWidget — forceNew (W1.6)', () => {
     mockApiSupportClaim.mockResolvedValue(null);
     mockApiSupportUnread.mockResolvedValue(0);
     mockApiMarkSupportRead.mockResolvedValue(undefined);
+    mockApiListOrders.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
   });
 
   it('handleNewChat (the "New conversation" button) sends forceNew: true', async () => {
@@ -121,6 +127,86 @@ describe('SupportWidget — forceNew (W1.6)', () => {
     await waitFor(() => expect(mockApiStartSupport).toHaveBeenCalledTimes(1));
     expect(pendingConversationSnapshot()).toEqual(
       expect.objectContaining({ forceNew: true, type: 'GENERAL' }),
+    );
+  });
+
+  it('lets a signed-in customer attach one of their own orders to a general support thread', async () => {
+    const user = userEvent.setup();
+    mockApiSupportMine.mockResolvedValue([]);
+    mockApiListOrders.mockResolvedValue({
+      data: [
+        {
+          id: '3d323690-fabe-46b5-aecf-23bfd22b5fcc',
+          orderNumber: 'MR-2026-0042',
+          orderSeq: 42,
+          status: 'PROCESSING',
+          totalAmount: '1169.00',
+          totalCurrency: 'EGP',
+          createdAt: '2026-09-16T13:30:00.000Z',
+          refundedAt: null,
+          refundedAmountCents: null,
+          items: [
+            {
+              id: 'line-1',
+              variantId: 'variant-1',
+              qty: 1,
+              unitPriceAmount: '1169.00',
+              lineTotalAmount: '1169.00',
+              productSnapshot: { name: 'MiniRue Signature', brand: 'MiniRue' },
+            },
+          ],
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    mockApiStartSupport.mockResolvedValue({
+      conversation: {
+        id: 'conv-order',
+        type: 'GENERAL',
+        orderId: '3d323690-fabe-46b5-aecf-23bfd22b5fcc',
+        subjectSnapshot: {
+          orderNumber: 'MR-2026-0042',
+          orderSeq: 42,
+          status: 'PROCESSING',
+          items: ['MiniRue Signature'],
+        },
+      },
+      message: {
+        id: 'msg-order',
+        conversationId: 'conv-order',
+        senderType: 'CUSTOMER',
+        body: 'Where is my order?',
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    render(<SupportWidget />);
+    await openPanel(user);
+
+    await user.click(await screen.findByRole('button', { name: /order support/i }));
+    expect(await screen.findByRole('button', { name: /order #42/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /order #42/i }));
+    await user.type(screen.getByPlaceholderText(/how can we help/i), 'Where is my order?');
+    await user.click(screen.getByRole('button', { name: /start conversation/i }));
+
+    await waitFor(() => expect(mockApiStartSupport).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('Order #42')).toBeInTheDocument();
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.getByText('MiniRue Signature')).toBeInTheDocument();
+    expect(mockApiListOrders).toHaveBeenCalledWith(1, 20);
+    expect(pendingConversationSnapshot()).toEqual(
+      expect.objectContaining({
+        forceNew: true,
+        type: 'GENERAL',
+        orderId: '3d323690-fabe-46b5-aecf-23bfd22b5fcc',
+        subjectSnapshot: expect.objectContaining({
+          orderNumber: 'MR-2026-0042',
+          status: 'PROCESSING',
+          items: ['MiniRue Signature'],
+        }),
+      }),
     );
   });
 

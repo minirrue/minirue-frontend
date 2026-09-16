@@ -5,6 +5,9 @@ import { catalog, mediaImageUrl, productBrand, type ApiProduct } from '@/lib/api
 import type { SupportSubject } from '@/lib/support/support-context';
 import RemoteImage from '@/components/ui/RemoteImage';
 import Button from '@/components/ui/Button';
+import { apiListOrders, type OrderSummary } from '@/lib/checkout/checkout-api';
+import { formatOrderRef, formatOrderStatus } from '@/lib/orders/order-format';
+import { groupOrderLines } from '@/lib/orders/order-lines';
 
 /**
  * Starting a conversation: which product it is about, and the first message.
@@ -40,6 +43,21 @@ function productSubject(product: ApiProduct): SupportSubject {
   return {
     productId: product.id,
     subjectSnapshot: { name: product.name, slug: product.slug },
+  };
+}
+
+function orderSubject(order: OrderSummary): SupportSubject {
+  return {
+    orderId: order.id,
+    // These fields make the selected order legible immediately. The API owns
+    // authorization and replaces order facts with its own trusted snapshot.
+    subjectSnapshot: {
+      orderNumber: order.orderNumber,
+      orderSeq: order.orderSeq,
+      status: order.status,
+      items: groupOrderLines(order.items).map((line) => line.name),
+      createdAt: order.createdAt,
+    },
   };
 }
 
@@ -109,8 +127,13 @@ export default function NewChatComposer({
   const [body, setBody] = React.useState('');
   const [subject, setSubject] = React.useState<SupportSubject | null>(pageSubject);
   const [picked, setPicked] = React.useState<ApiProduct | null>(null);
+  const [pickedOrder, setPickedOrder] = React.useState<OrderSummary | null>(null);
   /** Set by "Just a general question": the shopper has said no product applies. */
   const [general, setGeneral] = React.useState(false);
+  const [orderPickerOpen, setOrderPickerOpen] = React.useState(false);
+  const [orders, setOrders] = React.useState<OrderSummary[]>([]);
+  const [ordersLoading, setOrdersLoading] = React.useState(false);
+  const [ordersError, setOrdersError] = React.useState(false);
 
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<ApiProduct[]>([]);
@@ -145,10 +168,35 @@ export default function NewChatComposer({
 
   function pick(product: ApiProduct) {
     setPicked(product);
+    setPickedOrder(null);
     setSubject(productSubject(product));
     setGeneral(false);
+    setOrderPickerOpen(false);
     setQuery('');
     setResults([]);
+  }
+
+  async function openOrderPicker() {
+    setOrderPickerOpen(true);
+    setOrdersLoading(true);
+    setOrdersError(false);
+    try {
+      const response = await apiListOrders(1, 20);
+      setOrders(response.data);
+    } catch {
+      setOrders([]);
+      setOrdersError(true);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }
+
+  function pickOrder(order: OrderSummary) {
+    setPicked(null);
+    setPickedOrder(order);
+    setSubject(orderSubject(order));
+    setGeneral(false);
+    setOrderPickerOpen(false);
   }
 
   return (
@@ -174,7 +222,97 @@ export default function NewChatComposer({
       }}
       data-trace-id={`${TRACE}::EL-FORM-new-chat`}
     >
-      {!chosen ? (
+      {!chosen && orderPickerOpen ? (
+        <section aria-labelledby="mr-support-order-heading" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h3 id="mr-support-order-heading" style={{ margin: 0, fontFamily: 'Inter Tight, sans-serif', fontSize: 14, fontWeight: 600, color: 'var(--mr-ink-900)' }}>
+                Choose an order
+              </h3>
+              <p style={{ margin: '3px 0 0', fontSize: 12, lineHeight: 1.45, color: 'var(--mr-ink-400)' }}>
+                We&apos;ll attach it so the team can help faster.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setOrderPickerOpen(false)}
+              style={{ minHeight: 44, flexShrink: 0 }}
+              traceId={`${TRACE}::EL-BTN-back-from-orders`}
+            >
+              Back
+            </Button>
+          </div>
+
+          {ordersLoading ? (
+            <p role="status" style={{ margin: 0, padding: '18px 2px', fontSize: 13, color: 'var(--mr-ink-400)' }}>
+              Loading your orders…
+            </p>
+          ) : ordersError ? (
+            <div role="alert" style={{ padding: 12, border: '1px solid var(--mr-hairline)', borderRadius: 'var(--mr-radius-md)', background: 'var(--mr-cream-200)' }}>
+              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, color: 'var(--mr-ink-700)' }}>
+                We couldn&apos;t load your orders. Your message is still safe.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => void openOrderPicker()} style={{ minHeight: 44, marginTop: 10 }}>
+                Try again
+              </Button>
+            </div>
+          ) : orders.length === 0 ? (
+            <div style={{ padding: 12, border: '1px solid var(--mr-hairline)', borderRadius: 'var(--mr-radius-md)', background: 'var(--mr-cream-200)' }}>
+              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, color: 'var(--mr-ink-700)' }}>
+                No orders yet. You can still ask us a general question.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setGeneral(true);
+                  setOrderPickerOpen(false);
+                }}
+                style={{ minHeight: 44, marginTop: 10 }}
+              >
+                General question
+              </Button>
+            </div>
+          ) : (
+            <div data-lenis-prevent style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 250, overflowY: 'auto', paddingRight: 2 }}>
+              {orders.map((order) => {
+                const lines = groupOrderLines(order.items);
+                const itemLabel = lines.length > 0
+                  ? `${lines[0].name}${lines.length > 1 ? ` + ${lines.length - 1} more` : ''}`
+                  : 'Order items';
+                return (
+                  <button
+                    key={order.id}
+                    type="button"
+                    aria-label={`Order ${formatOrderRef(order)}, ${formatOrderStatus(order.status)}, ${itemLabel}`}
+                    onClick={() => pickOrder(order)}
+                    style={{
+                      ...resultRowStyle,
+                      minHeight: 68,
+                      padding: '10px 12px',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      gap: 5,
+                    }}
+                    data-trace-id={`${TRACE}::EL-BTN-pick-order@${order.id}`}
+                  >
+                    <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                      <strong style={{ fontSize: 14, color: 'var(--mr-ink-900)' }}>{formatOrderRef(order)}</strong>
+                      <span style={{ flexShrink: 0, border: '1px solid var(--mr-hairline)', borderRadius: 'var(--mr-radius-pill)', padding: '3px 8px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mr-gold-700)', background: 'var(--mr-cream-100)' }}>
+                        {formatOrderStatus(order.status)}
+                      </span>
+                    </span>
+                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--mr-ink-400)' }}>
+                      {itemLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      ) : !chosen ? (
         <>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 13, color: 'var(--mr-fg-2)' }}>
@@ -317,20 +455,36 @@ export default function NewChatComposer({
               `var(--mr-line)`, an undefined token, so it painted as bare text
               on cream. `size="sm"` matches AccountLayoutClient's sign out
               exactly ("buttons must be same as signout button theme"). */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setGeneral(true)}
-            style={{ alignSelf: 'flex-start', minHeight: 44 }}
-            traceId={`${TRACE}::EL-BTN-general-question`}
-          >
-            Just a general question
-          </Button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void openOrderPicker()}
+              style={{ minHeight: 44, flex: '1 1 132px' }}
+              traceId={`${TRACE}::EL-BTN-order-support`}
+            >
+              Order support
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGeneral(true)}
+              style={{ minHeight: 44, flex: '1 1 132px' }}
+              traceId={`${TRACE}::EL-BTN-general-question`}
+            >
+              Just a general question
+            </Button>
+          </div>
         </>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ minWidth: 0, flex: 1, fontSize: 14 }}>
-            {picked ? (
+            {pickedOrder ? (
+              <>
+                Order <strong>{formatOrderRef(pickedOrder)}</strong>
+                <span style={{ color: 'var(--mr-fg-3)' }}> · {formatOrderStatus(pickedOrder.status)}</span>
+              </>
+            ) : picked ? (
               <>
                 About <strong>{picked.name}</strong>
                 {productBrand(picked) && (
@@ -362,8 +516,10 @@ export default function NewChatComposer({
             size="sm"
             onClick={() => {
               setPicked(null);
+              setPickedOrder(null);
               setSubject(null);
               setGeneral(false);
+              setOrderPickerOpen(false);
             }}
             style={{ minHeight: 44, flexShrink: 0 }}
             traceId={`${TRACE}::EL-BTN-change-subject`}

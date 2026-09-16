@@ -65,6 +65,17 @@ function formatTime(iso: string): string {
 /** The start-conversation payload for a subject choice, shared by both entry points. */
 function subjectInputFor(choice: SubjectChoice) {
   if (choice.type === 'ITEM') {
+    // An order is context for a GENERAL support conversation, not a catalogue
+    // item. NewChatComposer represents both kinds through SupportSubject so the
+    // existing start path stays shared; the identifiers make the distinction
+    // unambiguous. The API authorizes order ownership server-side.
+    if (choice.subject.orderId && !choice.subject.productId) {
+      return {
+        type: 'GENERAL' as const,
+        orderId: choice.subject.orderId,
+        subjectSnapshot: choice.subject.subjectSnapshot,
+      };
+    }
     return {
       type: 'ITEM' as const,
       productId: choice.subject.productId,
@@ -87,6 +98,32 @@ function mapMessage(dto: SupportMessageDto): ChatDisplayMessage {
     text: dto.body,
     time: formatTime(dto.createdAt),
     attachments: dto.attachments,
+  };
+}
+
+interface ActiveOrderContext {
+  orderId: string;
+  orderNumber: string | null;
+  orderSeq: number | null;
+  status: string | null;
+  items: string[];
+}
+
+function orderContextFrom(
+  conversation: Pick<SupportConversationDto, 'orderId' | 'subjectSnapshot'> | null | undefined,
+  fallback?: { orderId?: string; subjectSnapshot?: Record<string, unknown> },
+): ActiveOrderContext | null {
+  const orderId = conversation?.orderId ?? fallback?.orderId;
+  if (!orderId) return null;
+  const snapshot = conversation?.subjectSnapshot ?? fallback?.subjectSnapshot ?? {};
+  return {
+    orderId,
+    orderNumber: typeof snapshot.orderNumber === 'string' ? snapshot.orderNumber : null,
+    orderSeq: typeof snapshot.orderSeq === 'number' ? snapshot.orderSeq : null,
+    status: typeof snapshot.status === 'string' ? snapshot.status : null,
+    items: Array.isArray(snapshot.items)
+      ? snapshot.items.filter((item): item is string => typeof item === 'string')
+      : [],
   };
 }
 
@@ -132,6 +169,7 @@ export default function SupportWidget() {
   const [open, setOpen] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [subjectChoice, setSubjectChoice] = React.useState<SubjectChoice>({ type: 'GENERAL' });
+  const [activeOrderContext, setActiveOrderContext] = React.useState<ActiveOrderContext | null>(null);
   const [conversationId, setConversationId] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<ChatDisplayMessage[]>([]);
   const [sending, setSending] = React.useState(false);
@@ -213,11 +251,12 @@ export default function SupportWidget() {
   const guestBootstrappedRef = React.useRef(false);
   const accountBootstrappedRef = React.useRef(false);
 
-  const resumeConversation = React.useCallback((id: string) => {
+  const resumeConversation = React.useCallback((id: string, conversation?: SupportConversationDto) => {
     // Captured NOW, not read fresh inside the `.then` — the whole point is to
     // notice if identity moved on WHILE this request was in flight.
     const requestToken = identityTokenRef.current;
     setConversationId(id);
+    setActiveOrderContext(orderContextFrom(conversation));
     setView('thread');
     // A resumed thread starts empty, so clear what the previous one left behind
     // rather than showing the wrong conversation's messages for a moment.
@@ -260,6 +299,7 @@ export default function SupportWidget() {
 
     // Identity changed. Nothing from the previous person may survive.
     setConversationId(null);
+    setActiveOrderContext(null);
     setMessages([]);
     setConversations([]);
     setView('thread');
@@ -300,6 +340,7 @@ export default function SupportWidget() {
     function onIdentityCleared() {
       identityTokenRef.current += 1;
       setConversationId(null);
+      setActiveOrderContext(null);
       setMessages([]);
       setConversations([]);
       setView('thread');
@@ -358,7 +399,7 @@ export default function SupportWidget() {
           if (claimed) {
             // The claim already tells us the single surviving thread — resume
             // it directly rather than guessing from `mine`.
-            resumeConversation(claimed.id);
+            resumeConversation(claimed.id, mine?.find((conversation) => conversation.id === claimed.id));
             return;
           }
           // With more than one conversation, dropping straight into the most
@@ -370,7 +411,7 @@ export default function SupportWidget() {
             return;
           }
           const latest = mine?.[0];
-          if (latest) resumeConversation(latest.id);
+          if (latest) resumeConversation(latest.id, latest);
           else setView('new');
         })
         .catch(() => {
@@ -637,6 +678,11 @@ export default function SupportWidget() {
           // the server refuses a guest start outright (backend 0.53.x).
         });
         setConversationId(result.conversation.id);
+        setActiveOrderContext(orderContextFrom(result.conversation, subjectInput));
+        setConversations((previous) => [
+          result.conversation,
+          ...previous.filter((conversation) => conversation.id !== result.conversation.id),
+        ]);
         setView('thread');
         markSent(tempId, result.message);
       } catch (err: unknown) {
@@ -712,6 +758,7 @@ export default function SupportWidget() {
       const subject: SubjectChoice = draft.subject
         ? { type: 'ITEM', subject: draft.subject }
         : { type: 'GENERAL' };
+      setSubjectChoice(subject);
 
       // No guest branch: a guest never reaches this composer, so the draft
       // always belongs to a signed-in customer.
@@ -819,11 +866,11 @@ export default function SupportWidget() {
         onSubmit={handleNewChat}
         onCancel={() => setView(canBrowseList ? 'list' : 'thread')}
       />
-    ) : view === 'list' ? (
+  ) : view === 'list' ? (
       <parts.ConversationList
         conversations={conversations}
         loading={listLoading}
-        onOpen={(id) => resumeConversation(id)}
+        onOpen={(id) => resumeConversation(id, conversations.find((conversation) => conversation.id === id))}
         onNew={() => setView('new')}
         shopName={shopName ?? undefined}
       />
@@ -873,6 +920,31 @@ export default function SupportWidget() {
         topSlot={
           canMessage && !conversationId ? (
             <parts.SubjectPicker pageSubject={pageSubject} value={subjectChoice} onChange={setSubjectChoice} />
+          ) : activeOrderContext ? (
+            <section
+              aria-label="Order attached to this conversation"
+              style={{
+                padding: '10px 14px',
+                borderBottom: '1px solid var(--mr-hairline)',
+                background: 'var(--mr-cream-100)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                <strong style={{ fontFamily: 'Inter Tight, sans-serif', fontSize: 12.5, color: 'var(--mr-ink-900)' }}>
+                  Order {activeOrderContext.orderSeq != null ? `#${activeOrderContext.orderSeq}` : activeOrderContext.orderNumber ?? 'attached'}
+                </strong>
+                {activeOrderContext.status && (
+                  <span style={{ flexShrink: 0, border: '1px solid var(--mr-hairline)', borderRadius: 'var(--mr-radius-pill)', padding: '2px 7px', fontFamily: 'Inter Tight, sans-serif', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mr-gold-700)', background: 'var(--mr-cream-200)' }}>
+                    {activeOrderContext.status.charAt(0) + activeOrderContext.status.slice(1).toLowerCase()}
+                  </span>
+                )}
+              </div>
+              {activeOrderContext.items.length > 0 && (
+                <p style={{ margin: '4px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter Tight, sans-serif', fontSize: 11.5, color: 'var(--mr-ink-400)' }}>
+                  {activeOrderContext.items.join(' · ')}
+                </p>
+              )}
+            </section>
           ) : undefined
         }
       />

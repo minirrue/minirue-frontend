@@ -75,3 +75,143 @@ test.describe('support widget — global mount + guest form', () => {
     await startRequest;
   });
 });
+
+test.describe('support widget — signed-in order context', () => {
+  test('selects an owned order, opens the thread, and stays usable on mobile', async ({ page }) => {
+    const order = {
+      id: '3d323690-fabe-46b5-aecf-23bfd22b5fcc',
+      orderNumber: 'MR-2026-0042',
+      orderSeq: 42,
+      status: 'PROCESSING',
+      totalAmount: '1169.00',
+      totalCurrency: 'EGP',
+      createdAt: '2026-09-16T13:30:00.000Z',
+      refundedAt: null,
+      refundedAmountCents: null,
+      items: [
+        {
+          id: 'line-1',
+          variantId: 'variant-1',
+          qty: 1,
+          unitPriceAmount: '1169.00',
+          lineTotalAmount: '1169.00',
+          productSnapshot: { name: 'MiniRue Signature', brand: 'MiniRue' },
+        },
+      ],
+    };
+    let startPayload: Record<string, unknown> | null = null;
+
+    await page.route('**/v1/**', async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      if (path.endsWith('/auth/get-session')) {
+        return route.fulfill({
+          status: 200,
+          json: {
+            session: { id: 'session-1' },
+            user: { id: 'customer-1', email: 'shopper@example.com', name: 'Mariam', role: 'CUSTOMER' },
+          },
+        });
+      }
+      if (path.endsWith('/customers/me')) {
+        return route.fulfill({ status: 200, json: { id: 'customer-1', avatarUrl: null } });
+      }
+      if (path.endsWith('/storefront/support/conversations/mine')) {
+        return route.fulfill({ status: 200, json: [] });
+      }
+      if (path.endsWith('/storefront/support/unread')) {
+        return route.fulfill({ status: 200, json: { unreadCount: 0 } });
+      }
+      if (path.endsWith('/storefront/support/meta')) {
+        return route.fulfill({ status: 200, json: { status: 'ONLINE', replyTimeText: 'Usually replies soon' } });
+      }
+      if (path.endsWith('/settings/public')) {
+        return route.fulfill({ status: 200, json: { displayName: 'MiniRue', logoUrl: null } });
+      }
+      if (path.endsWith('/storefront/chrome')) {
+        return route.fulfill({
+          status: 200,
+          json: {
+            announcement: { enabled: false, messages: [], linkUrl: null, background: null },
+            productSection: { perks: [] },
+            faviconUrl: null,
+            shopName: 'MiniRue',
+            shopLogoUrl: null,
+            navbar: { items: [], showSearch: true, showAccount: true },
+            mobileMenu: { shortcuts: [], footerButton: null },
+            footer: {
+              tagline: null,
+              newsletterEnabled: false,
+              newsletterEyebrow: '',
+              newsletterBlurb: '',
+              columns: [],
+              socials: [],
+              paymentBadges: [],
+              legalLine: '',
+              secondaryLine: '',
+            },
+          },
+        });
+      }
+      if (path.endsWith('/orders') && request.method() === 'GET') {
+        return route.fulfill({ status: 200, json: { data: [order], total: 1, page: 1, limit: 20 } });
+      }
+      if (path.endsWith('/storefront/support/conversations') && request.method() === 'POST') {
+        startPayload = request.postDataJSON() as Record<string, unknown>;
+        return route.fulfill({
+          status: 200,
+          json: {
+            conversation: {
+              id: 'conversation-order',
+              type: 'GENERAL',
+              orderId: order.id,
+              subjectSnapshot: {
+                orderNumber: order.orderNumber,
+                orderSeq: order.orderSeq,
+                status: order.status,
+                items: ['MiniRue Signature'],
+              },
+            },
+            message: {
+              id: 'message-1',
+              conversationId: 'conversation-order',
+              senderType: 'CUSTOMER',
+              body: 'Where is my order?',
+              createdAt: '2026-09-17T08:00:00.000Z',
+            },
+          },
+        });
+      }
+      if (path.includes('/storefront/support/conversations/conversation-order/read')) {
+        return route.fulfill({ status: 200, json: { ok: true } });
+      }
+      if (path.endsWith('/storefront/support/heartbeat')) {
+        return route.fulfill({ status: 200, json: { ok: true } });
+      }
+      return route.fulfill({ status: 200, json: {} });
+    });
+
+    await page.goto('/products');
+    await page.getByRole('button', { name: /open live support chat/i }).click();
+    await page.getByRole('button', { name: /order support/i }).click();
+    await page.getByRole('button', { name: /order #42/i }).click();
+    await page.getByPlaceholder(/how can we help/i).fill('Where is my order?');
+    await page.screenshot({ path: '.next/issue-160-desktop.png', fullPage: true });
+    await page.getByRole('button', { name: /start conversation/i }).click();
+
+    await expect(page.getByText('Order #42')).toBeVisible();
+    await expect(page.getByText('Processing')).toBeVisible();
+    await expect(page.getByText('MiniRue Signature')).toBeVisible();
+    expect(startPayload).toMatchObject({
+      type: 'GENERAL',
+      orderId: order.id,
+      body: 'Where is my order?',
+      forceNew: true,
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('dialog', { name: /live support chat/i })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    await page.screenshot({ path: '.next/issue-160-mobile.png', fullPage: true });
+  });
+});
