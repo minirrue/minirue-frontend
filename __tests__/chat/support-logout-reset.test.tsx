@@ -49,6 +49,8 @@ jest.mock('@/lib/support/support-context', () => ({
 
 const mockApiStartSupport = jest.fn();
 const mockApiSupportMine = jest.fn();
+const mockApiSupportUnread = jest.fn();
+const mockApiMarkSupportRead = jest.fn();
 const mockApiSupportClaim = jest.fn();
 const mockApiSupportMessages = jest.fn();
 const mockApiSendSupport = jest.fn();
@@ -59,6 +61,8 @@ const mockApiSupportUpload = jest.fn();
 jest.mock('@/lib/api/support', () => ({
   apiStartSupport: (...args: unknown[]) => mockApiStartSupport(...args),
   apiSupportMine: (...args: unknown[]) => mockApiSupportMine(...args),
+  apiSupportUnread: (...args: unknown[]) => mockApiSupportUnread(...args),
+  apiMarkSupportRead: (...args: unknown[]) => mockApiMarkSupportRead(...args),
   apiSupportClaim: (...args: unknown[]) => mockApiSupportClaim(...args),
   apiSupportMessages: (...args: unknown[]) => mockApiSupportMessages(...args),
   apiSendSupport: (...args: unknown[]) => mockApiSendSupport(...args),
@@ -82,6 +86,8 @@ describe('SupportWidget — logout clears the widget completely (Task 15b)', () 
     mockApiSupportMeta.mockResolvedValue(null);
     mockApiSupportHeartbeat.mockResolvedValue(undefined);
     mockApiSupportClaim.mockResolvedValue(null);
+    mockApiSupportUnread.mockResolvedValue(0);
+    mockApiMarkSupportRead.mockResolvedValue(undefined);
     mockApiSupportMine.mockResolvedValue([
       {
         id: 'old-account-convo',
@@ -130,11 +136,19 @@ describe('SupportWidget — logout clears the widget completely (Task 15b)', () 
     await waitFor(() =>
       expect(screen.queryByText('Old account message')).not.toBeInTheDocument(),
     );
-    await waitFor(() =>
-      expect(screen.getByRole('dialog', { name: /live support chat/i })).not.toHaveAttribute('inert'),
-    );
+    const dialog = screen.getByRole('dialog', { name: /live support chat/i });
+    const composer = screen.getByLabelText(/type your message/i);
+    // The lazy panel deliberately mounts closed for one painted frame so its
+    // entrance transition can run. CI can reach this line during that frame;
+    // wait for the same pointer-ready state a shopper needs, not merely for
+    // the textarea node to exist in the DOM.
+    await waitFor(() => {
+      expect(dialog).not.toHaveAttribute('inert');
+      expect(dialog).toHaveStyle({ pointerEvents: 'auto' });
+      expect(composer).toBeEnabled();
+    });
 
-    await user.type(screen.getByLabelText(/type your message/i), 'hello');
+    await user.type(composer, 'hello');
     await user.click(screen.getByRole('button', { name: /^send message$/i }));
 
     // A new visitor starts a brand-new conversation — never the old account's.
