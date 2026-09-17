@@ -186,3 +186,37 @@ describe('customer avatar — upload then re-read shows the photo, never the gen
     }
   });
 });
+
+describe('customer profile phone', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('normalises an Egyptian mobile before saving the profile', async () => {
+    mockApiUpdateMe.mockResolvedValue(baseProfile({ phone: '+201112345678' }));
+    renderWithClient(<ProfileForm profile={baseProfile()} />);
+    const user = userEvent.setup();
+
+    const phone = screen.getByLabelText(/^phone$/i);
+    await user.clear(phone);
+    await user.type(phone, '011 1234 5678');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(mockApiUpdateMe).toHaveBeenCalledWith(expect.objectContaining({
+      phone: '+201112345678',
+    })));
+  });
+
+  it('shows a specific inline error and does not save a fake Egyptian prefix', async () => {
+    renderWithClient(<ProfileForm profile={baseProfile()} />);
+    const user = userEvent.setup();
+
+    const phone = screen.getByLabelText(/^phone$/i);
+    await user.clear(phone);
+    await user.type(phone, '01312345678');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    expect(await screen.findByText(/010, 011, 012 or 015/i)).toBeInTheDocument();
+    expect(mockApiUpdateMe).not.toHaveBeenCalled();
+  });
+});

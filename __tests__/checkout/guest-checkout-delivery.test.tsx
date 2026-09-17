@@ -126,6 +126,18 @@ describe('checkout delivery step — guest', () => {
     expect(await screen.findByText(/enter your full name/i)).toBeInTheDocument();
   });
 
+  it('rejects a fake Egyptian mobile prefix inline', async () => {
+    const user = userEvent.setup();
+    render(<CheckoutDeliveryPage />);
+
+    await waitFor(() => expect(screen.getByLabelText(/full name/i)).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/^phone$/i), '01312345678');
+    await user.click(screen.getByRole('button', { name: /continue to payment/i }));
+
+    expect(await screen.findByText(/010, 011, 012 or 015/i)).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalledWith('/checkout/payment');
+  });
+
   it('carries a completed form to Payment, and keeps it for the walk back', async () => {
     const user = userEvent.setup();
     render(<CheckoutDeliveryPage />);
@@ -136,7 +148,7 @@ describe('checkout delivery step — guest', () => {
 
     await user.type(screen.getByLabelText(/full name/i), 'Volta Joe');
     await user.type(screen.getByLabelText(/^email$/i), 'volta@example.com');
-    await user.type(screen.getByLabelText(/^phone$/i), '+201012431350');
+    await user.type(screen.getByLabelText(/^phone$/i), '010 1243 1350');
     await user.type(screen.getByLabelText(/^address$/i), '12 Nile Street');
     await user.type(screen.getByLabelText(/^city$/i), 'Al Giza');
     await user.click(screen.getByRole('combobox', { name: /^governorate$/i }));

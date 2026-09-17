@@ -137,8 +137,43 @@ export function phoneProblem(dial: string, input: string): string | null {
         : `${expected.slice(0, -1).join(', ')} or ${expected[expected.length - 1]} digits`;
     return `A ${country.name} number has ${list} after the leading zero — you entered ${national.length}`;
   }
+  if (dial === '+20' && !/^1[0125]\d{8}$/.test(national)) {
+    return 'Enter an Egyptian mobile starting 010, 011, 012 or 015';
+  }
   if (!expected && (national.length < 6 || national.length > 14)) {
     return 'Enter a valid phone number';
+  }
+  return null;
+}
+
+/**
+ * A single-field phone control used by checkout and the account profile.
+ * Numbers without a `+` are Egyptian mobiles; numbers with one are accepted
+ * as international E.164. Formatting characters are removed before storage.
+ */
+export function normalizePhoneInput(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.startsWith('+')) {
+    return `+${trimmed.slice(1).replace(/\D/g, '')}`;
+  }
+  return toE164(DEFAULT_DIAL_CODE, trimmed);
+}
+
+export function phoneInputProblem(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return 'Phone number is required';
+  if (!/^[+\d][\d\s()-]*$/.test(trimmed)) {
+    return 'Use an Egyptian mobile or an international number starting with +';
+  }
+
+  if (!trimmed.startsWith('+')) return phoneProblem(DEFAULT_DIAL_CODE, trimmed);
+
+  const normalised = normalizePhoneInput(trimmed);
+  if (!/^\+[1-9]\d{7,14}$/.test(normalised)) {
+    return 'Enter a valid international number, including the country code';
+  }
+  if (normalised.startsWith('+20')) {
+    return phoneProblem('+20', normalised);
   }
   return null;
 }

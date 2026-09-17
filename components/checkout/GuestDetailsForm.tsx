@@ -4,6 +4,7 @@ import React from 'react';
 import type { GuestCheckoutDetails } from '@/lib/checkout/checkout-session';
 import GovernorateKeySelect from '@/components/checkout/GovernorateKeySelect';
 import { resolveGovernorateKey } from '@/lib/checkout/governorates';
+import { normalizePhoneInput, phoneInputProblem } from '@/lib/auth/dial-codes';
 
 /**
  * Who a guest is, and where their order goes.
@@ -64,14 +65,11 @@ export function validateGuest(
   _hasRateTable = false,
 ): GuestFieldErrors {
   const errors: GuestFieldErrors = {};
-  const digits = (v.phone.match(/\d/g) ?? []).length;
-
   if (v.fullName.trim().length < 2) errors.fullName = 'Enter your full name.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim()))
     errors.email = 'Enter an email we can send your confirmation to.';
-  if (digits < 6) errors.phone = 'Enter a phone number the courier can call.';
-  else if (!/^[+\d][\d\s()-]*$/.test(v.phone.trim()))
-    errors.phone = 'Use digits only, optionally starting with +.';
+  const phoneError = phoneInputProblem(v.phone);
+  if (phoneError) errors.phone = phoneError;
   if (v.line1.trim().length < 3) errors.line1 = 'Enter your street address.';
   if (v.city.trim().length < 2) errors.city = 'Enter your city.';
   // frontend#158/#163: free text is gone. A guest's governorate must resolve
@@ -158,6 +156,7 @@ function Field({
   inputMode,
   placeholder,
   optional,
+  helper,
 }: {
   id: string;
   label: string;
@@ -169,6 +168,7 @@ function Field({
   inputMode?: 'text' | 'tel' | 'email' | 'numeric';
   placeholder?: string;
   optional?: boolean;
+  helper?: string;
 }) {
   return (
     <div style={fieldWrap}>
@@ -207,7 +207,7 @@ function Field({
         inputMode={inputMode}
         placeholder={placeholder}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={error ? `${id}-error` : helper ? `${id}-helper` : undefined}
         style={{
           ...inputStyle,
           ...(error ? { borderColor: 'var(--mr-danger, #c0392b)' } : {}),
@@ -217,6 +217,11 @@ function Field({
       {error && (
         <span id={`${id}-error`} role="alert" style={errorStyle}>
           {error}
+        </span>
+      )}
+      {!error && helper && (
+        <span id={`${id}-helper`} style={{ ...errorStyle, color: 'var(--mr-fg-4)' }}>
+          {helper}
         </span>
       )}
     </div>
@@ -283,6 +288,12 @@ export default function GuestDetailsForm({
           onChange={(v) => set({ phone: v })}
           error={errors.phone}
           autoComplete="tel"
+          placeholder="010 1234 5678"
+          helper={
+            value.phone.trim() && !phoneInputProblem(value.phone)
+              ? `Saved as ${normalizePhoneInput(value.phone)}`
+              : 'Egypt: 010, 011, 012 or 015 · International: start with + and country code'
+          }
         />
       </div>
       <p

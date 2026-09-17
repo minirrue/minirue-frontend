@@ -8,6 +8,7 @@ import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import Button from '@/components/ui/Button';
 import AvatarCropSheet from '@/components/storefront/AvatarCropSheet';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
+import { normalizePhoneInput, phoneInputProblem } from '@/lib/auth/dial-codes';
 
 interface Props {
   profile: CustomerProfile;
@@ -17,6 +18,8 @@ export default function ProfileForm({ profile }: Props) {
   const [displayName, setDisplayName] = useState(profile.displayName ?? '');
   const [firstName, setFirstName] = useState(profile.firstName);
   const [lastName, setLastName] = useState(profile.lastName);
+  const [phone, setPhone] = useState(profile.phone ?? '');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const updateProfile = useUpdateCustomerProfile();
   const uploadAvatar = useUploadCustomerAvatar();
@@ -89,6 +92,7 @@ export default function ProfileForm({ profile }: Props) {
     setDisplayName(profile.displayName ?? '');
     setFirstName(profile.firstName);
     setLastName(profile.lastName);
+    setPhone(profile.phone ?? '');
   }, [profile]);
 
   const loading = updateProfile.isPending;
@@ -99,6 +103,12 @@ export default function ProfileForm({ profile }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess(false);
+    const nextPhoneError = phone.trim() ? phoneInputProblem(phone) : null;
+    if (nextPhoneError) {
+      setPhoneError(nextPhoneError);
+      return;
+    }
+    setPhoneError(null);
     try {
       await updateProfile.mutateAsync({
         // Emptying the box means "go back to my first name", so it has to send
@@ -107,6 +117,7 @@ export default function ProfileForm({ profile }: Props) {
         displayName: displayName.trim() ? displayName.trim() : null,
         firstName,
         lastName,
+        phone: phone.trim() ? normalizePhoneInput(phone) : null,
       });
       setSuccess(true);
     } catch {
@@ -226,21 +237,44 @@ export default function ProfileForm({ profile }: Props) {
         </label>
       </div>
 
-      {/* Phone — read-only */}
-      <label style={labelStyle}>
-        <span style={labelTextStyle}>
-          Phone
-          <span style={{ marginLeft: 8, fontSize: 'var(--mr-text-xs)', color: 'var(--mr-fg-4)', fontWeight: 400 }}>
-            (contact support to update)
-          </span>
-        </span>
+      {/* Phone */}
+      <div style={labelStyle}>
+        <label htmlFor="profile-phone" style={labelTextStyle}>Phone</label>
         <input
+          id="profile-phone"
           type="tel"
-          value={profile.phone ?? '—'}
-          readOnly
-          style={{ ...inputStyle, opacity: 0.55, cursor: 'not-allowed' }}
+          value={phone}
+          onChange={(e) => {
+            setPhone(e.target.value);
+            setPhoneError(null);
+          }}
+          placeholder="010 1234 5678"
+          autoComplete="tel"
+          inputMode="tel"
+          aria-invalid={phoneError ? true : undefined}
+          aria-describedby="profile-phone-help"
+          style={{
+            ...inputStyle,
+            ...(phoneError ? { borderColor: 'var(--mr-danger)' } : {}),
+          }}
+          disabled={loading}
         />
-      </label>
+        <span
+          id="profile-phone-help"
+          role={phoneError ? 'alert' : undefined}
+          style={{
+            fontFamily: 'var(--mr-font-ui)',
+            fontSize: 'var(--mr-text-xs)',
+            color: phoneError ? 'var(--mr-danger)' : 'var(--mr-fg-4)',
+          }}
+        >
+          {phoneError ?? (
+            phone.trim() && !phoneInputProblem(phone)
+              ? `Saved as ${normalizePhoneInput(phone)}`
+              : 'Egypt: 010, 011, 012 or 015 · International: start with + and country code'
+          )}
+        </span>
+      </div>
 
       {/* Tier — read-only */}
       <label style={labelStyle}>

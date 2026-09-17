@@ -77,6 +77,23 @@ export interface RegisterInput {
   phone: string;
 }
 
+/**
+ * The identity was created, but its customer-profile phone was not saved.
+ * Callers need the successful identity so retrying saves only the phone rather
+ * than attempting to create the same account a second time.
+ */
+export class RegistrationPhoneSaveError extends Error {
+  readonly user: AuthSuccessResponse['user'];
+  readonly cause: unknown;
+
+  constructor(user: AuthSuccessResponse['user'], cause: unknown) {
+    super('Your account was created, but we could not save your phone number.');
+    this.name = 'RegistrationPhoneSaveError';
+    this.user = user;
+    this.cause = cause;
+  }
+}
+
 export async function apiRegister(
   input: RegisterInput,
 ): Promise<AuthSuccessResponse> {
@@ -112,17 +129,16 @@ export async function apiRegister(
    * every registration. /customers/me already accepts and validates a phone,
    * including the uniqueness check that refuses a number another account holds.
    *
-   * Best-effort, and deliberately after markAuthenticated(): the account itself
-   * is created and usable. Failing the whole signup because a phone could not
-   * be attached — or worse, because someone else already uses that number —
-   * would throw away a completed registration over a field the shopper can
-   * still have set later.
+   * Deliberately after markAuthenticated(): this PATCH requires the session
+   * cookie that sign-up just established. A failure is surfaced with the
+   * created identity attached so the UI can retry only this PATCH; swallowing
+   * it would redirect while falsely implying the delivery phone was saved.
    */
   if (phone) {
     try {
       await apiUpdateMe({ phone });
-    } catch {
-      // Swallowed for the reason above. The account exists; the phone does not.
+    } catch (cause) {
+      throw new RegistrationPhoneSaveError(toUserProfile(data.user), cause);
     }
   }
 

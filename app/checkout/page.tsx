@@ -24,6 +24,7 @@ import GuestDetailsForm, {
   validateGuest,
   type GuestFieldErrors,
 } from '@/components/checkout/GuestDetailsForm';
+import { normalizePhoneInput } from '@/lib/auth/dial-codes';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
 import {
@@ -741,7 +742,7 @@ export default function CheckoutPage() {
               }
               setGuestErrors({});
               saveCheckoutSession({
-                guest,
+                guest: { ...guest, phone: normalizePhoneInput(guest.phone) },
                 shippingAddressId: undefined,
                 // The text, not the resolved key — see checkout-session.ts.
                 shippingGovernorate: guest.governorate,

@@ -19,8 +19,21 @@ jest.mock('next/navigation', () => ({
 }));
 
 const mockApiRegister = jest.fn();
-jest.mock('@/lib/api/auth', () => ({
-  apiRegister: (...args: unknown[]) => mockApiRegister(...args),
+jest.mock('@/lib/api/auth', () => {
+  class RegistrationPhoneSaveError extends Error {
+    constructor(public user: ReturnType<typeof mockAuthResponse>['user'], public cause: unknown) {
+      super('Your account was created, but we could not save your phone number.');
+    }
+  }
+  return {
+    apiRegister: (...args: unknown[]) => mockApiRegister(...args),
+    RegistrationPhoneSaveError,
+  };
+});
+
+const mockApiUpdateMe = jest.fn();
+jest.mock('@/lib/api/customers', () => ({
+  apiUpdateMe: (...args: unknown[]) => mockApiUpdateMe(...args),
 }));
 
 jest.mock('@/lib/auth/tokens', () => ({
@@ -37,6 +50,7 @@ jest.mock('@/lib/session', () => ({
 
 // ── Component ────────────────────────────────────────────────────────────────
 import SignupPage from '@/app/(auth)/signup/page';
+import { RegistrationPhoneSaveError } from '@/lib/api/auth';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const mockAuthResponse = () => ({
@@ -48,7 +62,7 @@ const mockAuthResponse = () => ({
     userId: 'u1',
     email: 'new@example.com',
     name: 'New',
-    role: 'CUSTOMER',
+    role: 'CUSTOMER' as const,
   },
 });
 
@@ -95,6 +109,14 @@ describe('SignupPage', () => {
   });
 
   describe('field validation', () => {
+    it('rejects an Egyptian number outside the 010, 011, 012 and 015 mobile ranges', async () => {
+      render(<SignupPage />);
+      await fillForm('New', 'new@example.com', 'Password1', 'Password1', 'Customer', '01312345678');
+
+      expect(await screen.findByText(/010, 011, 012 or 015/i)).toBeInTheDocument();
+      expect(mockApiRegister).not.toHaveBeenCalled();
+    });
+
     it('shows first-name required error', async () => {
       render(<SignupPage />);
       const user = userEvent.setup();
@@ -189,6 +211,30 @@ describe('SignupPage', () => {
   });
 
   describe('API error handling', () => {
+    it('stays on signup and retries only the phone save when profile attachment fails', async () => {
+      const response = mockAuthResponse();
+      mockApiRegister.mockRejectedValueOnce(
+        new RegistrationPhoneSaveError(response.user, { status: 409, message: 'Phone already exists' }),
+      );
+      mockApiUpdateMe.mockResolvedValueOnce({});
+      render(<SignupPage />);
+
+      await fillForm();
+
+      expect(await screen.findByRole('button', { name: /save phone and continue/i })).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(/could not save your delivery phone/i);
+      expect(mockPush).not.toHaveBeenCalled();
+
+      const user = userEvent.setup();
+      await user.clear(screen.getByLabelText(/phone number/i));
+      await user.type(screen.getByLabelText(/phone number/i), '01112345678');
+      await user.click(screen.getByRole('button', { name: /save phone and continue/i }));
+
+      await waitFor(() => expect(mockApiUpdateMe).toHaveBeenCalledWith({ phone: '+201112345678' }));
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'));
+      expect(mockApiRegister).toHaveBeenCalledTimes(1);
+    });
+
     it('shows "already exists" banner on 409', async () => {
       mockApiRegister.mockRejectedValueOnce({ status: 409, message: 'Conflict' });
       render(<SignupPage />);

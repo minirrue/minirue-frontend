@@ -1,4 +1,10 @@
-import { nationalNumber, phoneProblem, toE164 } from '@/lib/auth/dial-codes';
+import {
+  nationalNumber,
+  normalizePhoneInput,
+  phoneInputProblem,
+  phoneProblem,
+  toE164,
+} from '@/lib/auth/dial-codes';
 
 /**
  * The trunk-zero trap. An Egyptian shopper writes their mobile either way:
@@ -40,6 +46,13 @@ describe('phone normalisation to E.164', () => {
       expect(phoneProblem('+966', '0501234567')).toBeNull();
     });
 
+    it('accepts only the four Egyptian mobile prefixes', () => {
+      for (const prefix of ['010', '011', '012', '015']) {
+        expect(phoneProblem('+20', `${prefix}12345678`)).toBeNull();
+      }
+      expect(phoneProblem('+20', '01312345678')).toMatch(/010, 011, 012 or 015/);
+    });
+
     it('rejects one digit too few or too many', () => {
       expect(phoneProblem('+20', '0101243135')).toMatch(/10 digits/);
       expect(phoneProblem('+20', '010124313501')).toMatch(/10 digits/);
@@ -54,6 +67,19 @@ describe('phone normalisation to E.164', () => {
     it('requires a number at all', () => {
       expect(phoneProblem('+20', '')).toMatch(/required/i);
       expect(phoneProblem('+20', '0')).toMatch(/required/i);
+    });
+  });
+
+  describe('single-field checkout and profile input', () => {
+    it('normalises a local Egyptian mobile and formatted international E.164', () => {
+      expect(normalizePhoneInput('010 1243 1350')).toBe('+201012431350');
+      expect(normalizePhoneInput('+44 7700 900123')).toBe('+447700900123');
+    });
+
+    it('rejects fake Egyptian prefixes and malformed international numbers', () => {
+      expect(phoneInputProblem('01312345678')).toMatch(/010, 011, 012 or 015/);
+      expect(phoneInputProblem('+00123')).toMatch(/country code/);
+      expect(phoneInputProblem('+44 7700 900123')).toBeNull();
     });
   });
 });

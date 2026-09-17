@@ -13,10 +13,11 @@ import {
   type SignupFormData,
   PASSWORD_HELPER,
 } from '@/lib/auth/schemas';
-import { DIAL_CODES, DEFAULT_DIAL_CODE } from '@/lib/auth/dial-codes';
+import { DIAL_CODES, DEFAULT_DIAL_CODE, phoneProblem } from '@/lib/auth/dial-codes';
 import { blurActiveElement } from '@/lib/auth/blur-active-element';
 import { setSession } from '@/lib/session';
-import { apiRegister } from '@/lib/api/auth';
+import { apiRegister, RegistrationPhoneSaveError } from '@/lib/api/auth';
+import { apiUpdateMe } from '@/lib/api/customers';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import { formatApiError, type ApiError } from '@/lib/api/client';
 
@@ -39,6 +40,7 @@ export default function SignupPage() {
   const [errors, setErrors] = React.useState<Partial<Record<keyof SignupFormData, string>>>({});
   const [loading, setLoading] = React.useState(false);
   const [apiError, setApiError] = React.useState<string | null>(null);
+  const [registeredUser, setRegisteredUser] = React.useState<RegistrationPhoneSaveError['user'] | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,20 +58,24 @@ export default function SignupPage() {
     setApiError(null);
     setLoading(true);
     try {
-      const data = await apiRegister({
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        email: form.email,
-        password: form.password,
-        phone: toE164(form.dialCode, form.phoneNumber),
-      });
-      // PAST THIS LINE THE ACCOUNT EXISTS. Nothing below may throw the shopper
-      // back to an error message, because there is no error to report and no
-      // useful thing for them to do about it — pressing the button again just
-      // earns "an account with these details already exists" for the account
-      // they successfully created a second ago. That is the exact sequence the
-      // owner hit on 2026-08-01, and the culprit was cart merge / /auth/me,
-      // neither of which is the sign-up.
+      let data;
+      if (registeredUser) {
+        await apiUpdateMe({ phone: toE164(form.dialCode, form.phoneNumber) });
+        data = { user: registeredUser };
+      } else {
+        data = await apiRegister({
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          email: form.email,
+          password: form.password,
+          phone: toE164(form.dialCode, form.phoneNumber),
+        });
+      }
+      // PAST THIS LINE both the account and its required phone exist. Optional
+      // follow-up work must not turn that success into a failed sign-up:
+      // pressing the button again would only earn "already exists" for the
+      // account just created. Phone attachment is intentionally above this
+      // boundary because redirecting without it would falsely claim success.
       try {
         setSession({
           userId: data.user.userId,
@@ -95,6 +101,22 @@ export default function SignupPage() {
       return;
     } catch (err: unknown) {
       setLoading(false);
+      if (err instanceof RegistrationPhoneSaveError) {
+        setRegisteredUser(err.user);
+        setSession({
+          userId: err.user.userId,
+          email: err.user.email,
+          name: err.user.name ?? `${form.firstName} ${form.lastName}`.trim(),
+          role: err.user.role,
+          createdAt: Date.now(),
+        });
+        setErrors({
+          phoneNumber: 'Your account is ready, but this phone was not saved. Check it and try again.',
+        });
+        setApiError('We could not save your delivery phone. Correct it, then choose “Save phone and continue”.');
+        document.getElementById('phoneNumber')?.focus();
+        return;
+      }
       // Never let the error handler itself be the thing that fails. It already
       // did once: `message` arrives as an ARRAY on a 422, the old code called
       // `.trim()` on it, that threw HERE, and the shopper got a button that
@@ -238,15 +260,19 @@ export default function SignupPage() {
               autoComplete="tel-national"
               placeholder="1001234567"
               value={form.phoneNumber}
-              onChange={(e) => setForm((f) => ({ ...f, phoneNumber: e.target.value }))}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, phoneNumber: e.target.value }));
+                setErrors((current) => ({ ...current, phoneNumber: undefined }));
+                setApiError(null);
+              }}
               error={errors.phoneNumber}
               // Showing the E.164 result as they type is the point: a shopper who
               // types 01012431350 can see it saved as +201012431350 and not
               // +2001012431350, which is the mistake this field used to invite.
               helper={
-                form.phoneNumber.trim()
+                form.phoneNumber.trim() && !phoneProblem(form.dialCode, form.phoneNumber)
                   ? `Saved as ${toE164(form.dialCode, form.phoneNumber)}`
-                  : 'We use this for delivery updates only.'
+                  : 'Egyptian mobiles start 010, 011, 012 or 015. We use this for delivery updates.'
               }
               traceId="PG-STOREFRONT-IAM-002::EL-FIELD-phone-number"
             />
@@ -281,7 +307,9 @@ export default function SignupPage() {
           style={{ marginTop: 8 }}
           traceId="PG-STOREFRONT-IAM-002::EL-BTN-submit-signup"
         >
-          {loading ? 'Creating account…' : 'Create account'}
+          {loading
+            ? registeredUser ? 'Saving phone…' : 'Creating account…'
+            : registeredUser ? 'Save phone and continue' : 'Create account'}
         </Button>
       </form>
 
