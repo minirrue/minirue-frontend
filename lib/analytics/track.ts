@@ -10,6 +10,7 @@ import { dequeueAll, enqueue, requeue, shouldFlushForSize } from './queue';
 import { getTabSessionId } from './session';
 import { sendBeacon, sendFetch } from './transport';
 import { trackMetaPixelEvent } from './meta-pixel';
+import { trackTikTokEvent } from './tiktok-pixel';
 
 const PAYLOAD_VERSION = 1 as const;
 
@@ -70,6 +71,7 @@ export function track<K extends AnalyticsEventName>(name: K, props: AnalyticsPro
         },
         event.id,
       );
+      trackTikTokEvent('ViewContent', { content_id: metaProps.productId, content_type: 'product', value: Number(metaProps.priceMinor) / 100, currency: 'EGP' }, event.id);
     } else if (name === 'add_to_cart') {
       trackMetaPixelEvent(
         'AddToCart',
@@ -81,6 +83,7 @@ export function track<K extends AnalyticsEventName>(name: K, props: AnalyticsPro
         },
         event.id,
       );
+      trackTikTokEvent('AddToCart', { content_id: metaProps.productId, content_type: 'product', value: (Number(metaProps.priceMinor) * Number(metaProps.qty)) / 100, currency: 'EGP', quantity: Number(metaProps.qty) }, event.id);
     } else if (name === 'begin_checkout') {
       trackMetaPixelEvent(
         'InitiateCheckout',
@@ -91,6 +94,7 @@ export function track<K extends AnalyticsEventName>(name: K, props: AnalyticsPro
         },
         event.id,
       );
+      trackTikTokEvent('InitiateCheckout', { value: Number(metaProps.subtotalMinor) / 100, currency: 'EGP', contents: Number(metaProps.itemCount) }, event.id);
     }
 
     if (shouldFlushForSize(MAX_BATCH_SIZE)) {

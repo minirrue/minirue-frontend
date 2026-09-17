@@ -37,6 +37,7 @@ import OrderDeliveryInfo from '@/components/orders/OrderDeliveryInfo';
 import { formatMoney } from '@/lib/format/money';
 import { track } from '@/lib/analytics';
 import { trackMetaPixelEvent } from '@/lib/analytics/meta-pixel';
+import { trackTikTokEvent } from '@/lib/analytics/tiktok-pixel';
 import { isAuthenticated } from '@/lib/auth/tokens';
 import { orderBuyer, type OrderBuyer } from '@/lib/checkout/order-buyer';
 
@@ -246,6 +247,11 @@ export default function CheckoutConfirmationPage() {
           },
           `purchase:${order.id}`,
         );
+        trackTikTokEvent('Purchase', {
+          value: Number(order.totalAmount),
+          currency: order.totalCurrency,
+          contents: (order.items ?? []).map((item) => ({ content_id: item.variantId, quantity: item.qty })),
+        }, `purchase:${order.id}`);
         // Remembered BEFORE the session is spent, so a refresh from here on
         // shows this order rather than an abandoned checkout.
         savePlacedOrder(order, idempotencyKey);

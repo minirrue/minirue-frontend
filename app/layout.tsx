@@ -21,6 +21,7 @@ import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
 import MetaPixel from "@/components/seo/MetaPixel";
 import TrustpilotIntegration from "@/components/seo/TrustpilotIntegration";
 import { META_PIXEL_ID, metaPixelBaseCode } from "@/lib/analytics/meta-pixel";
+import { TIKTOK_PIXEL_ID, tiktokPixelBaseCode } from "@/lib/analytics/tiktok-pixel";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { buildIcons } from "@/lib/seo/icons";
 
@@ -176,14 +177,15 @@ export default function RootLayout({
       className={`${cormorant.variable} ${jost.variable} ${interTight.variable}`}
       suppressHydrationWarning
     >
-      {META_PIXEL_ID && (
+      {(META_PIXEL_ID || TIKTOK_PIXEL_ID) && (
         <head>
+          {TIKTOK_PIXEL_ID && <script id="tiktok-pixel" dangerouslySetInnerHTML={{ __html: tiktokPixelBaseCode(TIKTOK_PIXEL_ID) }} />}
           {/* Meta Pixel Code — placed in <head> on every page, as Events
               Manager instructs. Route-change PageViews: components/seo/MetaPixel.tsx. */}
-          <script
+          {META_PIXEL_ID && <script
             id="meta-pixel"
             dangerouslySetInnerHTML={{ __html: metaPixelBaseCode(META_PIXEL_ID) }}
-          />
+          />}
           <noscript>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
