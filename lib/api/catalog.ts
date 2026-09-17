@@ -97,6 +97,11 @@ export interface MediaAsset {
   // never a raw storage key. Use mediaImageUrl() below, not cloudinaryUrl()
   // directly, so both media sources render correctly.
   url?: string | null;
+  /** Linked Gallery media facts returned by the backend. Absent means a
+   * legacy image/ready row. Only ready videos have a playable `url`. */
+  kind?: 'image' | 'video';
+  posterUrl?: string | null;
+  status?: 'ready' | 'processing' | 'failed';
   width: number;
   height: number;
   altText: string;

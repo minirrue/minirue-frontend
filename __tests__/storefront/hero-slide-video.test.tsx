@@ -1,6 +1,8 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import SlideContent from '@/components/storefront/SlideContent';
+import { videoProgress } from '@/components/storefront/StorefrontVideo';
 import type { ResolvedHeroSlide } from '@/lib/api/storefront';
 
 /**
@@ -62,19 +64,22 @@ afterEach(() => {
 });
 
 describe('hero video', () => {
-  it('plays the active slide muted, looping and inline, with its poster', () => {
+  it('plays the active slide muted and inline, with its poster and one circular control', () => {
     const { container } = render(<SlideContent slide={videoSlide()} mobile={false} isActive />);
     const video = container.querySelector('video') as HTMLVideoElement;
 
     expect(video).not.toBeNull();
     // Assigned once by the effect, not rendered as a prop — see HeroVideo.
     expect(video.getAttribute('src')).toBe('https://s3.test/clip.mp4?signed');
-    expect(video.preload).toBe('auto');
+    expect(video.preload).toBe('metadata');
     expect(video).toHaveAttribute('poster', 'https://img.test/poster.webp');
     expect(video.muted).toBe(true);
-    expect(video.loop).toBe(true);
+    expect(video.loop).toBe(false);
     expect(video).toHaveAttribute('playsinline');
     expect(play).toHaveBeenCalledTimes(1);
+    // The control only claims playback after the browser confirms `playing`.
+    expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument();
+    expect(container.querySelector('[data-video-progress]')).not.toBeNull();
     // Never painted into an image tag.
     expect(container.querySelector('img[src*="clip.mp4"]')).toBeNull();
   });
@@ -111,14 +116,52 @@ describe('hero video', () => {
     expect(play).toHaveBeenCalled();
   });
 
-  it('shows the poster as a still and no video under prefers-reduced-motion', () => {
+  it('shows the poster and waits for an explicit play under prefers-reduced-motion', async () => {
     setReducedMotion(true);
     const { container } = render(<SlideContent slide={videoSlide()} mobile={false} isActive />);
 
-    expect(container.querySelector('video')).toBeNull();
-    const img = container.querySelector('img');
-    expect(img?.getAttribute('src')).toContain('poster.webp');
+    const video = container.querySelector('video') as HTMLVideoElement;
+    expect(video).not.toHaveAttribute('src');
+    expect(video).toHaveAttribute('poster', 'https://img.test/poster.webp');
     expect(play).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Play video' }));
+    expect(video).toHaveAttribute('src', 'https://s3.test/clip.mp4?signed');
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('toggles only from the circular button and offers replay after the clip ends', async () => {
+    const { container } = render(<SlideContent slide={videoSlide()} mobile={false} isActive />);
+    const video = container.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'paused', { configurable: true, value: false });
+    fireEvent.playing(video);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Pause video' }));
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+    fireEvent.pause(video);
+    expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument();
+
+    fireEvent.ended(video);
+    expect(screen.getByRole('button', { name: 'Replay video' })).toBeInTheDocument();
+    expect(container.querySelector('video')).not.toHaveAttribute('controls');
+  });
+
+  it('keeps progress math finite and clamped for incomplete media metadata', () => {
+    expect(videoProgress(25, 100)).toBe(0.25);
+    expect(videoProgress(125, 100)).toBe(1);
+    expect(videoProgress(-5, 100)).toBe(0);
+    expect(videoProgress(5, Number.NaN)).toBe(0);
+    expect(videoProgress(5, 0)).toBe(0);
+  });
+
+  it('turns buffering and media failure into states of the same control', () => {
+    const { container } = render(<SlideContent slide={videoSlide()} mobile={false} isActive />);
+    const video = container.querySelector('video') as HTMLVideoElement;
+
+    fireEvent.waiting(video);
+    expect(container.querySelector('[data-storefront-video]')).toHaveAttribute('data-state', 'buffering');
+    fireEvent.error(video);
+    expect(screen.getByRole('button', { name: 'Video unavailable' })).toBeDisabled();
   });
 
   it('uses the desktop kind on a phone that has no mobile crop', () => {

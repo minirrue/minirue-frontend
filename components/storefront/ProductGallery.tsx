@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Icon from '@/components/ui/Icon';
+import StorefrontVideo from '@/components/storefront/StorefrontVideo';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import type { ApiProduct, MediaAsset } from '@/lib/api/catalog';
 import { mediaImageUrl } from '@/lib/api/catalog';
@@ -255,7 +256,14 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
           // as-is — live for the legacy Cloudinary-linked assets that still
           // fall through to it.) 1600 matches the `rs:fit:1600` the gallery
           // pipeline asks imgproxy for, so the two sources agree.
-          const src = mediaImageUrl(m, { w: 1600 });
+          const readyVideo = m.kind === 'video' && (m.status ?? 'ready') === 'ready';
+          // A converting/failed video's `url` is intentionally its poster on
+          // the backend. Never hand that still image to a video element.
+          const src = readyVideo
+            ? m.url ?? ''
+            : m.kind === 'video'
+              ? m.posterUrl ?? m.url ?? ''
+              : mediaImageUrl(m, { w: 1600 });
           if (!src) return null;
           return (
             <div
@@ -267,11 +275,19 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                 data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
                 className="relative aspect-[4/5] w-full lg:aspect-square"
               >
-                <Image
-                  src={src}
-                  alt={m.altText ?? product.name}
-                  fill
-                  priority={i === 0}
+                {readyVideo ? (
+                  <StorefrontVideo
+                    src={src}
+                    poster={m.posterUrl}
+                    label={m.altText ?? `${product.name} video`}
+                    active={i === index}
+                  />
+                ) : (
+                  <Image
+                    src={src}
+                    alt={m.altText ?? product.name}
+                    fill
+                    priority={i === 0}
                   /*
                    * `priority` alone is not enough, and the difference is the
                    * whole of this change.
@@ -305,8 +321,9 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                   style={{ objectFit: 'cover' }}
                   // Dragging an image drags the browser's own ghost preview
                   // instead of the strip.
-                  draggable={false}
-                />
+                    draggable={false}
+                  />
+                )}
               </div>
             </div>
           );
@@ -367,7 +384,7 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                 key={m.id}
                 type="button"
                 data-trace-id={`PG-STOREFRONT-CAT-005::EL-BTN-gallery-dot@${m.id}`}
-                aria-label={`Go to photo ${i + 1} of ${total}`}
+                aria-label={`Go to media ${i + 1} of ${total}`}
                 aria-current={index === i}
                 onClick={() => goTo(i)}
                 // 44px of tappable area around a 6px mark.

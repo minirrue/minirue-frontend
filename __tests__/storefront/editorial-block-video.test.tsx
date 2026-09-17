@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import EditorialBlock from '@/components/storefront/EditorialBlock';
 import type { ResolvedSection } from '@/lib/api/storefront';
 
@@ -27,7 +27,7 @@ const base: Journal = {
 };
 
 describe('EditorialBlock media', () => {
-  it('plays a video — with controls, no autoplay, and its poster', () => {
+  it('renders the shared poster-first player with only its circular control', () => {
     const { container } = render(
       <EditorialBlock
         section={{
@@ -41,25 +41,24 @@ describe('EditorialBlock media', () => {
 
     const video = container.querySelector('video');
     expect(video).not.toBeNull();
-    expect(video).toHaveAttribute('src', 'https://s3.test/clip.mp4?signed');
     expect(video).toHaveAttribute('poster', 'https://img.test/clip-poster.webp');
-    expect(video).toHaveAttribute('controls');
-    // Below the fold on a bandwidth-bound page (#7): the shopper starts it.
+    expect(video).not.toHaveAttribute('controls');
     expect(video).not.toHaveAttribute('autoplay');
-    // With a poster to show, not a single video byte before play.
     expect(video).toHaveAttribute('preload', 'none');
+    expect(screen.getByRole('button', { name: 'Play video' })).toBeInTheDocument();
     // And the movie is never handed to an image element.
     expect(container.querySelector('img[src*="clip.mp4"]')).toBeNull();
   });
 
-  it('fetches just enough to paint a first frame when there is no poster', () => {
+  it('still waits until near the viewport when there is no poster', () => {
     const { container } = render(
       <EditorialBlock
         section={{ ...base, imageUrl: 'https://s3.test/bare.mp4', mediaKind: 'video', posterUrl: null }}
       />,
     );
 
-    expect(container.querySelector('video')).toHaveAttribute('preload', 'metadata');
+    expect(container.querySelector('video')).toHaveAttribute('preload', 'none');
+    expect(container.querySelector('video')).not.toHaveAttribute('src');
   });
 
   it('renders a photo as before, including from a backend that sends no kind', () => {

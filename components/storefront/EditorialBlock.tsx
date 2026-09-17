@@ -15,6 +15,7 @@
 import React from 'react';
 import BottleSVG from '@/components/ui/BottleSVG';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
+import StorefrontVideo from '@/components/storefront/StorefrontVideo';
 import { useScrollReveal } from '@/lib/motion/hooks';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import type { ResolvedSection } from '@/lib/api/storefront';
@@ -60,35 +61,12 @@ export default function EditorialBlock({ section }: { section: JournalSection })
           }}
         >
           {section.imageUrl && section.mediaKind === 'video' ? (
-            /*
-             * A journal video (backend#89). Not autoplaying, on purpose: this
-             * block sits below the fold and is not the LCP element, and #7
-             * measured the product page as bandwidth-bound — a clip that starts
-             * downloading on its own competes with everything above it. The
-             * shopper presses play.
-             *
-             * `preload="none"` when there is a poster, so the page pays zero
-             * video bytes until then. Without one, `metadata` fetches just
-             * enough for the browser to paint a first frame instead of an empty
-             * crimson box.
-             *
-             * No `mr-hero-drift` — the slow drift that suits a still would move
-             * the video's own controls out from under the pointer.
-             */
-            <video
+            /* Near-viewport loading and in-view autoplay are owned by the
+               shared player, so this below-fold block never competes with LCP. */
+            <StorefrontVideo
               src={section.imageUrl}
               poster={section.posterUrl ?? undefined}
-              controls
-              playsInline
-              preload={section.posterUrl ? 'none' : 'metadata'}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-              }}
+              label={section.title || 'MiniRue editorial video'}
             />
           ) : section.imageUrl ? (
             // Never a bare image tag — an editorial photograph is swapped from

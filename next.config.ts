@@ -18,6 +18,8 @@ const contentSecurityPolicy = [
   `script-src 'self' 'unsafe-inline' https://connect.facebook.net https://invitejs.trustpilot.com${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
+  // Storefront videos resolve to signed HTTPS storage URLs, just like images.
+  "media-src 'self' https:",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
   `connect-src 'self' https:${isProd ? "" : " ws: wss: http:"}`,

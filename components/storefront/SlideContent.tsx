@@ -4,13 +4,14 @@ import React from 'react';
 import { preload } from 'react-dom';
 import Image, { getImageProps } from 'next/image';
 import BottleSVG from '@/components/ui/BottleSVG';
+import StorefrontVideo from '@/components/storefront/StorefrontVideo';
 import { heroImageLoader } from '@/lib/images/hero-loader';
-import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import type { ResolvedHeroSlide } from '@/lib/api/storefront';
 
 /**
- * A hero slide's video (backend#89): muted, looping, inline, and running only
- * while its slide is the one on screen.
+ * A hero slide's video (backend#89): muted, inline, and running only while its
+ * slide is the one on screen. `StorefrontVideo` owns its one circular control,
+ * progress, buffering, reduced-motion and replay states.
  *
  * Muted because browsers refuse to autoplay anything else. Only the ACTIVE
  * slide loads or plays: the carousel mounts every slide, and #7 measured this
@@ -27,76 +28,14 @@ import type { ResolvedHeroSlide } from '@/lib/api/storefront';
  * assembling the element, so the browser starts loading before the element is
  * settled and then starts again.
  *
- * So the element renders with no source, and the effect below sets it a single
- * time when the slide is active — the same one assignment the plain page does.
- * An inactive slide and a server render have nothing to fetch, and the effect
- * checks the motion preference itself before loading (see below). The poster
- * paints in the meantime and is what LCP measures.
+ * So the shared player renders with no source, then assigns it a single time
+ * when the slide is active. An inactive slide and a server render have nothing
+ * to fetch. The poster paints in the meantime and is what LCP measures.
  *
  * `play()` is called explicitly because there is no `autoplay` attribute; its
  * promise is caught, since a browser that declines (data saver, low-power mode)
  * should simply leave the poster up.
  */
-function HeroVideo({
-  src,
-  poster,
-  active,
-  label,
-  objectPosition,
-}: {
-  src: string;
-  poster: string | null;
-  active: boolean;
-  label: string;
-  objectPosition: string;
-}) {
-  const ref = React.useRef<HTMLVideoElement>(null);
-
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (!active) {
-      el.pause();
-      return;
-    }
-    /*
-     * Ask the browser directly, not the hook. During hydration React answers
-     * `usePrefersReducedMotion` with its SERVER snapshot (motion allowed), so
-     * this component mounts and this effect runs before the real preference
-     * re-renders it away — measured: a reduced-motion visitor downloaded the
-     * clip anyway. The media query at this moment is the truth.
-     */
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    el.muted = true;
-    if (el.getAttribute('src') !== src) {
-      el.preload = 'auto';
-      el.src = src;
-    }
-    void el.play()?.catch(() => {});
-  }, [active, src]);
-
-  return (
-    <video
-      ref={ref}
-      key={src}
-      poster={poster ?? undefined}
-      aria-label={label}
-      muted
-      loop
-      playsInline
-      preload="none"
-      style={{
-        position: 'absolute',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-        objectPosition,
-      }}
-    />
-  );
-}
-
 /**
  * The phone breakpoint, as CSS. It must say exactly what `useBreakpoint` says
  * (`innerWidth < 640`), or a 639px window would get one crop from the media
@@ -266,7 +205,6 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
    * `heroSrc` takes: a phone with no mobile crop shows the desktop media, so it
    * must also take the desktop kind and poster, not the mobile ones.
    */
-  const reduceMotion = usePrefersReducedMotion();
   const heroKind =
     slide.mode === 'image'
       ? (usingMobileCrop ? slide.mobileMediaKind : slide.mediaKind) ?? 'image'
@@ -353,38 +291,14 @@ export default function SlideContent({ slide, mobile, isActive, onShop }: SlideC
         artDirected ? (
           <ArtDirectedHeroImage key={artDirected.desktopSrc} alt={heroAlt} {...artDirected} />
         ) : heroSrc && heroKind === 'video' ? (
-          reduceMotion ? (
-            /*
-             * Asked for less motion: the poster, still, and no video element at
-             * all. With no poster there is nothing still to show, so it is the
-             * slide's background colour.
-             */
-            heroPoster ? (
-              <Image
-                key={heroPoster}
-                src={heroPoster}
-                alt={heroAlt}
-                fill
-                priority
-                sizes="100vw"
-                // A poster is one file with no widths; the loader hands it back
-                // untouched, which keeps it off Next's optimizer exactly like
-                // every other hero image (see hero-srcset.test.ts).
-                loader={heroImageLoader(null)}
-                style={{ objectFit: 'cover', objectPosition: heroObjectPosition }}
-              />
-            ) : (
-              <div style={{ position: 'absolute', inset: 0, background: slide.background }} />
-            )
-          ) : (
-            <HeroVideo
-              src={heroSrc}
-              poster={heroPoster}
-              active={isActive}
-              label={heroAlt}
-              objectPosition={heroObjectPosition}
-            />
-          )
+          <StorefrontVideo
+            key={heroSrc}
+            src={heroSrc}
+            poster={heroPoster}
+            active={isActive}
+            label={heroAlt}
+            objectPosition={heroObjectPosition}
+          />
         ) : heroSrc ? (
           <Image
             key={heroSrc}
