@@ -23,7 +23,10 @@ jest.mock('@/lib/checkout/checkout-api', () => ({
 jest.mock('@/lib/api/refunds', () => ({
   apiListMyRefunds: () => Promise.resolve({ data: [] }),
 }));
-jest.mock('next/navigation', () => ({ useParams: () => ({ id: 'o1' }) }));
+jest.mock('next/navigation', () => ({
+  useParams: () => ({ id: 'o1' }),
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn() }),
+}));
 
 import OrderHistoryClient from '@/app/account/orders/OrderHistoryClient';
 import OrderDetailClient from '@/app/account/orders/[id]/OrderDetailClient';
