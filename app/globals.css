@@ -252,6 +252,6 @@ html {
   border-radius: inherit;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   .mr-confirmation-delivery, .mr-confirmation-order { display: block !important; width: 100% !important; margin: var(--mr-sp-4) 0 !important; }
 }
