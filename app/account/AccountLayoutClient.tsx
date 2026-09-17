@@ -22,11 +22,8 @@ const NAV_LINKS = [
   { href: '/account/saved', label: 'Saved' },
   { href: '/account/orders', label: 'Orders' },
   { href: '/account/refunds', label: 'Refunds' },
+  { href: '/account/loyalty', label: 'Points' },
   { href: '/account/notifications', label: 'Notifications' },
-  // Loyalty is hidden while the module is under maintenance. Left in place rather
-  // than deleted — the page and its API client still work, so restoring it is
-  // uncommenting one line.
-  // { href: '/account/loyalty', label: 'Loyalty' },
 ];
 
 export default function AccountLayoutClient({ children }: { children: React.ReactNode }) {

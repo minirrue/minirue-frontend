@@ -9,23 +9,53 @@ export type PointsTxType =
   | 'EXPIRE'
   | 'MANUAL_ADJUST';
 
-export interface LoyaltyAccount {
+export interface PointsTransaction {
+  id: string;
+  type: PointsTxType;
+  points: number;
+  delta: number;
+  balanceAfter: number;
+  orderId: string | null;
+  actorId: string | null;
+  reason: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface LoyaltyOverview {
   id: string;
   customerId: string;
   balance: number;
   lifetimeEarned: number;
   lifetimeRedeemed: number;
+  lifetimeReversed: number;
+  lifetimeAdjusted: number;
+  history: PointsTransaction[];
+  total: number;
+  page: number;
+  limit: number;
+  rules: {
+    pointsPerEgp: number;
+    redemptionEnabled: boolean;
+    milestonesEnabled: boolean;
+    milestones: unknown[];
+  };
 }
 
-export interface PointsTransaction {
-  id: string;
-  type: PointsTxType;
-  delta: number;
-  balanceAfter: number;
-  referenceId: string | null;
-  note: string | null;
-  createdAt: string;
+/** One authenticated read keeps the balance and its ledger on the same snapshot. */
+export async function apiGetMyLoyalty(params: { page?: number; limit?: number } = {}): Promise<LoyaltyOverview> {
+  const query = new URLSearchParams({
+    page: String(params.page ?? 1),
+    limit: String(params.limit ?? 20),
+  });
+  return apiFetch<LoyaltyOverview>(`/me/loyalty?${query}`, { auth: true });
 }
+
+// Rollout aliases for callers that have not moved to the combined endpoint yet.
+export type LoyaltyAccount = Pick<
+  LoyaltyOverview,
+  'id' | 'customerId' | 'balance' | 'lifetimeEarned' | 'lifetimeRedeemed'
+>;
 
 export async function apiGetLoyaltyAccount(): Promise<LoyaltyAccount> {
   return apiFetch('/loyalty/account', { auth: true });
