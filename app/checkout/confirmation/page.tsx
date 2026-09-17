@@ -25,6 +25,7 @@ import {
   placeWithReplay,
   savePlacedOrder,
 } from '@/lib/checkout/placed-order';
+import { formatOrderRef } from '@/lib/orders/order-format';
 import { realOrderTotalMinor } from '@/lib/checkout/real-order-total';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
@@ -393,7 +394,7 @@ export default function CheckoutConfirmationPage() {
                 margin: '0 0 var(--mr-sp-6)',
               }}
             >
-              {orderNumber}
+              {order ? formatOrderRef(order) : orderNumber}
             </p>
             {/*
               What was actually bought, on the page that says it was bought.

@@ -7,7 +7,7 @@ import OrderLineList, {
 } from "@/components/orders/OrderLineList";
 import OrderDeliveryInfo from "@/components/orders/OrderDeliveryInfo";
 import OrderProgress from "@/components/orders/OrderProgress";
-import { formatOrderStatus, formatOrderTotal } from "@/lib/orders/order-format";
+import { formatOrderRef, formatOrderStatus, formatOrderTotal } from "@/lib/orders/order-format";
 import { useParams } from "next/navigation";
 import { apiGetOrder, type OrderSummary } from "@/lib/checkout/checkout-api";
 import { apiListMyRefunds } from "@/lib/api/refunds";
@@ -68,7 +68,7 @@ export default function OrderDetailClient() {
       <Link href="/account/orders" className="text-sm underline">
         ← Back to orders
       </Link>
-      <h1 className="mt-4 text-2xl font-serif">{order.orderNumber}</h1>
+      <h1 className="mt-4 text-2xl font-serif">Order {formatOrderRef(order)}</h1>
       <p className="mt-2 text-sm text-neutral-600">
         {formatOrderStatus(order.status)}
         {order.createdAt

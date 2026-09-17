@@ -67,6 +67,8 @@ export interface OrderItemSummary {
     name?: string;
     brand?: string;
     imageUrl?: string | null;
+    /** High-resolution uncropped source for customer-facing order previews. */
+    imagePreviewUrl?: string | null;
     sku?: string;
     variantValues?: Record<string, string>;
     /** Set members only, resolved at read time (backend 0.113.0) — for a product-page link. */
@@ -98,6 +100,8 @@ export interface OrderSummary {
   id: string;
   orderNumber: string;
   orderSeq: number;
+  /** This customer's lifetime order number, including cancelled orders. */
+  customerOrderSeq?: number;
   /**
    * Who bought it (backend `toOrderDto`): `userId` on an account order,
    * `guestContact` on a guest one — the other is null. Optional because an

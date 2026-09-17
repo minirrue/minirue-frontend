@@ -72,7 +72,7 @@ export function groupOrderLines(items: OrderItemSummary[] | undefined | null): O
         key: item.id,
         kind: 'item',
         name: item.productSnapshot?.name ?? UNNAMED_ITEM_LABEL,
-        imageUrl: item.productSnapshot?.imageUrl ?? null,
+        imageUrl: item.productSnapshot?.imagePreviewUrl ?? item.productSnapshot?.imageUrl ?? null,
         brand: item.productSnapshot?.brand ?? null,
         detail: detailOf(item),
         qty: item.qty,
@@ -121,7 +121,10 @@ export function groupOrderLines(items: OrderItemSummary[] | undefined | null): O
       kind: 'bundle',
       name: bundle?.name ?? UNNAMED_SET_LABEL,
       imageUrl:
-        bundle?.imageUrl ?? rows.find((r) => r.productSnapshot?.imageUrl)?.productSnapshot?.imageUrl ?? null,
+        bundle?.imageUrl ??
+        rows.find((r) => r.productSnapshot?.imagePreviewUrl)?.productSnapshot?.imagePreviewUrl ??
+        rows.find((r) => r.productSnapshot?.imageUrl)?.productSnapshot?.imageUrl ??
+        null,
       brand: null,
       detail: null,
       qty,

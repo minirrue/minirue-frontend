@@ -145,7 +145,7 @@ function OrderCard({ order, refundStatus }: { order: OrderSummary; refundStatus?
                 style={{
                   width: 56,
                   height: 70,
-                  objectFit: 'cover',
+                  objectFit: 'contain',
                   borderRadius: 'var(--mr-radius-sm)',
                   border: '1px solid var(--mr-border)',
                   background: 'var(--mr-bg-sunken)',

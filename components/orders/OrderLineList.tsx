@@ -43,7 +43,7 @@ function Thumb({ line, variant }: { line: OrderLine; variant: Variant }) {
   const frame: CSSProperties = {
     width: w,
     height: h,
-    objectFit: 'cover',
+    objectFit: 'contain',
     borderRadius: 'var(--mr-radius-sm)',
     border: '1px solid var(--mr-hairline)',
     background: 'var(--mr-cream-200, var(--mr-bg-sunken))',
