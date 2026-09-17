@@ -7,7 +7,9 @@ import Button from '@/components/ui/Button';
 import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 
 const DEFAULT_CENTER = { lat: 30.0444, lng: 31.2357 };
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+// Bright keeps individual building footprints and minor streets legible at the
+// close confirmation zoom. OpenFreeMap is free, keyless MapLibre vector data.
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/bright';
 const GEO_OPTIONS: PositionOptions = { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 };
 
 // MapLibre v6's ESM worker imports a shared sibling module. Next/Turbopack
@@ -32,7 +34,7 @@ export default function DeliveryMap({ pin, onChange, onConfirmedMapsUrlChange }:
 
   React.useEffect(() => {
     if (!hostRef.current) return;
-    const map = new maplibregl.Map({ container: hostRef.current, style: MAP_STYLE, center: [draft.lng, draft.lat], zoom: pin ? 16 : 12, attributionControl: false });
+    const map = new maplibregl.Map({ container: hostRef.current, style: MAP_STYLE, center: [draft.lng, draft.lat], zoom: pin ? 17 : 16.5, maxZoom: 19, attributionControl: false });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.AttributionControl({ compact: true }));
     const syncCenter = () => {
@@ -64,7 +66,7 @@ export default function DeliveryMap({ pin, onChange, onConfirmedMapsUrlChange }:
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         const next = { lat: coords.latitude, lng: coords.longitude };
-        mapRef.current?.jumpTo({ center: [next.lng, next.lat], zoom: 17 });
+        mapRef.current?.jumpTo({ center: [next.lng, next.lat], zoom: 18 });
         setDraft(next);
         setEditing(true);
         setConfirmedPin(null);

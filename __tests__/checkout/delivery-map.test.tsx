@@ -33,7 +33,7 @@ describe('DeliveryMap', () => {
     render(<DeliveryMap pin={null} onChange={onChange} onConfirmedMapsUrlChange={onUrl} />);
     await user.click(await screen.findByRole('button', { name: /use my location/i }));
     expect(getCurrentPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 });
-    expect(jumpTo).toHaveBeenCalledWith({ center: [31.2089, 30.0131], zoom: 17 });
+    expect(jumpTo).toHaveBeenCalledWith({ center: [31.2089, 30.0131], zoom: 18 });
     expect(onChange).toHaveBeenCalledWith(null);
     await user.click(screen.getByRole('button', { name: /confirm drop-off location/i }));
     expect(onChange).toHaveBeenLastCalledWith({ lat: 30.0131, lng: 31.2089 });
