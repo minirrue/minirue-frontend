@@ -94,7 +94,7 @@ export function track<K extends AnalyticsEventName>(name: K, props: AnalyticsPro
         },
         event.id,
       );
-      trackTikTokEvent('InitiateCheckout', { value: Number(metaProps.subtotalMinor) / 100, currency: 'EGP', contents: Number(metaProps.itemCount) }, event.id);
+      trackTikTokEvent('InitiateCheckout', { content_id: String(metaProps.cartId || 'cart'), content_type: 'product', value: Number(metaProps.subtotalMinor) / 100, currency: 'EGP', quantity: Number(metaProps.itemCount) }, event.id);
     }
 
     if (shouldFlushForSize(MAX_BATCH_SIZE)) {
