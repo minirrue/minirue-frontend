@@ -368,6 +368,7 @@ export default function CheckoutConfirmationPage() {
         maxWidth={520}
       >
         {orderNumber && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--mr-sp-5)', alignItems: 'start' }}>
           <div
             style={{
               textAlign: 'center',
@@ -453,8 +454,6 @@ export default function CheckoutConfirmationPage() {
               Absent when the order predates this or the backend hasn't sent
               it yet — `OrderDeliveryInfo` renders nothing in that case.
             */}
-            <OrderDeliveryInfo delivery={order?.delivery} currency={order?.totalCurrency ?? 'EGP'} />
-
             {order?.totalAmount && (
               <div
                 style={{
@@ -546,6 +545,8 @@ export default function CheckoutConfirmationPage() {
                 </div>
               </>
             )}
+          </div>
+          {order?.delivery && <div style={{ padding: 'var(--mr-sp-5)', borderRadius: 'var(--mr-radius-lg)', background: 'var(--mr-cream-100)', border: '1px solid var(--mr-hairline)', boxShadow: 'var(--mr-shadow-sm)' }}><OrderDeliveryInfo delivery={order.delivery} currency={order.totalCurrency ?? 'EGP'} /></div>}
           </div>
         )}
       </CheckoutPageFrame>
