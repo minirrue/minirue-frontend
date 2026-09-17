@@ -154,4 +154,21 @@ test.describe('product page on a phone', () => {
       expect(await horizontalOverflow(page), `overflow at ${width}px`).toBe(0);
     }
   });
+
+  test('contains portrait product art on desktop, preserves mobile cover, and serves the source directly', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/products/no1');
+
+    const image = page
+      .locator('[data-trace-id^="PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@"] img')
+      .first();
+    await expect(image).toHaveCSS('object-fit', 'contain');
+    await expect(image).toHaveAttribute('src', PRODUCT.media[0].url);
+    await expect(image).not.toHaveAttribute('src', /_next\/image/);
+    await page.screenshot({ path: testInfo.outputPath('pdp-desktop.png'), fullPage: true });
+
+    await page.setViewportSize(IPHONE);
+    await expect(image).toHaveCSS('object-fit', 'cover');
+    await page.screenshot({ path: testInfo.outputPath('pdp-mobile.png'), fullPage: true });
+  });
 });

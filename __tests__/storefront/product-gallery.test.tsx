@@ -102,6 +102,18 @@ describe('ProductGallery', () => {
         expect(src).not.toMatch(/[,/]h_\d+/);
       }
     });
+
+    it('preserves the mobile crop, contains desktop portraits, and keeps the source WebP', () => {
+      render(<ProductGallery product={PRODUCT_FIXTURE} items={items} />);
+
+      for (const img of screen.getAllByRole('img')) {
+        expect(img.className).toContain('object-cover');
+        expect(img.className).toContain('lg:object-contain');
+        // The PDP source is already a high-quality imgproxy WebP. Sending it
+        // through Next again made desktop Chrome choose a 21 KB AVIF re-encode.
+        expect(img.getAttribute('src')).not.toContain('/_next/image');
+      }
+    });
   });
 
   it('shows no dots, counter or arrows for a product with one photograph', () => {

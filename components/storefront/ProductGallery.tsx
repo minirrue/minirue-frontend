@@ -76,30 +76,17 @@ interface ProductGalleryProps {
  * 1440x1200 one), and on a tall window the box grew past the source, so
  * `cover` upscaled it — "maximized… zoomed in… bad pixels".
  *
- * 1:1 rather than some other number, because that is what the DASHBOARD CROPS
- * TO. Gallery media arrives as an imgproxy `rs:fit:<w>:0:0` URL, which only
- * ever scales — it never crops — so what the storefront receives is exactly
- * the admin's crop, and every asset the pipeline serves today measures square
- * (901x901, 761x761, 1025x1025 across the live catalogue, checked 2026-09-12).
- * A square box therefore shows a square source WHOLE: with `objectFit: cover`,
- * nothing is cropped at all, which is the literal ask — stop cropping over the
- * dashboard's crop.
+ * The catalogue no longer contains only square assets. The live Arencia cover
+ * is a portrait 989×1200 WebP; `cover` in this square desktop box discarded
+ * about 18% of it. Desktop therefore uses `contain`, while the phone keeps its
+ * established 4:5 `cover` treatment unchanged.
  *
- * `cover` is kept rather than `contain` for exactly that reason. On a square
- * source in a square box the two are pixel-identical, so `contain` would buy
- * nothing today; it would only start to differ on a non-square asset (the
- * legacy Cloudinary path), and there `cover` filling the frame beats `contain`
- * ruling cream letterbox bands across a full-bleed page.
- *
- * The phone's 4:5 is deliberately UNTOUCHED — the owner likes that framing,
- * and its box (390x487 at 390px wide) is small enough that `cover` downscales
- * rather than enlarges.
- *
- * What this does NOT fix: the source assets are only ~900px on the long edge,
- * so a DPR-2 laptop still asks for about twice the pixels that exist. That is
- * an upload-size problem (#11), not a layout one — the layout's job here is
- * only to stop making it worse, which a box that no longer grows with the
- * window height does.
+ * The source URL is already imgproxy's highest useful WebP for this asset.
+ * Sending it through `/_next/image` again made desktop Chrome choose a 21 KB
+ * AVIF re-encode from a 67 KB WebP and visibly softened its label. The PDP
+ * deliberately uses Next's scoped `unoptimized` escape hatch: no global image
+ * policy changes, no invented upscale, and every available source pixel reaches
+ * this high-attention product view.
  */
 export default function ProductGallery({ product, items, onOpen }: ProductGalleryProps) {
   const scrollerRef = React.useRef<HTMLDivElement>(null);
@@ -287,6 +274,7 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                     src={src}
                     alt={m.altText ?? product.name}
                     fill
+                    unoptimized
                     priority={i === 0}
                   /*
                    * `priority` alone is not enough, and the difference is the
@@ -318,7 +306,7 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                    */
                   fetchPriority={i === 0 ? 'high' : undefined}
                   sizes="(min-width: 1024px) 58vw, 100vw"
-                  style={{ objectFit: 'cover' }}
+                  className="object-cover lg:object-contain"
                   // Dragging an image drags the browser's own ghost preview
                   // instead of the strip.
                     draggable={false}
