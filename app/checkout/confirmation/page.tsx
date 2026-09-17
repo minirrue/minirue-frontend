@@ -374,7 +374,7 @@ export default function CheckoutConfirmationPage() {
           </div>
         )}
         {orderNumber && (
-          <div className="mr-confirmation-order" style={{ display: 'inline-grid', verticalAlign: 'top', gridTemplateColumns: 'minmax(0, 440px)', gap: 'var(--mr-sp-6)', alignItems: 'start', margin: 'var(--mr-sp-5) 0 0 var(--mr-sp-6)' }}>
+          <div className="mr-confirmation-order" style={{ display: 'inline-grid', verticalAlign: 'top', gridTemplateColumns: 'minmax(0, 440px)', gap: 'var(--mr-sp-6)', alignItems: 'start', margin: '-150px 0 0 var(--mr-sp-6)' }}>
           <div
             style={{
               textAlign: 'center',
