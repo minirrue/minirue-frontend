@@ -21,6 +21,7 @@ import {
 } from '@/components/storefront/cart/use-bag-pricing';
 import DiscountCodeField from '@/components/checkout/DiscountCodeField';
 import { loadAppliedCode, type DiscountPreview } from '@/lib/api/discounts';
+import RebuyCartNotice from '@/components/orders/RebuyCartNotice';
 
 function minorToAmount(minor: number): string {
   return (minor / 100).toFixed(2);
@@ -191,6 +192,7 @@ export default function CartPage() {
             : 'var(--mr-sp-7) var(--mr-gutter) var(--mr-sp-9)',
         }}
       >
+        <RebuyCartNotice />
         <CheckoutColumns
           // The summary to the right, level with the stepper (#80). No aside
           // for an empty bag — there is nothing to summarise.

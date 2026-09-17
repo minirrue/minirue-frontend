@@ -124,6 +124,21 @@ export interface OrderSummary {
   refundedAt: string | null;
   refundedAmountCents: number | null;
   /**
+   * Latest failed InstaPay review, present only on the authenticated order
+   * detail response. `note` is the customer-safe explanation written by the
+   * reviewer; the stable reason is mapped to friendly storefront copy.
+   */
+  paymentRejection?: {
+    reason:
+      | 'RECEIPT_UNREADABLE'
+      | 'AMOUNT_MISMATCH'
+      | 'REFERENCE_NOT_FOUND'
+      | 'DUPLICATE_RECEIPT'
+      | 'SENDER_NAME_MISMATCH'
+      | 'OTHER';
+    note: string | null;
+  } | null;
+  /**
    * Fulfillment delivery type and window (frontend#163, backend#186).
    * Optional: an order placed before this shipped, or a response from an
    * older backend, carries neither field nor block — same convention as

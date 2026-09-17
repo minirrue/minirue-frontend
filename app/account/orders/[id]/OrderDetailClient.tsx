@@ -12,6 +12,7 @@ import {
 import { useParams } from 'next/navigation';
 import { apiGetOrder, type OrderSummary } from '@/lib/checkout/checkout-api';
 import { apiListMyRefunds } from '@/lib/api/refunds';
+import PaymentRejectionPanel from '@/components/orders/PaymentRejectionPanel';
 
 export default function OrderDetailClient() {
   const { id } = useParams<{ id: string }>();
@@ -88,6 +89,8 @@ export default function OrderDetailClient() {
       {/* Method, window and same-day fee status — absent for an order placed
           before #163, or from a backend that hasn't sent it yet. */}
       <OrderDeliveryInfo delivery={order.delivery} currency={order.totalCurrency} />
+
+      {order.paymentRejection && <PaymentRejectionPanel order={order} />}
 
       {/* A refunded order used to say nothing beyond the bare status word —
           the amount and date the backend already carries never reached this
