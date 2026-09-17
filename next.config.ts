@@ -15,7 +15,7 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "form-action 'self'",
   // Third-party analytics/integration scripts are delayed until after hydration.
-  `script-src 'self' 'unsafe-inline' https://connect.facebook.net https://invitejs.trustpilot.com${isProd ? "" : " 'unsafe-eval'"}`,
+  `script-src 'self' 'unsafe-inline' https://connect.facebook.net https://analytics.tiktok.com https://invitejs.trustpilot.com${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   // Storefront videos resolve to signed HTTPS storage URLs, just like images.
