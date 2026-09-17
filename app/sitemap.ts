@@ -10,7 +10,7 @@ import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { productSitemapEntry } from "@/lib/seo/product-seo";
 import { listBundles } from "@/lib/api/bundles";
 import { SHOP_ROOT, SHOP_ALL, categoryPath, spacePath } from '@/lib/routes';
-import { CATALOG_REVALIDATE_SECONDS } from '@/lib/seo/llms-response';
+import { allPublishedProducts, CATALOG_REVALIDATE_SECONDS } from '@/lib/seo/llms-response';
 
 /**
  * Rendered per request, never prerendered (#152). A prerendered or ISR sitemap
@@ -76,8 +76,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // is the only thing between a publish and the sitemap. The window and the
     // reasoning (time-based, not on-demand revalidation) live with
     // CATALOG_REVALIDATE_SECONDS.
-    const result = await catalog.listProducts({ limit: 1000, revalidate: CATALOG_REVALIDATE_SECONDS });
-    for (const p of result.data) {
+    const products = await allPublishedProducts();
+    for (const p of products) {
       // productPath nests the product under its own category. A product
       // whose category the API did not return falls back to the legacy flat
       // path, which permanently redirects — so the sitemap never carries a
@@ -85,7 +85,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // product's real updatedAt, not the build time (#148).
       entries.push(productSitemapEntry(p));
     }
-    if (result.data.length === 0) {
+    if (products.length === 0) {
       console.warn("[sitemap] catalog.listProducts returned 0 products — sitemap has NO product URLs.");
     }
   } catch (err) {

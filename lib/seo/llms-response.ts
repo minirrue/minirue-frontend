@@ -27,7 +27,7 @@ const CDN_MAX_AGE_SECONDS = 180;
 const CDN_STALE_SECONDS = 60;
 
 /** Every product the public catalog lists (it lists published products only). */
-async function allProducts(): Promise<ApiProduct[]> {
+export async function allPublishedProducts(): Promise<ApiProduct[]> {
   const products: ApiProduct[] = [];
   let cursor: string | undefined;
   // Bounded, so a cursor bug in the API can never loop forever.
@@ -50,7 +50,7 @@ async function allProducts(): Promise<ApiProduct[]> {
 export async function llmsTxtResponse({ full }: { full: boolean }): Promise<Response> {
   try {
     const [products, categories] = await Promise.all([
-      allProducts(),
+      allPublishedProducts(),
       catalog.listCategories({ revalidate: CATALOG_REVALIDATE_SECONDS }),
     ]);
     return new Response(buildLlmsTxt({ products, categories, full }), {

@@ -27,6 +27,9 @@ jest.mock('@/lib/api/storefront', () => ({
   fetchSpaces: jest.fn().mockResolvedValue([]),
   fetchSpace: jest.fn().mockResolvedValue(null),
 }));
+jest.mock('@/lib/api/bundles', () => ({
+  listBundles: jest.fn().mockResolvedValue([]),
+}));
 
 import sitemap from '@/app/sitemap';
 import { GET as llmsTxt } from '@/app/llms.txt/route';
@@ -79,6 +82,22 @@ describe('catalog freshness of llms.txt, llms-full.txt and the sitemap (#152)', 
     expect(after.txt).toContain('[Brand New Serum](');
     expect(after.full).toContain('Brand New Serum description.');
     expect(after.urls.some((u) => u.endsWith('/shop/haircare/brand-new-serum'))).toBe(true);
+  });
+
+  it('includes a newly published product even when it is on a later catalog page', async () => {
+    const oldProduct = product('old-shampoo', 'Old Shampoo');
+    const newProduct = product('brand-new-serum', 'Brand New Serum');
+    listProducts.mockImplementation(({ cursor }: { cursor?: string }) => Promise.resolve(
+      cursor === 'page-2'
+        ? { data: [newProduct], meta: { hasMore: false, cursor: null } }
+        : { data: [oldProduct], meta: { hasMore: true, cursor: 'page-2' } },
+    ));
+    listCategories.mockResolvedValue(CATEGORIES);
+
+    const result = await outputs();
+    expect(result.txt).toContain('[Brand New Serum](');
+    expect(result.full).toContain('Brand New Serum description.');
+    expect(result.urls.some((url) => url.endsWith('/shop/haircare/brand-new-serum'))).toBe(true);
   });
 
   it('keeps the stacked cache layers (data cache + CDN + stale serve) within 5 minutes', async () => {
