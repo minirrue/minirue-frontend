@@ -84,4 +84,20 @@ describe('proxy — visitor id + attribution cookies', () => {
     // mr-attr-last still overwrites every time a signal is present.
     expect(again.cookies.get('mr-attr-last')).toBeDefined();
   });
+
+  it.each([
+    'utm_source=instagram&utm_medium=bio',
+    'fbclid=facebook-click',
+    'gclid=google-click',
+    'ttclid=tiktok-click',
+  ])('tracking query %s never changes the signed-in routing decision', (query) => {
+    const res = proxy(makeRequest(`/?${query}`, { cookie: 'mr-auth=7' }));
+
+    // These are attribution inputs, not auth inputs. A signed-in visitor stays
+    // on the requested storefront page and the proxy neither clears nor
+    // rewrites the auth hint while recording the campaign visit.
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.cookies.get('mr-auth')).toBeUndefined();
+  });
 });
