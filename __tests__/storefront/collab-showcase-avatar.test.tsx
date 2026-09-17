@@ -16,6 +16,10 @@ jest.mock('@/lib/hooks/useBreakpoint', () => ({
   useBreakpoint: () => ({ mobile: false, tablet: false, desktop: true }),
 }));
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ prefetch: jest.fn() }),
+}));
+
 type Section = Extract<ResolvedSection, { type: 'collabShowcase' }>;
 
 function section(logoUrl: string | null): Section {
