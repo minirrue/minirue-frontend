@@ -30,11 +30,13 @@ const slide = (extra: Partial<ResolvedHeroSlide> = {}): ResolvedHeroSlide => ({
   imageSrcSet: {
     '640': 'https://img.test/landscape-640.webp',
     '2560': 'https://img.test/landscape-2560.webp',
+    '3840': 'https://img.test/landscape-3840.webp',
   },
   mobileImageUrl: 'https://img.test/portrait-2560.webp',
   mobileImageSrcSet: {
     '640': 'https://img.test/portrait-640.webp',
     '2560': 'https://img.test/portrait-2560.webp',
+    '3840': 'https://img.test/portrait-3840.webp',
   },
   imageAlt: 'Spring campaign',
   background: '#0B0B0B',
@@ -66,10 +68,12 @@ describe('hero art direction', () => {
 
     expect(source?.getAttribute('media')).toBe(PHONE_MEDIA);
     expect(source?.getAttribute('srcset')).toContain('portrait-640.webp 640w');
+    expect(source?.getAttribute('srcset')).toContain('portrait-3840.webp 3840w');
     expect(source?.getAttribute('srcset')).not.toContain('landscape');
     expect(source?.getAttribute('sizes')).toBe('100vw');
 
     expect(img?.getAttribute('srcset')).toContain('landscape-640.webp 640w');
+    expect(img?.getAttribute('srcset')).toContain('landscape-3840.webp 3840w');
     expect(img?.getAttribute('srcset')).not.toContain('portrait');
     expect(img?.getAttribute('alt')).toBe('Spring campaign');
   });

@@ -23,6 +23,7 @@ const SRC_SET = {
   '1024': 'https://img.example.com/hero-1024.webp',
   '1600': 'https://img.example.com/hero-1600.webp',
   '2560': 'https://img.example.com/hero-2560.webp',
+  '3840': 'https://img.example.com/hero-3840.webp',
 };
 
 const load = (
@@ -37,6 +38,11 @@ describe('heroImageLoader', () => {
 
   it('gives a large display the big one', () => {
     expect(load(SRC_SET, 2560)).toBe(SRC_SET['2560']);
+  });
+
+  it('gives a retina laptop the 3840px rung instead of upscaling 2560px', () => {
+    expect(load(SRC_SET, 2880)).toBe(SRC_SET['3840']);
+    expect(load(SRC_SET, 3840)).toBe(SRC_SET['3840']);
   });
 
   it('rounds UP to the next rung, never down', () => {
@@ -54,7 +60,7 @@ describe('heroImageLoader', () => {
   it('falls back to the largest beyond the top rung', () => {
     // A display wider than anything rendered gets the biggest there is, which
     // is the same file the page serves today.
-    expect(load(SRC_SET, 4096)).toBe(SRC_SET['2560']);
+    expect(load(SRC_SET, 4096)).toBe(SRC_SET['3840']);
   });
 
   it('returns the original src when the server sent no widths', () => {
