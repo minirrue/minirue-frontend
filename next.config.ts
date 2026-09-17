@@ -14,8 +14,8 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  // connect.facebook.net serves the Meta Pixel (components/seo/MetaPixel.tsx).
-  `script-src 'self' 'unsafe-inline' https://connect.facebook.net${isProd ? "" : " 'unsafe-eval'"}`,
+  // Third-party analytics/integration scripts are delayed until after hydration.
+  `script-src 'self' 'unsafe-inline' https://connect.facebook.net https://invitejs.trustpilot.com${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",

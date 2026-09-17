@@ -19,6 +19,7 @@ import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import PageLoader from "@/components/layout/PageLoader";
 import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
 import MetaPixel from "@/components/seo/MetaPixel";
+import TrustpilotIntegration from "@/components/seo/TrustpilotIntegration";
 import { META_PIXEL_ID, metaPixelBaseCode } from "@/lib/analytics/meta-pixel";
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { buildIcons } from "@/lib/seo/icons";
@@ -318,6 +319,7 @@ export default function RootLayout({
               collected nothing. */}
           <AnalyticsProvider />
           <MetaPixel />
+          <TrustpilotIntegration />
         </Suspense>
         </div>
       </body>
