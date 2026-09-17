@@ -251,3 +251,7 @@ html {
   outline-offset: 2px;
   border-radius: inherit;
 }
+
+@media (max-width: 760px) {
+  .mr-confirmation-delivery, .mr-confirmation-order { display: block !important; width: 100% !important; margin: var(--mr-sp-4) 0 !important; }
+}
