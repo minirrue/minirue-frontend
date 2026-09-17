@@ -365,7 +365,7 @@ export default function CheckoutConfirmationPage() {
               : 'Thank you for shopping with MiniRue. A confirmation email will arrive shortly.'
             : undefined
         }
-        maxWidth={520}
+        maxWidth={orderNumber ? 980 : 520}
       >
         {orderNumber && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--mr-sp-5)', alignItems: 'start' }}>
