@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
 /**
  * CancelButton — client component
  * Only rendered when order status is PENDING or CONFIRMED.
  * [TBD] Cancel endpoint path not defined in orders spec.
  */
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiCancelOrder } from '@/lib/api/orders';
-import { formatApiError, type ApiError } from '@/lib/api/client';
-import Button from '@/components/ui/Button';
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { apiCancelOrder, type OrderCancelReasonCode } from "@/lib/api/orders";
+import { formatApiError, type ApiError } from "@/lib/api/client";
+import Button from "@/components/ui/Button";
 
 interface Props {
   orderId: string;
@@ -20,6 +20,9 @@ export default function CancelButton({ orderId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [reasonCode, setReasonCode] =
+    useState<OrderCancelReasonCode>("CUSTOMER_REQUEST");
+  const [reasonNote, setReasonNote] = useState("");
 
   if (!confirmed) {
     return (
@@ -33,30 +36,110 @@ export default function CancelButton({ orderId }: Props) {
     setLoading(true);
     setError(null);
     try {
-      await apiCancelOrder(orderId);
+      if (reasonCode === "OTHER" && reasonNote.trim().length < 3) {
+        setError("Please tell us why you are cancelling.");
+        setLoading(false);
+        return;
+      }
+      await apiCancelOrder(orderId, reasonCode, reasonNote.trim() || undefined);
       router.refresh();
     } catch (err: unknown) {
       const apiErr = err as ApiError;
-      setError(formatApiError(apiErr, 'Failed to cancel order.'));
+      setError(formatApiError(apiErr, "Failed to cancel order."));
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <p style={{ fontSize: 'var(--mr-text-sm)', color: 'var(--mr-fg-2)', margin: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <p
+        style={{
+          fontSize: "var(--mr-text-sm)",
+          color: "var(--mr-fg-2)",
+          margin: 0,
+        }}
+      >
         Are you sure you want to cancel this order?
       </p>
-      <div style={{ display: 'flex', gap: 10 }}>
+      <label
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 5,
+          fontSize: "var(--mr-text-xs)",
+          color: "var(--mr-fg-3)",
+        }}
+      >
+        Reason
+        <select
+          value={reasonCode}
+          onChange={(event) =>
+            setReasonCode(event.target.value as OrderCancelReasonCode)
+          }
+          style={{
+            minHeight: 42,
+            padding: "8px 12px",
+            border: "1px solid var(--mr-border)",
+            borderRadius: "var(--mr-radius-sm)",
+            background: "var(--mr-bg-raised)",
+            color: "var(--mr-fg)",
+          }}
+        >
+          <option value="CUSTOMER_REQUEST">I no longer need it</option>
+          <option value="PAYMENT_ISSUE">Payment issue</option>
+          <option value="ADDRESS_CHANGE">I need to change the address</option>
+          <option value="DUPLICATE_ORDER">I placed it twice</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </label>
+      {reasonCode === "OTHER" && (
+        <label
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 5,
+            fontSize: "var(--mr-text-xs)",
+            color: "var(--mr-fg-3)",
+          }}
+        >
+          Details
+          <textarea
+            rows={3}
+            maxLength={500}
+            value={reasonNote}
+            onChange={(event) => setReasonNote(event.target.value)}
+            style={{
+              padding: "9px 12px",
+              border: "1px solid var(--mr-border)",
+              borderRadius: "var(--mr-radius-sm)",
+              background: "var(--mr-bg-raised)",
+              color: "var(--mr-fg)",
+              resize: "vertical",
+            }}
+          />
+        </label>
+      )}
+      <div style={{ display: "flex", gap: 10 }}>
         <Button variant="danger" onClick={handleCancel} disabled={loading}>
-          {loading ? 'Cancelling…' : 'Yes, Cancel'}
+          {loading ? "Cancelling…" : "Yes, Cancel"}
         </Button>
-        <Button variant="outline" onClick={() => setConfirmed(false)} disabled={loading}>
+        <Button
+          variant="outline"
+          onClick={() => setConfirmed(false)}
+          disabled={loading}
+        >
           Keep Order
         </Button>
       </div>
       {error && (
-        <p role="alert" style={{ color: 'var(--mr-danger)', fontSize: 'var(--mr-text-sm)', margin: 0 }}>
+        <p
+          role="alert"
+          style={{
+            color: "var(--mr-danger)",
+            fontSize: "var(--mr-text-sm)",
+            margin: 0,
+          }}
+        >
           {error}
         </p>
       )}

@@ -1,22 +1,27 @@
-import { apiFetch } from './client';
+import { apiFetch } from "./client";
 
 export type RefundStatus =
-  | 'REQUESTED'
-  | 'UNDER_REVIEW'
-  | 'APPROVED'
-  | 'REFUNDED'
-  | 'REJECTED'
-  | 'CANCELLED';
+  | "REQUESTED"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REFUNDED"
+  | "REJECTED"
+  | "CANCELLED";
 
 // Mirrors refundMethodEnum in the backend schema. INSTAPAY is the one Egyptian
 // shoppers actually use, and it was missing here while the database, the
 // backend union and the dashboard all had it — so a real ticket arrived as a
 // value this type said could not exist.
 export type RefundMethod =
-  | 'ORIGINAL_PAYMENT'
-  | 'STORE_CREDIT'
-  | 'BANK_TRANSFER'
-  | 'INSTAPAY';
+  "ORIGINAL_PAYMENT" | "STORE_CREDIT" | "BANK_TRANSFER" | "INSTAPAY";
+export type RefundReasonCode =
+  | "DAMAGED_ITEM"
+  | "WRONG_ITEM"
+  | "MISSING_ITEM"
+  | "NOT_AS_DESCRIBED"
+  | "LATE_DELIVERY"
+  | "CHANGED_MIND"
+  | "OTHER";
 
 export interface RefundTicket {
   id: string;
@@ -27,6 +32,8 @@ export interface RefundTicket {
   requestedAmountCents: number;
   approvedAmountCents: number | null;
   reason: string;
+  reasonCode: RefundReasonCode | null;
+  reasonNote: string | null;
   adminNote: string | null;
   createdAt: string;
   updatedAt: string;
@@ -36,10 +43,11 @@ export async function apiCreateRefund(data: {
   orderId: string;
   method: RefundMethod;
   requestedAmountCents: number;
-  reason: string;
+  reasonCode: RefundReasonCode;
+  reasonNote?: string;
 }): Promise<RefundTicket> {
-  return apiFetch('/refunds', {
-    method: 'POST',
+  return apiFetch("/refunds", {
+    method: "POST",
     auth: true,
     body: JSON.stringify(data),
   });
@@ -50,12 +58,13 @@ export async function apiListMyRefunds(params?: {
   limit?: number;
 }): Promise<{ data: RefundTicket[]; total: number }> {
   const qs = params
-    ? '?' + new URLSearchParams(
+    ? "?" +
+      new URLSearchParams(
         Object.entries(params)
           .filter(([, v]) => v != null)
-          .map(([k, v]) => [k, String(v)])
+          .map(([k, v]) => [k, String(v)]),
       ).toString()
-    : '';
+    : "";
   return apiFetch(`/refunds${qs}`, { auth: true });
 }
 
@@ -63,8 +72,29 @@ export async function apiGetMyRefund(ticketId: string): Promise<RefundTicket> {
   return apiFetch(`/refunds/${ticketId}`, { auth: true });
 }
 
+export interface RefundReceipt {
+  refundId: string;
+  orderId: string;
+  orderRef: string;
+  amountCents: number;
+  currency: string;
+  reason: string;
+  issuedAt: string;
+  logoUrl: string | null;
+  logoShape: "RECTANGLE" | "ROUNDED" | "CIRCLE";
+}
+
+export async function apiGetRefundReceipt(
+  ticketId: string,
+): Promise<RefundReceipt> {
+  return apiFetch(`/refunds/${ticketId}/receipt`, { auth: true });
+}
+
 export async function apiCancelRefund(ticketId: string): Promise<RefundTicket> {
-  return apiFetch(`/refunds/${ticketId}/cancel`, { method: 'PATCH', auth: true });
+  return apiFetch(`/refunds/${ticketId}/cancel`, {
+    method: "PATCH",
+    auth: true,
+  });
 }
 
 /**
@@ -74,12 +104,12 @@ export async function apiCancelRefund(ticketId: string): Promise<RefundTicket> {
  * customer and an admin can be looking at the same ticket.
  */
 const REFUND_STATUS_LABEL: Record<RefundStatus, string> = {
-  REQUESTED: 'Requested',
-  UNDER_REVIEW: 'Under review',
-  APPROVED: 'Approved',
-  REFUNDED: 'Refunded',
-  REJECTED: 'Rejected',
-  CANCELLED: 'Cancelled',
+  REQUESTED: "Requested",
+  UNDER_REVIEW: "Under review",
+  APPROVED: "Approved",
+  REFUNDED: "Refunded",
+  REJECTED: "Rejected",
+  CANCELLED: "Cancelled",
 };
 
 export function formatRefundStatus(status: RefundStatus): string {

@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
-import OrderDeliveryInfo from '@/components/orders/OrderDeliveryInfo';
-import OrderProgress from '@/components/orders/OrderProgress';
-import {
-  formatOrderStatus,
-  formatOrderTotal,
-} from '@/lib/orders/order-format';
-import { useParams } from 'next/navigation';
-import { apiGetOrder, type OrderSummary } from '@/lib/checkout/checkout-api';
-import { apiListMyRefunds } from '@/lib/api/refunds';
-import PaymentRejectionPanel from '@/components/orders/PaymentRejectionPanel';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import OrderLineList, {
+  SetSavingsRow,
+} from "@/components/orders/OrderLineList";
+import OrderDeliveryInfo from "@/components/orders/OrderDeliveryInfo";
+import OrderProgress from "@/components/orders/OrderProgress";
+import { formatOrderStatus, formatOrderTotal } from "@/lib/orders/order-format";
+import { useParams } from "next/navigation";
+import { apiGetOrder, type OrderSummary } from "@/lib/checkout/checkout-api";
+import { apiListMyRefunds } from "@/lib/api/refunds";
+import PaymentRejectionPanel from "@/components/orders/PaymentRejectionPanel";
+import CancelButton from "./CancelButton";
 
 export default function OrderDetailClient() {
   const { id } = useParams<{ id: string }>();
@@ -73,22 +73,29 @@ export default function OrderDetailClient() {
         {formatOrderStatus(order.status)}
         {order.createdAt
           ? ` · ${new Date(order.createdAt).toLocaleDateString(undefined, {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
+              day: "numeric",
+              month: "short",
+              year: "numeric",
             })}`
-          : ''}
+          : ""}
       </p>
 
       {/* "Where is my order" — the progress that used to sit on the
           /orders/[id]/track page, which could never load an order (#125). */}
       <div style={{ marginTop: 24 }}>
-        <OrderProgress status={order.status} delivery={order.delivery} currency={order.totalCurrency} />
+        <OrderProgress
+          status={order.status}
+          delivery={order.delivery}
+          currency={order.totalCurrency}
+        />
       </div>
 
       {/* Method, window and same-day fee status — absent for an order placed
           before #163, or from a backend that hasn't sent it yet. */}
-      <OrderDeliveryInfo delivery={order.delivery} currency={order.totalCurrency} />
+      <OrderDeliveryInfo
+        delivery={order.delivery}
+        currency={order.totalCurrency}
+      />
 
       {order.paymentRejection && <PaymentRejectionPanel order={order} />}
 
@@ -101,26 +108,32 @@ export default function OrderDetailClient() {
           style={{
             marginTop: 16,
             padding: 16,
-            border: '1px solid var(--mr-border)',
-            borderRadius: 'var(--mr-radius-md)',
-            background: 'var(--mr-bg-raised)',
-            fontSize: 'var(--mr-text-sm)',
-            color: 'var(--mr-fg-2)',
+            border: "1px solid var(--mr-border)",
+            borderRadius: "var(--mr-radius-md)",
+            background: "var(--mr-bg-raised)",
+            fontSize: "var(--mr-text-sm)",
+            color: "var(--mr-fg-2)",
           }}
         >
-          <div style={{ fontWeight: 500, color: 'var(--mr-fg)' }}>
+          <div style={{ fontWeight: 500, color: "var(--mr-fg)" }}>
             {formatOrderTotal(
               (order.refundedAmountCents / 100).toFixed(2),
               order.totalCurrency,
-            )}{' '}
+            )}{" "}
             refunded
           </div>
           {order.refundedAt && (
-            <div style={{ fontSize: 'var(--mr-text-xs)', color: 'var(--mr-fg-4)', marginTop: 4 }}>
+            <div
+              style={{
+                fontSize: "var(--mr-text-xs)",
+                color: "var(--mr-fg-4)",
+                marginTop: 4,
+              }}
+            >
               {new Date(order.refundedAt).toLocaleDateString(undefined, {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
+                day: "numeric",
+                month: "short",
+                year: "numeric",
               })}
             </div>
           )}
@@ -135,25 +148,35 @@ export default function OrderDetailClient() {
         <Link
           href={`/account/orders/${order.id}/refund`}
           style={{
-            display: 'inline-block',
+            display: "inline-block",
             marginTop: 16,
-            fontSize: 'var(--mr-text-xs)',
-            fontFamily: 'var(--mr-font-label)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--mr-fg-2)',
-            textDecoration: 'underline',
+            fontSize: "var(--mr-text-xs)",
+            fontFamily: "var(--mr-font-label)",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--mr-fg-2)",
+            textDecoration: "underline",
           }}
         >
           Request a refund
         </Link>
       )}
 
+      {(order.status === "PENDING" || order.status === "CONFIRMED") && (
+        <div style={{ marginTop: 16 }}>
+          <CancelButton orderId={order.id} />
+        </div>
+      )}
+
       {/* Lines said only "Qty 1" and a raw amount — nothing about WHAT was
           bought, which is the one thing a customer opens this page for. A set
           is one line that opens to "What's in this set" (#116). */}
       <div style={{ marginTop: 32 }}>
-        <OrderLineList items={order.items} currency={order.totalCurrency} variant="card" />
+        <OrderLineList
+          items={order.items}
+          currency={order.totalCurrency}
+          variant="card"
+        />
       </div>
 
       <SetSavingsRow
@@ -164,11 +187,11 @@ export default function OrderDetailClient() {
 
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
+          display: "flex",
+          justifyContent: "space-between",
           marginTop: 20,
           paddingTop: 16,
-          borderTop: '1px solid var(--mr-border)',
+          borderTop: "1px solid var(--mr-border)",
           fontWeight: 500,
         }}
       >

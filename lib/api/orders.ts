@@ -1,15 +1,15 @@
-import { apiFetch } from './client';
-import type { OrderItemBundle } from '@/lib/checkout/checkout-api';
+import { apiFetch } from "./client";
+import type { OrderItemBundle } from "@/lib/checkout/checkout-api";
 
 export type OrderStatus =
-  | 'PENDING'
-  | 'CONFIRMED'
-  | 'PROCESSING'
-  | 'SHIPPED'
-  | 'DELIVERED'
-  | 'CANCELLED'
+  | "PENDING"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
   /** Set when a refund is paid out (backend 0.40.0). */
-  | 'REFUNDED';
+  | "REFUNDED";
 
 export interface ProductSnapshot {
   name: string;
@@ -84,11 +84,23 @@ export async function apiGetOrder(id: string): Promise<Order> {
   return apiFetch<Order>(`/orders/${id}`, { auth: true });
 }
 
-export async function apiCancelOrder(id: string, reason?: string): Promise<Order> {
+export type OrderCancelReasonCode =
+  | "CUSTOMER_REQUEST"
+  | "PAYMENT_ISSUE"
+  | "ADDRESS_CHANGE"
+  | "DUPLICATE_ORDER"
+  | "OUT_OF_STOCK"
+  | "OTHER";
+
+export async function apiCancelOrder(
+  id: string,
+  reasonCode: OrderCancelReasonCode,
+  reasonNote?: string,
+): Promise<Order> {
   return apiFetch<Order>(`/orders/${id}/cancel`, {
-    method: 'POST',
+    method: "POST",
     auth: true,
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({ reasonCode, ...(reasonNote ? { reasonNote } : {}) }),
   });
 }
 
@@ -99,11 +111,11 @@ export async function apiAdminListOrders(params?: {
   limit?: number;
 }): Promise<OrdersResponse> {
   const qs = new URLSearchParams();
-  if (params?.status) qs.set('status', params.status);
-  if (params?.userId) qs.set('userId', params.userId);
-  if (params?.page != null) qs.set('page', String(params.page));
-  if (params?.limit != null) qs.set('limit', String(params.limit));
-  const query = qs.toString() ? `?${qs.toString()}` : '';
+  if (params?.status) qs.set("status", params.status);
+  if (params?.userId) qs.set("userId", params.userId);
+  if (params?.page != null) qs.set("page", String(params.page));
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  const query = qs.toString() ? `?${qs.toString()}` : "";
   return apiFetch<OrdersResponse>(`/orders/admin${query}`, { auth: true });
 }
 
@@ -113,7 +125,7 @@ export async function apiAdminTransitionStatus(
   reason?: string,
 ): Promise<Order> {
   return apiFetch<Order>(`/orders/admin/${id}/status`, {
-    method: 'PATCH',
+    method: "PATCH",
     auth: true,
     body: JSON.stringify({ status, reason }),
   });
