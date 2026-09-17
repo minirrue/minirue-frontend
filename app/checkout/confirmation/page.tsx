@@ -368,7 +368,7 @@ export default function CheckoutConfirmationPage() {
         maxWidth={orderNumber ? 980 : 520}
       >
         {orderNumber && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 620px)', gap: 'var(--mr-sp-5)', alignItems: 'start', justifyContent: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 620px)', gap: 'var(--mr-sp-5)', alignItems: 'start', justifyContent: 'end' }}>
           <div
             style={{
               textAlign: 'center',
