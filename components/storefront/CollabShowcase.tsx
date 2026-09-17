@@ -9,6 +9,7 @@ import ProductCard from './ProductCard';
 import GenericAvatarIcon from '@/components/ui/GenericAvatarIcon';
 import UploadPreviewImage from '@/components/storefront/UploadPreviewImage';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import { usePrefetchOnIntent } from '@/lib/hooks/usePrefetchOnIntent';
 
 type Section = Extract<ResolvedSection, { type: 'collabShowcase' }>;
 
@@ -25,6 +26,10 @@ export default function CollabShowcase({
   const { mobile } = useBreakpoint();
   const [active, setActive] = React.useState(0);
   const railRef = React.useRef<HTMLDivElement | null>(null);
+  const collectionHref = section.tabs.length
+    ? spacePath(encodeURIComponent(section.tabs[Math.min(active, section.tabs.length - 1)].brandSlug))
+    : null;
+  const collectionPrefetchProps = usePrefetchOnIntent(collectionHref);
 
   if (section.tabs.length === 0) return null;
   const tab = section.tabs[Math.min(active, section.tabs.length - 1)];
@@ -225,7 +230,8 @@ export default function CollabShowcase({
           )}
         </div>
         <Link
-          href={spacePath(encodeURIComponent(tab.brandSlug))}
+          href={collectionHref!}
+          {...collectionPrefetchProps}
           style={{
             fontFamily: 'var(--mr-font-label)',
             fontSize: 11,

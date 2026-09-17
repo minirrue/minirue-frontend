@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import ProductCard from '@/components/storefront/ProductCard';
 import { PRODUCT_FIXTURE } from './fixtures/product';
 
@@ -31,8 +31,23 @@ jest.mock('@/lib/hooks/useIsTouch', () => ({
  * under test runs. Mocked rather than worked around in the component: needing a
  * router is correct for a card whose whole job is to navigate.
  */
+const mockPrefetch = jest.fn();
+
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ prefetch: jest.fn(), push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ prefetch: mockPrefetch, push: jest.fn(), replace: jest.fn() }),
+}));
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ href, prefetch, children, ...props }: React.ComponentProps<'a'> & { prefetch?: boolean | null }) => (
+    <a
+      href={typeof href === 'string' ? href : undefined}
+      data-prefetch={prefetch === false ? 'off' : 'auto'}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
 }));
 
 jest.mock('@/components/storefront/WishlistHeart', () => ({
@@ -41,6 +56,45 @@ jest.mock('@/components/storefront/WishlistHeart', () => ({
 }));
 
 describe('ProductCard — keyboard activation on a touch-capable device', () => {
+  beforeEach(() => {
+    mockPrefetch.mockClear();
+  });
+
+  it('keeps Next viewport prefetch off during critical load, then restores it on idle', () => {
+    Object.defineProperty(document, 'readyState', { configurable: true, value: 'loading' });
+    let runIdle: IdleRequestCallback | undefined;
+    window.requestIdleCallback = jest.fn((callback: IdleRequestCallback) => {
+      runIdle = callback;
+      return 1;
+    });
+    window.cancelIdleCallback = jest.fn();
+
+    render(<ProductCard product={PRODUCT_FIXTURE} />);
+    const link = screen.getByRole('link', { name: new RegExp(PRODUCT_FIXTURE.name) });
+    expect(link).toHaveAttribute('data-prefetch', 'off');
+    expect(mockPrefetch).not.toHaveBeenCalled();
+
+    fireEvent(window, new Event('load'));
+    expect(link).toHaveAttribute('data-prefetch', 'off');
+    expect(mockPrefetch).not.toHaveBeenCalled();
+
+    act(() => runIdle?.({ didTimeout: false, timeRemaining: () => 10 }));
+    expect(link).toHaveAttribute('data-prefetch', 'auto');
+  });
+
+  it('prefetches once on pointer intent before the load/idle gate opens', () => {
+    Object.defineProperty(document, 'readyState', { configurable: true, value: 'loading' });
+    render(<ProductCard product={PRODUCT_FIXTURE} />);
+    const link = screen.getByRole('link', { name: new RegExp(PRODUCT_FIXTURE.name) });
+
+    fireEvent.pointerEnter(link);
+    fireEvent.pointerEnter(link);
+
+    expect(mockPrefetch).toHaveBeenCalledTimes(1);
+    expect(mockPrefetch).toHaveBeenCalledWith(link.getAttribute('href'));
+    expect(link).toHaveAttribute('data-prefetch', 'off');
+  });
+
   it('navigates on a single Enter-synthesised click (detail 0), not a two-tap reveal', () => {
     const onClick = jest.fn();
     render(<ProductCard product={PRODUCT_FIXTURE} onClick={onClick} />);

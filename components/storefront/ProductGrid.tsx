@@ -20,6 +20,24 @@ import ProductCard from './ProductCard';
 import { useScrollReveal } from '@/lib/motion/hooks';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { useProductGridTracking } from './useProductGridTracking';
+import { usePrefetchOnIntent } from '@/lib/hooks/usePrefetchOnIntent';
+
+function DeferredGridLink({
+  href,
+  children,
+  style,
+}: {
+  href: string;
+  children: React.ReactNode;
+  style: React.CSSProperties;
+}) {
+  const prefetchProps = usePrefetchOnIntent(href);
+  return (
+    <Link href={href} {...prefetchProps} style={style}>
+      {children}
+    </Link>
+  );
+}
 
 interface ProductGridProps {
   eyebrow: string;
@@ -78,12 +96,12 @@ export default function ProductGrid({
           </h2>
         </div>
         {viewAllHref && (
-          <Link
+          <DeferredGridLink
             href={viewAllHref}
             style={{ fontFamily: 'Jost, sans-serif', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--mr-ink-900)', borderBottom: '1px solid var(--mr-gold-400)', paddingBottom: 2, cursor: 'pointer', textDecoration: 'none' }}
           >
             View all <span className="mr-link-arrow">→</span>
-          </Link>
+          </DeferredGridLink>
         )}
       </div>
       <div
@@ -96,7 +114,7 @@ export default function ProductGrid({
       >
         {display === 'brands'
           ? brands.map((b) => (
-              <Link
+              <DeferredGridLink
                 key={b.id}
                 href={b.href}
                 style={{
@@ -114,7 +132,7 @@ export default function ProductGrid({
                 <div style={{ fontSize: 12, color: 'var(--mr-ink-500)' }}>
                   {b.productCount} {b.productCount === 1 ? 'item' : 'items'}
                 </div>
-              </Link>
+              </DeferredGridLink>
             ))
           : products.map((p, i) => (
               <div key={p.id as string} {...impressionProps(p.id as string, i)}>

@@ -29,6 +29,35 @@ import { useRouter } from 'next/navigation';
 export function usePrefetchOnIntent(href: string | null | undefined) {
   const router = useRouter();
   const done = React.useRef<string | null>(null);
+  const [idlePrefetchEnabled, setIdlePrefetchEnabled] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    let idleId: number | null = null;
+    let fallbackId: ReturnType<typeof setTimeout> | null = null;
+
+    const enablePrefetch = () => {
+      if (!cancelled) setIdlePrefetchEnabled(true);
+    };
+
+    const scheduleWhenIdle = () => {
+      if (typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(enablePrefetch, { timeout: 2_000 });
+      } else {
+        fallbackId = setTimeout(enablePrefetch, 0);
+      }
+    };
+
+    if (document.readyState === 'complete') scheduleWhenIdle();
+    else window.addEventListener('load', scheduleWhenIdle, { once: true });
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('load', scheduleWhenIdle);
+      if (idleId !== null) window.cancelIdleCallback(idleId);
+      if (fallbackId !== null) clearTimeout(fallbackId);
+    };
+  }, []);
 
   return React.useMemo(() => {
     const prefetch = () => {
@@ -42,9 +71,14 @@ export function usePrefetchOnIntent(href: string | null | undefined) {
       }
     };
     return {
+      // `false` is essential: event handlers alone do not stop Next's own
+      // viewport observer. Restore the framework's default (`null`) only once
+      // the load event and an idle slice have both passed, outside the LCP
+      // window. Intent above remains available throughout the critical load.
+      prefetch: idlePrefetchEnabled ? null : false,
       onPointerEnter: prefetch,
       onTouchStart: prefetch,
       onFocus: prefetch,
     };
-  }, [href, router]);
+  }, [href, idlePrefetchEnabled, router]);
 }
