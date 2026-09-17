@@ -1,13 +1,11 @@
 import { apiFetch } from './client';
 
 export type PointsTxType =
-  | 'EARN_ORDER'
-  | 'EARN_SIGNUP'
-  | 'EARN_EMAIL_VERIFIED'
-  | 'REDEEM'
-  | 'DEDUCT_REFUND'
-  | 'EXPIRE'
-  | 'MANUAL_ADJUST';
+  | 'EARN'
+  | 'REVERSE'
+  | 'ADJUST_COMPENSATION'
+  | 'ADJUST_PENALTY'
+  | 'ADJUST_CORRECTION';
 
 export interface PointsTransaction {
   id: string;

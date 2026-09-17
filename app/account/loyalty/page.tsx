@@ -7,8 +7,11 @@ import './loyalty.css';
 export const metadata: Metadata = { title: 'Points — My Account — MiniRue', robots: 'noindex, nofollow' };
 
 const TX_LABELS: Record<PointsTxType, string> = {
-  EARN_ORDER: 'Earned from your order', EARN_SIGNUP: 'Welcome points', EARN_EMAIL_VERIFIED: 'Email verified',
-  REDEEM: 'Points used', DEDUCT_REFUND: 'Order refund', EXPIRE: 'Points expired', MANUAL_ADJUST: 'Account adjustment',
+  EARN: 'Earned from your order',
+  REVERSE: 'Order refund',
+  ADJUST_COMPENSATION: 'Service credit',
+  ADJUST_PENALTY: 'Points correction',
+  ADJUST_CORRECTION: 'Account adjustment',
 };
 
 function friendlyReason(tx: PointsTransaction): string | null {
