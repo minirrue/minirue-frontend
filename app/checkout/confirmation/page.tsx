@@ -28,6 +28,7 @@ import {
 import { realOrderTotalMinor } from '@/lib/checkout/real-order-total';
 import CheckoutShell from '@/components/checkout/CheckoutShell';
 import CheckoutPageFrame from '@/components/checkout/CheckoutPageFrame';
+import OrderCelebration from '@/components/checkout/OrderCelebration';
 import { CheckoutAlert } from '@/components/checkout/checkout-ui';
 import Button from '@/components/ui/Button';
 import OrderLineList, { SetSavingsRow } from '@/components/orders/OrderLineList';
@@ -343,6 +344,7 @@ export default function CheckoutConfirmationPage() {
 
   return (
     <CheckoutShell>
+      <OrderCelebration orderNumber={orderNumber} />
       <CheckoutPageFrame
         step={4}
         complete
