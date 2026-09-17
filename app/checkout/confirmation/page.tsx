@@ -396,6 +396,14 @@ export default function CheckoutConfirmationPage() {
             >
               {order ? formatOrderRef(order) : orderNumber}
             </p>
+            {order && (
+              <p
+                className="mr-num"
+                style={{ margin: 'calc(var(--mr-sp-6) * -1) 0 var(--mr-sp-6)', fontSize: 'var(--mr-text-xs)', color: 'var(--mr-fg-4)' }}
+              >
+                {orderNumber}
+              </p>
+            )}
             {/*
               What was actually bought, on the page that says it was bought.
               The confirmation used to show a number and nothing else, so the
