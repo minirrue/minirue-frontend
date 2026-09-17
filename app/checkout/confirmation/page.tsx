@@ -369,12 +369,12 @@ export default function CheckoutConfirmationPage() {
         maxWidth={orderNumber ? 980 : 520}
       >
         {orderNumber && order?.delivery && (
-          <div className="mr-confirmation-delivery" style={{ display: 'inline-block', verticalAlign: 'top', width: 'min(100%, 500px)', margin: 'var(--mr-sp-5) 0', padding: 'var(--mr-sp-5)', borderRadius: 'var(--mr-radius-lg)', background: 'var(--mr-cream-100)', border: '1px solid var(--mr-hairline)', boxShadow: 'var(--mr-shadow-sm)' }}>
+          <div className="mr-confirmation-delivery" style={{ display: 'inline-block', verticalAlign: 'top', width: 'min(100%, 440px)', margin: 'var(--mr-sp-5) 0', padding: 'var(--mr-sp-5)', borderRadius: 'var(--mr-radius-lg)', background: 'var(--mr-cream-100)', border: '1px solid var(--mr-hairline)', boxShadow: 'var(--mr-shadow-sm)' }}>
             <OrderDeliveryInfo delivery={order.delivery} currency={order.totalCurrency ?? 'EGP'} />
           </div>
         )}
         {orderNumber && (
-          <div className="mr-confirmation-order" style={{ display: 'inline-grid', verticalAlign: 'top', gridTemplateColumns: 'minmax(0, 500px)', gap: 'var(--mr-sp-6)', alignItems: 'start', margin: 'var(--mr-sp-5) 0 0 var(--mr-sp-6)' }}>
+          <div className="mr-confirmation-order" style={{ display: 'inline-grid', verticalAlign: 'top', gridTemplateColumns: 'minmax(0, 440px)', gap: 'var(--mr-sp-6)', alignItems: 'start', margin: 'var(--mr-sp-5) 0 0 var(--mr-sp-6)' }}>
           <div
             style={{
               textAlign: 'center',
