@@ -298,6 +298,7 @@ export default function CheckoutConfirmationPage() {
         <CheckoutPageFrame step={4} complete title="Placing your order…" subtitle="One moment while we confirm your details.">
           <div
             style={{
+              order: 2,
               textAlign: 'center',
               padding: 'var(--mr-sp-7) 0',
               fontFamily: 'var(--mr-font-serif)',
@@ -546,7 +547,7 @@ export default function CheckoutConfirmationPage() {
               </>
             )}
           </div>
-          {order?.delivery && <div style={{ padding: 'var(--mr-sp-5)', borderRadius: 'var(--mr-radius-lg)', background: 'var(--mr-cream-100)', border: '1px solid var(--mr-hairline)', boxShadow: 'var(--mr-shadow-sm)' }}><OrderDeliveryInfo delivery={order.delivery} currency={order.totalCurrency ?? 'EGP'} /></div>}
+          {order?.delivery && <div style={{ order: 1, padding: 'var(--mr-sp-5)', borderRadius: 'var(--mr-radius-lg)', background: 'var(--mr-cream-100)', border: '1px solid var(--mr-hairline)', boxShadow: 'var(--mr-shadow-sm)' }}><OrderDeliveryInfo delivery={order.delivery} currency={order.totalCurrency ?? 'EGP'} /></div>}
           </div>
         )}
       </CheckoutPageFrame>
