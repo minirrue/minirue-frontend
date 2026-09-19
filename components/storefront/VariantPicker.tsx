@@ -74,6 +74,61 @@ export default function VariantPicker({ variants, isMinirueOwned, selectedId, on
   const labelled = active.filter((v) => variantLabel(v).length > 0);
   if (active.length < 2 && labelled.length === 0) return null;
 
+  /**
+   * A SINGLE variant, even a labelled one ("100 ML"), is not a choice — there
+   * is nothing to pick between. It used to render through the same `<button>`
+   * below, filled solid when selected, which is exactly what "Add to bag"
+   * looks like right underneath it. A real shopper tapped it expecting to buy
+   * (owner, 2026-09-19, quoting the customer's own confusion) and left when
+   * nothing happened (frontend#184).
+   *
+   * Plain text, not a control: no border, no hover, not focusable, nothing
+   * that reads as clickable.
+   */
+  if (active.length === 1) {
+    const only = active[0];
+    const label = variantLabel(only);
+    const sellable = variantInStock(only);
+    return (
+      <div
+        style={{
+          textAlign: align === 'center' || align === 'center-until-lg' ? undefined : 'left',
+        }}
+        className={align === 'center-until-lg' ? 'text-center lg:text-left' : undefined}
+      >
+        <div
+          style={{
+            fontFamily: 'var(--mr-font-label)',
+            fontSize: 'var(--mr-text-xs)',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'var(--mr-fg-3)',
+            marginBottom: 'var(--mr-sp-2)',
+          }}
+        >
+          {only.values?.length ? only.values.map((x) => x.attributeName).join(' / ') : 'Size'}
+        </div>
+        <div
+          style={{
+            fontFamily: 'var(--mr-font-serif)',
+            fontSize: 'var(--mr-text-md)',
+            color: sellable ? 'var(--mr-fg-2)' : 'var(--mr-fg-3)',
+            display: 'inline-flex',
+            alignItems: 'baseline',
+            gap: 6,
+          }}
+        >
+          {label}
+          {!sellable && (
+            <span style={{ fontFamily: 'var(--mr-font-label)', fontSize: 'var(--mr-text-xs)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+              {label ? '· ' : ''}Sold out
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div
@@ -132,9 +187,15 @@ export default function VariantPicker({ variants, isMinirueOwned, selectedId, on
                 // size AND the price unreadable; the words "Sold out" say it
                 // once and the pill stays above 4.5:1.
                 opacity: sellable ? 1 : 0.72,
-                background: isSelected ? 'var(--mr-fg)' : 'transparent',
-                color: isSelected ? 'var(--mr-bg-raised)' : 'var(--mr-fg-2)',
-                border: `1px ${sellable ? 'solid' : 'dashed'} ${isSelected ? 'var(--mr-fg)' : 'var(--mr-border)'}`,
+                // Deliberately NOT a solid `--mr-fg` (ink) fill — that is
+                // "Add to bag"'s own look one row down, and a lookalike chip
+                // is exactly what read as a second buy button (frontend#184).
+                // A selected option gets a light gold tint and a gold
+                // border instead: it still reads as chosen, at a visibly
+                // lighter weight than the primary action.
+                background: isSelected ? 'var(--mr-gold-100)' : 'transparent',
+                color: isSelected ? 'var(--mr-gold-900)' : 'var(--mr-fg-2)',
+                border: `1px ${sellable ? 'solid' : 'dashed'} ${isSelected ? 'var(--mr-gold-400)' : 'var(--mr-border)'}`,
                 borderRadius: 'var(--mr-radius-pill)',
                 fontFamily: 'var(--mr-font-label)',
                 fontSize: 'var(--mr-text-xs)',

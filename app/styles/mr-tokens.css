@@ -453,6 +453,52 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
   }
 }
 
+/* ── Add-to-bag animated ring (frontend#184) ────────────────────────────────
+   Owner: a shopper tapped the (single, unlabelled-as-such) variant chip
+   thinking it was "Add to bag", got nothing, and left. Two changes fix it:
+   the single-variant case stops rendering a chip at all (VariantPicker), and
+   Add to bag gets a slow travelling gold ring so it reads, at a glance, as
+   THE action on the page — nothing else on the panel moves.
+
+   A gradient-border technique, not a box-shadow glow: `padding: 2px` plus the
+   dual-layer mask is what keeps the fill hollow (a ring, not a filled halo)
+   without a second wrapper element around the button. `border-radius: inherit`
+   is why this only ever needs applying to the button itself — the pill radius
+   (or the `gold` state's own radius, unchanged) is picked up automatically.
+   `pointer-events: none` keeps the ring purely decorative: the button under
+   it is still the whole hit target.
+
+   Reduced motion needs nothing extra here — the global rule above already
+   zeroes every `animation-duration` to 0.01ms, which freezes the ring's
+   gradient in place rather than travelling. */
+@keyframes mr-cta-ring {
+  to { background-position: 300% 0; }
+}
+.mr-cta-glow {
+  position: relative;
+}
+.mr-cta-glow::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--mr-gold-400),
+    var(--mr-gold-700),
+    var(--mr-gold-400),
+    transparent
+  );
+  background-size: 300% 100%;
+  animation: mr-cta-ring 3200ms linear infinite;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 /* ── Hero call-to-action ─────────────────────────────────────────────────
    The button an admin gets when they type a label into a hero slide or an
    editorial block in the dashboard.

@@ -431,6 +431,11 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           variant={added ? 'gold' : 'primary'}
           onClick={onAdd}
           disabled={!selectedVariant || soldOut || unavailable}
+          // The travelling gold ring (frontend#184) only runs on the live,
+          // actionable button — not once "Added" is showing (that state
+          // already has its own gold fill and doesn't need a second cue) and
+          // not while disabled (nothing to draw attention TO).
+          className={!added && selectedVariant && !soldOut && !unavailable ? 'mr-cta-glow' : undefined}
           style={{ flex: 1 }}
         >
           {added ? (
@@ -1173,6 +1178,7 @@ export default function ApiProductDetail({
           variant={added ? 'gold' : 'primary'}
           onClick={() => handleAdd('sticky')}
           disabled={!selectedVariant || soldOut}
+          className={!added && selectedVariant && !soldOut ? 'mr-cta-glow' : undefined}
           style={{ flex: 1 }}
         >
           {added ? (

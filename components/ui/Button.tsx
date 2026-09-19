@@ -66,6 +66,10 @@ interface ButtonProps {
    * it cannot run when pressed. Not swept, like `disabled`. */
   ariaDisabled?: boolean;
   testId?: string;
+  /** Extra class for a caller that needs a CSS effect this component has no
+   * prop for (frontend#184's animated CTA ring) — combined with the sweep
+   * class, never replacing it. */
+  className?: string;
 }
 
 const VARIANTS: Record<Variant, React.CSSProperties> = {
@@ -150,6 +154,7 @@ function Button({
   title,
   ariaDisabled,
   testId,
+  className,
 }: ButtonProps) {
   const inert = disabled || ariaDisabled;
   const [h, setH] = React.useState(false);
@@ -225,6 +230,8 @@ function Button({
     onMouseUp: handleMouseUp,
   };
 
+  const rootClassName = [swept ? 'mr-btn-sweep' : null, className].filter(Boolean).join(' ') || undefined;
+
   // The sweep panel is a positioned ::before, and CSS paints positioned
   // descendants ABOVE an element's own inline content — so the label has to be
   // wrapped or the fill glides over the words. Same reason EditorialBlock and
@@ -265,7 +272,7 @@ function Button({
         data-testid={testId}
         onClick={onClick}
         data-trace-id={traceId}
-        className={swept ? 'mr-btn-sweep' : undefined}
+        className={rootClassName}
         {...pointerProps}
         style={{ ...visualStyle, textDecoration: 'none' }}
       >
@@ -283,7 +290,7 @@ function Button({
       title={title}
       data-testid={testId}
       data-trace-id={traceId}
-      className={swept ? 'mr-btn-sweep' : undefined}
+      className={rootClassName}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       {...pointerProps}

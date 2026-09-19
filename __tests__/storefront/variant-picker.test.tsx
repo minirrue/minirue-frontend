@@ -15,6 +15,26 @@ jest.mock('@/lib/api/client', () => ({
  * the size nor the price could be read. Say "no" once, legibly.
  */
 describe('VariantPicker', () => {
+  /**
+   * frontend#184: a single, labelled variant used to render through the same
+   * `<button>` as a multi-variant chip — filled solid when selected, exactly
+   * like "Add to bag" one row down. A real shopper tapped it expecting to
+   * buy and left when nothing happened.
+   */
+  it('a single variant renders as plain text, not a button', () => {
+    render(
+      <VariantPicker
+        variants={[IN_STOCK_VARIANT]}
+        isMinirueOwned
+        selectedId={IN_STOCK_VARIANT.id}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByText(/50\s*ML/i)).toBeInTheDocument();
+  });
+
   it('keeps a sold-out size readable and says so in words', () => {
     render(
       <VariantPicker
