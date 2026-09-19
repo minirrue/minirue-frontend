@@ -50,14 +50,17 @@ describe('ProductGallery', () => {
   });
 
   /**
-   * #58 — the slide is a FIXED ratio at every width.
-   *
-   * It used to be `lg:aspect-auto lg:h-screen`: no ratio on a laptop, just "as
-   * tall as the window", so the crop changed with the window and a tall one
-   * enlarged a ~900px source past 1:1. 1:1 from `lg:` is what the dashboard
-   * crops to, so a square box shows the admin's crop whole.
+   * #58, revised #185 — the slide is a FIXED ratio on a phone; on a laptop it
+   * now takes the PHOTOGRAPH's OWN ratio, capped to the viewport height, so
+   * the whole image fits without scrolling and nothing is cropped or
+   * letterboxed. The square `lg:aspect-square` box from #58 is gone: it was
+   * a fixed shape independent of both the photograph AND the window, so a
+   * portrait photo left visible bars on a laptop and — the report that
+   * reopened this — a short window (1366x768) made the square itself taller
+   * than the space available, requiring the shopper to scroll the page to
+   * see the rest of a photo that "fit" by the old rule's own definition.
    */
-  describe('the slide box (#58)', () => {
+  describe('the slide box (#58, #185)', () => {
     const slideBoxes = () =>
       Array.from(
         document.querySelectorAll<HTMLElement>(
@@ -73,19 +76,29 @@ describe('ProductGallery', () => {
       }
     });
 
-    it('is a square, viewport-independent box from lg: — never window-tall', () => {
+    it('takes the photograph\'s own aspect ratio from lg:, capped to the viewport height (#185)', () => {
       render(<ProductGallery product={PRODUCT_FIXTURE} items={items} />);
 
       const boxes = slideBoxes();
       expect(boxes).toHaveLength(items.length);
       for (const box of boxes) {
-        expect(box.className).toContain('lg:aspect-square');
-        // The two halves of the old rule. `h-screen` is what made the crop a
-        // function of window height and what upscaled the source on a tall
-        // display; `aspect-auto` is what dropped the ratio to let it.
-        expect(box.className).not.toContain('lg:h-screen');
-        expect(box.className).not.toContain('lg:aspect-auto');
+        // No fixed lg: ratio class any more — the shape now comes from the
+        // per-slide `--mr-gallery-ar` custom property (set from the media's
+        // own width/height below), read by a scoped `lg:` rule.
+        expect(box.className).not.toContain('lg:aspect-square');
+        expect(box.className).toContain('lg:aspect-auto');
+        expect(box.className).toContain('mr-gallery-frame');
+        // PRODUCT_FIXTURE's media is 1200x1500 — the exact ratio must reach
+        // the element as a CSS custom property, not just "some value".
+        expect(box.style.getPropertyValue('--mr-gallery-ar')).toBe('1200 / 1500');
       }
+
+      // The height cap itself: `calc(100svh - <header> - <gap>)`, set on the
+      // OUTER slide (the actual scroll-snap unit), not the frame — the frame
+      // shrinks to fit inside whatever height the slide gives it.
+      const slide = boxes[0]?.parentElement as HTMLElement;
+      expect(slide.className).toContain('mr-gallery-slide');
+      expect(slide.style.getPropertyValue('--mr-gallery-cap-h')).toMatch(/^calc\(100svh - \d+px - \d+px\)$/);
     });
 
     it('never asks Cloudinary for a width AND a height', () => {
@@ -103,12 +116,15 @@ describe('ProductGallery', () => {
       }
     });
 
-    it('preserves the mobile crop, contains desktop portraits, and keeps the source WebP', () => {
+    it('uses object-cover at every width, and keeps the source WebP (#185)', () => {
+      // Once the FRAME (above) takes the photograph's own ratio, `cover` and
+      // `contain` render identically — there is nothing left to crop or
+      // letterbox either way, so the split `lg:object-contain` is gone too.
       render(<ProductGallery product={PRODUCT_FIXTURE} items={items} />);
 
       for (const img of screen.getAllByRole('img')) {
         expect(img.className).toContain('object-cover');
-        expect(img.className).toContain('lg:object-contain');
+        expect(img.className).not.toContain('object-contain');
         // The PDP source is already a high-quality imgproxy WebP. Sending it
         // through Next again made desktop Chrome choose a 21 KB AVIF re-encode.
         expect(img.getAttribute('src')).not.toContain('/_next/image');

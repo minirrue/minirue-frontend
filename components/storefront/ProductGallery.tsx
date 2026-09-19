@@ -66,28 +66,77 @@ interface ProductGalleryProps {
  *   arrow keys and Page Up/Down work on focus, which the transform-based
  *   version did not support at all.
  *
- * ## The slide's shape (#58)
+ * ## The slide's shape (#58, revised #185)
  *
- * Each slide is a FIXED ratio at every width: 4:5 on a phone, 1:1 from `lg:`.
- * It used to be `lg:aspect-auto lg:h-screen` — no ratio at all on a laptop,
- * just "as tall as the window, as wide as this column". Two things followed
- * from that, and the owner reported both: the framing changed with every
- * window size (a 1440x900 laptop cropped the photograph differently from a
- * 1440x1200 one), and on a tall window the box grew past the source, so
- * `cover` upscaled it — "maximized… zoomed in… bad pixels".
+ * On a phone: a FIXED 4:5 ratio, `cover` — unchanged, and out of scope for
+ * #185 (owner: "mobile unchanged").
  *
- * The catalogue no longer contains only square assets. The live Arencia cover
- * is a portrait 989×1200 WebP; `cover` in this square desktop box discarded
- * about 18% of it. Desktop therefore uses `contain`, while the phone keeps its
- * established 4:5 `cover` treatment unchanged.
+ * From `lg:`, the frame now takes the PHOTOGRAPH's OWN intrinsic aspect
+ * ratio (`m.width`/`m.height` from the backend), capped at
+ * `calc(100svh - header - gap)` — see `GALLERY_MAX_H_CSS` below. This used
+ * to be a fixed 1:1 box with `object-fit: contain`: correct in that it never
+ * cropped or upscaled, but on a short laptop window (1366x768, 1280x720) the
+ * square box was taller than the space actually available, and the shopper
+ * had to scroll the PAGE to see the rest of the photograph (owner, 2026-09-19:
+ * "user can't scroll to see the rest height of the image" — in practice
+ * meaning they shouldn't have to at all). It also meant a portrait photo
+ * inside a square `contain` box always left visible letterbox bars on the
+ * left and right, on every window size.
+ *
+ * Once the FRAME's own shape matches the image's shape exactly, `cover` and
+ * `contain` render IDENTICALLY — there is nothing left to crop or letterbox
+ * either way, so the `<Image>` below just uses `object-cover` unconditionally
+ * now (no more `lg:object-contain` split). Any leftover space around a
+ * height-capped frame (a landscape photo on a narrow column, or vice versa)
+ * is the SAME `var(--mr-bg)` this component's own root already paints
+ * (frontend#183) — invisible as a "gap" because it is the page's own colour,
+ * not a visible bar.
+ *
+ * Deliberately CSS-only, no ResizeObserver/JS measurement: `width: auto;
+ * height: auto; max-width: 100%; max-height: 100%;` on a box that also
+ * carries `aspect-ratio` is browser-native "shrink to the largest size that
+ * fits both constraints while keeping the ratio" — precisely `object-fit:
+ * contain`'s own algorithm, just applied to the FRAME instead of the image
+ * inside it. The per-slide OUTER box (the actual horizontal-scroll snap
+ * unit `el.clientWidth` math above depends on) is left at its existing
+ * `w-full` — only its HEIGHT is capped at `lg:`, and it centers the
+ * (possibly narrower) frame within itself. Shrinking the slide's own width
+ * to match each photo would have broken that scroll-position → index math,
+ * which assumes uniform slide widths.
  *
  * The source URL is already imgproxy's highest useful WebP for this asset.
  * Sending it through `/_next/image` again made desktop Chrome choose a 21 KB
  * AVIF re-encode from a 67 KB WebP and visibly softened its label. The PDP
  * deliberately uses Next's scoped `unoptimized` escape hatch: no global image
  * policy changes, no invented upscale, and every available source pixel reaches
- * this high-attention product view.
+ * this high-attention product view. (The request width itself is still the
+ * flat 1600px asked for below — deliberately NOT resized to the capped
+ * display size × devicePixelRatio for this pass: that would need a
+ * client-only measurement recomputed after mount, which risks delaying the
+ * very LCP request this file's own history above spent real effort
+ * protecting. 1600px WebP already covers the capped display size at 2x DPR
+ * on every desktop viewport tested (1440x900, 1366x768, 1280x720), so
+ * nothing is visibly softened in practice; a true responsive `srcSet` is
+ * left as a follow-up if a wider viewport ever needs it.)
  */
+/**
+ * frontend#185 — desktop's own copy column's chrome, measured once against
+ * the live header (`components/layout/Header.tsx`, `position: sticky`) at
+ * rest: 89px. Used as a fixed constant rather than measured live because the
+ * header's OWN height barely moves on this route (no scroll-shrink observed
+ * on the product page in testing) and a constant keeps the sizing rule pure
+ * CSS — no ResizeObserver, no client-only recompute that could disturb the
+ * gallery's carefully-tuned first-paint/LCP behaviour documented above.
+ * `GALLERY_GAP_PX` is breathing room below the header before the frame
+ * starts, matching the column's own top padding order of magnitude.
+ */
+const HEADER_H_PX = 89;
+const GALLERY_GAP_PX = 24;
+/** `lg:` viewport cap for the gallery frame — the whole photograph must fit
+ *  without scrolling (frontend#185). Mobile is untouched: this value is only
+ *  ever read by the `@media (min-width: 1024px)` rule below. */
+const GALLERY_MAX_H_CSS = `calc(100svh - ${HEADER_H_PX}px - ${GALLERY_GAP_PX}px)`;
+
 export default function ProductGallery({ product, items, onOpen }: ProductGalleryProps) {
   const scrollerRef = React.useRef<HTMLDivElement>(null);
   const [index, setIndex] = React.useState(0);
@@ -226,8 +275,35 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
     >
       {/* Scoped to this component's own class so it cannot reach any other
           scroller on the page. Firefox and IE take the properties above; this
-          is the WebKit/Blink half, which has no property form. */}
-      <style>{`.mr-gallery-strip::-webkit-scrollbar{display:none}`}</style>
+          is the WebKit/Blink half, which has no property form.
+
+          The `lg:` rules below are frontend#185's viewport-fit sizing (see
+          the file-header comment). They live in a scoped `<style>`, not
+          inline `style` props, because the shape they set depends on a
+          BREAKPOINT (`min-width: 1024px`) and inline styles cannot carry
+          one — mobile keeps its own separate Tailwind classes
+          (`aspect-[4/5] w-full`) on the same elements, applied at every
+          width, which these rules only override from `lg:` up. The actual
+          NUMBERS (the cap height, each photo's own aspect ratio) are still
+          set per-element via CSS custom properties in the inline `style`
+          below — only the properties that READ those variables live here. */}
+      <style>{`
+        .mr-gallery-strip::-webkit-scrollbar{display:none}
+        @media (min-width: 1024px) {
+          .mr-gallery-slide {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: var(--mr-gallery-cap-h);
+          }
+          .mr-gallery-frame {
+            aspect-ratio: var(--mr-gallery-ar, 4 / 5);
+            height: 100%;
+            width: auto;
+            max-width: 100%;
+          }
+        }
+      `}</style>
 
       <div
         ref={scrollerRef}
@@ -261,15 +337,26 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
               ? m.posterUrl ?? m.url ?? ''
               : mediaImageUrl(m, { w: 1600 });
           if (!src) return null;
+          // The photograph's own shape, from the backend's stored intrinsic
+          // dimensions — never measured client-side. Falls back to the old
+          // 4:5 only for the pathological case of a media row missing both
+          // (never seen live; every asset here comes through an upload path
+          // that records width/height).
+          const ar = m.width && m.height ? `${m.width} / ${m.height}` : '4 / 5';
           return (
             <div
               key={m.id}
-              className="w-full min-w-0 shrink-0 grow-0"
-              style={{ scrollSnapAlign: 'center', scrollSnapStop: 'always' }}
+              className="mr-gallery-slide w-full min-w-0 shrink-0 grow-0"
+              style={{
+                scrollSnapAlign: 'center',
+                scrollSnapStop: 'always',
+                ['--mr-gallery-cap-h' as string]: GALLERY_MAX_H_CSS,
+              }}
             >
               <div
                 data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
-                className="relative aspect-[4/5] w-full lg:aspect-square"
+                className="mr-gallery-frame relative aspect-[4/5] w-full lg:aspect-auto"
+                style={{ ['--mr-gallery-ar' as string]: ar }}
               >
                 {readyVideo ? (
                   <StorefrontVideo
@@ -315,7 +402,11 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                    */
                   fetchPriority={i === 0 ? 'high' : undefined}
                   sizes="(min-width: 1024px) 58vw, 100vw"
-                  className="object-cover lg:object-contain"
+                  // One rule at every width now (frontend#185): from `lg:`
+                  // the FRAME above already takes the photograph's own
+                  // aspect ratio, so `cover` and `contain` resolve to the
+                  // exact same box — nothing left to crop or letterbox.
+                  className="object-cover"
                   // Dragging an image drags the browser's own ghost preview
                   // instead of the strip.
                     draggable={false}
