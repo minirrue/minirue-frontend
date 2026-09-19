@@ -213,7 +213,16 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
     <div
       data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-carousel"
       className="group/hover relative"
-      style={{ background: 'var(--mr-cream-300)' }}
+      // The site's own background (frontend#183), not the sunken/gray
+      // `--mr-cream-300` tile fill, plus the same small radius + clip
+      // ProductCard's image tile uses elsewhere in the catalogue — the
+      // product photograph gets the same rounded, on-background frame as
+      // every other product image on the storefront.
+      style={{
+        background: 'var(--mr-bg)',
+        borderRadius: 'var(--mr-radius-lg)',
+        overflow: 'hidden',
+      }}
     >
       {/* Scoped to this component's own class so it cannot reach any other
           scroller on the page. Firefox and IE take the properties above; this

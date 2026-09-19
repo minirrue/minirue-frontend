@@ -80,30 +80,25 @@ const ProductBackButton = React.memo(function ProductBackButton({
 }: {
   onBack: () => void;
 }) {
+  // Routed through the shared `Button` (frontend#183) — this used to be a
+  // one-off `<button>` with its own hover handlers and copy that had drifted
+  // to "All perfumes", disagreeing with the rest of the site's back links.
+  // `outline` — not `ghost` — is deliberate: the owner rejected a first pass
+  // that used `ghost` (an underlined text link) as "not the same as the rest
+  // of the MiniRue theme". `outline` is the actual pill shape shoppers see
+  // everywhere else on this same page and the wider catalogue (the listing's
+  // "Filter & sort", the sheet/dropdown triggers) — same Jost 11px/0.22em
+  // label, same pill radius, same 17px/18px padding as "Add to bag" beside
+  // it, just unfilled.
   return (
-    <button
-      data-trace-id="PG-STOREFRONT-CAT-005::EL-BTN-back-to-all-perfumes"
+    <Button
+      variant="outline"
       onClick={onBack}
-      style={{
-        background: 'none',
-        border: 0,
-        cursor: 'pointer',
-        display: 'inline-flex',
-        gap: 8,
-        alignItems: 'center',
-        fontFamily: 'var(--mr-font-label)',
-        fontSize: 'var(--mr-text-xs)',
-        letterSpacing: '0.22em',
-        textTransform: 'uppercase',
-        color: 'var(--mr-fg-3)',
-        padding: 0,
-        transition: 'color var(--mr-dur-fast)',
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--mr-fg)')}
-      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--mr-fg-3)')}
+      traceId="PG-STOREFRONT-CAT-005::EL-BTN-back-to-all-perfumes"
+      style={{ gap: 8 }}
     >
-      <Icon name="arrowLeft" size={13} /> All perfumes
-    </button>
+      <Icon name="arrowLeft" size={13} /> Back
+    </Button>
   );
 });
 
@@ -711,7 +706,13 @@ const MediaFallback = React.memo(function MediaFallback({ name }: { name: string
     <div
       className="flex aspect-[4/5] w-full items-center justify-center lg:aspect-auto lg:h-screen"
       style={{
-        background: 'var(--mr-cream-300)',
+        // The site's own background (frontend#183), not the sunken/gray
+        // `--mr-cream-300` tile fill — same radius as ProductCard's tile so a
+        // shopper who followed a photo-less product here sees the same
+        // rounded frame as the rest of the catalogue.
+        background: 'var(--mr-bg)',
+        borderRadius: 'var(--mr-radius-lg)',
+        overflow: 'hidden',
         fontFamily: 'var(--mr-font-serif)',
         fontStyle: 'italic',
         fontSize: 'var(--mr-text-xl)',
@@ -921,8 +922,12 @@ export default function ApiProductDetail({
       style={{ background: 'var(--mr-cream-200)' }}
     >
       {/* Back — above the photographs on a phone, inside the sticky column on a
-          laptop. Two placements, one component, no JS width check. */}
-      <div className="order-1 px-[clamp(20px,5vw,32px)] pt-7 lg:hidden">
+          laptop. Two placements, one component, no JS width check.
+          `pb-6` (frontend#183): on a phone this sits directly above the
+          product photograph in flex order, and had no breathing room of its
+          own — the desktop placement below already has `mb-12` from the
+          copy column's flex gap. */}
+      <div className="order-1 px-[clamp(20px,5vw,32px)] pb-6 pt-7 lg:hidden">
         <ProductBackButton onBack={onBack} />
       </div>
 

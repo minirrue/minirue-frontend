@@ -136,6 +136,21 @@ describe('SupportWidget — a composer requires a verified session', () => {
     });
   });
 
+  it('brand-new guest (no stored session, no localStorage): only the docked launcher renders, panel opens on click (#182)', async () => {
+    // No `mr-support-guest` token, nothing in localStorage — exactly a fresh
+    // browser profile. The launcher must be the only thing on screen; nothing
+    // may cover the product until the guest actually asks for it.
+    expect(window.localStorage.getItem('mr-support-guest')).toBeNull();
+    render(<SupportWidget />);
+
+    expect(screen.getByRole('button', { name: /open live support chat/i })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: /live support chat/i })).not.toBeInTheDocument();
+
+    await openPanel();
+
+    expect(screen.getByRole('dialog', { name: /live support chat/i })).not.toHaveAttribute('inert');
+  });
+
   it('signed out and settled: sign-in prompt, no composer, no subject picker', async () => {
     mockAuthIsError = true;
     mockAuthError = REFUSED_401;
