@@ -457,46 +457,85 @@ a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px)
    Owner: a shopper tapped the (single, unlabelled-as-such) variant chip
    thinking it was "Add to bag", got nothing, and left. Two changes fix it:
    the single-variant case stops rendering a chip at all (VariantPicker), and
-   Add to bag gets a slow travelling gold ring so it reads, at a glance, as
-   THE action on the page — nothing else on the panel moves.
+   Add to bag gets a rotating gold ring so it reads, at a glance, as THE
+   action on the page — nothing else on the panel moves.
 
-   A gradient-border technique, not a box-shadow glow: `padding: 2px` plus the
-   dual-layer mask is what keeps the fill hollow (a ring, not a filled halo)
-   without a second wrapper element around the button. `border-radius: inherit`
-   is why this only ever needs applying to the button itself — the pill radius
-   (or the `gold` state's own radius, unchanged) is picked up automatically.
-   `pointer-events: none` keeps the ring purely decorative: the button under
-   it is still the whole hit target.
+   `::after`, NOT `::before` — the first version used `::before` and it
+   silently fought `.mr-btn-sweep::before` above, which is the SAME
+   generated box on the SAME button (both classes land on one element).
+   Both rules' declarations cascade onto that one pseudo-element; this one's
+   `background`/`mask` won (later in the file, tied specificity), but the
+   sweep's own `transform: scaleX(0/1)` and its `:hover…{ color:
+   var(--sweep-ink) !important }` were untouched — so on hover the label
+   still flipped to dark ink while the sweep's cream FILL (the thing that
+   used to make dark ink readable) had been silently replaced by this
+   mask's mostly-transparent ring. Dark text on the button's own dark hover
+   background is how "Add to bag" lost its label on hover in production
+   (owner screenshot, 2026-09-19). `::after` is a wholly separate box: the
+   sweep keeps its own `::before` exactly as it always has, and this ring
+   only ever adds a decorative layer on top, never a competing one.
+
+   A gradient-border technique, not a box-shadow glow: `padding` plus the
+   dual-layer mask is what keeps the fill hollow (a ring, not a filled
+   halo) without a second wrapper element. `border-radius: inherit` is why
+   this only ever needs applying to the button itself. `pointer-events:
+   none` keeps it purely decorative — the button under it is still the
+   whole hit target — and because the ring's own interior is masked fully
+   transparent, the label underneath is never at risk of being covered
+   regardless of paint order.
 
    Reduced motion needs nothing extra here — the global rule above already
-   zeroes every `animation-duration` to 0.01ms, which freezes the ring's
-   gradient in place rather than travelling. */
-@keyframes mr-cta-ring {
-  to { background-position: 300% 0; }
+   zeroes every `animation-duration` to 0.01ms, which freezes the rotation
+   in place (a static gold ring) rather than turning it.
+
+   `@property --mr-cta-angle` + animating the CUSTOM PROPERTY, not
+   `transform: rotate()` on the element — a rotating `transform` turned out
+   wrong on this shape specifically: "Add to bag" is a very elongated pill,
+   and rotating the whole ring box as a rigid unit sweeps the gradient
+   faster across the short (vertical) axis than the long one, which read as
+   stuttering/uneven motion (owner: "border line animated is bugged").
+   Animating the gradient's OWN angle parameter instead means only the
+   colour sweep moves; the box itself never transforms, so a non-square
+   shape can't distort it. `@property` is what makes a custom property
+   smoothly interpolable across a keyframe rather than snapping between
+   discrete values — without it this would jump instead of turning. The
+   gradient's first and last stop are the same colour (`--mr-gold-200`) so
+   the loop has no seam at 360deg → 0deg.
+
+   `inset: -2px` (not -3, the first pass) keeps the ring inside the CTA
+   row's own 12px gap to the wishlist heart beside it — tight enough that
+   it reads as this button's own outline, never close enough to look like
+   it is touching the heart. */
+@property --mr-cta-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes mr-cta-spin {
+  to { --mr-cta-angle: 360deg; }
 }
 .mr-cta-glow {
   position: relative;
 }
-.mr-cta-glow::before {
+.mr-cta-glow::after {
   content: '';
   position: absolute;
-  inset: -3px;
+  inset: -2px;
   border-radius: inherit;
   padding: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--mr-gold-400),
-    var(--mr-gold-700),
-    var(--mr-gold-400),
-    transparent
+  background: conic-gradient(
+    from var(--mr-cta-angle),
+    var(--mr-gold-200),
+    var(--mr-gold-500) 25%,
+    var(--mr-gold-700) 50%,
+    var(--mr-gold-500) 75%,
+    var(--mr-gold-200) 100%
   );
-  background-size: 300% 100%;
-  animation: mr-cta-ring 3200ms linear infinite;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
+  animation: mr-cta-spin 2600ms linear infinite;
 }
 
 /* ── Hero call-to-action ─────────────────────────────────────────────────
