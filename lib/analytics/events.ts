@@ -50,6 +50,10 @@ export const ANALYTICS_EVENT_NAMES = [
   'wishlist_add',
   'wishlist_remove',
   'share_click',
+  // micro-behaviour (dashboard#121 / #90 S10)
+  'section_dwell',
+  'attention_pause',
+  'gallery_interact',
 
   // search
   'search',
@@ -230,6 +234,17 @@ export interface AnalyticsEventProps {
   wishlist_add: { productId: string; variantId?: string };
   wishlist_remove: { productId: string; variantId?: string };
   share_click: { productId: string; channel?: string };
+  /**
+   * IntersectionObserver visible-time for a product-page section, sent once
+   * the section leaves view (or the page does) — not a running total. Not
+   * yet in minirue-backend's KNOWN_EVENT_NAMES; lands in the rejects table
+   * until that's added (see the drift note at the top of this file).
+   */
+  section_dwell: { productId: string; section: 'image' | 'description' | 'reviews'; seconds: number };
+  /** Idle ≥ ~8s while a product is on screen (lib/analytics/product-engagement.ts). */
+  attention_pause: { productId: string; seconds: number };
+  /** Every gallery slide change past the first (which `gallery_open` already covers once). */
+  gallery_interact: { productId: string; type: 'swipe'; index: number };
 
   // search
   search: { q: string; results: number };

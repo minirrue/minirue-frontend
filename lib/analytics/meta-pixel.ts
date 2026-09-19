@@ -40,6 +40,25 @@ export function trackMetaPixelEvent(
 }
 
 /**
+ * Send a Meta custom event (`fbq('trackCustom', …)`) — for engagement
+ * signals Meta has no standard name for, e.g. `ProductEngaged`
+ * (dashboard#121). Same guards as trackMetaPixelEvent above.
+ */
+export function trackMetaCustomEvent(
+  name: string,
+  params: Record<string, unknown>,
+  eventId: string,
+): void {
+  try {
+    if (!META_PIXEL_ID || typeof window === 'undefined') return;
+    if (isAdsOff()) return;
+    window.fbq?.('trackCustom', name, params, { eventID: eventId });
+  } catch {
+    // Advertising telemetry must never break the storefront.
+  }
+}
+
+/**
  * Meta's base code, verbatim from Events Manager, with the ID filled in —
  * wrapped so it never initialises (never defines window.fbq, never loads
  * fbevents.js) on an excluded device. Must be a source-level guard, not a

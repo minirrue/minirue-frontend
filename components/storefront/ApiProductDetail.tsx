@@ -25,6 +25,7 @@ import WordReveal from '@/components/ui/WordReveal';
 import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
 import { track } from '@/lib/analytics';
 import { subtotalToMinor } from '@/lib/checkout/checkout-money';
+import { useSectionDwell, useIdlePause, useProductEngaged } from '@/lib/analytics/product-engagement';
 
 /**
  * Split out on purpose. The carousel is the only thing on the shop that pulls
@@ -507,6 +508,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
           title={product.name}
           text={[productBrand(product), product.tagline].filter(Boolean).join(' — ')}
           traceId="PG-STOREFRONT-CAT-005::EL-BTN-share-product"
+          productId={product.id}
         />
         {selectedVariant?.sku && <SkuCopyButton sku={selectedVariant.sku} />}
       </div>
@@ -602,6 +604,17 @@ const EditorialMoment = React.memo(function EditorialMoment({
 }: {
   product: ApiProduct;
 }) {
+  // Dwell on the description itself, not the whole editorial panel — the
+  // blockquote above it is decoration, not the copy dashboard#121 wants
+  // "time spent reading" for. No-ops (via useSectionDwell's own guard) when
+  // there is no description to read.
+  const descriptionRef = React.useRef<HTMLDivElement | null>(null);
+  useSectionDwell(descriptionRef, {
+    productId: product.id,
+    section: 'description',
+    enabled: !!product.description,
+  });
+
   return (
     <div
       data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-editorial-quote-panel"
@@ -662,6 +675,7 @@ const EditorialMoment = React.memo(function EditorialMoment({
         */}
         {product.description && (
           <div
+            ref={descriptionRef}
             data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-description"
             style={{
               marginTop: 40,
@@ -905,9 +919,14 @@ export default function ApiProductDetail({
   // the cover photo — not on every dot/arrow/swipe after that.
   const firedGalleryOpen = React.useRef(false);
   const handleGalleryOpen = (index: number) => {
-    if (firedGalleryOpen.current) return;
-    firedGalleryOpen.current = true;
-    track('gallery_open', { productId: product.id, index });
+    if (!firedGalleryOpen.current) {
+      firedGalleryOpen.current = true;
+      track('gallery_open', { productId: product.id, index });
+    }
+    // Every slide change past the first, for the "gallery swipes" capture
+    // dashboard#121 asks for — gallery_open above stays a one-shot funnel
+    // step, this is the repeatable micro-event.
+    track('gallery_interact', { productId: product.id, type: 'swipe', index });
   };
 
   const handleSelectVariant = (v: ProductVariant) => {
@@ -919,6 +938,25 @@ export default function ApiProductDetail({
     });
   };
 
+  // Section dwell (image/reviews — description is tracked inside
+  // EditorialMoment, which owns that ref) and idle "pause" while the
+  // gallery is on screen (dashboard#121 / #90 S10).
+  const galleryRef = React.useRef<HTMLDivElement | null>(null);
+  const reviewsRef = React.useRef<HTMLDivElement | null>(null);
+  useSectionDwell(galleryRef, { productId: product.id, section: 'image' });
+  useSectionDwell(reviewsRef, { productId: product.id, section: 'reviews' });
+  useIdlePause(galleryRef, { productId: product.id });
+
+  // Meta's ProductEngaged custom event (≥20s in view OR ≥75% scroll, once
+  // per product view). The event id is minted once per mount so a future
+  // CAPI mirror of this event (#112) can share it for dedupe; it never
+  // leaves the browser as first-party data — trackMetaCustomEvent no-ops
+  // entirely under the ads-off cookie (dashboard#111).
+  const engagementEventId = React.useMemo(
+    () => `product-engaged:${product.id}:${crypto.randomUUID()}`,
+    [product.id],
+  );
+  useProductEngaged(product.id, engagementEventId);
 
   return (
     <div
@@ -1039,11 +1077,13 @@ export default function ApiProductDetail({
         {/* FIRST on a phone / top of the right column on a laptop: the
             photographs. */}
         <main className="order-2">
-          {gallery.length > 0 ? (
-            <ProductGallery product={product} items={gallery} onOpen={handleGalleryOpen} />
-          ) : (
-            <MediaFallback name={product.name} />
-          )}
+          <div ref={galleryRef} data-testid="product-image-dwell-region">
+            {gallery.length > 0 ? (
+              <ProductGallery product={product} items={gallery} onOpen={handleGalleryOpen} />
+            ) : (
+              <MediaFallback name={product.name} />
+            )}
+          </div>
 
           <EditorialMoment product={product} />
         </main>
@@ -1052,7 +1092,7 @@ export default function ApiProductDetail({
             photographs on a laptop — never rendered a second time, since
             ProductReviews fetches its own data and owns the one "write a
             review" entry point. */}
-        <div className="order-4">
+        <div className="order-4" ref={reviewsRef} data-testid="product-reviews-dwell-region">
           <ProductReviews
             productId={product.id}
             productName={product.name}

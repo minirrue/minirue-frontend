@@ -6,7 +6,8 @@ import { track } from './track';
 
 const SCROLL_THRESHOLDS = [25, 50, 75, 100] as const;
 
-function currentScrollDepthPct(): number {
+/** Exported for lib/analytics/product-engagement.ts's ProductEngaged check — same definition, one implementation. */
+export function currentScrollDepthPct(): number {
   if (typeof document === 'undefined') return 0;
   const doc = document.documentElement;
   const scrollable = doc.scrollHeight - doc.clientHeight;

@@ -3,6 +3,7 @@
 import React from 'react';
 import Icon from '@/components/ui/Icon';
 import { SITE_URL } from '@/lib/seo/config';
+import { track } from '@/lib/analytics';
 
 interface ShareButtonProps {
   /** Absolute or root-relative URL to share. Resolved against the live origin. */
@@ -11,6 +12,11 @@ interface ShareButtonProps {
   /** Short line shown by apps that render a description (WhatsApp, Telegram…). */
   text?: string;
   traceId?: string;
+  /**
+   * When set, a successful share/copy fires `share_click` (dashboard#121).
+   * Optional because this button is not always used on a product page.
+   */
+  productId?: string;
 }
 
 /**
@@ -26,7 +32,7 @@ interface ShareButtonProps {
  * OpenGraph/Twitter tags with the cover image, so a pasted URL unfurls with the
  * product photo, name and brand in every chat app and social preview.
  */
-export default function ShareButton({ url, title, text, traceId }: ShareButtonProps) {
+export default function ShareButton({ url, title, text, traceId, productId }: ShareButtonProps) {
   const [copied, setCopied] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
 
@@ -41,17 +47,23 @@ export default function ShareButton({ url, title, text, traceId }: ShareButtonPr
     try {
       await navigator.clipboard.writeText(absoluteUrl);
       setCopied(true);
+      if (productId) track('share_click', { productId, channel: 'copy_link' });
       setTimeout(() => setCopied(false), 1800);
     } catch {
       setFailed(true);
       setTimeout(() => setFailed(false), 2400);
     }
-  }, [absoluteUrl]);
+  }, [absoluteUrl, productId]);
 
   const handleShare = React.useCallback(async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ title, text, url: absoluteUrl });
+        // The OS share sheet never reports which target the shopper picked
+        // (WhatsApp vs Instagram vs "Copy" inside the sheet itself, etc.) —
+        // that choice happens entirely outside the page. `web_share` is the
+        // honest granularity: "used native share", not a guessed target.
+        if (productId) track('share_click', { productId, channel: 'web_share' });
         return;
       } catch (err) {
         // AbortError = the user closed the sheet. That is not a failure, and
@@ -60,7 +72,7 @@ export default function ShareButton({ url, title, text, traceId }: ShareButtonPr
       }
     }
     await copyLink();
-  }, [absoluteUrl, title, text, copyLink]);
+  }, [absoluteUrl, title, text, copyLink, productId]);
 
   const label = copied ? 'Link copied' : failed ? 'Copy failed' : 'Share';
 

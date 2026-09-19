@@ -529,3 +529,173 @@ describe('checkout confirmation — payment_initiated.totalMinor is the real ord
     expect(mockPreviewDiscount).toHaveBeenCalledWith(expect.anything(), 'SAVE30');
   });
 });
+
+// ── micro-behaviour capture (dashboard#121 / #90 S10) ────────────────────────
+
+describe('ApiProductDetail — gallery_interact', () => {
+  it('tracks every slide change past the first, in addition to the one-shot gallery_open', () => {
+    renderWithQueryClient(
+      <ApiProductDetail
+        product={PRODUCT_FIXTURE}
+        perks={[]}
+        onBack={() => {}}
+        onAddToBag={() => {}}
+      />,
+    );
+
+    // PRODUCT_FIXTURE carries 3 media items, so the dots (and their
+    // aria-labels) exist — see __tests__/storefront/fixtures/product.ts.
+    fireEvent.click(screen.getByRole('button', { name: /go to media 2 of 3/i }));
+    fireEvent.click(screen.getByRole('button', { name: /go to media 3 of 3/i }));
+
+    expect(mockTrack.mock.calls.filter(([name]) => name === 'gallery_open')).toHaveLength(1);
+    const interactions = mockTrack.mock.calls.filter(([name]) => name === 'gallery_interact');
+    expect(interactions).toHaveLength(2);
+    expect(interactions[0][1]).toEqual({ productId: PRODUCT_FIXTURE.id, type: 'swipe', index: 1 });
+    expect(interactions[1][1]).toEqual({ productId: PRODUCT_FIXTURE.id, type: 'swipe', index: 2 });
+  });
+});
+
+describe('ApiProductDetail — section_dwell and attention_pause', () => {
+  const originalIO = global.IntersectionObserver;
+
+  beforeEach(() => {
+    MockIntersectionObserver.instances = [];
+    (global as unknown as { IntersectionObserver: unknown }).IntersectionObserver =
+      MockIntersectionObserver;
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    (global as unknown as { IntersectionObserver: unknown }).IntersectionObserver = originalIO;
+    jest.useRealTimers();
+  });
+
+  /** Both useSectionDwell and useIdlePause watch the same image region with
+   * their own IntersectionObserver instance — drive every instance watching
+   * it together so a test doesn't need to know which is which. */
+  function fireAll(target: Element, isIntersecting: boolean) {
+    MockIntersectionObserver.instances
+      .filter((o) => o.observed.includes(target))
+      .forEach((o) => o.fire(target, isIntersecting));
+  }
+
+  it('reports section_dwell with seconds when the image region leaves view', () => {
+    renderWithQueryClient(
+      <ApiProductDetail
+        product={PRODUCT_FIXTURE}
+        perks={[]}
+        onBack={() => {}}
+        onAddToBag={() => {}}
+      />,
+    );
+
+    const region = screen.getByTestId('product-image-dwell-region');
+
+    act(() => {
+      fireAll(region, true);
+      jest.advanceTimersByTime(5000);
+      fireAll(region, false);
+    });
+
+    const dwell = mockTrack.mock.calls.filter(([name]) => name === 'section_dwell');
+    expect(dwell).toHaveLength(1);
+    expect(dwell[0][1]).toEqual({ productId: PRODUCT_FIXTURE.id, section: 'image', seconds: 5 });
+  });
+
+  it('never reports a sub-second glance as dwell', () => {
+    renderWithQueryClient(
+      <ApiProductDetail
+        product={PRODUCT_FIXTURE}
+        perks={[]}
+        onBack={() => {}}
+        onAddToBag={() => {}}
+      />,
+    );
+
+    const region = screen.getByTestId('product-image-dwell-region');
+
+    act(() => {
+      fireAll(region, true);
+      jest.advanceTimersByTime(400);
+      fireAll(region, false);
+    });
+
+    expect(mockTrack.mock.calls.some(([name]) => name === 'section_dwell')).toBe(false);
+  });
+
+  it('reports attention_pause after 8s idle while the region is visible, and does not double-fire', () => {
+    renderWithQueryClient(
+      <ApiProductDetail
+        product={PRODUCT_FIXTURE}
+        perks={[]}
+        onBack={() => {}}
+        onAddToBag={() => {}}
+      />,
+    );
+
+    const region = screen.getByTestId('product-image-dwell-region');
+
+    act(() => {
+      fireAll(region, true);
+      jest.advanceTimersByTime(8000);
+    });
+
+    let pauses = mockTrack.mock.calls.filter(([name]) => name === 'attention_pause');
+    expect(pauses).toHaveLength(1);
+    expect(pauses[0][1]).toEqual({ productId: PRODUCT_FIXTURE.id, seconds: 8 });
+
+    // Staying idle past the threshold must not fire a second pause on its own.
+    act(() => {
+      jest.advanceTimersByTime(8000);
+    });
+    pauses = mockTrack.mock.calls.filter(([name]) => name === 'attention_pause');
+    expect(pauses).toHaveLength(1);
+
+    // Activity re-arms it: a second genuine idle period fires a second pause.
+    act(() => {
+      window.dispatchEvent(new Event('mousemove'));
+      jest.advanceTimersByTime(8000);
+    });
+    pauses = mockTrack.mock.calls.filter(([name]) => name === 'attention_pause');
+    expect(pauses).toHaveLength(2);
+  });
+});
+
+describe('ApiProductDetail — ProductEngaged (Meta custom event)', () => {
+  it('fires trackCustom ProductEngaged once the view crosses the engagement bar', () => {
+    const fbq = jest.fn();
+    window.fbq = fbq;
+    jest.useFakeTimers();
+
+    renderWithQueryClient(
+      <ApiProductDetail
+        product={PRODUCT_FIXTURE}
+        perks={[]}
+        onBack={() => {}}
+        onAddToBag={() => {}}
+      />,
+    );
+
+    // jsdom's scrollHeight/clientHeight are both 0 — currentScrollDepthPct()
+    // treats that as "nothing to scroll", i.e. already at 100%, so the very
+    // first 1s tick already crosses the 75%-scroll half of the bar.
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    const calls = fbq.mock.calls.filter(([, name]: unknown[]) => name === 'ProductEngaged');
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toBe('trackCustom');
+    expect(calls[0][2]).toMatchObject({ content_ids: [PRODUCT_FIXTURE.id], content_type: 'product' });
+
+    // Never fires twice for the same mount/view.
+    act(() => {
+      jest.advanceTimersByTime(5000);
+    });
+    expect(fbq.mock.calls.filter(([, name]: unknown[]) => name === 'ProductEngaged')).toHaveLength(1);
+
+    jest.useRealTimers();
+    delete (window as { fbq?: unknown }).fbq;
+  });
+});
