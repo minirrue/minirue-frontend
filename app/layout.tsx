@@ -192,6 +192,13 @@ export default function RootLayout({
     >
       {(META_PIXEL_ID || TIKTOK_PIXEL_ID) && (
         <head>
+          {/* Every product's hero image comes from this origin. Opening the
+              connection while the HTML is still parsing removes the DNS, TCP
+              and TLS round trips from the image's critical path — on a slow
+              mobile link that is a few hundred milliseconds before the first
+              byte of the picture can arrive. */}
+          <link rel="preconnect" href="https://img.minirueshop.com" crossOrigin="" />
+          <link rel="dns-prefetch" href="https://img.minirueshop.com" />
           {TIKTOK_PIXEL_ID && <script id="tiktok-pixel" dangerouslySetInnerHTML={{ __html: tiktokPixelBaseCode(TIKTOK_PIXEL_ID) }} />}
           {/* Meta Pixel Code — placed in <head> on every page, as Events
               Manager instructs. Route-change PageViews: components/seo/MetaPixel.tsx. */}
