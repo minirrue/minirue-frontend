@@ -26,6 +26,8 @@ import { useEnterSpring, useCrossfade } from '@/lib/motion/hooks';
 import { track } from '@/lib/analytics';
 import { subtotalToMinor } from '@/lib/checkout/checkout-money';
 import { useSectionDwell, useIdlePause, useProductEngaged } from '@/lib/analytics/product-engagement';
+import StarRating from './StarRating';
+import ProductTrustRow from './ProductTrustRow';
 
 /**
  * Split out on purpose. The carousel is the only thing on the shop that pulls
@@ -45,7 +47,13 @@ const ProductGallery = dynamic(() => import('./ProductGallery'));
  * straight to it.
  */
 const ProductReviews = dynamic(() => import('./reviews/ProductReviews'));
-import TrustpilotTrust from './TrustpilotTrust';
+
+/**
+ * Split for the speed job (#189): a static badge block sitting below the
+ * reviews, with no reason to be in the first-screen bundle any more than the
+ * reviews or the bundle rail beside it.
+ */
+const TrustpilotTrust = dynamic(() => import('./TrustpilotTrust'));
 import { useLoadedShipping } from './cart/use-bag-pricing';
 import { deliveryPerkText, isDeliveryPerk } from '@/lib/checkout/delivery-perk';
 
@@ -340,11 +348,19 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         <WordReveal text={product.name} delay={200} wordDelay={80} />
       </h1>
 
-      {/* Price */}
+      {/* Price, with the review summary alongside it when the product has any
+          (#189) — stars and count, linking straight to the reviews section
+          rather than repeating a summary the reviews block already owns. */}
       {selectedVariant && (
         <div
           data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-selected-variant-price"
           style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            columnGap: 14,
+            rowGap: 6,
             marginBottom: 24,
             animation: 'mr-word-in 0.5s cubic-bezier(0.16,1,0.3,1) both',
             animationDelay: '300ms',
@@ -362,6 +378,71 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
               for AI crawlers that read no JS or JSON-LD (#150). The page shows
               it visually through the buy button. */}
           <span className="sr-only">{allSoldOut ? ' Out of stock' : ' In stock'}</span>
+
+          {typeof product.reviewsAverage === 'number' &&
+            product.reviewsAverage > 0 &&
+            (product.reviewsCount ?? 0) > 0 && (
+              <a
+                href="#reviews-heading"
+                data-trace-id="PG-STOREFRONT-CAT-005::EL-LINK-review-summary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontFamily: 'var(--mr-font-ui)',
+                  fontSize: 'var(--mr-text-xs)',
+                  color: 'var(--mr-fg-3)',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid var(--mr-hairline)',
+                }}
+              >
+                <StarRating value={Math.round(product.reviewsAverage)} size={12} />
+                {product.reviewsCount === 1 ? '1 review' : `${product.reviewsCount} reviews`}
+              </a>
+            )}
+        </div>
+      )}
+
+      {/* Trust row (#189) — free delivery, same-day, cash on delivery, returns
+          and packaging, each printed only when a live setting proves it. */}
+      <ProductTrustRow priceAmount={shownPrice.amount} />
+
+      {/*
+        Service row — admin-editable under Storefront -> Product section.
+        Moved up to sit with the price and the CTA (#189: "next to the price
+        and the CTA … not below the fold" — measured at 5.7s LCP and 52
+        product-page visitors with zero add-to-bags, this and the trust row
+        above it are the whole point). It used to anchor to the bottom of a
+        100vh column and land under the fold on real screen heights (#42);
+        this location has no such dependency.
+      */}
+      {perks.length > 0 && (
+        <div
+          data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-shipping-service-info"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 28,
+            fontFamily: 'var(--mr-font-ui)',
+            fontSize: 'var(--mr-text-xs)',
+            color: 'var(--mr-fg-3)',
+            animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
+            animationDelay: '360ms',
+          }}
+        >
+          {/* The delivery perk's words come from the shipping settings, never
+              the stored text (#162) — same derivation as before the move. */}
+          {perks.map((perk) => (
+            <span
+              key={perk.id}
+              data-trace-id={`PG-STOREFRONT-CAT-005::EL-TEXT-product-perk@${perk.id}`}
+              style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}
+            >
+              <Icon name={perk.icon} size={14} /> {isDeliveryPerk(perk) ? deliveryLine : perk.text}
+            </span>
+          ))}
         </div>
       )}
 
@@ -548,52 +629,6 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
       </div>
       )}
 
-      {/*
-        Service row.
-
-        It used to be `marginTop: 'auto'`, which parked it on the bottom edge
-        of a `100vh` column — and the column does not start at the top of the
-        viewport. `components/layout/Header.tsx` is `position: sticky` and 89px
-        tall until the page is scrolled, so at rest an `h-screen` column runs
-        from y=89 to y=989 on a 900-tall screen and its last 89px — precisely
-        where the auto margin put these two lines — sits below the fold. That
-        is the "cut out" in #42: measured on production, 1440x800 sliced the
-        second line 17px below the edge and 1280x720 put both lines 55-85px
-        under it.
-
-        So the row is no longer bottom-anchored. It follows the copy it
-        belongs to, which is where it reads better anyway — the auto margin
-        was also opening a ~150px hole in the middle of the column between the
-        share row and these lines. `paddingTop` carries the separation on its
-        own.
-      */}
-      <div
-        data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-shipping-service-info"
-        style={{
-          paddingTop: 'clamp(24px,4vh,40px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 12,
-          fontFamily: 'var(--mr-font-ui)',
-          fontSize: 'var(--mr-text-xs)',
-          color: 'var(--mr-fg-3)',
-          animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
-          animationDelay: '600ms',
-        }}
-      >
-        {/* Admin-editable under Storefront -> Product section. Was hardcoded,
-            so changing a shipping threshold needed a code deploy. */}
-        {perks.map((perk) => (
-          <span
-            key={perk.id}
-            data-trace-id={`PG-STOREFRONT-CAT-005::EL-TEXT-product-perk@${perk.id}`}
-            style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}
-          >
-            <Icon name={perk.icon} size={14} /> {isDeliveryPerk(perk) ? deliveryLine : perk.text}
-          </span>
-        ))}
-      </div>
     </div>
   );
 });

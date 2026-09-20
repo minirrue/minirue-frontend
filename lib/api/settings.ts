@@ -207,6 +207,17 @@ export interface PublicSettings {
    * thing allowed to decide what is usable.
    */
   delivery?: unknown;
+  /**
+   * Trust block (dashboard#125, still open as this was written). Typed
+   * `unknown`: the field names below are ASSUMED from the issue's prose
+   * ("returns window (days) · cash on delivery on/off · delivery promise
+   * text override · WhatsApp number · support hours") because #125 had not
+   * posted a settled shape at the time frontend#189 shipped. A field this
+   * shop's dashboard writes under a different name is simply not read —
+   * `resolveTrustSettings` degrades to "nothing" per field, never a guess
+   * dressed up as data.
+   */
+  trust?: unknown;
 }
 
 export async function apiGetPublicSettings(): Promise<PublicSettings> {
@@ -378,6 +389,84 @@ export async function loadDeliverySettings(): Promise<DeliverySettings> {
     return resolveDeliverySettings((await apiGetPublicSettings()).delivery);
   } catch {
     return DEFAULT_DELIVERY_SETTINGS;
+  }
+}
+
+/**
+ * The product page's trust promises (frontend#189 / dashboard#125) — returns
+ * window, a packaging line, WhatsApp number and support hours. Every field is
+ * optional and independently absent; a shop that has set only a returns
+ * window still gets that one chip.
+ */
+export interface PublicTrustSettings {
+  /** Whole days. `null` when the owner has not set a returns window. */
+  returnsWindowDays?: number | null;
+  /**
+   * ASSUMED field name — dashboard#125 does not name a packaging field at
+   * all; the owner's ask for a "high quality packaging premium" promise has
+   * nowhere else to come from. Printed verbatim, never paraphrased, and
+   * absent means no chip.
+   */
+  packagingPromise?: string | null;
+  whatsappNumber?: string | null;
+  supportHours?: string | null;
+  /** #125's "delivery promise text override" — read, not yet consumed by the
+   *  trust row, which prefers the derived `deliveryPerkText`. Kept so a
+   *  future caller does not have to add the field again. */
+  deliveryPromiseOverride?: string | null;
+}
+
+const EMPTY_TRUST_SETTINGS: PublicTrustSettings = {
+  returnsWindowDays: null,
+  packagingPromise: null,
+  whatsappNumber: null,
+  supportHours: null,
+  deliveryPromiseOverride: null,
+};
+
+/**
+ * Guards an unknown `trust` payload the same defensive way as every other
+ * block on this endpoint — plus a SECOND layer most of the others do not
+ * need: the field names themselves are assumed (see `PublicSettings.trust`),
+ * so each one is read under a short list of plausible spellings and any
+ * value that fails its type check is dropped rather than coerced.
+ */
+export function resolveTrustSettings(raw: unknown): PublicTrustSettings {
+  const t = (raw ?? {}) as Record<string, unknown>;
+  if (!t || typeof t !== 'object') return EMPTY_TRUST_SETTINGS;
+
+  const numOrNull = (...values: unknown[]): number | null => {
+    for (const v of values) {
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return Math.round(v);
+    }
+    return null;
+  };
+  const strOrNull = (...values: unknown[]): string | null => {
+    for (const v of values) {
+      if (typeof v === 'string' && v.trim().length > 0) return v.trim();
+    }
+    return null;
+  };
+
+  return {
+    returnsWindowDays: numOrNull(t.returnsWindowDays, t.returnWindowDays, t.returnsWindow),
+    packagingPromise: strOrNull(t.packagingPromise, t.packagingLine, t.packaging),
+    whatsappNumber: strOrNull(t.whatsappNumber, t.whatsapp),
+    supportHours: strOrNull(t.supportHours, t.hours),
+    deliveryPromiseOverride: strOrNull(t.deliveryPromiseOverride, t.deliveryPromise),
+  };
+}
+
+/**
+ * Read the same defensive way as `loadDeliverySettings`: a failed request, an
+ * older backend with no `trust` key, or an unrecognised shape are all "no
+ * promises published" — never a thrown error, and never a placeholder chip.
+ */
+export async function loadTrustSettings(): Promise<PublicTrustSettings> {
+  try {
+    return resolveTrustSettings((await apiGetPublicSettings()).trust);
+  } catch {
+    return EMPTY_TRUST_SETTINGS;
   }
 }
 
