@@ -25,12 +25,23 @@ import { TIKTOK_PIXEL_ID, tiktokPixelBaseCode } from "@/lib/analytics/tiktok-pix
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { buildIcons } from "@/lib/seo/icons";
 
+/**
+ * Only the body face is preloaded. Measured on the live product page
+ * (Lighthouse, simulated mobile): the hero image was preloaded correctly and
+ * weighed just 47 KB, but four font files (146 KB) and ~40 script chunks were
+ * requested ahead of it, so on a slow connection it waited 5.7 seconds before
+ * it could even start — a "Load Delay", not a heavy image. Dropping the
+ * display and label faces out of the preload queue hands that bandwidth to
+ * the image; `display: swap` means text still paints immediately in the
+ * fallback and swaps when the face arrives.
+ */
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   style: ["normal", "italic"],
   variable: "--font-cormorant",
   display: "swap",
+  preload: false,
 });
 
 const jost = Jost({
@@ -38,8 +49,10 @@ const jost = Jost({
   weight: ["300", "400", "500", "600"],
   variable: "--font-jost",
   display: "swap",
+  preload: false,
 });
 
+/** The body face — the only one worth a preload slot ahead of the hero image. */
 const interTight = Inter_Tight({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
