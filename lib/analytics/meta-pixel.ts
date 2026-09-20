@@ -71,9 +71,14 @@ export function metaPixelBaseCode(id: string): string {
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};
 if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
+n.queue=[];
+var mrLoad=function(){if(f.__mrFbLoaded)return;f.__mrFbLoaded=1;
+t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)};
+var mrIdle=function(){f.requestIdleCallback?f.requestIdleCallback(mrLoad,{timeout:3000}):setTimeout(mrLoad,1200)};
+b.readyState==='complete'?mrIdle():f.addEventListener('load',mrIdle,{once:true});
+['pointerdown','keydown','touchstart'].forEach(function(ev){f.addEventListener(ev,mrLoad,{once:true,passive:true})});
+}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '${id}');
 fbq('track', 'PageView');
