@@ -5,16 +5,23 @@
  * Unit tests — proxy.ts
  * Covers: mr-vid minted once (not re-minted when present), set on the
  * redirect branch too, and skipped entirely for a non-HTML accept header.
+ * Also covers the readable mirror `mr-vid-c` (backend#224 / frontend#188):
+ * kept in sync with mr-vid, reused to rescue mr-vid when the latter is
+ * cleared, and the `x-mr-vid` header fallback when neither cookie survives.
  */
 import { NextRequest } from 'next/server';
 import proxy from '@/proxy';
 
+const VALID_UUID = 'b6f1c3f0-9a3b-4e3a-9a6c-1a2b3c4d5e6f';
+const OTHER_VALID_UUID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
 function makeRequest(
   path: string,
-  opts: { cookie?: string; accept?: string } = {},
+  opts: { cookie?: string; accept?: string; headers?: Record<string, string> } = {},
 ): NextRequest {
   const headers: Record<string, string> = {
     accept: opts.accept ?? 'text/html,application/xhtml+xml',
+    ...opts.headers,
   };
   if (opts.cookie) headers.cookie = opts.cookie;
   return new NextRequest(new URL(path, 'https://minirueshop.com'), { headers });
@@ -83,6 +90,80 @@ describe('proxy — visitor id + attribution cookies', () => {
     expect(again.cookies.get('mr-attr-first')).toBeUndefined();
     // mr-attr-last still overwrites every time a signal is present.
     expect(again.cookies.get('mr-attr-last')).toBeDefined();
+  });
+
+  describe('mr-vid-c mirror + rescue (backend#224 / frontend#188)', () => {
+    it('cookie present: backfills the mirror to match, id unchanged', () => {
+      const res = proxy(makeRequest('/', { cookie: `mr-vid=${VALID_UUID}` }));
+      // mr-vid is untouched — no new Set-Cookie for it.
+      expect(res.cookies.get('mr-vid')).toBeUndefined();
+      const mirror = res.cookies.get('mr-vid-c');
+      expect(mirror).toBeDefined();
+      expect(mirror?.value).toBe(VALID_UUID);
+      expect(mirror?.httpOnly).toBe(false);
+    });
+
+    it('cookie present and mirror already matches: no redundant Set-Cookie for the mirror', () => {
+      const res = proxy(
+        makeRequest('/', { cookie: `mr-vid=${VALID_UUID}; mr-vid-c=${VALID_UUID}` }),
+      );
+      expect(res.cookies.get('mr-vid')).toBeUndefined();
+      expect(res.cookies.get('mr-vid-c')).toBeUndefined();
+    });
+
+    it('mr-vid cleared but mirror present: reuses the mirror id instead of minting, re-sets mr-vid', () => {
+      const res = proxy(makeRequest('/', { cookie: `mr-vid-c=${VALID_UUID}` }));
+      const vid = res.cookies.get('mr-vid');
+      expect(vid?.value).toBe(VALID_UUID);
+      expect(vid?.httpOnly).toBe(true);
+      // Mirror already carries the right value — no redundant re-set.
+      expect(res.cookies.get('mr-vid-c')).toBeUndefined();
+    });
+
+    it('mr-vid and mirror both cleared, but x-mr-vid header present and valid: reuses the header id', () => {
+      const res = proxy(
+        makeRequest('/', { headers: { 'x-mr-vid': VALID_UUID } }),
+      );
+      const vid = res.cookies.get('mr-vid');
+      expect(vid?.value).toBe(VALID_UUID);
+      const mirror = res.cookies.get('mr-vid-c');
+      expect(mirror?.value).toBe(VALID_UUID);
+    });
+
+    it('rejects a malformed x-mr-vid header and mints fresh instead', () => {
+      const res = proxy(
+        makeRequest('/', { headers: { 'x-mr-vid': 'not-a-uuid; DROP TABLE visitors' } }),
+      );
+      const vid = res.cookies.get('mr-vid');
+      expect(vid?.value).toBeDefined();
+      expect(vid?.value).not.toBe('not-a-uuid; DROP TABLE visitors');
+    });
+
+    it('rejects a malformed mr-vid-c mirror cookie and mints fresh instead', () => {
+      const res = proxy(makeRequest('/', { cookie: 'mr-vid-c=not-a-uuid' }));
+      const vid = res.cookies.get('mr-vid');
+      expect(vid?.value).toBeDefined();
+      expect(vid?.value).not.toBe('not-a-uuid');
+    });
+
+    it('genuinely fresh browser: mints a new id and sets both cookies to the same value', () => {
+      const res = proxy(makeRequest('/'));
+      const vid = res.cookies.get('mr-vid');
+      const mirror = res.cookies.get('mr-vid-c');
+      expect(vid?.value).toBeDefined();
+      expect(mirror?.value).toBe(vid?.value);
+      expect(vid?.value).not.toBe(OTHER_VALID_UUID);
+    });
+
+    it('mirror takes priority over the header when both are present', () => {
+      const res = proxy(
+        makeRequest('/', {
+          cookie: `mr-vid-c=${VALID_UUID}`,
+          headers: { 'x-mr-vid': OTHER_VALID_UUID },
+        }),
+      );
+      expect(res.cookies.get('mr-vid')?.value).toBe(VALID_UUID);
+    });
   });
 
   it.each([

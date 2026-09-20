@@ -60,6 +60,16 @@ const AUTH_COOKIE = 'mr-auth'
 // by client-side navigation.
 
 const VISITOR_COOKIE = 'mr-vid'
+// Readable mirror of mr-vid (backend#224 / frontend#188). mr-vid is HttpOnly
+// so client JS can never rescue it after a cookie clear; this mirror carries
+// the same uuid, non-HttpOnly, so lib/analytics/attribution.ts can copy it
+// into localStorage as a second rescue path. The server remains the only
+// minter — this cookie is always set to whatever id mr-vid resolves to,
+// never independently generated.
+const VISITOR_MIRROR_COOKIE = 'mr-vid-c'
+// Client fallback header (lib/analytics/transport.ts) — sent only when
+// neither cookie is readable but localStorage still holds the old id.
+const VISITOR_HEADER = 'x-mr-vid'
 const ATTR_LAST_COOKIE = 'mr-attr-last'
 const ATTR_FIRST_COOKIE = 'mr-attr-first'
 const ATTR_PUB_COOKIE = 'mr-attr-pub'
@@ -68,6 +78,12 @@ const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
 const THIRTY_DAYS_SECONDS = 60 * 60 * 24 * 30
 
 const UTM_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isValidUuid(value: string | null | undefined): value is string {
+  return !!value && UUID_PATTERN.test(value)
+}
 
 const MAX_ATTR_FIELD_CHARS = 128
 const MAX_ATTR_PAYLOAD_BYTES = 512
@@ -162,11 +178,41 @@ interface CookieBase {
   secure: boolean
 }
 
+/**
+ * Resolves and (re-)issues the visitor id.
+ *
+ * mr-vid, when present, is authoritative and untouched — its format is not
+ * re-validated here (a pre-existing cookie of any shape is still "the id").
+ * When mr-vid is missing, the id is rescued in order from: the readable
+ * mirror cookie, then the client's `x-mr-vid` header — both validated as a
+ * uuid, since either can be attacker- or extension-supplied — and only mints
+ * a fresh uuid when neither yields one. The server is the only minter; a
+ * rescued id is never freshly generated here, only reused.
+ *
+ * The mirror is then kept in sync with whatever mr-vid resolves to,
+ * regardless of which branch produced it — this also backfills the mirror
+ * for a visitor who already had mr-vid before this cookie existed.
+ */
 function applyVisitorCookie(res: NextResponse, request: NextRequest, base: CookieBase): void {
-  if (!request.cookies.has(VISITOR_COOKIE)) {
-    res.cookies.set(VISITOR_COOKIE, crypto.randomUUID(), {
+  const existingVid = request.cookies.get(VISITOR_COOKIE)?.value
+  let id = existingVid
+
+  if (!id) {
+    const mirror = request.cookies.get(VISITOR_MIRROR_COOKIE)?.value
+    const header = request.headers.get(VISITOR_HEADER)
+    id = isValidUuid(mirror) ? mirror : isValidUuid(header) ? header : crypto.randomUUID()
+
+    res.cookies.set(VISITOR_COOKIE, id, {
       ...base,
       httpOnly: true,
+      maxAge: ONE_YEAR_SECONDS,
+    })
+  }
+
+  if (request.cookies.get(VISITOR_MIRROR_COOKIE)?.value !== id) {
+    res.cookies.set(VISITOR_MIRROR_COOKIE, id, {
+      ...base,
+      httpOnly: false,
       maxAge: ONE_YEAR_SECONDS,
     })
   }

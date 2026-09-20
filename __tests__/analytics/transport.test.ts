@@ -11,9 +11,15 @@ const payload: AnalyticsCollectPayload = {
   ev: [{ id: 'e1', n: 'ui_click', t: Date.now() }],
 };
 
+function clearVisitorCookies(): void {
+  document.cookie = 'mr-vid-c=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+}
+
 describe('lib/analytics/transport', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    clearVisitorCookies();
+    window.localStorage.clear();
   });
 
   it('sendFetch posts JSON with credentials + keepalive and resolves true on ok', async () => {
@@ -32,6 +38,42 @@ describe('lib/analytics/transport', () => {
       credentials: 'include',
       headers: { 'content-type': 'application/json' },
     });
+  });
+
+  it('sends x-mr-vid from the mirror cookie when present (backend#224 / frontend#188)', async () => {
+    document.cookie = 'mr-vid-c=b6f1c3f0-9a3b-4e3a-9a6c-1a2b3c4d5e6f';
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await sendFetch(payload);
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Record<string, string>)['x-mr-vid']).toBe(
+      'b6f1c3f0-9a3b-4e3a-9a6c-1a2b3c4d5e6f',
+    );
+  });
+
+  it('sends x-mr-vid from localStorage when no cookie is readable', async () => {
+    window.localStorage.setItem('mr-vid', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await sendFetch(payload);
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Record<string, string>)['x-mr-vid']).toBe(
+      'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    );
+  });
+
+  it('omits x-mr-vid for a genuinely fresh browser', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await sendFetch(payload);
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Record<string, string>)['x-mr-vid']).toBeUndefined();
   });
 
   it('falls back to sendBeacon when fetch throws', async () => {

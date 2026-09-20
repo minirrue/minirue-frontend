@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { ANALYTICS_DISABLED, FLUSH_INTERVAL_MS } from '@/lib/analytics/config';
+import { syncVisitorIdMirror } from '@/lib/analytics/attribution';
 import { restoreSpill, spill } from '@/lib/analytics/queue';
 import { flush, flushBeacon } from '@/lib/analytics/track';
 import { usePageTracking, initErrorTracking } from '@/lib/analytics/page-tracking';
@@ -23,6 +24,11 @@ export default function AnalyticsProvider(): null {
   useEffect(() => {
     if (ANALYTICS_DISABLED || typeof window === 'undefined') return;
 
+    // Rescue path (backend#224 / frontend#188): copy the readable mr-vid-c
+    // mirror into localStorage on every load, before anything else fires a
+    // collect request, so a same-session flush already has it available if
+    // the cookie is cleared mid-visit.
+    syncVisitorIdMirror();
     restoreSpill();
     initWebVitals();
     const cleanupErrors = initErrorTracking();
