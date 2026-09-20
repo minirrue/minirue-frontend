@@ -8,6 +8,16 @@ import { resolveFreeDelivery, resolveSameDayGovernorates, resolveCodAvailable } 
 import { resolvePromises, type PromiseFacts } from '@/lib/storefront/promises';
 import type { ProductPerk } from '@/lib/api/storefront';
 
+/** What the server already resolved, so the block is whole in the first HTML. */
+export interface InitialPromiseFacts {
+  freeEverywhere: boolean;
+  freeGovernorates: string[];
+  sameDayGovernorates: string[];
+  deliveryDays: string | null;
+  returnsDays: number | null;
+  codMaxOrderMinor: number | null;
+}
+
 interface ProductPromisesProps {
   /** The owner's rows, straight from Storefront → Product section. */
   perks: ProductPerk[];
@@ -17,6 +27,12 @@ interface ProductPromisesProps {
   deliveryLine: string | null;
   /** Reviews this product has, so a "reviews" promise can be honest. */
   reviewsCount: number;
+  /**
+   * Resolved on the server. Without it the free-delivery promise — the most
+   * persuasive one the shop has — appeared only after hydration, so it missed
+   * the first paint and no crawler ever saw it.
+   */
+  initial?: InitialPromiseFacts;
 }
 
 /**
@@ -34,27 +50,30 @@ interface ProductPromisesProps {
  * four one-line promises stacked vertically push the CTA off a laptop screen;
  * one column below that, where a phone reads better in a single stream.
  */
-export default function ProductPromises({ perks, priceAmount, deliveryLine, reviewsCount }: ProductPromisesProps) {
+export default function ProductPromises({ perks, priceAmount, deliveryLine, reviewsCount, initial }: ProductPromisesProps) {
   const shipping = useLoadedShipping();
   const codMaxMinor = useCodMaxOrderMinor();
   const delivery = useDeliverySettings();
   const trust = useTrustSettings();
 
   const promises = useMemo(() => {
+    // Live settings win once they have loaded; until then the server's own
+    // reading stands in, so nothing pops into place after hydration.
     const free = shipping ? resolveFreeDelivery(shipping) : null;
+    const liveSameDay = resolveSameDayGovernorates(delivery);
     const facts: PromiseFacts = {
-      freeEverywhere: free?.allFree ?? false,
-      freeGovernorates: free?.governorateLabels ?? [],
-      sameDayGovernorates: resolveSameDayGovernorates(delivery),
-      codAvailable: resolveCodAvailable(priceAmount, codMaxMinor),
+      freeEverywhere: shipping ? (free?.allFree ?? false) : (initial?.freeEverywhere ?? false),
+      freeGovernorates: shipping ? (free?.governorateLabels ?? []) : (initial?.freeGovernorates ?? []),
+      sameDayGovernorates: liveSameDay.length ? liveSameDay : (initial?.sameDayGovernorates ?? []),
+      codAvailable: resolveCodAvailable(priceAmount, codMaxMinor ?? initial?.codMaxOrderMinor ?? null),
       codLimit: null,
-      deliveryDays: deliveryLine,
-      returnsDays: trust?.returnsWindowDays ?? null,
+      deliveryDays: deliveryLine ?? initial?.deliveryDays ?? null,
+      returnsDays: trust?.returnsWindowDays ?? initial?.returnsDays ?? null,
       fee: null,
       hasReviews: reviewsCount > 0,
     };
     return resolvePromises(perks, facts);
-  }, [perks, shipping, codMaxMinor, delivery, trust, priceAmount, deliveryLine, reviewsCount]);
+  }, [perks, shipping, codMaxMinor, delivery, trust, priceAmount, deliveryLine, reviewsCount, initial]);
 
   if (promises.length === 0) return null;
 

@@ -10,6 +10,7 @@ import { useCart } from '@/components/storefront/cart/CartContext';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import { FALLBACK_CHROME } from '@/lib/api/storefront';
 import type { ProductSectionConfig } from '@/lib/api/storefront';
+import type { InitialPromiseFacts } from '@/components/storefront/ProductPromises';
 import { useSupportContext } from '@/lib/support/support-context';
 
 interface Props {
@@ -24,9 +25,11 @@ interface Props {
   apiProductJson: string;
   /** Resolved server-side so they render in the initial HTML. */
   perks: ProductSectionConfig['perks'];
+  /** The settings behind each promise, read on the server for the same reason. */
+  promiseFacts?: InitialPromiseFacts;
 }
 
-export default function ProductPageClient({ slug, apiProductJson, perks, announcement }: Props) {
+export default function ProductPageClient({ slug, apiProductJson, perks, announcement, promiseFacts }: Props) {
   const router = useRouter();
   const { itemCount, openDrawer, addItem } = useCart();
   const { data: chrome } = useStorefrontChrome();
@@ -80,6 +83,7 @@ export default function ProductPageClient({ slug, apiProductJson, perks, announc
         <ApiProductDetail
           product={product}
           perks={perks}
+          promiseFacts={promiseFacts}
           onBack={() => router.push('/shop/all')}
           onAddToBag={handleAddToBag}
         />

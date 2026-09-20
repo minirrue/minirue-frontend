@@ -4,6 +4,7 @@ import { connection } from 'next/server';
 import { catalog } from '@/lib/api/catalog';
 import { buildProductMetadata } from '@/lib/seo/product-seo';
 import { fetchStorefrontChrome, FALLBACK_CHROME } from '@/lib/api/storefront';
+import { loadPromiseFacts } from '@/lib/storefront/promise-facts.server';
 import ProductPageClient from './ProductPageClient';
 import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import ProductSchema from '@/components/seo/ProductSchema';
@@ -97,6 +98,11 @@ export default async function ProductPage({ params }: PageProps) {
     // A chrome fetch failure must not take the product page down with it.
   }
 
+  // The settings each promise is allowed to rest on, read here for the same
+  // reason as the perks above: resolved only in the browser, the free-delivery
+  // promise reached neither a crawler nor the first paint.
+  const promiseFacts = await loadPromiseFacts();
+
   return (
     <>
       <ProductSchema
@@ -124,6 +130,7 @@ export default async function ProductPage({ params }: PageProps) {
         slug={slug}
         apiProductJson={apiProductJson}
         perks={perks}
+        promiseFacts={promiseFacts}
         announcement={<AnnouncementBarServer />}
       />
 

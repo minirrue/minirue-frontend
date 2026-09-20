@@ -27,7 +27,7 @@ import { track } from '@/lib/analytics';
 import { subtotalToMinor } from '@/lib/checkout/checkout-money';
 import { useSectionDwell, useIdlePause, useProductEngaged } from '@/lib/analytics/product-engagement';
 import StarRating from './StarRating';
-import ProductPromises from './ProductPromises';
+import ProductPromises, { type InitialPromiseFacts } from './ProductPromises';
 
 /**
  * Split out on purpose. The carousel is the only thing on the shop that pulls
@@ -70,6 +70,8 @@ interface ApiProductDetailProps {
   product: ApiProduct;
   /** Service promises from Storefront -> Product section. */
   perks?: ProductSectionConfig['perks'];
+  /** The settings behind each promise, resolved on the server (see the page). */
+  promiseFacts?: InitialPromiseFacts;
   onBack: () => void;
   /** `source` tells the caller which of the two buy buttons on this page was
    * pressed — the main CTA in the copy column, or the phone-only sticky bar. */
@@ -195,6 +197,7 @@ const SkuCopyButton = React.memo(function SkuCopyButton({ sku }: { sku: string }
 interface ProductInfoPanelProps {
   product: ApiProduct;
   perks: ProductSectionConfig['perks'];
+  promiseFacts?: InitialPromiseFacts;
   activeVariants: ProductVariant[];
   selectedVariant: ProductVariant | null;
   onSelectVariant: (v: ProductVariant) => void;
@@ -214,6 +217,7 @@ interface ProductInfoPanelProps {
 const ProductInfoPanel = React.memo(function ProductInfoPanel({
   product,
   perks,
+  promiseFacts,
   activeVariants,
   selectedVariant,
   onSelectVariant,
@@ -411,6 +415,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         perks={perks}
         priceAmount={shownPrice.amount}
         deliveryLine={deliveryLine}
+        initial={promiseFacts}
         reviewsCount={product.reviewsCount ?? 0}
       />
 
@@ -749,6 +754,7 @@ const MediaFallback = React.memo(function MediaFallback({ name }: { name: string
 export default function ApiProductDetail({
   product,
   perks = [],
+  promiseFacts,
   onBack,
   onAddToBag,
 }: ApiProductDetailProps) {
@@ -1032,6 +1038,7 @@ export default function ApiProductDetail({
             <ProductInfoPanel
               product={product}
               perks={perks}
+              promiseFacts={promiseFacts}
               activeVariants={activeVariants}
               selectedVariant={selectedVariant}
               onSelectVariant={handleSelectVariant}
