@@ -1,4 +1,5 @@
 import type { AnalyticsBatchContext } from './events';
+import { getVisitorIdForHeader } from './attribution';
 
 // Cookie set by lib/api/cart.ts:53 (CART_SESSION_COOKIE). Not imported from
 // there directly to avoid coupling this lane's bundle to an unrelated
@@ -78,6 +79,7 @@ export function buildBatchContext(): AnalyticsBatchContext {
     r: landing.referrer || undefined,
     u: hasUtm ? landing.utm : undefined,
     cs: readCookie(CART_SESSION_COOKIE),
+    vid: getVisitorIdForHeader(),
     w: window.innerWidth,
     h: window.innerHeight,
     l: nav.language,

@@ -161,6 +161,14 @@ export interface AnalyticsBatchContext {
   };
   /** The `mr-cart-session` value so events stitch to `carts.session_id`. */
   cs?: string;
+  /**
+   * The visitor id this browser already has (mirror cookie or localStorage).
+   * `sendBeacon` cannot set headers, and the cookie does not always travel on
+   * the page-closing beacon, so the id rides in the body too — otherwise the
+   * last events of a visit land as a brand-new fingerprint visitor and split
+   * one person in two (backend#224).
+   */
+  vid?: string;
   /** Viewport width. */
   w?: number;
   /** Viewport height. */
