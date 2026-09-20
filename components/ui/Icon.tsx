@@ -6,7 +6,11 @@ type IconName =
   | 'search' | 'user' | 'bag' | 'heart' | 'close' | 'arrowRight' | 'arrowLeft'
   | 'minus' | 'plus' | 'check' | 'gift' | 'truck' | 'menu' | 'x' | 'grid' | 'external'
   | 'share' | 'chevronRight' | 'chevronLeft' | 'chevronDown' | 'home'
-  | 'collab' | 'star' | 'copy';
+  | 'collab' | 'star' | 'copy'
+  // The product page's promises (#189): each one is a claim the shop can
+  // prove from its own settings, so each gets its own mark rather than a
+  // generic tick repeated four times.
+  | 'clock' | 'cash' | 'returns' | 'package' | 'shield' | 'sparkle' | 'support' | 'lock' | 'leaf';
 
 interface IconProps {
   name: IconName;
@@ -46,6 +50,17 @@ const PATHS: Record<IconName, React.ReactNode> = {
   collab:       <><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></>,
   // Filled five-point star — the Collab grid card's rating row.
   star:         <path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" fill="currentColor" stroke="none"/>,
+  // Same 24-grid, same 1.5 stroke, same round caps as everything above — the
+  // promises read as one hand, not as a borrowed icon pack.
+  clock:        <><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></>,
+  cash:         <><rect x="2.5" y="6.5" width="19" height="11" rx="1.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 10v4M18 10v4"/></>,
+  returns:      <><path d="M4 11a8 8 0 1 1 2.3 5.7"/><path d="M4 6.5V11h4.5"/></>,
+  package:      <><path d="M12 3.2l8 4.3v9l-8 4.3-8-4.3v-9l8-4.3z"/><path d="M4 7.5l8 4.3 8-4.3M12 11.8V20.8"/></>,
+  shield:       <><path d="M12 3.2l7 2.6v5.6c0 4.2-2.8 7.4-7 9-4.2-1.6-7-4.8-7-9V5.8l7-2.6z"/><path d="M9 12l2.2 2.2L15.5 10"/></>,
+  sparkle:      <><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9L12 3.5z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8z"/></>,
+  support:      <><path d="M4.5 14v-2a7.5 7.5 0 0 1 15 0v2"/><path d="M4.5 13.5h2A1.5 1.5 0 0 1 8 15v2.5A1.5 1.5 0 0 1 6.5 19h-2zM19.5 13.5h-2A1.5 1.5 0 0 0 16 15v2.5a1.5 1.5 0 0 0 1.5 1.5h2z"/></>,
+  lock:         <><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></>,
+  leaf:         <><path d="M20 4c-9 0-15 3.5-15 10a5 5 0 0 0 5 5c6.5 0 10-6 10-15z"/><path d="M5.5 19.5C8 15 12 11.5 16.5 9.5"/></>,
 };
 
 export default function Icon({ name, size = 18, stroke = 1.5, color = 'currentColor' }: IconProps) {

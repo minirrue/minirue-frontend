@@ -27,7 +27,7 @@ import { track } from '@/lib/analytics';
 import { subtotalToMinor } from '@/lib/checkout/checkout-money';
 import { useSectionDwell, useIdlePause, useProductEngaged } from '@/lib/analytics/product-engagement';
 import StarRating from './StarRating';
-import ProductTrustRow from './ProductTrustRow';
+import ProductPromises from './ProductPromises';
 
 /**
  * Split out on purpose. The carousel is the only thing on the shop that pulls
@@ -55,7 +55,7 @@ const ProductReviews = dynamic(() => import('./reviews/ProductReviews'));
  */
 const TrustpilotTrust = dynamic(() => import('./TrustpilotTrust'));
 import { useLoadedShipping } from './cart/use-bag-pricing';
-import { deliveryPerkText, isDeliveryPerk } from '@/lib/checkout/delivery-perk';
+import { deliveryPerkText } from '@/lib/checkout/delivery-perk';
 
 /**
  * Split for the third time, and for the sharpest reason of the three: this
@@ -403,48 +403,16 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         </div>
       )}
 
-      {/* Trust row (#189) — free delivery, same-day, cash on delivery, returns
-          and packaging, each printed only when a live setting proves it. */}
-      <ProductTrustRow priceAmount={shownPrice.amount} />
-
-      {/*
-        Service row — admin-editable under Storefront -> Product section.
-        Moved up to sit with the price and the CTA (#189: "next to the price
-        and the CTA … not below the fold" — measured at 5.7s LCP and 52
-        product-page visitors with zero add-to-bags, this and the trust row
-        above it are the whole point). It used to anchor to the bottom of a
-        100vh column and land under the fold on real screen heights (#42);
-        this location has no such dependency.
-      */}
-      {perks.length > 0 && (
-        <div
-          data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-shipping-service-info"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 10,
-            marginBottom: 28,
-            fontFamily: 'var(--mr-font-ui)',
-            fontSize: 'var(--mr-text-xs)',
-            color: 'var(--mr-fg-3)',
-            animation: 'mr-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
-            animationDelay: '360ms',
-          }}
-        >
-          {/* The delivery perk's words come from the shipping settings, never
-              the stored text (#162) — same derivation as before the move. */}
-          {perks.map((perk) => (
-            <span
-              key={perk.id}
-              data-trace-id={`PG-STOREFRONT-CAT-005::EL-TEXT-product-perk@${perk.id}`}
-              style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}
-            >
-              <Icon name={perk.icon} size={14} /> {isDeliveryPerk(perk) ? deliveryLine : perk.text}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* What the shop promises — one block, the dashboard's words, shown
+          only where a live setting proves the claim (#189). This replaced a
+          derived sentence and a separate perks strip that printed the same
+          promises twice, one under the other. */}
+      <ProductPromises
+        perks={perks}
+        priceAmount={shownPrice.amount}
+        deliveryLine={deliveryLine}
+        reviewsCount={product.reviewsCount ?? 0}
+      />
 
       {/* Tagline */}
       {product.tagline && (

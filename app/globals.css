@@ -255,3 +255,54 @@ html {
 @media (max-width: 1100px) {
   .mr-confirmation-delivery, .mr-confirmation-order { display: block !important; width: 100% !important; margin: var(--mr-sp-4) 0 !important; }
 }
+
+/* ── What the shop promises, on every product page ───────────────────────────
+   One list under a hairline, in the label face, with each mark in its own
+   narrow column so the sentences align down a single left edge. Replaced two
+   stacked rows (a derived sentence plus a badge strip) that said the same
+   thing twice. Two columns from 720px so four promises never push the buy
+   button off a laptop screen; a single stream on a phone. */
+.mr-promises {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px 32px;
+  margin: 0 0 32px;
+  padding: 22px 0 0;
+  border-top: 1px solid var(--mr-hairline);
+  list-style: none;
+}
+.mr-promises__row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+}
+.mr-promises__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.25em;
+  color: var(--mr-gold-500);
+}
+.mr-promises__text {
+  font-family: var(--mr-font-label);
+  font-size: var(--mr-text-sm);
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  color: var(--mr-fg-2);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 720px) {
+  /* Four promises settle into two rows of two; three leave the last cell
+     empty rather than stretching one line across the column. */
+  .mr-promises[data-count='3'],
+  .mr-promises[data-count='4'],
+  .mr-promises[data-count='5'],
+  .mr-promises[data-count='6'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-color-scheme: dark) {
+  .mr-promises__mark { color: var(--mr-gold-300); }
+}

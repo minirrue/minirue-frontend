@@ -281,12 +281,38 @@ export interface FooterConfig {
   secondaryLine: string;
 }
 
-/** Icon names the product page can render for a service promise. */
-export type ProductPerkIcon = 'truck' | 'gift' | 'check' | 'heart' | 'grid';
+/**
+ * Icon names the product page can render for a service promise. The first five
+ * predate the promises work; the rest arrived with it (minirue-backend@0.136.1)
+ * so each claim can carry its own mark instead of one tick repeated.
+ */
+export type ProductPerkIcon =
+  | 'truck' | 'gift' | 'check' | 'heart' | 'grid'
+  | 'clock' | 'cash' | 'returns' | 'package' | 'star'
+  | 'shield' | 'sparkle' | 'support' | 'lock' | 'leaf';
+
+/**
+ * One admin-authored promise. The dashboard owns the words; `showWhen` says
+ * which live setting has to prove it before the storefront may print it, and
+ * the text may carry {tokens} the storefront fills from those same settings.
+ * Every field past `text` is optional, so a shop saved before the promises
+ * work keeps rendering exactly as it did.
+ */
+export interface ProductPerk {
+  id: string;
+  icon: ProductPerkIcon;
+  text: string;
+  /** Absent means shown. */
+  enabled?: boolean;
+  /** Absent means 'always'. */
+  showWhen?: 'always' | 'freeShipping' | 'sameDay' | 'cod' | 'returns' | 'reviews';
+  /** Absent means the order it was saved in. */
+  order?: number;
+}
 
 /** Admin-editable service promises shown on every product page. */
 export interface ProductSectionConfig {
-  perks: Array<{ id: string; icon: ProductPerkIcon; text: string }>;
+  perks: ProductPerk[];
 }
 
 export interface ResolvedChrome {
