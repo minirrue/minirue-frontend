@@ -138,12 +138,15 @@ describe('ApiProductDetail', () => {
     // <aside> is the flex item that actually carries the mobile `order`
     // class; the info panel is a plain div inside it.
     const infoPanelFlexItem = infoPanel?.closest('aside');
-    const reviewsSection = container.querySelector(
-      '[data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-reviews"]',
+    // The reviews SLOT, not the reviews content. <ProductReviews> now renders
+    // nothing at all for a product with no reviews that this visitor cannot
+    // review — which is every product in the fixture — so keying off the inner
+    // section made this ordering test depend on whether there happened to be a
+    // review. The flex item that carries the mobile `order` class is the
+    // wrapper, and it is always present; ordering is what this test is about.
+    const reviewsFlexItem = container.querySelector(
+      '[data-testid="product-reviews-dwell-region"]',
     );
-    // The reviews wrapper is the direct `order-4` div added around
-    // <ProductReviews> + the closing image.
-    const reviewsFlexItem = reviewsSection?.parentElement;
 
     expect(infoPanelFlexItem).toBeTruthy();
     expect(reviewsFlexItem).toBeTruthy();
@@ -169,8 +172,11 @@ describe('ApiProductDetail', () => {
     const { container } = renderDetail();
 
     const infoPanel = container.querySelector('[data-testid="product-info-panel"]');
+    // The slot, not the content — see the note in the test above. A product
+    // with no reviews renders no reviews section, so the ordering invariant
+    // has to be anchored on the flex item that always exists.
     const reviewsSection = container.querySelector(
-      '[data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-reviews"]',
+      '[data-testid="product-reviews-dwell-region"]',
     );
 
     const orderOf = (descendant: Element | null): number => {

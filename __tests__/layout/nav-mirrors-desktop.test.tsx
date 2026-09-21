@@ -2,16 +2,11 @@ import React from 'react';
 import { render as rtlRender, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
-import {
-  FALLBACK_CHROME,
-  ESSENTIAL_PAGE_LINKS,
-  missingEssentialPageLinks,
-} from '@/lib/api/storefront';
+import { FALLBACK_CHROME } from '@/lib/api/storefront';
 import { openMobileMenu, __resetMobileChromeForTests } from '@/lib/hooks/useMobileChrome';
 
 /**
- * The mobile menu is the desktop navbar, and the trust pages are reachable.
+ * The mobile menu is the desktop navbar.
  * =========================================================================
  *
  * Two separate faults, verified against production on 2026-09-21, with one
@@ -161,139 +156,4 @@ describe('the mobile menu mirrors the desktop navbar', () => {
   });
 });
 
-describe('the trust pages are reachable from the header', () => {
-  it('lists Shipping, Returns, Contact and About beside Shop', async () => {
-    setWidth(1440);
-    render(<Header navbar={LIVE_EMPTY_NAVBAR} />);
-    await waitFor(() => expect(desktopNavLabels().length).toBeGreaterThan(0));
 
-    expect(desktopNavHref('Shop')).toBe('/shop');
-    for (const link of ESSENTIAL_PAGE_LINKS) {
-      expect(desktopNavHref(link.label)).toBe(link.href);
-    }
-  });
-
-  it('leaves an admin-configured trust link alone instead of listing it twice', async () => {
-    setWidth(1440);
-    render(
-      <Header
-        navbar={{
-          items: [{ id: 'own', label: 'Reach us', href: '/contact' }],
-          showSearch: true,
-          showAccount: true,
-        }}
-      />,
-    );
-    await waitFor(() => expect(desktopNavLabels().length).toBeGreaterThan(0));
-
-    const labels = desktopNavLabels();
-    // The admin's label and position survive; ours is dropped, not appended.
-    expect(labels).toContain('Reach us');
-    expect(labels).not.toContain('Contact');
-    expect(labels.filter((l) => desktopNavHref(l) === '/contact')).toHaveLength(1);
-  });
-
-  it('never links /terms or /privacy, which 404 today', async () => {
-    setWidth(1440);
-    render(<Header navbar={LIVE_EMPTY_NAVBAR} />);
-    await waitFor(() => expect(desktopNavLabels().length).toBeGreaterThan(0));
-
-    const hrefs = Array.from(document.querySelectorAll('header a')).map((a) =>
-      a.getAttribute('href'),
-    );
-    expect(hrefs).not.toContain('/terms');
-    expect(hrefs).not.toContain('/privacy');
-  });
-});
-
-describe('the footer links the pages that exist', () => {
-  /** The live footer as production returns it: one auth-gated link. */
-  const LIVE_FOOTER = {
-    ...FALLBACK_CHROME.footer,
-    columns: [
-      {
-        id: 'col-service',
-        title: 'Service',
-        links: [{ id: 'l-track', label: 'Track order', href: '/account/orders' }],
-      },
-    ],
-  };
-
-  function footerHref(label: string): string | undefined {
-    return (
-      Array.from(document.querySelectorAll('footer a'))
-        .find((a) => (a.textContent ?? '').trim() === label)
-        ?.getAttribute('href') ?? undefined
-    );
-  }
-
-  it('adds Shipping, Returns, Contact and About to the live one-link footer', () => {
-    render(<Footer config={LIVE_FOOTER} />);
-
-    for (const link of ESSENTIAL_PAGE_LINKS) {
-      expect(footerHref(link.label)).toBe(link.href);
-    }
-  });
-
-  it("keeps the admin's own column and link untouched", () => {
-    render(<Footer config={LIVE_FOOTER} />);
-
-    // "Track order" is the admin's to keep or remove — a guest-hostile link is
-    // an owner-side content decision, not something the storefront deletes.
-    expect(screen.getByText('Service')).toBeInTheDocument();
-    expect(footerHref('Track order')).toBe('/account/orders');
-  });
-
-  it('adds nothing at all once every essential page is configured', () => {
-    render(
-      <Footer
-        config={{
-          ...FALLBACK_CHROME.footer,
-          columns: [
-            {
-              id: 'c1',
-              title: 'Help',
-              links: ESSENTIAL_PAGE_LINKS.map((l) => ({
-                id: l.id,
-                // A different label and a trailing slash — still the same page.
-                label: `${l.label} & more`,
-                href: `${l.href}/`,
-              })),
-            },
-          ],
-        }}
-      />,
-    );
-
-    const columnTitles = Array.from(document.querySelectorAll('[data-testid="footer-columns"] > div'));
-    expect(columnTitles).toHaveLength(1);
-  });
-
-  it('never links /terms or /privacy either', () => {
-    render(<Footer config={LIVE_FOOTER} />);
-    const hrefs = Array.from(document.querySelectorAll('footer a')).map((a) =>
-      a.getAttribute('href'),
-    );
-    expect(hrefs).not.toContain('/terms');
-    expect(hrefs).not.toContain('/privacy');
-  });
-});
-
-describe('missingEssentialPageLinks', () => {
-  it('returns every essential link when nothing is configured', () => {
-    expect(missingEssentialPageLinks([])).toEqual([...ESSENTIAL_PAGE_LINKS]);
-  });
-
-  it('matches regardless of case or a trailing slash', () => {
-    expect(missingEssentialPageLinks(['/Shipping/', '/RETURNS', '/contact/', '/about'])).toEqual([]);
-  });
-
-  it('lists only the pages that exist — never /terms or /privacy', () => {
-    expect(ESSENTIAL_PAGE_LINKS.map((l) => l.href)).toEqual([
-      '/shipping',
-      '/returns',
-      '/contact',
-      '/about',
-    ]);
-  });
-});

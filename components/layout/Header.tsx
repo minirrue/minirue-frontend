@@ -17,7 +17,6 @@ import { useIdleImport } from '@/lib/hooks/useIdleImport';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
 import {
   FALLBACK_CHROME,
-  missingEssentialPageLinks,
   type ResolvedChrome,
   type ResolvedNavItem,
 } from '@/lib/api/storefront';
@@ -91,17 +90,26 @@ const FIXED_NAV_LINKS: ReadonlyArray<{ label: string; href: string }> = [
  * rather than by two edits staying in step.
  *
  * Order is deliberate: the shop's structure first (Shop), then whatever the
- * admin curated, then the trust pages — which come LAST because they are the
- * pages a shopper looks for on purpose, not the ones they browse.
+ * admin curated.
  *
- * The essential links are merged in here rather than defaulted into
- * `FALLBACK_CHROME` because the fallback does not render on the live site —
- * the backend answers, it just answers sparsely. See `ESSENTIAL_PAGE_LINKS`
- * in lib/api/storefront.ts for why the fallback is deliberately left empty.
+ * NOTHING IS HARDCODED HERE BEYOND `FIXED_NAV_LINKS`.
+ * An earlier version of this function merged in a hardcoded list of trust
+ * pages (Shipping, Returns, Contact, About) so the empty menu would look
+ * populated. That was removed on the owner's instruction, 2026-09-21: "don't
+ * make anything static but beautifully ux ui dynamically controlled from
+ * dashboard."
+ *
+ * It is the right call for a reason beyond preference. A link list living in
+ * storefront source is a list the shop owner cannot change, reorder, rename or
+ * remove without a developer and a deploy — and it silently goes stale the day
+ * a page is renamed or unpublished, pointing shoppers at a 404 that nobody can
+ * see from the dashboard. Navigation is content. It belongs in settings, which
+ * is where `navbar.items` already comes from and where the dashboard's
+ * NavbarEditor already writes.
  */
 function resolveNavItems(configured: ResolvedNavItem[]): ResolvedNavItem[] {
   // Skipped when the admin has already configured a link to the same place,
-  // so nobody ends up with Shop — or Contact — twice.
+  // so nobody ends up with Shop twice.
   const fixed = FIXED_NAV_LINKS.filter(
     (link) => !configured.some((item) => item.href === link.href),
   ).map<ResolvedNavItem>((link) => ({
@@ -110,12 +118,7 @@ function resolveNavItems(configured: ResolvedNavItem[]): ResolvedNavItem[] {
     href: link.href,
   }));
 
-  const essential = missingEssentialPageLinks([
-    ...configured.map((item) => item.href),
-    ...fixed.map((item) => item.href),
-  ]);
-
-  return [...fixed, ...configured, ...essential];
+  return [...fixed, ...configured];
 }
 
 /**

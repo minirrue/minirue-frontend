@@ -376,80 +376,22 @@ export const FALLBACK_CHROME: ResolvedChrome = {
 };
 
 /**
- * The shop's own trust pages — where an order goes, how it comes back, who to
- * ask, and who is selling. On a cash-on-delivery storefront these are not
- * decoration: they are what a stranger reads before they agree to hand money
- * to a courier.
+/*
+ * Navigation links are NOT defined here.
  *
- * WHY THEY ARE HERE AND NOT IN `FALLBACK_CHROME`
- * ----------------------------------------------
- * `FALLBACK_CHROME` is the "the API did not answer" object, and it is
- * deliberately empty — `storefront-client.test.ts` pins both `navbar.items`
- * and `footer.columns` to `[]` so a dead backend looks plainly dead instead of
- * advertising links that 404. That decision is still RIGHT and is deliberately
- * left standing: every one of the pages below is served by `app/[slug]`, which
- * resolves its body from `GET /v1/storefront/pages/<slug>`. A backend that
- * could not answer `/chrome` cannot answer those either, so a fallback that
- * listed them would be inventing exactly the dead links that test forbids.
+ * A block of hardcoded trust-page links (Shipping, Returns, Contact, About)
+ * plus a missingEssentialPageLinks merger lived at this spot and was removed
+ * on the owner's instruction, 2026-09-21: navigation is content and must be
+ * dynamically controlled from the dashboard, never frozen into storefront
+ * source. The shop's navbar, mobile menu and footer all come from
+ * /v1/storefront/chrome, authored in the dashboard's NavbarEditor,
+ * MobileMenuEditor and FooterEditor.
  *
- * It is also not where the live bug was. Checked against production on
- * 2026-09-21, `/v1/storefront/chrome` answers with a REAL payload whose
- * `navbar.items` is `[]` and whose `footer.columns` is a single "Service"
- * column holding one auth-gated `/account/orders` link. `FALLBACK_CHROME`
- * therefore never renders on the live site at all, and improving it would have
- * changed nothing a shopper can see. The gap is that the stored config is
- * sparse, not absent — so the shop's OWN structural links have to be merged in
- * by whatever renders chrome, next to `Header`'s existing `FIXED_NAV_LINKS`,
- * against whichever config actually resolved.
- *
- * NOT LISTED: `/terms` and `/privacy`. Both 404 today (no page authored on the
- * owner's side), and the chrome payload carries no "is this page published"
- * signal — there is no list endpoint either (`GET /v1/storefront/pages` is a
- * 404), so the storefront cannot cheaply tell a published page from a missing
- * one. A hard link to either would walk a shopper into a dead end, which is
- * worse than the page being reachable only by URL. Add them here — and nowhere
- * else — the day they return 200.
+ * FALLBACK_CHROME above stays deliberately empty for a separate reason:
+ * it renders only when the API is unreachable, and every page those links
+ * would point at is served by that same API — so listing them would promise
+ * links a dead backend cannot serve. storefront-client.test.ts pins that.
  */
-export interface EssentialPageLink {
-  id: string;
-  label: string;
-  href: string;
-}
-
-export const ESSENTIAL_PAGE_LINKS: ReadonlyArray<EssentialPageLink> = [
-  { id: 'essential-shipping', label: 'Shipping', href: '/shipping' },
-  { id: 'essential-returns', label: 'Returns', href: '/returns' },
-  { id: 'essential-contact', label: 'Contact', href: '/contact' },
-  { id: 'essential-about', label: 'About', href: '/about' },
-];
-
-/**
- * One href, in the single spelling both sides of the dedupe below compare in:
- * lower-cased and without a trailing slash, since `/Contact` and `/contact/`
- * are the same page as far as a shopper is concerned and listing it twice is
- * the failure this guards against. The bare root stays `/`.
- */
-function canonicalHref(href: string): string {
-  const lowered = href.trim().toLowerCase();
-  return lowered.length > 1 ? lowered.replace(/\/+$/, '') : lowered;
-}
-
-/**
- * The essential links that `existingHrefs` does not already cover.
- *
- * The admin always wins: a shop that has already put "Contact" in its navbar
- * or a footer column keeps its own label, its own position and its own href,
- * and gets no second copy from us. Only what is genuinely missing is added,
- * which is what makes this safe to call on every render of both the header and
- * the footer.
- */
-export function missingEssentialPageLinks(
-  existingHrefs: Iterable<string>,
-): EssentialPageLink[] {
-  const taken = new Set<string>();
-  for (const href of existingHrefs) taken.add(canonicalHref(href));
-  return ESSENTIAL_PAGE_LINKS.filter((link) => !taken.has(canonicalHref(link.href)));
-}
 
 // ── Fetchers ─────────────────────────────────────────────────────────────────
 //

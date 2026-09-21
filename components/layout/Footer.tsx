@@ -6,7 +6,7 @@ import PaymentBadge from '@/components/ui/PaymentBadge';
 import SocialIcon from '@/components/ui/SocialIcon';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { TextEffect } from '@/components/core/text-effect';
-import { missingEssentialPageLinks, type FooterConfig } from '@/lib/api/storefront';
+import { type FooterConfig } from '@/lib/api/storefront';
 
 /**
  * Ebneely maker's-mark — the owner's requirement, verbatim: "before the
@@ -128,45 +128,24 @@ export default function Footer({
 }) {
   const { mobile } = useBreakpoint();
 
-  /**
-   * The columns as configured, plus the trust pages they do not already cover.
+  /*
+   * The footer renders exactly the columns the dashboard configured — nothing
+   * is injected here.
    *
-   * Checked against production on 2026-09-21, the live footer is ONE column —
-   * "Service", holding a single "Track order" link to `/account/orders`. That
-   * link is auth-gated, and MiniRue is cash on delivery: the guest who most
-   * wants to know when their box arrives is exactly the one the sign-in wall
-   * turns away. Meanwhile `/shipping`, `/returns`, `/contact` and `/about` all
-   * answer 200 and were linked from nowhere in the entire app — reachable only
-   * by typing the URL.
+   * An earlier version appended a 'Help' column of hardcoded trust links
+   * (Shipping, Returns, Contact, About) because the live footer is a single
+   * 'Service' column holding one auth-gated '/account/orders' link, and those
+   * four pages answer 200 while being linked from nowhere in the app. The
+   * links were removed on the owner's instruction, 2026-09-21: navigation is
+   * content and must be dynamically controlled from the dashboard, not frozen
+   * into storefront source where the owner cannot rename, reorder or remove it
+   * and where it rots silently the day a page is unpublished.
    *
-   * So this adds what is missing rather than replacing what is there. The
-   * admin's own columns, order, labels and hrefs are untouched — including
-   * "Track order", which is theirs to keep or remove — and a column is
-   * appended only for the essential links no configured column already points
-   * at. A shop that later adds its own Shipping link simply stops getting ours
-   * (`missingEssentialPageLinks` dedupes by href), and a shop that configures
-   * all four sees no extra column at all.
-   *
-   * Note what this is NOT: a change to `FALLBACK_CHROME.footer.columns`, which
-   * stays `[]`. That object only renders when the API is unreachable, and when
-   * the API is unreachable these pages — served by `app/[slug]` from the same
-   * API — are unreachable too. Doing it here covers both the live sparse
-   * config and the fallback, without listing links a dead backend cannot serve
-   * from a constant that promises it never will.
+   * The orphaned-pages problem is real and is being solved where it belongs:
+   * in the dashboard's FooterEditor/NavbarEditor, which already write these
+   * settings.
    */
-  const columns = React.useMemo(() => {
-    const configuredHrefs = config.columns.flatMap((c) => c.links.map((l) => l.href));
-    const missing = missingEssentialPageLinks(configuredHrefs);
-    if (missing.length === 0) return config.columns;
-    return [
-      ...config.columns,
-      {
-        id: 'col-essential-pages',
-        title: 'Help',
-        links: missing.map((link) => ({ id: link.id, label: link.label, href: link.href })),
-      },
-    ];
-  }, [config.columns]);
+  const columns = config.columns;
 
   return (
     /*
