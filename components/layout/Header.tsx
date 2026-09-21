@@ -15,7 +15,12 @@ import { useSessionState } from '@/lib/hooks/use-session-state';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
 import { useIdleImport } from '@/lib/hooks/useIdleImport';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
-import { FALLBACK_CHROME, type ResolvedChrome, type ResolvedNavItem } from '@/lib/api/storefront';
+import {
+  FALLBACK_CHROME,
+  missingEssentialPageLinks,
+  type ResolvedChrome,
+  type ResolvedNavItem,
+} from '@/lib/api/storefront';
 import AccountAvatarButton from '@/components/layout/AccountAvatarButton';
 import { SHOP_ROOT } from '@/lib/routes';
 
@@ -68,6 +73,50 @@ const HIDE_FLIP_COOLDOWN_MS = HIDE_TRANSITION_MS + 40;
 const FIXED_NAV_LINKS: ReadonlyArray<{ label: string; href: string }> = [
   { label: 'Shop', href: SHOP_ROOT },
 ];
+
+/**
+ * The ONE navigation list this header knows about.
+ *
+ * It used to be two. The desktop bar rendered `FIXED_NAV_LINKS` and then
+ * `navbar.items`; `MobileNavSheet` was handed the raw `navbar` and rendered
+ * `navbar.items` alone. Those two agreed only by coincidence, and on the live
+ * shop they did not agree at all: `/v1/storefront/chrome` returns
+ * `navbar.items: []`, so the desktop bar showed "Shop" (its fixed link) and
+ * the phone sheet showed "No menu items yet." — the empty mobile navbar the
+ * owner reported. A shopper on a phone could not reach the shop from the menu.
+ *
+ * Building the list once, here, is what makes drift impossible: the desktop
+ * `<nav>` below and the `navbar` prop handed to `MobileNavSheet` are the same
+ * array, so anything that appears on one appears on the other by construction
+ * rather than by two edits staying in step.
+ *
+ * Order is deliberate: the shop's structure first (Shop), then whatever the
+ * admin curated, then the trust pages — which come LAST because they are the
+ * pages a shopper looks for on purpose, not the ones they browse.
+ *
+ * The essential links are merged in here rather than defaulted into
+ * `FALLBACK_CHROME` because the fallback does not render on the live site —
+ * the backend answers, it just answers sparsely. See `ESSENTIAL_PAGE_LINKS`
+ * in lib/api/storefront.ts for why the fallback is deliberately left empty.
+ */
+function resolveNavItems(configured: ResolvedNavItem[]): ResolvedNavItem[] {
+  // Skipped when the admin has already configured a link to the same place,
+  // so nobody ends up with Shop — or Contact — twice.
+  const fixed = FIXED_NAV_LINKS.filter(
+    (link) => !configured.some((item) => item.href === link.href),
+  ).map<ResolvedNavItem>((link) => ({
+    id: `fixed-${link.href}`,
+    label: link.label,
+    href: link.href,
+  }));
+
+  const essential = missingEssentialPageLinks([
+    ...configured.map((item) => item.href),
+    ...fixed.map((item) => item.href),
+  ]);
+
+  return [...fixed, ...configured, ...essential];
+}
 
 /**
  * The search sheet, mobile menu sheet and desktop category dropdown are all
@@ -235,10 +284,25 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
     hoverTimer.current = setTimeout(() => setHoveredNavId(id), delay);
   };
 
+  /**
+   * The resolved list — Shop, the admin's own items, the trust pages — that
+   * BOTH the desktop bar and the mobile sheet render. See `resolveNavItems`.
+   */
+  const navItems = React.useMemo(() => resolveNavItems(navbar.items), [navbar.items]);
+  /**
+   * The same `navbar`, carrying the resolved list. `MobileNavSheet` takes the
+   * whole navbar object (it also reads nothing else from it today, but the
+   * prop is typed as the navbar), so the resolved items are substituted in
+   * rather than passed as a second, forkable prop.
+   */
+  const resolvedNavbar = React.useMemo(
+    () => ({ ...navbar, items: navItems }),
+    [navbar, navItems],
+  );
   /** Only category items the admin pinned products to open a panel. */
   const panelItems = React.useMemo(
-    () => navbar.items.filter((i) => (i.featured?.length ?? 0) > 0),
-    [navbar.items],
+    () => navItems.filter((i) => (i.featured?.length ?? 0) > 0),
+    [navItems],
   );
   const hoveredItem: ResolvedNavItem | null =
     panelItems.find((i) => i.id === hoveredNavId) ?? null;
@@ -330,59 +394,84 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             <nav
               style={{
                 display: 'flex',
-                gap: 28,
+                // Wraps rather than overflows. This column is a
+                // `minmax(0, 1fr)` grid track, so between 640px (where the
+                // phone layout ends) and ~1024px there is only a couple of
+                // hundred pixels for it — and this bar is no longer one fixed
+                // link plus whatever the admin curated: it now also carries
+                // the trust pages, so a no-wrap row could run under the
+                // wordmark on a small laptop. A second line is the honest
+                // failure mode; a clipped or overflowing one is not.
+                flexWrap: 'wrap',
+                // Column gap unchanged at 28px. The row gap is tighter so a
+                // wrapped second line reads as one block rather than two bars.
+                columnGap: 28,
+                rowGap: 10,
                 fontFamily: 'Jost, sans-serif',
                 fontSize: 12,
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
               }}
             >
-              {/* Shop, always, ahead of whatever the admin has configured.
-                  Fixed rather than admin-editable because it is the shop's
-                  structure, not merchandising: a store that removed it by
-                  accident would have no way back to its own catalogue.
-                  Collab used to sit beside it and no longer does (#59) — see
-                  FIXED_NAV_LINKS above.
-                  Skipped when the admin has already configured a link to the
-                  same place, so nobody ends up with Shop twice. */}
-              {FIXED_NAV_LINKS.filter(
-                (fixed) =>
-                  !navbar.items.some(
-                    (item) => item.href === fixed.href,
-                  ),
-              ).map((fixed) => (
-                <Link
-                  key={fixed.href}
-                  href={fixed.href}
-                  className="mr-nav-link"
-                  prefetch
-                  style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
-                >
-                  {fixed.label}
-                </Link>
-              ))}
-              {navbar.items.map((item) => {
+              {/* ONE list — `navItems` — and the mobile sheet below is handed
+                  the same one. Shop leads it (fixed rather than admin-editable
+                  because it is the shop's structure, not merchandising: a
+                  store that removed it by accident would have no way back to
+                  its own catalogue; Collab used to sit beside it and no longer
+                  does, #59). The trust pages close it. Both are skipped when
+                  the admin already configured the same href — see
+                  `resolveNavItems`. */}
+              {navItems.map((item) => {
                 const hasPanel = (item.featured?.length ?? 0) > 0;
+                const style: React.CSSProperties = {
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                };
+                // `onMouseLeave` is on EVERY item, panel or not: moving onto a
+                // plain link has to close a panel that a neighbour opened.
+                const hover = {
+                  onMouseEnter: () => scheduleHover(hasPanel ? item.id : null, HOVER_OPEN_MS),
+                  onMouseLeave: () => scheduleHover(null, HOVER_CLOSE_MS),
+                };
+                if (hasPanel) {
+                  return (
+                    <a
+                      key={item.id}
+                      href={item.href}
+                      className="mr-nav-link"
+                      aria-expanded={hoveredNavId === item.id}
+                      {...hover}
+                      // Keyboard users get the same panel: focusing the link opens it,
+                      // Escape closes it without leaving the link.
+                      onFocus={() => setHoveredNavId(item.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') closeDropdown();
+                      }}
+                      style={style}
+                    >
+                      {item.label}
+                    </a>
+                  );
+                }
                 return (
-                  <a
+                  <Link
                     key={item.id}
                     href={item.href}
                     className="mr-nav-link"
-                    aria-expanded={hasPanel ? hoveredNavId === item.id : undefined}
-                    onMouseEnter={() =>
-                      scheduleHover(hasPanel ? item.id : null, HOVER_OPEN_MS)
-                    }
-                    onMouseLeave={() => scheduleHover(null, HOVER_CLOSE_MS)}
-                    // Keyboard users get the same panel: focusing the link opens it,
-                    // Escape closes it without leaving the link.
-                    onFocus={() => hasPanel && setHoveredNavId(item.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') closeDropdown();
-                    }}
-                    style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
+                    // Every shop route is dynamic, so the default prefetch
+                    // stops at the loading boundary and a tap would still pay
+                    // a full round trip (see ShopRouteSkeleton). One link is a
+                    // bounded cost for the thing people click most — and only
+                    // that one: prefetching four trust pages nobody has asked
+                    // for would spend a phone's data on documents most
+                    // shoppers never open.
+                    prefetch={item.href === SHOP_ROOT}
+                    {...hover}
+                    style={style}
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 );
               })}
             </nav>
@@ -628,7 +717,11 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
         <MobileNavSheet
           open={mobileOpen && sheetsArmed}
           onClose={closeMobileMenu}
-          navbar={navbar}
+          // `resolvedNavbar`, NOT `navbar` — the same list the desktop bar
+          // renders above. Passing the raw `navbar` here is what made the
+          // mobile menu empty on the live shop while the desktop bar still
+          // showed Shop. See `resolveNavItems`.
+          navbar={resolvedNavbar}
           mobileMenu={mobileMenu}
           socials={socials}
           signedIn={Boolean(identity)}
