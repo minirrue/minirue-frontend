@@ -1039,20 +1039,58 @@ export default function ApiProductDetail({
              hairline-coloured bar, quiet enough for this layout and honest
              about the overflow. */}
       <aside
-        // Own wheel scrolling under Lenis (frontend#87) — see LenisProvider.
-        data-lenis-prevent
+        // `data-lenis-prevent` is GONE with the internal scroller it existed
+        // for (frontend#87 added it so this panel could scroll under Lenis).
+        // With no overflow to scroll, all it did was hand the wheel to the
+        // browser while Lenis kept animating the same document — see the note
+        // on className below.
+        //
         // `lg:flex-1` + a floor, instead of the old fixed `lg:w-[46%]
         // xl:w-[42%] lg:flex-shrink-0`. The media column beside it is now
         // sized from the photograph's own ratio, so this column takes
         // whatever is left rather than dictating the split. The floor stops
         // it collapsing into an unreadable strip beside a very wide
         // photograph on a short, wide screen.
-        className="order-3 lg:order-1 lg:sticky lg:top-0 lg:h-screen lg:min-w-[380px] lg:flex-1 lg:self-start lg:overflow-y-auto lg:border-r"
-        style={{
-          borderColor: 'var(--mr-hairline)',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'var(--mr-hairline) transparent',
-        }}
+        /*
+         * ONE SCROLLER ON THIS PAGE, AND IT IS THE PAGE.
+         *
+         * Sticky STAYS — it was never the bug, and without it this column
+         * stretches to the media column's full height (measured: 1708px) and
+         * leaves a vast empty cream void beside the photographs. What goes is
+         * the SCROLL CONTAINER it used to carry: `lg:h-screen
+         * lg:overflow-y-auto` plus `data-lenis-prevent`. `lg:self-start` keeps
+         * the box only as tall as its own content, so there is nothing to
+         * overflow and therefore no second scroller.
+         *
+         * That container is what the owner reported as scrolling being
+         * "1000x fast … really bugged if mouse is on the left side, because
+         * some desktop devices have scrolling area on the left side so 2
+         * scrolling collide with each other" (2026-09-21).
+         *
+         * He was right, and measured on production it is worse than a feel:
+         * `data-lenis-prevent` tells Lenis to keep its hands off the wheel
+         * over this element so the panel can scroll natively. But the panel
+         * does NOT overflow — measured live, `scrollHeight === clientHeight
+         * === 855`, and a sweep of the whole document found NO element whose
+         * content exceeds its box. So the wheel is refused by Lenis, finds
+         * nothing to scroll here, and propagates to the document — which
+         * Lenis is smooth-scrolling at the same time. Two mechanisms move the
+         * same page on one wheel tick.
+         *
+         * It also never earned its keep: a panel that never overflows gains
+         * nothing from being scrollable, and the owner asked for exactly this
+         * a session earlier — "make the left side scroll normally with the
+         * right side".
+         *
+         * `lg:max-w-[52%]` keeps the copy from eating the page on a short,
+         * wide window: with the media column sized from the photograph's own
+         * ratio, a 1920x855 screen gave the image 631px and this column 1285 —
+         * two thirds of the page as text.
+         */
+        className="order-3 lg:order-1 lg:sticky lg:top-0 lg:min-w-[380px] lg:flex-1 lg:self-start lg:border-r"
+        // `scrollbarWidth`/`scrollbarColor` are gone with the scroller: this
+        // column has no scrollbar of its own to style any more.
+        style={{ borderColor: 'var(--mr-hairline)' }}
       >
         {/*
           2. `lg:min-h-full`, not `lg:h-full`. At exactly 100% the box could
@@ -1074,7 +1112,17 @@ export default function ApiProductDetail({
           screen has room to spare and an 800-tall one does not.
         */}
         <div
-          className="flex flex-col px-[clamp(20px,5vw,32px)] pb-[clamp(64px,14vw,96px)] pt-[clamp(32px,8vw,56px)] lg:min-h-full lg:px-[clamp(32px,4vw,56px)] lg:pt-[clamp(40px,5vw,64px)] lg:[@media(max-height:820px)]:pt-8"
+          /*
+           * `lg:mx-auto lg:max-w-[640px]` — a reading measure, not decoration.
+           *
+           * The media column is sized from the photograph's own ratio, so on a
+           * short, wide window (measured: 1920x855) the picture wants only
+           * ~631px and this column inherits the other ~1290. Text set across
+           * 1290px is unreadable, and it was the thing that made the page look
+           * broken rather than merely wide. Capping the measure and centring it
+           * turns the leftover width into deliberate space.
+           */
+          className="flex flex-col px-[clamp(20px,5vw,32px)] pb-[clamp(64px,14vw,96px)] pt-[clamp(32px,8vw,56px)] lg:mx-auto lg:min-h-full lg:w-full lg:max-w-[640px] lg:px-[clamp(32px,4vw,56px)] lg:pt-[clamp(40px,5vw,64px)] lg:[@media(max-height:820px)]:pt-8"
           style={{ background: 'inherit' }}
         >
           <div className="mb-12 hidden lg:block lg:[@media(max-height:820px)]:mb-6">
@@ -1137,7 +1185,7 @@ export default function ApiProductDetail({
           the copy column's own `lg:min-w-[380px]`. `lg:flex-none` because a
           flex-1 item would ignore the computed width. */}
       <div
-        className="contents lg:order-2 lg:flex lg:min-h-screen lg:min-w-0 lg:max-w-[62%] lg:flex-none lg:flex-col lg:w-[calc(var(--mr-product-ar,0.8)*(100svh-var(--mr-header-h,89px)))]"
+        className="contents lg:order-2 lg:flex lg:min-h-screen lg:min-w-0 lg:flex-none lg:flex-col lg:w-[clamp(34%,calc(var(--mr-product-ar,0.8)*(100svh-var(--mr-header-h,89px))),62%)]"
       >
         {/* FIRST on a phone / top of the right column on a laptop: the
             photographs. */}

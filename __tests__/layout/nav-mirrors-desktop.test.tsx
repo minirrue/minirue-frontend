@@ -69,14 +69,6 @@ function desktopNavLabels(): string[] {
   );
 }
 
-function desktopNavHref(label: string): string | undefined {
-  return (
-    Array.from(document.querySelectorAll('header nav a'))
-      .find((a) => (a.textContent ?? '').trim() === label)
-      ?.getAttribute('href') ?? undefined
-  );
-}
-
 /**
  * Labels of the mobile sheet's own nav rows, in order. Both element kinds are
  * collected — a row is a `<button>` when the item drills into subcategories
