@@ -85,16 +85,40 @@ function ReviewLink({ variant }: { variant: 'outline' | 'primary' }) {
  * - `compact`: a quiet row closing the product reviews section.
  * - `band`: a fuller, centered band on the home page just before the footer.
  */
-export default function TrustpilotTrust({ variant }: { variant: Variant }) {
+export default function TrustpilotTrust({
+  variant,
+  /**
+   * Tuck the row up into the reviews section above it.
+   *
+   * Only true when a reviews section is actually rendered above. The negative
+   * margin exists to sit inside THAT section's generous bottom padding so this
+   * row reads as its closing line — and it silently becomes an overlap the
+   * moment nothing is there to tuck into.
+   *
+   * Which is now the normal case: a product with no reviews renders no reviews
+   * section at all, and 22 of the shop's 23 products have none. Measured on a
+   * production build with the tuck unconditional: the row started at y=2004
+   * while the dark description section above it ended at y=2044 — 40px of
+   * genuine overlap, which the owner reported as the description sitting on
+   * top of the Trustpilot logo (2026-09-21).
+   *
+   * Defaults to OFF. A caller that wants the tuck has to know there is
+   * something above to tuck into, and this component cannot know that.
+   */
+  tuckUnderReviews = false,
+}: {
+  variant: Variant;
+  tuckUnderReviews?: boolean;
+}) {
   if (variant === 'compact') {
     const h = 22;
     return (
       <section
         aria-label="Trustpilot"
         data-trace-id="EL-REGION-trustpilot-trust"
-        // The negative top margin tucks the row into the reviews section's own
-        // generous bottom padding, so it reads as that section's closing line.
-        className="-mt-[clamp(16px,6vw,48px)] px-[clamp(20px,5vw,32px)] pb-[clamp(40px,8vw,64px)] lg:px-[clamp(32px,4vw,64px)]"
+        className={`${
+          tuckUnderReviews ? '-mt-[clamp(16px,6vw,48px)] ' : ''
+        }px-[clamp(20px,5vw,32px)] pb-[clamp(40px,8vw,64px)] lg:px-[clamp(32px,4vw,64px)]`}
         style={{ background: 'var(--mr-cream-100)' }}
       >
         <div

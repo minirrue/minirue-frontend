@@ -334,23 +334,73 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
         {productByline(product) || product.categoryName}
       </div>
 
-      <h1
-        data-testid="product-title"
-        style={{
-          fontFamily: 'var(--mr-font-serif)',
-          fontWeight: 400,
-          fontSize: 'clamp(38px, 3.8vw, 56px)',
-          lineHeight: 1.0,
-          letterSpacing: '-0.015em',
-          textWrap: 'balance',
-          margin: '0 0 20px',
-          color: 'var(--mr-fg)',
-          animation: 'mr-word-in 0.6s cubic-bezier(0.16,1,0.3,1) both',
-          animationDelay: '160ms',
-        }}
-      >
-        <WordReveal text={product.name} delay={200} wordDelay={80} />
-      </h1>
+      {/*
+        Title and price on ONE line, not stacked.
+
+        Owner, 2026-09-21: "make price beside it not under it … beside the
+        title name so we save more space". The saving is real and it is spent
+        where it matters: every pixel above the fold on a phone is a pixel of
+        the buy controls, and this page's problem is that 259 visitors produced
+        one add to bag.
+
+        `baseline` alignment, not `center` — the price is much smaller than the
+        title, and centring it against a 56px serif leaves it floating. Sitting
+        both on the same baseline is what makes them read as one line rather
+        than two things that happen to be adjacent.
+
+        Wraps on a narrow column: the price drops under the title and the whole
+        block stays centred, which is the mobile treatment the panel already
+        uses. `justify-center lg:justify-between` is the one responsive bit, so
+        it is a class — the rest stays inline, matching this file's documented
+        convention of using Tailwind only where a breakpoint is needed.
+      */}
+      {/*
+        `flex-nowrap`, deliberately. With wrapping on, the browser moves the
+        PRICE to a second line as soon as title + gap + price exceeds the
+        content width by a single pixel — measured at 657px: title 465 + gap 18
+        + price 110 = 593 against exactly 593 available, and the price dropped.
+        That is the stacking this row exists to remove.
+
+        With no wrapping the title gives way instead: it shrinks (`flex:0 1
+        auto`, `min-width:0`) and wraps its own text across lines, while the
+        price keeps its place beside it at every width.
+      */}
+      <div className="mb-6 flex flex-nowrap items-baseline justify-center gap-x-[18px] lg:justify-between">
+        <h1
+          data-testid="product-title"
+          style={{
+            fontFamily: 'var(--mr-font-serif)',
+            fontWeight: 400,
+            fontSize: 'clamp(38px, 3.8vw, 56px)',
+            lineHeight: 1.0,
+            letterSpacing: '-0.015em',
+            textWrap: 'balance',
+            // The row below owns the spacing now.
+            margin: 0,
+            /*
+             * `0 1 auto`, NOT `1 1 auto`.
+             *
+             * With `flex-grow: 1` the title claims the whole line and the
+             * price is pushed onto the next one — which is exactly the
+             * stacking this change exists to remove. Measured at 657px before
+             * this: title 589px wide, price wrapping to y+44.
+             *
+             * Allowed to shrink instead, the title wraps its own text across
+             * two lines and the price keeps its place beside it. That is what
+             * saves the vertical space the owner asked for, and it is worth
+             * real estate: every pixel above the fold on a phone is a pixel of
+             * buy controls, on a page where 259 visitors produced one add to
+             * bag.
+             */
+            flex: '0 1 auto',
+            minWidth: 0,
+            color: 'var(--mr-fg)',
+            animation: 'mr-word-in 0.6s cubic-bezier(0.16,1,0.3,1) both',
+            animationDelay: '160ms',
+          }}
+        >
+          <WordReveal text={product.name} delay={200} wordDelay={80} />
+        </h1>
 
       {/* Price, with the review summary alongside it when the product has any
           (#189) — stars and count, linking straight to the reviews section
@@ -365,7 +415,13 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
             justifyContent: 'center',
             columnGap: 14,
             rowGap: 6,
-            marginBottom: 24,
+            // Spacing moved to the title/price row that now wraps both. A
+            // bottom margin here would push the price away from the title it
+            // is meant to sit beside.
+            marginBottom: 0,
+            // Never squeezed by a long product name — the title flexes, this
+            // does not.
+            flex: '0 0 auto',
             animation: 'mr-word-in 0.5s cubic-bezier(0.16,1,0.3,1) both',
             animationDelay: '300ms',
           }}
@@ -406,6 +462,7 @@ const ProductInfoPanel = React.memo(function ProductInfoPanel({
             )}
         </div>
       )}
+      </div>
 
       {/* What the shop promises — one block, the dashboard's words, shown
           only where a live setting proves the claim (#189). This replaced a
@@ -1185,6 +1242,23 @@ export default function ApiProductDetail({
           the copy column's own `lg:min-w-[380px]`. `lg:flex-none` because a
           flex-1 item would ignore the computed width. */}
       <div
+        /*
+         * Width comes from the PHOTOGRAPH, not from a percentage: its ratio
+         * times the height available under the header, clamped so the column
+         * can never collapse or swallow the page.
+         *
+         * This is what keeps the padding invisible while nothing is cropped.
+         * With a fixed percentage the frame is a different shape from the
+         * picture at every viewport, so `contain` leaves bars — measured at
+         * 1440x900 before this: 103px and 102px of cream. With the column
+         * sized from the ratio the two agree and the bars go to zero on
+         * desktop, without the picture losing a pixel.
+         *
+         * It was briefly removed in favour of a plain share while the gallery
+         * filled its frame with `cover`; the owner's answer to that was "no
+         * crop at all" (2026-09-21), so the ratio-driven column comes back
+         * with it.
+         */
         className="contents lg:order-2 lg:flex lg:min-h-screen lg:min-w-0 lg:flex-none lg:flex-col lg:w-[clamp(34%,calc(var(--mr-product-ar,0.8)*(100svh-var(--mr-header-h,89px))),62%)]"
       >
         {/* FIRST on a phone / top of the right column on a laptop: the
@@ -1230,7 +1304,14 @@ export default function ApiProductDetail({
 
           {/* Trustpilot trust row (#156): directly under the reviews, static and
               server-rendered so it is always in the HTML. */}
-          <TrustpilotTrust variant="compact" />
+          {/* Tuck only when there IS a reviews section above to tuck into.
+              `ProductReviews` renders nothing for a product with no reviews,
+              and 22 of 23 products have none — so an unconditional tuck put
+              this row 40px inside the dark description block instead. */}
+          <TrustpilotTrust
+            variant="compact"
+            tuckUnderReviews={(product.reviewsCount ?? 0) > 0}
+          />
 
           {/* BETWEEN the reviews and the closing photograph, deliberately —
               not appended.
