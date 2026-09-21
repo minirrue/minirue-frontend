@@ -149,6 +149,44 @@ interface ProductGalleryProps {
  *  ever read by the `@media (min-width: 1024px)` rule below. */
 const GALLERY_MAX_H_CSS = 'calc(100svh - var(--mr-header-h, 89px))';
 
+/*
+ * Correct the frame's ratio from the photograph itself, once it has loaded.
+ *
+ * Only for media rows that carry no width/height. Those rows are live in
+ * production (backend#225), and for them the frame falls back to 0.8 while the
+ * actual photograph is 0.824 — so the box is 766px tall where the picture is
+ * 744px, and `contain` paints 11px of blurred backdrop above and below it.
+ * That band is what the owner reported as "extra height top and bottom"
+ * (2026-09-21), and it is also what stopped the photograph running straight
+ * into the description on desktop.
+ *
+ * A row that HAS dimensions never reaches this: it is exact from first paint,
+ * with no measurement and no shift. So once backend#225 lands and the columns
+ * are backfilled, this becomes dead weight rather than a permanent crutch —
+ * which is the right shape for a workaround.
+ *
+ * The correction runs at the load of an image that is already `priority` and
+ * `fetchpriority=high`, so it lands at the LCP moment and moves the column by
+ * the 0.8 -> 0.824 difference only.
+ */
+function applyMeasuredRatio(img: HTMLImageElement, isFirst: boolean) {
+  const { naturalWidth: w, naturalHeight: h } = img;
+  if (!w || !h) return;
+  const ratio = String(w / h);
+
+  const frame = img.closest('.mr-gallery-frame');
+  if (frame instanceof HTMLElement) {
+    frame.style.setProperty('--mr-gallery-ar', ratio);
+  }
+  // Only the first photograph sizes the media COLUMN — the column must not
+  // resize as you swipe between pictures of different shapes.
+  if (!isFirst) return;
+  const root = img.closest('[data-testid="product-layout"]');
+  if (root instanceof HTMLElement) {
+    root.style.setProperty('--mr-product-ar', ratio);
+  }
+}
+
 export default function ProductGallery({ product, items, onOpen }: ProductGalleryProps) {
   const scrollerRef = React.useRef<HTMLDivElement>(null);
   const [index, setIndex] = React.useState(0);
@@ -383,8 +421,25 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
 
       <div
         ref={scrollerRef}
-        className="mr-gallery-strip flex w-full overflow-x-auto"
+        className={`mr-gallery-strip flex w-full${single ? '' : ' overflow-x-auto'}`}
         style={{
+          /*
+           * A single photograph is not a scroll area at ALL.
+           *
+           * `overflow-x: auto` does not stay on one axis: per CSS overflow, an
+           * `auto` on one axis computes the `visible` on the other to `auto`
+           * too, so this element was a VERTICAL scroll container as well. With
+           * one photograph there is nothing to swipe between and nothing to
+           * scroll to, so the container itself is the bug — owner, 2026-09-21:
+           * "prevent the section of photo itself to have a scrolling area".
+           * `visible` on both axes removes it entirely.
+           *
+           * With several photographs the horizontal scroller is the carousel
+           * and has to stay, but the vertical axis is pinned shut explicitly
+           * rather than left to the implicit `auto`.
+           */
+          overflow: single ? 'visible' : undefined,
+          overflowY: single ? undefined : 'hidden',
           // One photograph is not a carousel: no snapping, and nothing to swipe
           // between.
           scrollSnapType: single ? 'none' : 'x mandatory',
@@ -512,6 +567,13 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                   // crops to it. `contain` cannot crop under any ratio, and
                   // the blurred backdrop above fills what it leaves.
                   className="object-contain"
+                  // Exact shape from the photograph when the media row could
+                  // not supply one. No-op for rows that have dimensions.
+                  onLoad={
+                    m.width && m.height
+                      ? undefined
+                      : (event) => applyMeasuredRatio(event.currentTarget, i === 0)
+                  }
                   // Dragging an image drags the browser's own ghost preview
                   // instead of the strip.
                     draggable={false}
