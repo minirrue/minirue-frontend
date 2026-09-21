@@ -1,5 +1,5 @@
 import React from 'react';
-import { render as rtlRender, screen } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProductReviews from '@/components/storefront/reviews/ProductReviews';
 import type { PublicReview } from '@/lib/api/reviews';
@@ -47,15 +47,30 @@ describe('ProductReviews — empty state copy (W3.3)', () => {
     expect(screen.queryByText(/you have had this one/i)).toBeNull();
   });
 
-  it('leaves the not-eligible sentence unchanged', async () => {
+  it('renders NOTHING when there are no reviews and the visitor cannot write one', async () => {
+    // Reversed deliberately. This test used to assert the sentence "No reviews
+    // yet. Only customers who have received this can write one." was shown.
+    // Measured across the live sitemap: 22 of 23 products have zero reviews,
+    // so that sentence appeared on nearly every product page and told a
+    // first-time buyer, in the place they look for reassurance, that nobody
+    // has ever bought it. The component now renders no trace of itself
+    // (owner, 2026-09-21).
     mockUseUser.mockReturnValue({ data: null });
     mockGetProductReviews.mockResolvedValue({ average: null, count: 0, items: [] });
+    mockGetReviewEligibility.mockResolvedValue({ eligible: false });
 
-    renderReviews();
+    const { container } = renderReviews();
+
+    // Wait for the queries to settle so this cannot pass merely by being early.
+    await waitFor(() => expect(mockGetProductReviews).toHaveBeenCalled());
 
     expect(
-      await screen.findByText('No reviews yet. Only customers who have received this can write one.'),
-    ).toBeInTheDocument();
+      screen.queryByText('No reviews yet. Only customers who have received this can write one.'),
+    ).toBeNull();
+    expect(screen.queryByRole('heading', { name: /what people say/i })).toBeNull();
+    expect(
+      container.querySelector('[data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-reviews"]'),
+    ).toBeNull();
   });
 });
 

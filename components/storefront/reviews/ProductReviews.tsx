@@ -230,6 +230,30 @@ export default function ProductReviews({
     });
   }
 
+  /*
+   * A product with nothing to show renders NOTHING — no heading, no box, no
+   * sentence explaining the absence.
+   *
+   * This section used to print "No reviews yet. Only customers who have
+   * received this can write one." to every visitor who could not write one.
+   * Measured across the live sitemap: 22 of the shop's 23 products have zero
+   * reviews, so that sentence was on almost every product page, telling a
+   * first-time buyer — in the one place they look for reassurance — that
+   * nobody has ever bought this. An empty state that advertises emptiness is
+   * worse than no section at all (owner, 2026-09-21: "if an item doesn't have
+   * social proof then remove its component as if it's not there").
+   *
+   * The exception is deliberate: a customer who CAN write a review still sees
+   * the section, because hiding it would remove the only route by which this
+   * shop ever gets its first review. Reviews require a delivered order plus
+   * admin approval, so that path is already narrow enough.
+   *
+   * While eligibility is still loading `canWrite` is false and the section
+   * stays hidden — the right default, since for almost every visitor on almost
+   * every product that is also the final answer.
+   */
+  if (count === 0 && !canWrite) return null;
+
   return (
     <section
       data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-reviews"
