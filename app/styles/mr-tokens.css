@@ -314,8 +314,23 @@
 .mr-link-arrow { display: inline-block; transition: transform 260ms var(--mr-ease-out); }
 a:hover .mr-link-arrow, button:hover .mr-link-arrow { transform: translateX(4px); }
 
-/* Header compact transition */
-.mr-header-inner { transition: padding 320ms var(--mr-ease-out); }
+/* Header height, published so layout can size against it instead of guessing.
+ *
+ * The product gallery used to hardcode `89px`. That was wrong twice over: it
+ * ignored the 77px mobile header entirely, and it assumed the header never
+ * changes height on scroll (it did — see Header.tsx, now fixed). One token,
+ * two values, matching `useBreakpoint`'s `mobile: w < 640`.
+ *
+ * These MUST equal the rendered header: vertical padding x2 + 45px of content.
+ *   mobile  16*2 + 45 = 77
+ *   >=640   22*2 + 45 = 89 */
+:root { --mr-header-h: 77px; }
+@media (min-width: 640px) { :root { --mr-header-h: 89px; } }
+
+/* The padding transition is gone with the compacting itself: the header no
+ * longer changes height on scroll, so there is nothing left to animate here.
+ * Animating it was what turned a 16px reflow into a 320ms "the page is
+ * settling" sensation. */
 
 /* Page sheet — the scrolling content layer above the footer.
  *

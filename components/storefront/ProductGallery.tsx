@@ -122,20 +122,32 @@ interface ProductGalleryProps {
 /**
  * frontend#185 — desktop's own copy column's chrome, measured once against
  * the live header (`components/layout/Header.tsx`, `position: sticky`) at
- * rest: 89px. Used as a fixed constant rather than measured live because the
- * header's OWN height barely moves on this route (no scroll-shrink observed
- * on the product page in testing) and a constant keeps the sizing rule pure
- * CSS — no ResizeObserver, no client-only recompute that could disturb the
- * gallery's carefully-tuned first-paint/LCP behaviour documented above.
- * `GALLERY_GAP_PX` is breathing room below the header before the frame
- * starts, matching the column's own top padding order of magnitude.
+ * rest: read live from the `--mr-header-h` token, which the site header
+ * publishes in mr-tokens.css. (Written without an angle-bracketed component
+ * name on purpose: __tests__/storefront/chrome-coverage.test.ts greps the
+ * source for that pattern and would count this comment as a real usage.)
+ *
+ * This WAS a hardcoded `89` justified by "no scroll-shrink observed on the
+ * product page in testing". That observation was wrong. Measured on
+ * production: the header is 89px at the top and 73px once scrolled, because
+ * `.mr-header-inner` swaps its vertical padding from 22px to 14px on
+ * `scrolled`. A constant of 89 is therefore 16px too tall for every scrolled
+ * state, and the gallery was sized against a header height that stops being
+ * true the moment the visitor moves. The variable has a fallback so the rule
+ * stays pure CSS — still no ResizeObserver, still no client recompute.
+ *
+ * The old `GALLERY_GAP_PX = 24` is gone. It was described as "breathing room
+ * below the header", but it sat BELOW the frame, so all it did was end the
+ * gallery 24px short of the fold and let the dark description section behind
+ * it show through as a black strip at the bottom of the first screen (owner,
+ * 2026-09-21: "the black strip is just the description under it… I want it
+ * visible after the 1px scroll, not at 0px"). Filling the space exactly is
+ * what makes the description start precisely at the fold.
  */
-const HEADER_H_PX = 89;
-const GALLERY_GAP_PX = 24;
 /** `lg:` viewport cap for the gallery frame — the whole photograph must fit
  *  without scrolling (frontend#185). Mobile is untouched: this value is only
  *  ever read by the `@media (min-width: 1024px)` rule below. */
-const GALLERY_MAX_H_CSS = `calc(100svh - ${HEADER_H_PX}px - ${GALLERY_GAP_PX}px)`;
+const GALLERY_MAX_H_CSS = 'calc(100svh - var(--mr-header-h, 89px))';
 
 export default function ProductGallery({ product, items, onOpen }: ProductGalleryProps) {
   const scrollerRef = React.useRef<HTMLDivElement>(null);
@@ -289,6 +301,29 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
           below — only the properties that READ those variables live here. */}
       <style>{`
         .mr-gallery-strip::-webkit-scrollbar{display:none}
+        /* Every width, phone included: the frame takes the PHOTOGRAPH's own
+           ratio. This used to be a hardcoded aspect-[4/5] utility on mobile,
+           which cropped any photograph that was not exactly 4:5 — measured on
+           production at 390px: frame 0.799 vs image 0.824, ~3% of the picture
+           shaved off. The owner's rule is that only the dashboard's own
+           cropper may crop; the storefront shows 100% of what was uploaded.
+           (No backticks anywhere in this block — frontend#97: a backtick in a
+           CSS comment ends the template literal.) */
+        .mr-gallery-frame {
+          width: 100%;
+          aspect-ratio: var(--mr-gallery-ar, 0.8);
+          /* "Maximized" means filling the first screen, NOT spilling past it
+             (owner, 2026-09-21). A portrait photograph at 100% width can be
+             taller than the viewport — e.g. a 0.5-ratio shot at 390px wide is
+             780px tall, which with the header exceeds an 844px phone — and
+             the visitor then has to scroll to see the product at all. Capping
+             here scales it down to fit; object-fit contain keeps it uncropped
+             and the backdrop fills the sides. Applies at every width, phones
+             included. */
+          max-height: calc(
+            100svh - var(--mr-header-h, 89px) - var(--mr-pdp-lead, 0px)
+          );
+        }
         @media (min-width: 1024px) {
           .mr-gallery-slide {
             display: flex;
@@ -296,12 +331,53 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
             justify-content: center;
             height: var(--mr-gallery-cap-h);
           }
+          /* The frame now FILLS the column instead of being letterboxed
+             inside it. The column itself is sized to the photograph's own
+             ratio (see ApiProductDetail's media column), so this box is
+             already the right shape — and where the stored ratio is missing
+             or wrong, the backdrop below absorbs the difference instead of
+             printing cream bars. */
           .mr-gallery-frame {
-            aspect-ratio: var(--mr-gallery-ar, 4 / 5);
             height: 100%;
-            width: auto;
-            max-width: 100%;
+            width: 100%;
+            aspect-ratio: auto;
+            /* The desktop slide is already capped by --mr-gallery-cap-h on
+               the slide itself, and nothing sits above the photographs in
+               this column, so the phone/tablet lead does not apply here. */
+            max-height: none;
           }
+        }
+        /* NEVER crop (owner, 2026-09-21: "prevent any crop on the image, all
+           is viewed however resized on any device keeping same aspect
+           ratio"). Contain guarantees the whole photograph is visible even
+           when the media row carries no width/height and the ratio falls
+           back — which is the case in production today. */
+        .mr-gallery-frame > img {
+          object-fit: contain;
+        }
+        /* What fills the space contain leaves. A blurred, over-scaled copy
+           of the same photograph, so the backdrop is derived from the image
+           itself rather than a hardcoded cream that shows every edge. Kept
+           out of the a11y tree and off the pointer. */
+        .mr-gallery-backdrop {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          background-position: center;
+          background-size: cover;
+          background-repeat: no-repeat;
+          filter: blur(44px) saturate(1.1);
+          transform: scale(1.12);
+          pointer-events: none;
+        }
+        /* z-index only — never position. next/image's fill mode sets
+           position:absolute with inset:0 itself, and overriding it collapses
+           the image out of the frame. */
+        .mr-gallery-frame > img {
+          z-index: 1;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .mr-gallery-backdrop { filter: blur(44px); }
         }
       `}</style>
 
@@ -338,11 +414,21 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
               : mediaImageUrl(m, { w: 1600 });
           if (!src) return null;
           // The photograph's own shape, from the backend's stored intrinsic
-          // dimensions — never measured client-side. Falls back to the old
-          // 4:5 only for the pathological case of a media row missing both
-          // (never seen live; every asset here comes through an upload path
-          // that records width/height).
-          const ar = m.width && m.height ? `${m.width} / ${m.height}` : '4 / 5';
+          // dimensions — never measured client-side.
+          //
+          // The fallback is NOT pathological, whatever the previous comment
+          // here claimed ("never seen live"). `gallery_items.width/height`
+          // are nullable, nothing backfills them, and `exchangeItem` nulls
+          // them whenever its caller supplies no dimensions — so rows with no
+          // ratio are in production right now. This very product is one: the
+          // live frame computes 4/5 = 0.800 for a photograph that is 989x1200
+          // = 0.824. `contain` is what keeps that harmless; the number below
+          // is what makes it exact when the data is there.
+          //
+          // A NUMBER, not an `a / b` string, because the media column sizes
+          // itself with `calc(var(--mr-gallery-ar) * ...)` and calc cannot
+          // multiply by a ratio.
+          const ar = m.width && m.height ? m.width / m.height : 0.8;
           return (
             <div
               key={m.id}
@@ -355,9 +441,24 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
             >
               <div
                 data-trace-id={`PG-STOREFRONT-CAT-005::EL-IMG-product-carousel-image@${m.id}`}
-                className="mr-gallery-frame relative aspect-[4/5] w-full lg:aspect-auto"
+                className="mr-gallery-frame relative w-full"
                 style={{ ['--mr-gallery-ar' as string]: ar }}
               >
+                {/* The backdrop that makes `contain` look deliberate: a
+                    blurred, over-scaled copy of this same photograph filling
+                    whatever space the contained image does not. Derived from
+                    the image itself (owner: "make the background of the image
+                    on html itself dynamic so the user doesn't feel it's
+                    cropped"), so a white-background product shot no longer
+                    prints a hard white rectangle on the cream page. Images
+                    only — a video already paints its own frame. */}
+                {!readyVideo && m.kind !== 'video' && (
+                  <div
+                    aria-hidden="true"
+                    className="mr-gallery-backdrop"
+                    style={{ backgroundImage: `url(${src})` }}
+                  />
+                )}
                 {readyVideo ? (
                   <StorefrontVideo
                     src={src}
@@ -402,11 +503,15 @@ export default function ProductGallery({ product, items, onOpen }: ProductGaller
                    */
                   fetchPriority={i === 0 ? 'high' : undefined}
                   sizes="(min-width: 1024px) 58vw, 100vw"
-                  // One rule at every width now (frontend#185): from `lg:`
-                  // the FRAME above already takes the photograph's own
-                  // aspect ratio, so `cover` and `contain` resolve to the
-                  // exact same box — nothing left to crop or letterbox.
-                  className="object-cover"
+                  // `contain`, never `cover`. The old comment here said the
+                  // frame "already takes the photograph's own aspect ratio,
+                  // so cover and contain resolve to the exact same box" —
+                  // true only when the media row HAS width/height. When it
+                  // does not (production, today) the frame falls back to a
+                  // ratio that is not the photograph's and `cover` silently
+                  // crops to it. `contain` cannot crop under any ratio, and
+                  // the blurred backdrop above fills what it leaves.
+                  className="object-contain"
                   // Dragging an image drags the browser's own ghost preview
                   // instead of the strip.
                     draggable={false}

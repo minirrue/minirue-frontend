@@ -190,6 +190,54 @@ describe('ApiProductDetail', () => {
     expect(Number.isNaN(reviewsOrder)).toBe(false);
     expect(infoOrder).toBeLessThan(reviewsOrder);
   });
+
+  /**
+   * Owner, 2026-09-21: "on phone and tablet, image then this section —
+   * Arencia / title / EGP 1,139 / In stock / perks / Size".
+   *
+   * The description (EditorialMoment) used to sit inside the same `order-2`
+   * item as the photographs, so on a phone it fell BETWEEN the picture and
+   * the buying controls — a full-screen dark block standing between a
+   * visitor and the Add to bag button. 52 product views produced zero adds
+   * to bag (frontend#189); this is one of the few structural reasons a
+   * visitor would never reach the control at all.
+   */
+  it('puts the description AFTER the product details on a phone, not between photo and buy', () => {
+    const { container } = renderDetail();
+
+    const orderOf = (descendant: Element | null): number => {
+      let node: Element | null = descendant;
+      while (node) {
+        const cls = Array.from(node.classList).find((c) => /^order-\d+$/.test(c));
+        if (cls) return Number(cls.replace('order-', ''));
+        node = node.parentElement;
+      }
+      return NaN;
+    };
+
+    const gallery = container.querySelector('[data-testid="product-image-dwell-region"]');
+    const infoPanel = container.querySelector('[data-testid="product-title"]');
+    const description = container.querySelector(
+      '[data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-description"]',
+    );
+
+    expect(gallery).toBeTruthy();
+    expect(infoPanel).toBeTruthy();
+    expect(description).toBeTruthy();
+
+    const galleryOrder = orderOf(gallery);
+    const infoOrder = orderOf(infoPanel);
+    const descriptionOrder = orderOf(description);
+
+    for (const n of [galleryOrder, infoOrder, descriptionOrder]) {
+      expect(Number.isNaN(n)).toBe(false);
+    }
+
+    // photo -> details -> description, in that order.
+    expect(galleryOrder).toBeLessThan(infoOrder);
+    expect(infoOrder).toBeLessThan(descriptionOrder);
+  });
+
   it('centres the description text under the centred quote', () => {
     render(
       <ApiProductDetail

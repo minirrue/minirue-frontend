@@ -855,6 +855,27 @@ export default function ApiProductDetail({
   // are excluded — they belong to a variant view, not the product gallery —
   // and so is the closing image, which has its own place at the end.
   const gallery = carouselMedia(product);
+
+  /*
+   * The shape of the FIRST photograph, as a plain number, used to size the
+   * media column at `lg:`.
+   *
+   * This is the inversion the owner asked for (2026-09-21): the photograph
+   * used to be fitted into a fixed 46/54 split, which letterboxed it —
+   * measured on production at 1440px, a 630px-wide picture sat in an 835px
+   * column with 103px of dead cream either side. Now the column takes the
+   * picture's shape and the copy column absorbs the remainder, so there is
+   * no leftover box to letterbox into.
+   *
+   * Only the first item: it is the one on screen at rest, it is the LCP
+   * element, and a column that resized as you swiped between photographs of
+   * different shapes would be far worse than a little unused space on
+   * photograph three. 0.8 matches the gallery's own fallback.
+   */
+  const heroAspect = React.useMemo(() => {
+    const first = gallery[0];
+    return first?.width && first?.height ? first.width / first.height : 0.8;
+  }, [gallery]);
   const closing = closingMedia(product);
   const closingSrc = closing ? mediaImageUrl(closing, { w: 1400, h: 1750 }) : null;
 
@@ -970,8 +991,27 @@ export default function ApiProductDetail({
   return (
     <div
       data-testid="product-layout"
-      className="flex flex-col lg:min-h-screen lg:flex-row"
-      style={{ background: 'var(--mr-cream-200)' }}
+      /*
+       * `--mr-pdp-lead` is what sits ABOVE the photographs on a phone and
+       * tablet and therefore eats into the first screen: the Back row below,
+       * whose own `pt-7` (28px) + `pb-6` (24px) + 49px button measure 101px.
+       * The gallery subtracts it so the photograph fits the first viewport
+       * rather than running past it (owner, 2026-09-21: "many photos on
+       * desktop render outside the fixed first viewport and on mobile also").
+       * Measured before this: at 768x1024 the frame ended at y=1125 in a 1024
+       * viewport. Zero at `lg:`, where the Back row moves inside the copy
+       * column and nothing precedes the photographs.
+       *
+       * Keep the 101px in step with the Back row's classes directly below —
+       * a flex first-screen container would remove the constant entirely and
+       * is the better long-term shape; noted on frontend#190.
+       */
+      className="flex flex-col [--mr-pdp-lead:101px] lg:min-h-screen lg:flex-row lg:[--mr-pdp-lead:0px]"
+      style={{
+        background: 'var(--mr-cream-200)',
+        // Read by the media column's width below. See `heroAspect`.
+        ['--mr-product-ar' as string]: heroAspect,
+      }}
     >
       {/* Back — above the photographs on a phone, inside the sticky column on a
           laptop. Two placements, one component, no JS width check.
@@ -1001,7 +1041,13 @@ export default function ApiProductDetail({
       <aside
         // Own wheel scrolling under Lenis (frontend#87) — see LenisProvider.
         data-lenis-prevent
-        className="order-3 lg:order-1 lg:sticky lg:top-0 lg:h-screen lg:w-[46%] lg:flex-shrink-0 lg:self-start lg:overflow-y-auto lg:border-r xl:w-[42%]"
+        // `lg:flex-1` + a floor, instead of the old fixed `lg:w-[46%]
+        // xl:w-[42%] lg:flex-shrink-0`. The media column beside it is now
+        // sized from the photograph's own ratio, so this column takes
+        // whatever is left rather than dictating the split. The floor stops
+        // it collapsing into an unreadable strip beside a very wide
+        // photograph on a short, wide screen.
+        className="order-3 lg:order-1 lg:sticky lg:top-0 lg:h-screen lg:min-w-[380px] lg:flex-1 lg:self-start lg:overflow-y-auto lg:border-r"
         style={{
           borderColor: 'var(--mr-hairline)',
           scrollbarWidth: 'thin',
@@ -1083,7 +1129,16 @@ export default function ApiProductDetail({
           inflated anything. Nothing else in here has ever wanted more width
           than the 54% this column is given, so this cannot change the existing
           layout — it can only stop a child from growing it. */}
-      <div className="contents lg:order-2 lg:flex lg:min-h-screen lg:min-w-0 lg:flex-1 lg:flex-col">
+      {/* Width comes from the photograph, not from a percentage: the ratio
+          times the height available under the header. That is what removes
+          the cream gutters — there is no spare width in this column for the
+          picture to float inside. Capped at 62% so a very wide (landscape)
+          photograph cannot squeeze the copy off the screen, and floored by
+          the copy column's own `lg:min-w-[380px]`. `lg:flex-none` because a
+          flex-1 item would ignore the computed width. */}
+      <div
+        className="contents lg:order-2 lg:flex lg:min-h-screen lg:min-w-0 lg:max-w-[62%] lg:flex-none lg:flex-col lg:w-[calc(var(--mr-product-ar,0.8)*(100svh-var(--mr-header-h,89px)))]"
+      >
         {/* FIRST on a phone / top of the right column on a laptop: the
             photographs. */}
         <main className="order-2">
@@ -1094,15 +1149,30 @@ export default function ApiProductDetail({
               <MediaFallback name={product.name} />
             )}
           </div>
-
-          <EditorialMoment product={product} />
         </main>
+
+        {/* The description, moved OUT of <main> so it no longer sits between
+            the photograph and the buying controls on a phone.
+            Owner, 2026-09-21: "on phone and tablet, image then this section
+            — Arencia / title / EGP 1,139 / In stock / perks / Size".
+            It was a full-screen dark block directly under the photograph,
+            so on a phone the title, price, add-to-bag and wishlist were all
+            behind a screen-height wall that a visitor had to scroll past
+            before they could buy anything — a plausible contributor to 52
+            product views with zero adds to bag (frontend#189).
+            order-4 puts it after <aside> (order-3) on a phone. At `lg:` the
+            wrapper is a flex column again and 2 < 4 < 5 keeps the desktop
+            sequence — photographs, description, reviews — byte-identical to
+            before. */}
+        <div className="order-4">
+          <EditorialMoment product={product} />
+        </div>
 
         {/* AFTER <aside> (the product details) on a phone / below the
             photographs on a laptop — never rendered a second time, since
             ProductReviews fetches its own data and owns the one "write a
             review" entry point. */}
-        <div className="order-4" ref={reviewsRef} data-testid="product-reviews-dwell-region">
+        <div className="order-5" ref={reviewsRef} data-testid="product-reviews-dwell-region">
           <ProductReviews
             productId={product.id}
             productName={product.name}
@@ -1163,10 +1233,10 @@ export default function ApiProductDetail({
         data-testid="buy-bar"
         data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-sticky-buy-bar"
         aria-hidden={mainButtonInView}
-        // order-5: after the reviews block (order-4) — the reviews fix bumped
-        // this bar down one slot so it stays last in mobile flow, matching
-        // its role as the final, always-on-top purchase action.
-        className="sticky z-30 order-5 flex items-center gap-3 border-t px-[clamp(16px,4vw,24px)] pt-3 lg:hidden"
+        // order-6: last in mobile flow, matching its role as the final,
+        // always-on-top purchase action. Bumped from 5 to 6 when the
+        // description moved to order-4 and the reviews block to order-5.
+        className="sticky z-30 order-6 flex items-center gap-3 border-t px-[clamp(16px,4vw,24px)] pt-3 lg:hidden"
         style={{
           borderColor: 'var(--mr-hairline)',
           background: 'color-mix(in oklab, var(--mr-cream-100) 88%, transparent)',

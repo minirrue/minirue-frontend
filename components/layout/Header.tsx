@@ -291,9 +291,27 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
             display: 'grid',
             gridTemplateColumns: mobile ? '44px minmax(0, 1fr) 44px' : 'minmax(0, 1fr) auto minmax(0, 1fr)',
             alignItems: 'center',
-            padding: scrolled
-              ? mobile ? '10px 16px' : '14px 48px'
-              : mobile ? '16px 16px' : '22px 48px',
+            // CONSTANT — deliberately no longer keyed to `scrolled`.
+            //
+            // This used to shrink from 22px to 14px (desktop) and 16px to
+            // 10px (mobile) once scrolled. The header is `position: sticky`,
+            // so it is IN FLOW and has no fixed height: shrinking its padding
+            // shrinks the header, which shortens the document and drags every
+            // section below it upward. Measured on production: header
+            // 89px -> 73px and document 2438 -> 2422 between scrollY 0 and
+            // 104 — a 16px lurch, smeared over 320ms by the padding
+            // transition and amplified by Lenis, which is exactly the "whole
+            // page shrinks up with it" the owner reported (2026-09-21).
+            //
+            // The roomy value is the one kept, so the top of every page looks
+            // exactly as it did; only the scrolled state is now the same
+            // height instead of 16px shorter. `scrolled` still drives the
+            // background, border and colour transitions below — those cost
+            // no layout.
+            //
+            // Keep in sync with `--mr-header-h` in app/styles/mr-tokens.css,
+            // which the product gallery sizes itself against.
+            padding: mobile ? '16px 16px' : '22px 48px',
             maxWidth: 1440,
             margin: '0 auto',
           }}
