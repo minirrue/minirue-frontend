@@ -5,6 +5,16 @@
  * cookie check (minirue-dashboard#111).
  */
 import { trackTikTokEvent, tiktokPixelBaseCode } from '@/lib/analytics/tiktok-pixel';
+import React from 'react';
+import { render } from '@testing-library/react';
+import MetaPixel from '@/components/seo/MetaPixel';
+
+let mockPathname = '/';
+let mockSearchParams = '';
+jest.mock('next/navigation', () => ({
+  usePathname: () => mockPathname,
+  useSearchParams: () => mockSearchParams,
+}));
 
 function setCookie(value: string): void {
   document.cookie = value;
@@ -51,5 +61,50 @@ describe('lib/analytics/tiktok-pixel', () => {
     expect(code).toContain('mr-ads-off=1');
     expect(code).toContain("ttq.load('ABC123')");
     expect(code.trim().endsWith('}')).toBe(true);
+  });
+});
+
+describe('TikTok PageView on client navigation', () => {
+  const originalTtq = window.ttq;
+  const originalFbq = window.fbq;
+
+  beforeEach(() => {
+    clearCookies();
+    mockPathname = '/';
+    mockSearchParams = '';
+    window.ttq = { page: jest.fn() };
+    window.fbq = jest.fn();
+  });
+
+  afterEach(() => {
+    clearCookies();
+    window.ttq = originalTtq;
+    window.fbq = originalFbq;
+  });
+
+  it('skips the initial PageView already sent by the base code, then tracks route and query changes once each', () => {
+    const { rerender } = render(React.createElement(MetaPixel));
+    expect(window.ttq?.page).not.toHaveBeenCalled();
+
+    mockPathname = '/shop/skincare';
+    rerender(React.createElement(MetaPixel));
+    expect(window.ttq?.page).toHaveBeenCalledTimes(1);
+
+    mockSearchParams = 'sort=price';
+    rerender(React.createElement(MetaPixel));
+    expect(window.ttq?.page).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not send route-change PageViews on excluded devices', () => {
+    const { rerender } = render(React.createElement(MetaPixel));
+    setCookie('mr-ads-off=1');
+    mockPathname = '/shop/skincare';
+    rerender(React.createElement(MetaPixel));
+    expect(window.ttq?.page).not.toHaveBeenCalled();
+  });
+
+  it('does not double-count initial load when React replays the mount effect', () => {
+    render(React.createElement(React.StrictMode, null, React.createElement(MetaPixel)));
+    expect(window.ttq?.page).not.toHaveBeenCalled();
   });
 });
