@@ -71,33 +71,34 @@ describe('Header', () => {
     expect(href('Atelier X')).toBe('/brands/atelier-x');
   });
 
-  it('still offers Shop when the admin has listed no nav items', () => {
+  it('Shop is an ordinary saved item: renamed, moved or removed from the dashboard (#197)', () => {
     /**
-     * Shop is FIXED, not merchandising. A store that empties its nav by
-     * accident still has a way back to its own catalogue — which is why this
-     * test asserts its presence rather than an empty bar.
+     * Owner, 2026-09-23: "make shop not constant but dynamic in desktop
+     * navbar". Nothing is prepended any more: the bar is the saved list.
      */
-    render(<Header navbar={FALLBACK_CHROME.navbar} />);
+    const { unmount } = render(
+      <Header
+        navbar={{
+          ...FALLBACK_CHROME.navbar,
+          items: [
+            { id: 'n1', label: 'Perfume', href: '/shop/perfume' },
+            { id: 'nav-shop', label: 'Everything', href: '/shop' },
+          ],
+        }}
+      />,
+    );
+    expect(navHref('Everything')).toBe('/shop');
+    expect(navHref('Shop')).toBeUndefined();
+    unmount();
 
-    expect(screen.getByRole('link', { name: /^Shop$/ })).toHaveAttribute('href', '/shop');
+    render(<Header navbar={{ ...FALLBACK_CHROME.navbar, items: [] }} />);
+    expect(navHref('Shop')).toBeUndefined();
   });
 
-  it('no longer pins Collab to the desktop bar (#59), and Shop is unaffected', () => {
-    /**
-     * Owner: "remove collab in desktop navbar and mobile navbar… but leave
-     * shop". Collab is merchandising — a surface worth showing when there is
-     * something in it — not the shop's structure, so it does not hold one of
-     * very few permanent slots.
-     *
-     * This asserts the absence of the FIXED entry only. `/collab` and its
-     * children still resolve (shared links have to keep working), and an admin
-     * can still put it in the bar as an ordinary configured link — the case
-     * immediately below.
-     */
+  it('no longer pins Collab to the desktop bar (#59)', () => {
     render(<Header navbar={FALLBACK_CHROME.navbar} />);
 
     expect(navHref('Collab')).toBeUndefined();
-    expect(navHref('Shop')).toBe('/shop');
   });
 
   it('an admin-configured Collab link still renders', () => {

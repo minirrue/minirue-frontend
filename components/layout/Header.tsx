@@ -52,75 +52,24 @@ const HOVER_CLOSE_MS = 220;
 const HIDE_TRANSITION_MS = 280;
 const HIDE_FLIP_COOLDOWN_MS = HIDE_TRANSITION_MS + 40;
 
-/**
- * The destination the desktop bar always offers.
+/*
+ * The ONE navigation list this header knows about: `navbar.items`, exactly as
+ * the dashboard's Navigation tab saved it. The desktop `<nav>` below and the
+ * `navbar` handed to `MobileNavSheet` are the same array, so anything on one
+ * is on the other by construction.
  *
- * `prefetch`: every shop route is dynamic, so the default prefetch stops at
- * the loading boundary and a tap would still pay a full round trip (see
- * ShopRouteSkeleton). One link is a bounded cost for the thing people click
- * most.
+ * NOTHING IS HARDCODED HERE. Shop used to be prepended as a fixed link
+ * (`FIXED_NAV_LINKS`) that the owner could not rename, move or remove. Owner,
+ * 2026-09-23: "make shop not constant but dynamic in desktop navbar … same
+ * goes to fully control on mobile navbar" (#197). It is now an ordinary saved
+ * item (`{ kind: 'link', label: 'Shop', href: '/shop' }`), seeded into the live
+ * layout before this change so the bar never lost it. The trust pages went the
+ * same way on 2026-09-21: "don't make anything static but beautifully ux ui
+ * dynamically controlled from dashboard."
  *
- * #59 — Collab was the second entry here and is not any more (owner: "remove
- * collab in desktop navbar and mobile navbar… but leave shop"). It is a
- * merchandising surface, not the shop's structure, so it does not earn one of
- * very few permanent slots the way Shop does. THE ROUTES ARE UNTOUCHED:
- * `/collab`, `/collab/[slug]` and `/collab/[slug]/[child]` all still resolve,
- * so shared links keep working — this is a navigation change, not a removal.
- * An admin who still wants it in the bar can add it back as an ordinary
- * `navbar.items` link (kind `link`, href `/collab`), which the loop below
- * renders after this array.
+ * Navigation is content: a list in storefront source can't be changed without
+ * a developer and a deploy, and it goes stale the day a page is renamed.
  */
-const FIXED_NAV_LINKS: ReadonlyArray<{ label: string; href: string }> = [
-  { label: 'Shop', href: SHOP_ROOT },
-];
-
-/**
- * The ONE navigation list this header knows about.
- *
- * It used to be two. The desktop bar rendered `FIXED_NAV_LINKS` and then
- * `navbar.items`; `MobileNavSheet` was handed the raw `navbar` and rendered
- * `navbar.items` alone. Those two agreed only by coincidence, and on the live
- * shop they did not agree at all: `/v1/storefront/chrome` returns
- * `navbar.items: []`, so the desktop bar showed "Shop" (its fixed link) and
- * the phone sheet showed "No menu items yet." — the empty mobile navbar the
- * owner reported. A shopper on a phone could not reach the shop from the menu.
- *
- * Building the list once, here, is what makes drift impossible: the desktop
- * `<nav>` below and the `navbar` prop handed to `MobileNavSheet` are the same
- * array, so anything that appears on one appears on the other by construction
- * rather than by two edits staying in step.
- *
- * Order is deliberate: the shop's structure first (Shop), then whatever the
- * admin curated.
- *
- * NOTHING IS HARDCODED HERE BEYOND `FIXED_NAV_LINKS`.
- * An earlier version of this function merged in a hardcoded list of trust
- * pages (Shipping, Returns, Contact, About) so the empty menu would look
- * populated. That was removed on the owner's instruction, 2026-09-21: "don't
- * make anything static but beautifully ux ui dynamically controlled from
- * dashboard."
- *
- * It is the right call for a reason beyond preference. A link list living in
- * storefront source is a list the shop owner cannot change, reorder, rename or
- * remove without a developer and a deploy — and it silently goes stale the day
- * a page is renamed or unpublished, pointing shoppers at a 404 that nobody can
- * see from the dashboard. Navigation is content. It belongs in settings, which
- * is where `navbar.items` already comes from and where the dashboard's
- * NavbarEditor already writes.
- */
-function resolveNavItems(configured: ResolvedNavItem[]): ResolvedNavItem[] {
-  // Skipped when the admin has already configured a link to the same place,
-  // so nobody ends up with Shop twice.
-  const fixed = FIXED_NAV_LINKS.filter(
-    (link) => !configured.some((item) => item.href === link.href),
-  ).map<ResolvedNavItem>((link) => ({
-    id: `fixed-${link.href}`,
-    label: link.label,
-    href: link.href,
-  }));
-
-  return [...fixed, ...configured];
-}
 
 /**
  * The search sheet, mobile menu sheet and desktop category dropdown are all
@@ -292,20 +241,10 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   };
 
   /**
-   * The resolved list — Shop, the admin's own items, the trust pages — that
-   * BOTH the desktop bar and the mobile sheet render. See `resolveNavItems`.
+   * The admin's saved list, which BOTH the desktop bar and the mobile sheet
+   * render (see the note above the component).
    */
-  const navItems = React.useMemo(() => resolveNavItems(navbar.items), [navbar.items]);
-  /**
-   * The same `navbar`, carrying the resolved list. `MobileNavSheet` takes the
-   * whole navbar object (it also reads nothing else from it today, but the
-   * prop is typed as the navbar), so the resolved items are substituted in
-   * rather than passed as a second, forkable prop.
-   */
-  const resolvedNavbar = React.useMemo(
-    () => ({ ...navbar, items: navItems }),
-    [navbar, navItems],
-  );
+  const navItems = navbar.items;
   /** Only category items the admin pinned products to open a panel. */
   const panelItems = React.useMemo(
     () => navItems.filter((i) => (i.featured?.length ?? 0) > 0),
@@ -421,14 +360,8 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
                 textTransform: 'uppercase',
               }}
             >
-              {/* ONE list — `navItems` — and the mobile sheet below is handed
-                  the same one. Shop leads it (fixed rather than admin-editable
-                  because it is the shop's structure, not merchandising: a
-                  store that removed it by accident would have no way back to
-                  its own catalogue; Collab used to sit beside it and no longer
-                  does, #59). The trust pages close it. Both are skipped when
-                  the admin already configured the same href — see
-                  `resolveNavItems`. */}
+              {/* ONE list — `navItems`, the admin's saved items — and the
+                  mobile sheet below is handed the same one (#197). */}
               {navItems.map((item) => {
                 const hasPanel = (item.featured?.length ?? 0) > 0;
                 const style: React.CSSProperties = {
@@ -725,11 +658,8 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
         <MobileNavSheet
           open={mobileOpen && sheetsArmed}
           onClose={closeMobileMenu}
-          // `resolvedNavbar`, NOT `navbar` — the same list the desktop bar
-          // renders above. Passing the raw `navbar` here is what made the
-          // mobile menu empty on the live shop while the desktop bar still
-          // showed Shop. See `resolveNavItems`.
-          navbar={resolvedNavbar}
+          // The same `navbar` the desktop bar renders above — one list (#197).
+          navbar={navbar}
           mobileMenu={mobileMenu}
           socials={socials}
           signedIn={Boolean(identity)}

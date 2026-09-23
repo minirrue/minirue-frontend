@@ -13,6 +13,7 @@
  * The protocol (exact strings, lib/preview/protocol.ts):
  *   → parent  mr-preview:ready · mr-preview:height · mr-preview:select
  *   ← parent  mr-preview:render { home, chrome, view, page?, productSlug?, highlight? }
+ *   ← parent  mr-preview:mode { interactive }   → parent  mr-preview:navigate { href }
  * Messages are accepted ONLY from the dashboard origins
  * (lib/preview/dashboard-origins.ts) — the same list the route's CSP
  * `frame-ancestors` is built from.
@@ -34,9 +35,11 @@ import { closeMobileMenu, openMobileMenu } from '@/lib/hooks/useMobileChrome';
 import { dashboardOrigins } from '@/lib/preview/dashboard-origins';
 import {
   PREVIEW_HEIGHT,
+  PREVIEW_NAVIGATE,
   PREVIEW_READY,
   PREVIEW_SELECT,
   isAllowedOrigin,
+  parseModeMessage,
   parseRenderMessage,
   type PreviewPage,
   type PreviewRenderMessage,
@@ -44,6 +47,15 @@ import {
 
 /** The editor's gold, as the brief pins it. */
 const HIGHLIGHT_COLOR = '#B0924F';
+
+/**
+ * A real tablet or phone draws no classic scrollbar; the frame at 820/390px
+ * would (#196). Scoped to this route, so the live shop is untouched.
+ */
+const PREVIEW_CSS = `@media (max-width: 1023px) {
+  html, body, * { scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; }
+}`;
 
 function isFramed(): boolean {
   return typeof window !== 'undefined' && window.parent !== window;
@@ -72,6 +84,9 @@ export default function DraftPreviewClient() {
   const allowed = React.useMemo(() => dashboardOrigins(), []);
   const parentOrigin = React.useRef<string | null>(null);
   const [message, setMessage] = React.useState<PreviewRenderMessage | null>(null);
+  // Interact mode (#196): the shop's own clicks and keys run; nothing selects.
+  const [interactive, setInteractive] = React.useState(false);
+  const interactiveRef = React.useRef(false);
 
   const postToParent = React.useCallback((data: object) => {
     if (!isFramed() || !parentOrigin.current) return;
@@ -86,6 +101,12 @@ export default function DraftPreviewClient() {
     const onMessage = (event: MessageEvent) => {
       if (!isAllowedOrigin(event.origin, allowed)) return;
       if (isFramed() && event.source !== window.parent) return;
+      const mode = parseModeMessage(event.data);
+      if (mode) {
+        interactiveRef.current = mode.interactive;
+        setInteractive(mode.interactive);
+        return;
+      }
       const parsed = parseRenderMessage(event.data);
       if (!parsed) return;
       parentOrigin.current = event.origin;
@@ -120,14 +141,31 @@ export default function DraftPreviewClient() {
     };
   }, [postToParent, message]);
 
-  // Clicks select, they never act. Captured on `window` so no component's own
-  // handler (a link, a card's router.push, add-to-bag) ever runs: the frame
-  // must not navigate away from the draft or touch the owner's cart.
+  // Edit mode: clicks select, they never act. Captured on `window` so no
+  // component's own handler (a link, a card's router.push, add-to-bag) ever
+  // runs: the frame must not navigate away from the draft or touch the
+  // owner's cart.
+  //
+  // Interact mode (#196): the shop's own handlers run — menus, sheets,
+  // carousels, dropdowns, the keyboard. Only following a link is stopped,
+  // with preventDefault alone (Next's Link skips navigation when the event is
+  // already defaultPrevented, and still runs its onClick, so a sheet closes
+  // as it would live). The href goes to the editor, which decides what to
+  // show. Forms stay blocked in both modes: a submit would leave the draft.
   React.useEffect(() => {
     const onClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (interactiveRef.current) {
+        const link = target?.closest('a[href]');
+        const href = link?.getAttribute('href');
+        if (link && href && !href.startsWith('#')) {
+          event.preventDefault();
+          postToParent({ type: PREVIEW_NAVIGATE, href });
+        }
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
-      const target = event.target instanceof Element ? event.target : null;
       const block = target?.closest('[data-preview-id]');
       const id = block?.getAttribute('data-preview-id');
       if (id) postToParent({ type: PREVIEW_SELECT, target: id });
@@ -162,6 +200,8 @@ export default function DraftPreviewClient() {
 
   if (!message || !data) {
     return (
+      <>
+      <style>{PREVIEW_CSS}</style>
       <div
         style={{
           minHeight: '60vh',
@@ -175,11 +215,13 @@ export default function DraftPreviewClient() {
       >
         Waiting for the editor…
       </div>
+      </>
     );
   }
 
   return (
     <StorefrontPreviewProvider value={data}>
+      <style>{PREVIEW_CSS}</style>
       {message.view === 'product' && message.productSlug ? (
         <ProductPreview slug={message.productSlug} chrome={message.chrome} />
       ) : message.view === 'page' && message.page ? (
@@ -188,7 +230,7 @@ export default function DraftPreviewClient() {
         // 'home' and 'menu': the home page, with the sheet open for 'menu'.
         <HomePageClient />
       )}
-      <Highlight target={message.highlight} />
+      <Highlight target={interactive ? undefined : message.highlight} />
     </StorefrontPreviewProvider>
   );
 }

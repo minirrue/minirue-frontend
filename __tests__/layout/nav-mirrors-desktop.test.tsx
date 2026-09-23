@@ -106,7 +106,12 @@ afterEach(() => {
   setWidth(1024);
 });
 
-const LIVE_EMPTY_NAVBAR = { items: [], showSearch: true, showAccount: true };
+/** The live layout since #197: Shop is a saved item like any other. */
+const LIVE_NAVBAR = {
+  items: [{ id: 'nav-shop', label: 'Shop', href: '/shop' }],
+  showSearch: true,
+  showAccount: true,
+};
 
 const CURATED_NAVBAR = {
   items: [
@@ -118,14 +123,14 @@ const CURATED_NAVBAR = {
 };
 
 describe('the mobile menu mirrors the desktop navbar', () => {
-  it('shows the same links, in the same order, when the admin configured none', async () => {
+  it('shows the same links, in the same order, for the live layout', async () => {
     setWidth(1440);
-    const desktop = render(<Header navbar={LIVE_EMPTY_NAVBAR} />);
+    const desktop = render(<Header navbar={LIVE_NAVBAR} />);
     await waitFor(() => expect(desktopNavLabels().length).toBeGreaterThan(0));
     const onDesktop = desktopNavLabels();
     desktop.unmount();
 
-    await renderMobileMenu(LIVE_EMPTY_NAVBAR);
+    await renderMobileMenu(LIVE_NAVBAR);
 
     // The exact failure this closes: on the live shop the desktop bar said
     // "Shop" and the sheet said "No menu items yet."

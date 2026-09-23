@@ -10,10 +10,13 @@ import {
 } from '@/lib/preview/dashboard-origins';
 import {
   PREVIEW_HEIGHT,
+  PREVIEW_MODE,
+  PREVIEW_NAVIGATE,
   PREVIEW_READY,
   PREVIEW_RENDER,
   PREVIEW_SELECT,
   isAllowedOrigin,
+  parseModeMessage,
   parseRenderMessage,
 } from '@/lib/preview/protocol';
 
@@ -126,5 +129,26 @@ describe('parseRenderMessage', () => {
       { type: 'mr-preview:render', home, chrome, view: 'home', highlight: 7 },
     ];
     for (const data of bad) expect(parseRenderMessage(data)).toBeNull();
+  });
+});
+
+describe('Interact mode messages (#196)', () => {
+  it('pins the exact strings the dashboard sends and reads', () => {
+    expect(PREVIEW_MODE).toBe('mr-preview:mode');
+    expect(PREVIEW_NAVIGATE).toBe('mr-preview:navigate');
+  });
+
+  it('accepts a boolean mode and nothing else', () => {
+    expect(parseModeMessage({ type: 'mr-preview:mode', interactive: true })).toEqual({ interactive: true });
+    expect(parseModeMessage({ type: 'mr-preview:mode', interactive: false })).toEqual({ interactive: false });
+    for (const data of [
+      null,
+      'mr-preview:mode',
+      { type: 'mr-preview:mode' },
+      { type: 'mr-preview:mode', interactive: 'yes' },
+      { type: 'mr-preview:render', interactive: true },
+    ]) {
+      expect(parseModeMessage(data)).toBeNull();
+    }
   });
 });

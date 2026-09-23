@@ -9,9 +9,11 @@ import type { ResolvedChrome, ResolvedHome } from '@/lib/api/storefront';
  *     { type: 'mr-preview:ready' }                     once mounted (targetOrigin '*')
  *     { type: 'mr-preview:height', height: number }    on resize
  *     { type: 'mr-preview:select', target: string }    a previewed block was clicked
+ *     { type: 'mr-preview:navigate', href: string }     Interact mode: a link was followed
  *
  *   parent → iframe
  *     { type: 'mr-preview:render', home, chrome, view, page?, productSlug?, highlight? }
+ *     { type: 'mr-preview:mode', interactive: boolean } Interact mode on/off (#196)
  *
  * `home`/`chrome` are the backend's `POST /v1/storefront/preview` answer —
  * the same shapes `GET /storefront/home` and `/chrome` return — so the real
@@ -22,6 +24,8 @@ export const PREVIEW_READY = 'mr-preview:ready';
 export const PREVIEW_HEIGHT = 'mr-preview:height';
 export const PREVIEW_SELECT = 'mr-preview:select';
 export const PREVIEW_RENDER = 'mr-preview:render';
+export const PREVIEW_MODE = 'mr-preview:mode';
+export const PREVIEW_NAVIGATE = 'mr-preview:navigate';
 
 export type PreviewView = 'home' | 'product' | 'menu' | 'page';
 
@@ -110,4 +114,15 @@ export function parseRenderMessage(data: unknown): PreviewRenderMessage | null {
     ...(productSlug ? { productSlug } : {}),
     ...(highlight ? { highlight } : {}),
   };
+}
+
+/**
+ * Interact mode (#196): `true` lets the shop's own handlers run (menus,
+ * sheets, carousels, keyboard) instead of every click selecting a block.
+ * Returns null for anything that is not a well-formed mode message.
+ */
+export function parseModeMessage(data: unknown): { interactive: boolean } | null {
+  if (!isObject(data) || data.type !== PREVIEW_MODE) return null;
+  if (typeof data.interactive !== 'boolean') return null;
+  return { interactive: data.interactive };
 }
