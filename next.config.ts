@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { DRAFT_PREVIEW_PATH, dashboardOrigins } from "./lib/preview/dashboard-origins";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -8,11 +9,11 @@ const isProd = process.env.NODE_ENV === "production";
 // injects inline hydration scripts. TODO(security): move to a nonce-based
 // script-src via proxy/middleware and drop 'unsafe-inline'. Dev adds
 // 'unsafe-eval' + ws/http so HMR keeps working.
-const contentSecurityPolicy = [
+const buildContentSecurityPolicy = (frameAncestors: string) => [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
-  "frame-ancestors 'none'",
+  `frame-ancestors ${frameAncestors}`,
   "form-action 'self'",
   // Third-party analytics/integration scripts are delayed until after hydration.
   `script-src 'self' 'unsafe-inline' https://connect.facebook.net https://analytics.tiktok.com https://invitejs.trustpilot.com${isProd ? "" : " 'unsafe-eval'"}`,
@@ -26,6 +27,8 @@ const contentSecurityPolicy = [
   "frame-src 'self'",
   "upgrade-insecure-requests",
 ].join("; ");
+
+const contentSecurityPolicy = buildContentSecurityPolicy("'none'");
 
 const securityHeaders = [
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
@@ -48,10 +51,37 @@ const securityHeaders = [
     : []),
 ];
 
+/**
+ * The dashboard Storefront editor's draft preview (#193) is the ONE route
+ * another site may frame, and only the dashboard: `frame-ancestors` lists the
+ * dashboard origins (lib/preview/dashboard-origins.ts, which the page also
+ * uses to accept messages) and there is no `X-Frame-Options` — DENY would
+ * forbid the dashboard too, and XFO has no working allow-list form. Every
+ * other header is the site's own.
+ */
+const draftPreviewHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value: buildContentSecurityPolicy(dashboardOrigins().join(" ")),
+  },
+  ...securityHeaders.filter(
+    (h) => h.key !== "Content-Security-Policy" && h.key !== "X-Frame-Options",
+  ),
+];
+
 const nextConfig: NextConfig = {
   output: "standalone",
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      // Everything EXCEPT the draft preview keeps frame-ancestors 'none' + DENY.
+      // Excluded by pattern rather than overridden afterwards: a later rule can
+      // replace a header's value but cannot remove X-Frame-Options.
+      {
+        source: `/:path((?!${DRAFT_PREVIEW_PATH.slice(1)}(?:/|$)).*)`,
+        headers: securityHeaders,
+      },
+      { source: DRAFT_PREVIEW_PATH, headers: draftPreviewHeaders },
+    ];
   },
   // Storefront pages are canonical at /<slug>. This is a config-level
   // redirect rather than permanentRedirect() in the page. It used to be

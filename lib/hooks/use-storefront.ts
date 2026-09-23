@@ -10,6 +10,7 @@ import {
   type ResolvedChrome,
   type ResolvedHome,
 } from '@/lib/api/storefront';
+import { useStorefrontPreviewData } from './storefront-preview';
 
 /**
  * Live-updating storefront read layer.
@@ -69,12 +70,28 @@ export const storefrontChromeQueryOptions = () =>
     refetchOnReconnect: true,
   });
 
-/** Live-polling read of the resolved home page (sections + announcement). */
+/**
+ * Live-polling read of the resolved home page (sections + announcement).
+ *
+ * Inside the dashboard's draft preview (`StorefrontPreviewProvider`, #193)
+ * it returns the owner's unsaved draft instead and never fetches: the query
+ * is disabled, so neither polling nor the SSE invalidation can swap the live
+ * layout in as if it were the draft. On every live page the provider is
+ * absent and this is the same `useQuery` call it always was.
+ */
 export function useStorefrontHome() {
-  return useQuery(storefrontHomeQueryOptions());
+  const preview = useStorefrontPreviewData();
+  const query = useQuery(
+    preview ? { ...storefrontHomeQueryOptions(), enabled: false } : storefrontHomeQueryOptions(),
+  );
+  return preview ? ({ ...query, data: preview.home } as typeof query) : query;
 }
 
-/** Live-polling read of the resolved chrome (navbar, footer, favicon, announcement). */
+/** Live-polling read of the resolved chrome (navbar, footer, favicon, announcement). Draft-aware like `useStorefrontHome`. */
 export function useStorefrontChrome() {
-  return useQuery(storefrontChromeQueryOptions());
+  const preview = useStorefrontPreviewData();
+  const query = useQuery(
+    preview ? { ...storefrontChromeQueryOptions(), enabled: false } : storefrontChromeQueryOptions(),
+  );
+  return preview ? ({ ...query, data: preview.chrome } as typeof query) : query;
 }

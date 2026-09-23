@@ -7,6 +7,7 @@ import SocialIcon from '@/components/ui/SocialIcon';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { TextEffect } from '@/components/core/text-effect';
 import { type FooterConfig } from '@/lib/api/storefront';
+import { usePreviewId } from '@/lib/hooks/storefront-preview';
 
 /**
  * Ebneely maker's-mark — the owner's requirement, verbatim: "before the
@@ -127,6 +128,8 @@ export default function Footer({
   shopName?: string;
 }) {
   const { mobile } = useBreakpoint();
+  // Draft-preview tag (#193); undefined, so absent, on the live shop.
+  const previewId = usePreviewId('footer');
 
   /*
    * The footer renders exactly the columns the dashboard configured — nothing
@@ -160,7 +163,7 @@ export default function Footer({
       The height is measured from THIS element for the same reason: what has to
       fit the viewport is everything being revealed, not just `<footer>`.
     */
-    <div className="mr-footer-curtain">
+    <div className="mr-footer-curtain" data-preview-id={previewId}>
       <EbneelySignature />
       <footer
         data-mr-surface="ink"

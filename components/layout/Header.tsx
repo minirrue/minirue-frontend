@@ -15,6 +15,7 @@ import { useSessionState } from '@/lib/hooks/use-session-state';
 import { useCustomerProfile } from '@/lib/hooks/use-customer';
 import { useIdleImport } from '@/lib/hooks/useIdleImport';
 import { useStorefrontChrome } from '@/lib/hooks/use-storefront';
+import { usePreviewId } from '@/lib/hooks/storefront-preview';
 import {
   FALLBACK_CHROME,
   type ResolvedChrome,
@@ -202,6 +203,9 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
   // The uploaded logo's home is the shop panel (app/categories) and the chat
   // avatar — not here. Do not reintroduce a `shopLogoUrl` binding.
   const shopName = chrome?.shopName ?? FALLBACK_CHROME.shopName;
+  // Draft-preview tag (#193) for the bar AND the phone menu sheet: the sheet
+  // lists the same navbar items. Undefined, so absent, on the live shop.
+  const previewId = usePreviewId('navbar');
 
   // Single scroll subscription, rAF-throttled, shared with MobileBottomNav —
   // replaces the old unthrottled `scroll` listener this file used to attach
@@ -330,6 +334,7 @@ export default function Header({ navbar, onOpenCart, cartCount = 0, transparent 
     <>
       <header
         data-testid="site-header"
+        data-preview-id={previewId}
         style={{
           position: 'sticky',
           top: 0,

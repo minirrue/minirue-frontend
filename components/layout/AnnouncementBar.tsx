@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import { usePreviewId } from '@/lib/hooks/storefront-preview';
 
 interface AnnouncementBarProps {
   messages?: string[];
@@ -72,6 +73,8 @@ export default function AnnouncementBar({
   const [localHidden, setLocalHidden] = React.useState(false);
   const hidden = ctx ? ctx.hidden : localHidden;
   const setHidden = ctx ? ctx.setHidden : setLocalHidden;
+  // Draft-preview tag (#193); undefined, so absent, on the live shop.
+  const previewId = usePreviewId('announcement');
 
   // Phase 5 — Responsive sizing: scale down on mobile and small screens
   const bp = useBreakpoint();
@@ -172,6 +175,7 @@ export default function AnnouncementBar({
   return (
     <div
       aria-label="Announcements"
+      data-preview-id={previewId}
       style={{
         // NOT sticky, and deliberately below the header in the stack.
         //

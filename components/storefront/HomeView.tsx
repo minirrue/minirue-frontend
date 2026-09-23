@@ -4,6 +4,7 @@ import React from 'react';
 import type { ResolvedHome } from '@/lib/api/storefront';
 import SectionRenderer from './SectionRenderer';
 import { MARQUEE_HEIGHT } from '@/components/ui/Marquee';
+import { useStorefrontPreviewData } from '@/lib/hooks/storefront-preview';
 
 export default function HomeView({
   home,
@@ -11,6 +12,10 @@ export default function HomeView({
   home: ResolvedHome;
 }) {
   const firstGridRef = React.useRef<HTMLDivElement | null>(null);
+  // Tags each section for the dashboard's draft preview (#193) so a click can
+  // select it and the editor can outline it. Null on the live shop, where the
+  // attribute is therefore omitted.
+  const inPreview = useStorefrontPreviewData() !== null;
 
   const scrollToProducts = () => {
     const el = firstGridRef.current;
@@ -26,7 +31,11 @@ export default function HomeView({
   return (
     <main data-screen-label="Storefront · Home">
       {home.sections.map((section, index) => (
-        <div key={section.id} ref={index === firstGridIndex ? firstGridRef : undefined}>
+        <div
+          key={section.id}
+          ref={index === firstGridIndex ? firstGridRef : undefined}
+          data-preview-id={inPreview ? section.id : undefined}
+        >
           <SectionRenderer
             section={section}
             onScrollToProducts={scrollToProducts}

@@ -1,7 +1,7 @@
 import AnnouncementBarServer from '@/components/layout/AnnouncementBarServer';
 import FooterWithSettings from '@/components/layout/FooterWithSettings';
 import HeaderWrapper from '@/app/shop/HeaderWrapper';
-import Markdown from '@/components/storefront/Markdown';
+import StorefrontPageArticle from '@/components/storefront/StorefrontPageArticle';
 
 /**
  * Renders one admin-authored storefront page (Terms, Privacy, …). Shared by the
@@ -21,31 +21,7 @@ export default function StorefrontPageView({
         <AnnouncementBarServer />
         <HeaderWrapper />
 
-        <main
-          style={{
-            maxWidth: 'var(--mr-content-max)',
-            margin: '0 auto',
-            padding: 'clamp(48px,8vw,96px) var(--mr-gutter)',
-          }}
-        >
-          <article>
-            <h1
-              style={{
-                fontFamily: 'var(--mr-font-serif)',
-                fontWeight: 400,
-                fontSize: 'clamp(var(--mr-text-2xl), 4vw, var(--mr-text-3xl))',
-                lineHeight: 1.08,
-                letterSpacing: '-0.006em',
-                margin: '0 0 clamp(28px, 5vw, 44px)',
-                color: 'var(--mr-fg)',
-                textAlign: 'center',
-              }}
-            >
-              {title}
-            </h1>
-            <Markdown body={body} />
-          </article>
-        </main>
+        <StorefrontPageArticle title={title} body={body} />
       </div>
 
       {/* The footer band — AFTER the page sheet, which is where it was before

@@ -7,6 +7,7 @@ import { useDeliverySettings, useTrustSettings } from '@/lib/hooks/use-trust-row
 import { resolveFreeDelivery, resolveSameDayGovernorates, resolveCodAvailable } from '@/lib/checkout/trust-row';
 import { resolvePromises, type PromiseFacts } from '@/lib/storefront/promises';
 import type { ProductPerk } from '@/lib/api/storefront';
+import { usePreviewId } from '@/lib/hooks/storefront-preview';
 
 /** What the server already resolved, so the block is whole in the first HTML. */
 export interface InitialPromiseFacts {
@@ -55,6 +56,8 @@ export default function ProductPromises({ perks, priceAmount, deliveryLine, revi
   const codMaxMinor = useCodMaxOrderMinor();
   const delivery = useDeliverySettings();
   const trust = useTrustSettings();
+  // Draft-preview tag (#193); undefined, so absent, on the live shop.
+  const previewId = usePreviewId('promises');
 
   const promises = useMemo(() => {
     // Live settings win once they have loaded; until then the server's own
@@ -83,6 +86,7 @@ export default function ProductPromises({ perks, priceAmount, deliveryLine, revi
       data-trace-id="PG-STOREFRONT-CAT-005::EL-REGION-product-promises"
       data-testid="product-promises"
       data-count={promises.length}
+      data-preview-id={previewId}
     >
       {promises.map((promise) => (
         <li key={promise.id} className="mr-promises__row" data-trace-id={`PG-STOREFRONT-CAT-005::EL-TEXT-product-promise@${promise.id}`}>

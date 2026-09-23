@@ -11,6 +11,8 @@ const DISALLOW = [
   "/checkout",
   "/cart",
   "/_internal/preview",
+  // The dashboard editor's draft preview (#193): framed by the dashboard only.
+  "/_internal/draft-preview",
 ];
 
 /**

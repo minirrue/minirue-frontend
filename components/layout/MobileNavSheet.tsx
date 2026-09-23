@@ -56,6 +56,7 @@ import type {
   SocialNetwork,
 } from '@/lib/api/storefront';
 import { useSheetDrag } from '@/lib/hooks/useSheetDrag';
+import { usePreviewId } from '@/lib/hooks/storefront-preview';
 import { useSpringValue } from '@/lib/motion/hooks';
 import NavProductTile from './NavProductTile';
 
@@ -160,6 +161,9 @@ export default function MobileNavSheet({
   // level deep into A, [A, B] is two levels deep into A's child B, and so on.
   const [drillPath, setDrillPath] = React.useState<ResolvedNavItem[]>([]);
   const reducedMotion = usePrefersReducedMotion();
+  // Draft-preview tag (#193): the sheet lists the navbar's items. Undefined,
+  // so absent, on the live shop.
+  const previewId = usePreviewId('navbar');
   const sheetRef = React.useRef<HTMLDivElement>(null);
   const drag = useSheetDrag({
     direction: 'down',
@@ -288,6 +292,7 @@ export default function MobileNavSheet({
         aria-modal="true"
         aria-label="Menu"
         data-trace-id="PG-STOREFRONT-NAV-001::EL-REGION-mobile-nav-sheet"
+        data-preview-id={previewId}
         style={{
           position: 'absolute',
           left: 0,

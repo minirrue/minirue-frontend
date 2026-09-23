@@ -444,6 +444,7 @@ const REQUIRED_DISALLOWS = [
   "/checkout",
   "/cart",
   "/_internal/preview",
+  "/_internal/draft-preview",
 ];
 
 if (!robotsBodyPath) {
