@@ -63,6 +63,15 @@ test('expired token does not expose saved items or allow a claim', async () => {
   expect(screen.queryByRole('button', { name: 'Connect this purchase' })).not.toBeInTheDocument();
 });
 
+test('refunded receipt does not offer a new reward claim or celebrate success', async () => {
+  getReview.mockResolvedValue({ ...review, status: 'COMPLETED', orderStatus: 'REFUNDED' });
+  render(<GroundReviewClient token="opaque-token" />);
+  expect(await screen.findByText('Purchase refunded')).toBeInTheDocument();
+  expect(screen.getByText('Rewards updated')).toBeInTheDocument();
+  expect(screen.queryByText('Purchase complete')).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Create my account' })).not.toBeInTheDocument();
+});
+
 test('a refused claim remains pending and never reports success', async () => {
   session.mockReturnValue({ isSignedIn: true, isSignedOut: false, status: 'signed-in', user: undefined });
   getReview.mockResolvedValue({ ...review, status: 'COMPLETED' });

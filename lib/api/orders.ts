@@ -54,6 +54,7 @@ export interface ShippingAddressSnapshot {
 
 export interface Order {
   id: string;
+  salesMode?: 'GROUND' | 'ONLINE' | null;
   orderNumber: string;
   orderSeq: number;
   userId: string;

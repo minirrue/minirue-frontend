@@ -83,6 +83,7 @@ export default function GroundReviewClient({ token }: { token: string }) {
   }
 
   const done = review?.status === 'COMPLETED';
+  const reversed = review?.orderStatus === 'REFUNDED' || review?.orderStatus === 'CANCELLED';
   const expired = review?.status === 'EXPIRED' || problem === 'unavailable';
   const online = review?.salesMode === 'ONLINE';
   const returnPath = `/booth/review/${encodeURIComponent(token)}`;
@@ -101,9 +102,9 @@ export default function GroundReviewClient({ token }: { token: string }) {
           {problem ? <button className="gr-primary" onClick={() => setRetry(n => n + 1)}>Try again</button> : <div className="gr-loading" aria-label="Loading order" />}
         </section> : <>
           <section className="gr-intro">
-            <h1>{done ? online ? 'Order confirmed' : 'Purchase complete' : 'Review your order'}</h1>
-            <p>{done ? 'Your order has been confirmed by our team. Thank you for shopping with MiniRue.' : 'Check your items and prices while our team takes care of your order.'}</p>
-            <div className={`gr-status ${done ? 'gr-status-done' : ''}`} role="status"><Icon name={done ? 'check' : 'bag'} size={20} />{done ? online ? 'Confirmed by our team' : 'Payment received · collected in person' : 'Waiting for staff confirmation'}</div>
+            <h1>{reversed ? review.orderStatus === 'REFUNDED' ? 'Purchase refunded' : 'Order cancelled' : done ? online ? 'Order confirmed' : 'Purchase complete' : 'Review your order'}</h1>
+            <p>{reversed ? 'This receipt keeps the original items and prices for your records.' : done ? 'Your order has been confirmed by our team. Thank you for shopping with MiniRue.' : 'Check your items and prices while our team takes care of your order.'}</p>
+            <div className={`gr-status ${reversed ? 'gr-status-reversed' : done ? 'gr-status-done' : ''}`} role="status"><Icon name={reversed ? 'x' : done ? 'check' : 'bag'} size={20} />{reversed ? review.orderStatus === 'REFUNDED' ? 'Refunded' : 'Cancelled' : done ? online ? 'Confirmed by our team' : 'Payment received · collected in person' : 'Waiting for staff confirmation'}</div>
             {review.orderNumber && <p className="gr-reference">Order {review.orderNumber}</p>}
           </section>
           {problem === 'connection' && <div className="gr-alert" role="alert"><p><strong>Connection interrupted.</strong> These are the last details received. Keep this page open, or ask our team to confirm the current status.</p><button onClick={() => setRetry(n => n + 1)}>Retry</button></div>}
@@ -115,21 +116,21 @@ export default function GroundReviewClient({ token }: { token: string }) {
                 <div><h3>{item.name}</h3><p>{item.sizeMl ? `${item.sizeMl} ml · ` : ''}Quantity {item.quantity}</p><span>{money(item.unitPriceMinor)} each</span></div>
                 <strong>{money(item.lineTotalMinor)}</strong>
               </li>)}</ul>
-              <dl className="gr-totals"><div><dt>Subtotal</dt><dd>{money(review.subtotalMinor)}</dd></div>{!!review.discountMinor && <div><dt>Discount</dt><dd>−{money(review.discountMinor)}</dd></div>}<div><dt>{online ? 'Delivery' : 'Collection'}</dt><dd>{online ? money(review.shippingMinor) : 'With our team · Free'}</dd></div><div className="gr-grand"><dt>{done && !online ? 'Total paid' : 'Order total'}</dt><dd>{money(review.totalMinor)}</dd></div></dl>
+              <dl className="gr-totals"><div><dt>Subtotal</dt><dd>{money(review.subtotalMinor)}</dd></div>{!!review.discountMinor && <div><dt>Discount</dt><dd>−{money(review.discountMinor)}</dd></div>}<div><dt>{online ? 'Delivery' : 'Collection'}</dt><dd>{online ? money(review.shippingMinor) : 'With our team · Free'}</dd></div><div className="gr-grand"><dt>{done && !online && !reversed ? 'Total paid' : 'Order total'}</dt><dd>{money(review.totalMinor)}</dd></div></dl>
               <p className="gr-note">These prices belong to this order. Ask our team if anything needs changing before confirmation.</p>
             </section>
             <aside className="gr-aside">
-              <section className="gr-reward" aria-labelledby="gr-reward-title"><Icon name="gift" size={28} /><h2 id="gr-reward-title">{review.loyalty.expectedPoints.toLocaleString()} {done && !online ? 'reward points' : 'expected points'}</h2>
+              {reversed ? <section className="gr-reward"><h2>Rewards updated</h2><p>This purchase no longer earns reward points. Your account reflects any eligible reward adjustments.</p></section> : <section className="gr-reward" aria-labelledby="gr-reward-title"><Icon name="gift" size={28} /><h2 id="gr-reward-title">{review.loyalty.expectedPoints.toLocaleString()} {done && !online ? 'reward points' : 'expected points'}</h2>
                 <p>{review.loyalty.egpValueMinor == null ? 'Your reward value will appear when the conversion rate is available.' : `${money(review.loyalty.egpValueMinor)} in future reward value.`}</p>
                 <p className="gr-note">{online ? 'Points become available after delivery and verification of your account.' : done ? 'Connect a verified account to keep your purchase history and eligible rewards together.' : 'Points are confirmed after staff receive payment and hand over your items. A verified account is required to claim them.'}</p>
-              </section>
+              </section>}
               <p className="gr-help">Our team confirms your order. You will not be asked to make an online payment on this page.</p>
             </aside>
           </div>
-          {done && <section className="gr-account" aria-labelledby="gr-account-title"><h2 id="gr-account-title">Keep your receipt and rewards</h2><p>Connect using the verified email you gave our team. If you supplied only a phone number, your purchase stays recorded and your claim waits until phone verification is available. A purchase does not automatically create an online account.</p>{claimError && <p role="alert" className="gr-claim-error">{claimError}</p>}
+          {done && !reversed && <section className="gr-account" aria-labelledby="gr-account-title"><h2 id="gr-account-title">Keep your receipt and rewards</h2><p>Connect using the verified email you gave our team. If you supplied only a phone number, your purchase stays recorded and your claim waits until phone verification is available. A purchase does not automatically create an online account.</p>{claimError && <p role="alert" className="gr-claim-error">{claimError}</p>}
             <div className="gr-actions">{claimState === 'done' ? <><span role="status">Purchase connected to your account.</span><Link className="gr-primary" href="/account/orders">View my orders<Icon name="arrowRight" size={18} /></Link></> : isSignedIn ? <button className="gr-primary" disabled={claimState === 'saving'} onClick={claim}>{claimState === 'saving' ? 'Connecting purchase…' : 'Connect this purchase'}<Icon name="arrowRight" size={18} /></button> : sessionStatus === 'unknown' ? <span role="status">Checking your account…</span> : <><a className="gr-primary" href={`/signup${authQuery}`}>Create my account<Icon name="arrowRight" size={18} /></a><a className="gr-secondary" href={`/login${authQuery}`}>I already have an account</a></>}</div>
           </section>}
-          {done && <OrderCelebration orderNumber={review.orderNumber} />}
+          {done && !reversed && <OrderCelebration orderNumber={review.orderNumber} />}
         </>}
     </main>
     <footer className="gr-footer"><span>MiniRue · Egypt</span><span>Need help? Ask our team.</span></footer>

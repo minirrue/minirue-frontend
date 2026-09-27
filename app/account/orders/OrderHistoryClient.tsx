@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import RemoteImage from '@/components/ui/RemoteImage';
+import OrderSourceLabel from '@/components/orders/OrderSourceLabel';
 import { apiListOrders, type OrderSummary } from '@/lib/checkout/checkout-api';
 import { apiListMyRefunds, type RefundStatus } from '@/lib/api/refunds';
 import {
@@ -233,6 +234,7 @@ function OrderCard({ order, refundStatus }: { order: OrderSummary; refundStatus?
 
           {/* Only the amount goes here — the word "Refunded" is already the
               status above; repeating it would just be noise. */}
+          <OrderSourceLabel salesMode={order.salesMode} />
           {!!order.refundedAmountCents && (
             <div
               style={{

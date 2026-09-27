@@ -10,3 +10,4 @@
 @media(min-width:1100px){.gr-grid{grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:32px}.gr-item{grid-template-columns:76px minmax(0,1fr) auto}.gr-image{width:76px}.gr-item>strong{grid-column:auto}}
 @media(max-width:479px){.gr-actions>*{width:100%}.gr-header>span{max-width:100px;text-align:right}}
 @media(prefers-reduced-motion:reduce){.gr-loading{animation:none}}
+.gr-status-reversed{background:#fbecec;color:#942f35}

@@ -97,6 +97,7 @@ export interface OrderItemBundle {
 }
 
 export interface OrderSummary {
+  salesMode?: 'GROUND' | 'ONLINE' | null;
   id: string;
   orderNumber: string;
   orderSeq: number;

@@ -7,6 +7,7 @@ import OrderLineList, {
 } from "@/components/orders/OrderLineList";
 import OrderDeliveryInfo from "@/components/orders/OrderDeliveryInfo";
 import OrderProgress from "@/components/orders/OrderProgress";
+import OrderSourceLabel from "@/components/orders/OrderSourceLabel";
 import { formatOrderRef, formatOrderStatus, formatOrderTotal } from "@/lib/orders/order-format";
 import { useParams } from "next/navigation";
 import { apiGetOrder, type OrderSummary } from "@/lib/checkout/checkout-api";
@@ -69,6 +70,7 @@ export default function OrderDetailClient() {
         ← Back to orders
       </Link>
       <h1 className="mt-4 text-2xl font-serif">Order {formatOrderRef(order)}</h1>
+      <OrderSourceLabel salesMode={order.salesMode} />
       <p className="mt-2 text-sm text-neutral-600">
         {formatOrderStatus(order.status)}
         {order.createdAt
@@ -82,20 +84,20 @@ export default function OrderDetailClient() {
 
       {/* "Where is my order" — the progress that used to sit on the
           /orders/[id]/track page, which could never load an order (#125). */}
-      <div style={{ marginTop: 24 }}>
+      {order.salesMode !== 'GROUND' && <div style={{ marginTop: 24 }}>
         <OrderProgress
           status={order.status}
           delivery={order.delivery}
           currency={order.totalCurrency}
         />
-      </div>
+      </div>}
 
       {/* Method, window and same-day fee status — absent for an order placed
           before #163, or from a backend that hasn't sent it yet. */}
-      <OrderDeliveryInfo
+      {order.salesMode !== 'GROUND' && <OrderDeliveryInfo
         delivery={order.delivery}
         currency={order.totalCurrency}
-      />
+      />}
 
       {order.paymentRejection && <PaymentRejectionPanel order={order} />}
 

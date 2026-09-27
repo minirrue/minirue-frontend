@@ -13,6 +13,7 @@ export interface GroundReview {
   expiresAt: string;
   completedAt: string | null;
   orderNumber: string | null;
+  orderStatus?: string;
 }
 
 export function getGroundReview(token: string, signal?: AbortSignal) {
