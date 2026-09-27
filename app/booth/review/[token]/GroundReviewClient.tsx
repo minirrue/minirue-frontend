@@ -115,7 +115,7 @@ export default function GroundReviewClient({ token }: { token: string }) {
                 <div><h3>{item.name}</h3><p>{item.sizeMl ? `${item.sizeMl} ml · ` : ''}Quantity {item.quantity}</p><span>{money(item.unitPriceMinor)} each</span></div>
                 <strong>{money(item.lineTotalMinor)}</strong>
               </li>)}</ul>
-              <dl className="gr-totals"><div><dt>Subtotal</dt><dd>{money(review.subtotalMinor)}</dd></div><div><dt>{online ? 'Delivery' : 'Collection'}</dt><dd>{online ? money(review.shippingMinor) : 'With our team · Free'}</dd></div><div className="gr-grand"><dt>{done && !online ? 'Total paid' : 'Order total'}</dt><dd>{money(review.totalMinor)}</dd></div></dl>
+              <dl className="gr-totals"><div><dt>Subtotal</dt><dd>{money(review.subtotalMinor)}</dd></div>{!!review.discountMinor && <div><dt>Discount</dt><dd>−{money(review.discountMinor)}</dd></div>}<div><dt>{online ? 'Delivery' : 'Collection'}</dt><dd>{online ? money(review.shippingMinor) : 'With our team · Free'}</dd></div><div className="gr-grand"><dt>{done && !online ? 'Total paid' : 'Order total'}</dt><dd>{money(review.totalMinor)}</dd></div></dl>
               <p className="gr-note">These prices belong to this order. Ask our team if anything needs changing before confirmation.</p>
             </section>
             <aside className="gr-aside">

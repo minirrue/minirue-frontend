@@ -6,6 +6,7 @@ export interface GroundReview {
   currency: 'EGP';
   items: Array<{ id: string; kind: 'VARIANT' | 'BUNDLE'; variantId: string | null; bundleId: string | null; name: string; sku: string | null; sizeMl: number | null; quantity: number; unitPriceMinor: number; lineTotalMinor: number; imageUrl: string | null }>;
   subtotalMinor: number;
+  discountMinor?: number;
   totalMinor: number;
   shippingMinor: number;
   loyalty: { expectedPoints: number; egpValueMinor: number | null; pointsPerEgp: number; egpPerPoint: number | null };
