@@ -16,6 +16,7 @@ import { SupportProvider } from "@/lib/support/support-context";
 import SupportWidget from "@/components/chat/SupportWidget";
 import { AnnouncementBarProvider } from "@/components/layout/AnnouncementBar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import PublicShoppingChrome from "@/components/layout/PublicShoppingChrome";
 import PageLoader from "@/components/layout/PageLoader";
 import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
 import MetaPixel from "@/components/seo/MetaPixel";
@@ -312,7 +313,7 @@ export default function RootLayout({
                 <SupportProvider>
                   <LenisProvider>{children}</LenisProvider>
                   <CartDrawer />
-                  <SupportWidget />
+                  <PublicShoppingChrome><SupportWidget /></PublicShoppingChrome>
                   {/* W4a.2: mounted once, globally — same tier as CartDrawer
                       and SupportWidget above — rather than per-page, so it
                       exists even on routes (checkout, account, home) that
@@ -321,7 +322,7 @@ export default function RootLayout({
                       shared client state (lib/hooks/useMobileChrome.ts,
                       CartContext), never as a prop, since there is no
                       single call site to thread one through. */}
-                  <MobileBottomNav />
+                  <PublicShoppingChrome><MobileBottomNav /></PublicShoppingChrome>
                 </SupportProvider>
               </CartProvider>
               </SitewideDiscountProvider>

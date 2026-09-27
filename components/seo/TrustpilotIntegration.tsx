@@ -7,7 +7,10 @@ const integrationKey =
   process.env.NEXT_PUBLIC_TRUSTPILOT_INTEGRATION_KEY?.trim() || 'ZO0eVJFmYpzTQAAH';
 
 export function shouldLoadTrustpilot(pathname: string): boolean {
-  return pathname !== '/checkout' && !pathname.startsWith('/checkout/');
+  return pathname !== '/checkout' && !pathname.startsWith('/checkout/')
+    && !pathname.startsWith('/booth/review/')
+    // Auth URLs can carry a private receipt token in their return destination.
+    && pathname !== '/login' && pathname !== '/signup';
 }
 
 export default function TrustpilotIntegration() {

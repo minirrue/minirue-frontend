@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { META_PIXEL_ID } from '@/lib/analytics/meta-pixel';
 import { TIKTOK_PIXEL_ID } from '@/lib/analytics/tiktok-pixel';
 import { isAdsOff } from '@/lib/analytics/ads-off';
+import { isPrivateOrderLocation } from '@/lib/privacy/private-order-route';
 
 declare global {
   interface Window {
@@ -34,6 +35,7 @@ export default function MetaPixel(): null {
     }
     if (lastRoute.current === route) return;
     lastRoute.current = route;
+    if (isPrivateOrderLocation()) return;
     if (META_PIXEL_ID) window.fbq?.('track', 'PageView');
     if (TIKTOK_PIXEL_ID && !isAdsOff()) window.ttq?.page?.();
   }, [pathname, searchParams]);

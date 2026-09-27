@@ -11,6 +11,7 @@ import { getTabSessionId } from './session';
 import { sendBeacon, sendFetch } from './transport';
 import { trackMetaPixelEvent } from './meta-pixel';
 import { trackTikTokEvent } from './tiktok-pixel';
+import { isPrivateOrderLocation } from '@/lib/privacy/private-order-route';
 
 const PAYLOAD_VERSION = 1 as const;
 
@@ -44,7 +45,7 @@ function currentPage(): string | undefined {
  */
 export function track<K extends AnalyticsEventName>(name: K, props: AnalyticsPropsOf<K>): void {
   try {
-    if (ANALYTICS_DISABLED) return;
+    if (ANALYTICS_DISABLED || isPrivateOrderLocation()) return;
     if (typeof window === 'undefined') return;
 
     const event: AnalyticsEventBase = {
@@ -120,7 +121,7 @@ function buildPayload(events: AnalyticsEventBase[]): AnalyticsCollectPayload {
  */
 export async function flush(): Promise<void> {
   try {
-    if (ANALYTICS_DISABLED) return;
+    if (ANALYTICS_DISABLED || isPrivateOrderLocation()) return;
     const events = dequeueAll();
     if (events.length === 0) return;
 
@@ -139,7 +140,7 @@ export async function flush(): Promise<void> {
  */
 export function flushBeacon(): void {
   try {
-    if (ANALYTICS_DISABLED) return;
+    if (ANALYTICS_DISABLED || isPrivateOrderLocation()) return;
     const events = dequeueAll();
     if (events.length === 0) return;
 

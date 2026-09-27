@@ -14,6 +14,7 @@ import { apiLogin, apiLogout } from '@/lib/api/auth';
 import { clearAuthFlag } from '@/lib/auth/tokens';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import { formatApiError, type ApiError } from '@/lib/api/client';
+import { safeReturnPath } from '@/lib/auth/safe-return-path';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -58,7 +59,7 @@ export default function LoginPage() {
   const getNextPath = () => {
     const params = new URLSearchParams(window.location.search);
     const target = params.get('next') ?? params.get('returnUrl');
-    return target?.startsWith('/') && !target.startsWith('//') ? target : '/';
+    return safeReturnPath(target);
   };
   /**
    * "Create account" has to inherit this page's own destination.

@@ -34,4 +34,10 @@ describe('Trustpilot integration', () => {
 
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('keeps private review and auth return URLs away from third-party scripts', () => {
+    expect(shouldLoadTrustpilot('/booth/review/opaque')).toBe(false);
+    expect(shouldLoadTrustpilot('/login')).toBe(false);
+    expect(shouldLoadTrustpilot('/signup')).toBe(false);
+  });
 });

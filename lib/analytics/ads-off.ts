@@ -8,13 +8,15 @@
  * backend classifies those events itself from the same device signal. This
  * only gates the Meta/TikTok pixels.
  */
+import { isPrivateOrderLocation } from '@/lib/privacy/private-order-route';
+
 const ADS_OFF_COOKIE_PATTERN = /(?:^|;\s*)mr-ads-off=1(?:;|$)/;
 
 /** Runtime check for use in regular (non-inline) TS/JS. */
 export function isAdsOff(): boolean {
   try {
     if (typeof document === 'undefined') return false;
-    return ADS_OFF_COOKIE_PATTERN.test(document.cookie);
+    return isPrivateOrderLocation() || ADS_OFF_COOKIE_PATTERN.test(document.cookie);
   } catch {
     return false;
   }
@@ -27,4 +29,4 @@ export function isAdsOff(): boolean {
  * as source text rather than called as a function.
  */
 export const ADS_OFF_INLINE_CHECK =
-  '!/(?:^|;\\s*)mr-ads-off=1(?:;|$)/.test(document.cookie)';
+  '!/(?:^|;\\s*)mr-ads-off=1(?:;|$)/.test(document.cookie) && !location.pathname.startsWith("/booth/review/") && !["next","returnUrl"].some(function(k){return (new URLSearchParams(location.search).get(k)||"").startsWith("/booth/review/")})';

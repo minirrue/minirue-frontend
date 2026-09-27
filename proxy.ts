@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isPrivateOrderRoute } from './lib/privacy/private-order-route'
+import { safeReturnPath } from './lib/auth/safe-return-path'
 
 /**
  * Routes with no meaning for a guest, so a redirect is the honest answer.
@@ -278,10 +280,17 @@ export default function proxy(request: NextRequest) {
     // `next` is honoured when present so the round trip a guest was sent on
     // still lands where it meant to; otherwise the account area.
     const next = request.nextUrl.searchParams.get('next')
-    const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/account'
+    const safeNext = safeReturnPath(next, '/account')
     res = NextResponse.redirect(new URL(safeNext, request.url))
   } else {
     res = NextResponse.next()
+  }
+
+  if (isPrivateOrderRoute(pathname, request.nextUrl.search)) {
+    res.headers.set('Cache-Control', 'private, no-store')
+    res.headers.set('Referrer-Policy', 'no-referrer')
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
+    return res
   }
 
   // Crawlers fetching non-HTML resources (robots.txt, sitemap.xml, RSS feeds,

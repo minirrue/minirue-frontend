@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AuthShell from '@/components/auth/AuthShell';
 import FormField from '@/components/ui/FormField';
 import Button from '@/components/ui/Button';
@@ -20,6 +20,7 @@ import { apiRegister, RegistrationPhoneSaveError } from '@/lib/api/auth';
 import { apiUpdateMe } from '@/lib/api/customers';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import { formatApiError, type ApiError } from '@/lib/api/client';
+import { safeReturnPath } from '@/lib/auth/safe-return-path';
 
 // The reason-phrase filtering that used to live here (a local `humanMessage`)
 // is now inside formatApiError, which also handles the ARRAY shape that a 422
@@ -28,6 +29,9 @@ import { formatApiError, type ApiError } from '@/lib/api/client';
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTarget = safeReturnPath(searchParams.get('next') ?? searchParams.get('returnUrl'));
+  const loginHref = returnTarget === '/' ? '/login' : `/login?next=${encodeURIComponent(returnTarget)}`;
   const [form, setForm] = React.useState<SignupFormData>({
     firstName: '',
     lastName: '',
@@ -97,7 +101,8 @@ export default function SignupPage() {
       // when it unmounts, mobile keyboards can stay open there with nothing
       // to explain it. Blur before navigating away.
       blurActiveElement();
-      router.replace('/');
+      const params = new URLSearchParams(window.location.search);
+      router.replace(safeReturnPath(params.get('next') ?? params.get('returnUrl')));
       return;
     } catch (err: unknown) {
       setLoading(false);
@@ -324,7 +329,7 @@ export default function SignupPage() {
       >
         Already a member?{' '}
         <Link
-          href="/login"
+          href={loginHref}
           data-trace-id="PG-STOREFRONT-IAM-002::EL-LINK-sign-in"
           style={{ color: 'var(--mr-ink-900)', textDecoration: 'none', fontWeight: 500 }}
         >
