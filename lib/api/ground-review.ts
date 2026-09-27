@@ -4,7 +4,7 @@ export interface GroundReview {
   status: 'AWAITING_PAYMENT' | 'COMPLETED' | 'EXPIRED';
   salesMode: 'GROUND' | 'ONLINE';
   currency: 'EGP';
-  items: Array<{ variantId: string; name: string; sku: string; sizeMl: number | null; quantity: number; unitPriceMinor: number; lineTotalMinor: number; imageUrl: string | null }>;
+  items: Array<{ id: string; kind: 'VARIANT' | 'BUNDLE'; variantId: string | null; bundleId: string | null; name: string; sku: string | null; sizeMl: number | null; quantity: number; unitPriceMinor: number; lineTotalMinor: number; imageUrl: string | null }>;
   subtotalMinor: number;
   totalMinor: number;
   shippingMinor: number;

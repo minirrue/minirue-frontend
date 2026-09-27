@@ -110,7 +110,7 @@ export default function GroundReviewClient({ token }: { token: string }) {
           <div className="gr-grid">
             <section className="gr-order" aria-labelledby="gr-items-title">
               <div className="gr-section-heading"><h2 id="gr-items-title">Your items</h2><span>{review.items.reduce((n, item) => n + item.quantity, 0)} items</span></div>
-              <ul className="gr-items">{review.items.map(item => <li className="gr-item" key={item.variantId}>
+              <ul className="gr-items">{review.items.map(item => <li className="gr-item" key={item.id}>
                 <div className="gr-image">{item.imageUrl ? <RemoteImage src={item.imageUrl} width={76} height={76} alt="" /> : <Icon name="bag" size={28} />}</div>
                 <div><h3>{item.name}</h3><p>{item.sizeMl ? `${item.sizeMl} ml · ` : ''}Quantity {item.quantity}</p><span>{money(item.unitPriceMinor)} each</span></div>
                 <strong>{money(item.lineTotalMinor)}</strong>

@@ -13,7 +13,7 @@ const claim = jest.mocked(claimGroundReview);
 const session = jest.mocked(useSessionState);
 const review: GroundReview = {
   status: 'AWAITING_PAYMENT', salesMode: 'GROUND', currency: 'EGP',
-  items: [{ variantId: 'v1', name: 'Hair mask', sku: 'MASK', sizeMl: 500, quantity: 2, unitPriceMinor: 55000, lineTotalMinor: 110000, imageUrl: null }],
+  items: [{ id: 'v1', kind: 'VARIANT', variantId: 'v1', bundleId: null, name: 'Hair mask', sku: 'MASK', sizeMl: 500, quantity: 2, unitPriceMinor: 55000, lineTotalMinor: 110000, imageUrl: null }],
   subtotalMinor: 110000, totalMinor: 110000, shippingMinor: 0,
   loyalty: { expectedPoints: 2200, egpValueMinor: 11000, pointsPerEgp: 2, egpPerPoint: .05 },
   expiresAt: '2030-01-01', completedAt: null, orderNumber: null,
