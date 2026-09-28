@@ -255,6 +255,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "backend.minirueshop.com" },
       { protocol: "https", hostname: "pre-backend.minirueshop.com" },
+      { protocol: "https", hostname: "minirueshop.com" },
       { protocol: "https", hostname: "img.minirueshop.com" },
       { protocol: "https", hostname: "storage.minirueshop.com" },
     ],
