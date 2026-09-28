@@ -1,5 +1,6 @@
 import { markAuthenticated, clearAuthFlag, isAuthenticated } from '@/lib/auth/tokens';
 import { clearSession } from '@/lib/session';
+import { API_BASE } from '@/lib/api/base';
 
 export interface ApiError {
   status: number;
@@ -20,7 +21,7 @@ export interface ApiError {
   error?: string;
 }
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
+const BASE = API_BASE;
 
 export type SessionExpiredHandler = (path: string) => void;
 let onSessionExpired: SessionExpiredHandler | null = null;

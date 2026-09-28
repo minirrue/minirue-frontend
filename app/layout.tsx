@@ -26,8 +26,6 @@ import { TIKTOK_PIXEL_ID, tiktokPixelBaseCode } from "@/lib/analytics/tiktok-pix
 import { SITE_URL as BASE_URL } from "@/lib/seo/config";
 import { buildIcons } from "@/lib/seo/icons";
 
-const mediaOrigin = new URL(process.env.NEXT_PUBLIC_API_URL ?? "https://backend.minirueshop.com").origin;
-
 /**
  * Only the body face is preloaded. Measured on the live product page
  * (Lighthouse, simulated mobile): the hero image was preloaded correctly and
@@ -195,13 +193,6 @@ export default function RootLayout({
     >
       {(META_PIXEL_ID || TIKTOK_PIXEL_ID) && (
         <head>
-          {/* Every product's hero image comes from this origin. Opening the
-              connection while the HTML is still parsing removes the DNS, TCP
-              and TLS round trips from the image's critical path — on a slow
-              mobile link that is a few hundred milliseconds before the first
-              byte of the picture can arrive. */}
-          <link rel="preconnect" href={mediaOrigin} crossOrigin="" />
-          <link rel="dns-prefetch" href={mediaOrigin} />
           {TIKTOK_PIXEL_ID && <script id="tiktok-pixel" dangerouslySetInnerHTML={{ __html: tiktokPixelBaseCode(TIKTOK_PIXEL_ID) }} />}
           {/* Meta Pixel Code — placed in <head> on every page, as Events
               Manager instructs. Route-change PageViews: components/seo/MetaPixel.tsx. */}

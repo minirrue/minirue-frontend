@@ -31,7 +31,7 @@ describe('lib/analytics/transport', () => {
     expect(ok).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(String(url)).toContain('/v1/mr-signal');
+    expect(url).toBe(`${window.location.origin}/v1/mr-signal`);
     expect(init).toMatchObject({
       method: 'POST',
       keepalive: true,

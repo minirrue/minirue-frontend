@@ -14,8 +14,9 @@ import {
   resolveDeliverySettings,
   type DeliverySettings,
 } from '@/lib/checkout/delivery';
+import { API_BASE } from '@/lib/api/base';
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
+const BASE = API_BASE;
 
 export interface HeroSlideConfig {
   id: number;

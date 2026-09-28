@@ -2,7 +2,9 @@
 
 import { getGuestSupport } from '@/lib/support/session';
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
+import { API_BASE } from '@/lib/api/base';
+
+const BASE = API_BASE;
 
 // Logged-in customers authenticate via the httpOnly session cookie (sent with
 // credentials:'include' below); guests carry the x-guest-token header. No

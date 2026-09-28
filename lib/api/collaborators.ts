@@ -1,4 +1,6 @@
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
+import { API_BASE } from '@/lib/api/base';
+
+const BASE = API_BASE;
 
 export interface PublicCollaboratorBrand {
   /** Needed to address a support conversation to this brand. */

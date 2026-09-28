@@ -2,8 +2,9 @@
 
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { API_BASE } from '@/lib/api/base';
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1';
+const BASE = API_BASE;
 
 /**
  * Opens an `EventSource` to `GET /v1/storefront/events` and, on a

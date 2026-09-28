@@ -1,10 +1,12 @@
 /**
  * Catalog API client
- * All endpoints relative to NEXT_PUBLIC_API_URL (default: http://localhost:8002)
+ * Browser endpoints use the storefront's /v1 route; server requests use the configured origin.
  * Uses plain fetch (not apiFetch) — catalog is public, no auth required.
  */
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1/catalog';
+import { API_BASE } from '@/lib/api/base';
+
+const BASE = `${API_BASE}/catalog`;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

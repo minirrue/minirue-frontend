@@ -71,9 +71,9 @@ const draftPreviewHeaders = [
 
 const nextConfig: NextConfig = {
   // Browser API traffic stays on the storefront origin. API_PROXY_ORIGIN is a
-  // server-side build setting; production and preview must target their own
-  // backend environments. Keep NEXT_PUBLIC_API_URL on the storefront origin
-  // when this route is enabled so server-rendered fetches remain absolute.
+  // server-side build setting; production and preview target their own backend.
+  // lib/api/base.ts sends browser traffic here. Server fetches use the private
+  // API_PROXY_ORIGIN when configured, otherwise this deployment's own rewrite.
   async rewrites() {
     const apiOrigin = (
       process.env.API_PROXY_ORIGIN ??

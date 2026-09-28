@@ -10,8 +10,9 @@
  * Accepts both `application/json` (fetch path) and `text/plain` (sendBeacon
  * path — see transport.ts) bodies.
  */
-export const ANALYTICS_ENDPOINT =
-  (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8002') + '/v1/mr-signal';
+import { API_BASE } from '@/lib/api/base';
+
+export const ANALYTICS_ENDPOINT = `${API_BASE}/mr-signal`;
 
 /** How often the queue is flushed on a timer, in ms. */
 export const FLUSH_INTERVAL_MS = 1000;
