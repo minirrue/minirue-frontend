@@ -70,6 +70,22 @@ const draftPreviewHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Browser API traffic stays on the storefront origin. API_PROXY_ORIGIN is a
+  // server-side build setting; production and preview must target their own
+  // backend environments. Keep NEXT_PUBLIC_API_URL on the storefront origin
+  // when this route is enabled so server-rendered fetches remain absolute.
+  async rewrites() {
+    const apiOrigin = (
+      process.env.API_PROXY_ORIGIN ??
+      (process.env.VERCEL_ENV === "preview"
+        ? "https://pre-backend.minirueshop.com"
+        : "https://backend.minirueshop.com")
+    ).replace(/\/$/, "");
+    return [
+      { source: "/v1/:path*", destination: `${apiOrigin}/v1/:path*` },
+      { source: "/health", destination: `${apiOrigin}/health` },
+    ];
+  },
   output: "standalone",
   async headers() {
     return [
