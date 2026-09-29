@@ -26,5 +26,6 @@ export const MAX_BATCH_SIZE = 50;
  * sent.
  */
 export const ANALYTICS_DISABLED: boolean =
+  process.env.NODE_ENV === 'development' ||
   process.env.NEXT_PUBLIC_ANALYTICS_DISABLED === '1' ||
   process.env.NEXT_PUBLIC_ANALYTICS_DISABLED === 'true';
