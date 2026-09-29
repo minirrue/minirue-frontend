@@ -6,7 +6,11 @@ import { ADS_OFF_INLINE_CHECK, isAdsOff } from './ads-off';
  * changing it). Anything that is not all digits disables the pixel rather
  * than being interpolated into an inline script.
  */
-const raw = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || '2165922481025159';
+// A developer's browser must never send cloned-customer test activity to the
+// live ad account. Production keeps the configured/default pixel as before.
+const raw = process.env.NODE_ENV === 'development'
+  ? ''
+  : process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || '2165922481025159';
 
 export const META_PIXEL_ID: string | null = /^\d+$/.test(raw) ? raw : null;
 

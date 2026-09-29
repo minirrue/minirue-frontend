@@ -1,6 +1,8 @@
 import { ADS_OFF_INLINE_CHECK, isAdsOff } from './ads-off';
 
-const raw = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID?.trim() || 'DALS583C77U9262DR9Q0';
+const raw = process.env.NODE_ENV === 'development'
+  ? ''
+  : process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID?.trim() || 'DALS583C77U9262DR9Q0';
 export const TIKTOK_PIXEL_ID: string | null = /^[A-Za-z0-9]+$/.test(raw) ? raw : null;
 
 declare global {
