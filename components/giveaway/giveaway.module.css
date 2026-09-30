@@ -1,0 +1,630 @@
+/* The daily giveaway pages (minirue-frontend#205). The page stays in the
+   shop's cream world; the card is the one dark, weighty object on it, and its
+   flip is the page's single authored motion. */
+
+.main {
+  max-width: var(--mr-content-max);
+  margin: 0 auto;
+  padding: clamp(36px, 6vw, 72px) var(--mr-gutter) clamp(56px, 8vw, 104px);
+  color: var(--mr-fg);
+}
+
+.main ::selection {
+  background: var(--mr-gold-200);
+  color: var(--mr-ink-900);
+}
+
+/* ── Heading ─────────────────────────────────────────────── */
+
+.head {
+  text-align: center;
+  max-width: 44rem;
+  margin: 0 auto clamp(28px, 5vw, 48px);
+}
+
+.date {
+  font-family: var(--mr-font-label);
+  font-size: var(--mr-text-sm);
+  letter-spacing: 0.08em;
+  color: var(--mr-fg-3);
+  margin: 0 0 var(--mr-sp-4);
+}
+
+.title {
+  font-family: var(--mr-font-serif);
+  font-weight: 400;
+  font-size: clamp(var(--mr-text-2xl), 5.2vw, 58px);
+  line-height: 1.04;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+  margin: 0 0 var(--mr-sp-2);
+}
+
+.rule {
+  font-family: var(--mr-font-ui);
+  font-size: var(--mr-text-md);
+  line-height: 1.55;
+  color: var(--mr-fg-2);
+  margin: 0 auto;
+  max-width: 36rem;
+  text-wrap: pretty;
+}
+
+.rule strong {
+  font-weight: 600;
+  color: var(--mr-fg);
+}
+
+/* ── Prize ───────────────────────────────────────────────── */
+
+.prize {
+  display: flex;
+  align-items: center;
+  gap: var(--mr-sp-5);
+  max-width: 40rem;
+  margin: 0 auto clamp(32px, 6vw, 56px);
+  padding: var(--mr-sp-4);
+  background: var(--mr-bg-raised);
+  border-radius: var(--mr-radius-lg);
+  box-shadow: var(--mr-shadow-sm);
+}
+
+.prizeMedia {
+  flex: 0 0 auto;
+  width: clamp(88px, 18vw, 128px);
+  aspect-ratio: 1;
+  border-radius: var(--mr-radius-md);
+  object-fit: cover;
+  background: var(--mr-bg-sunken);
+}
+
+.prizeText {
+  min-width: 0;
+}
+
+.prizeLead {
+  color: var(--mr-gold-700);
+  font-style: italic;
+}
+
+.prizeTitle {
+  font-family: var(--mr-font-serif);
+  font-size: var(--mr-text-xl);
+  font-weight: 500;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.prizeDesc {
+  font-size: var(--mr-text-base);
+  line-height: 1.5;
+  color: var(--mr-fg-3);
+  margin: var(--mr-sp-2) 0 0;
+  white-space: pre-line;
+}
+
+/* ── Stage: list · card · list ───────────────────────────── */
+
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-areas: 'left card right';
+  gap: clamp(20px, 3.5vw, 56px);
+  align-items: start;
+}
+
+.cardCol {
+  grid-area: card;
+  position: sticky;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mr-sp-5);
+}
+
+.colLeft {
+  grid-area: left;
+}
+
+.colRight {
+  grid-area: right;
+}
+
+.colMerged {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'card' 'merged';
+  }
+  .cardCol {
+    position: static;
+  }
+  .colLeft,
+  .colRight {
+    display: none;
+  }
+  .colMerged {
+    display: block;
+    grid-area: merged;
+  }
+  .cardScene {
+    width: min(100%, 250px);
+  }
+  .question {
+    font-size: 160px;
+  }
+}
+
+/* ── The card ────────────────────────────────────────────── */
+
+.cardScene {
+  width: min(100%, 340px);
+  aspect-ratio: 5 / 7;
+  perspective: 1400px;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 1400ms var(--mr-ease-out);
+}
+
+.flipped .card {
+  transform: rotateY(180deg);
+}
+
+/* A page opened after the reveal shows the result, it does not replay it. */
+.static .card {
+  transition: none;
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+.back {
+  background:
+    radial-gradient(120% 90% at 50% 35%, var(--mr-crimson-700) 0%, var(--mr-crimson-900) 55%, var(--mr-ink-900) 100%);
+  color: var(--mr-gold-300);
+  box-shadow: 0 18px 36px rgba(59, 0, 1, 0.28), 0 44px 80px rgba(11, 11, 11, 0.28);
+}
+
+/* The double gold hairline frame of a fine playing card. */
+.back::before,
+.back::after,
+.front::before {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: 12px;
+}
+
+.back::before {
+  inset: 14px;
+  border: 1px solid rgba(201, 180, 131, 0.55);
+}
+
+.back::after {
+  inset: 20px;
+  border: 1px solid rgba(201, 180, 131, 0.22);
+}
+
+.question {
+  font-family: var(--mr-font-serif);
+  font-weight: 300;
+  font-size: clamp(160px, 44vw, 230px);
+  line-height: 1;
+  color: var(--mr-gold-300);
+  text-shadow: 0 2px 0 rgba(11, 11, 11, 0.35), 0 12px 40px rgba(201, 180, 131, 0.18);
+  transform: translateY(-4%);
+  animation: breathe 5.5s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.86;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.backMark {
+  position: absolute;
+  bottom: 34px;
+  font-family: var(--mr-font-label);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  color: rgba(201, 180, 131, 0.7);
+}
+
+.front {
+  transform: rotateY(180deg);
+  background: var(--mr-cream-100);
+  color: var(--mr-ink-900);
+  box-shadow: 0 18px 36px rgba(107, 85, 38, 0.18), 0 44px 80px rgba(11, 11, 11, 0.16);
+  padding: var(--mr-sp-6);
+}
+
+.front::before {
+  inset: 14px;
+  border: 1px solid var(--mr-gold-300);
+}
+
+.frontLabel {
+  font-family: var(--mr-font-label);
+  font-size: var(--mr-text-xs);
+  letter-spacing: 0.24em;
+  color: var(--mr-gold-700);
+  margin: var(--mr-sp-4) 0 0;
+}
+
+.winnerName {
+  font-family: var(--mr-font-serif);
+  font-weight: 500;
+  font-size: clamp(40px, 11vw, 54px);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.winnerPhone {
+  font-family: var(--mr-font-ui);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--mr-text-lg);
+  color: var(--mr-fg-3);
+  margin: var(--mr-sp-3) 0 0;
+}
+
+.winnerRef {
+  position: absolute;
+  bottom: 30px;
+  font-family: var(--mr-font-label);
+  font-size: var(--mr-text-xs);
+  letter-spacing: 0.18em;
+  color: var(--mr-fg-4);
+}
+
+.noEntries {
+  font-family: var(--mr-font-serif);
+  font-size: var(--mr-text-2xl);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.noEntriesSub {
+  color: var(--mr-fg-3);
+  font-size: var(--mr-text-base);
+  line-height: 1.5;
+  margin: var(--mr-sp-3) 0 0;
+}
+
+/* ── Status under the card ───────────────────────────────── */
+
+.status {
+  text-align: center;
+}
+
+.statusLine {
+  font-family: var(--mr-font-ui);
+  font-size: var(--mr-text-base);
+  color: var(--mr-fg-2);
+  margin: 0;
+}
+
+.countdown {
+  display: block;
+  font-family: var(--mr-font-serif);
+  font-size: var(--mr-text-3xl);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  margin-top: var(--mr-sp-2);
+}
+
+.liveDot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--mr-sp-3);
+  font-family: var(--mr-font-label);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--mr-fg-3);
+}
+
+.liveDot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mr-success);
+  box-shadow: 0 0 0 0 rgba(63, 107, 74, 0.45);
+  animation: pulse 2.4s var(--mr-ease-out) infinite;
+}
+
+.liveDot[data-transport='polling']::before,
+.liveDot[data-transport='connecting']::before {
+  background: var(--mr-warning);
+  animation: none;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(63, 107, 74, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 9px rgba(63, 107, 74, 0);
+  }
+}
+
+/* ── Entrant ledgers ─────────────────────────────────────── */
+
+.ledgerHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mr-sp-3);
+  padding-bottom: var(--mr-sp-3);
+  margin-bottom: var(--mr-sp-2);
+  border-bottom: 1px solid var(--mr-border);
+}
+
+.ledgerTitle {
+  font-family: var(--mr-font-serif);
+  font-size: var(--mr-text-xl);
+  font-weight: 500;
+  margin: 0;
+}
+
+.ledgerCount {
+  font-family: var(--mr-font-label);
+  font-size: var(--mr-text-xs);
+  letter-spacing: 0.1em;
+  color: var(--mr-fg-3);
+  white-space: nowrap;
+}
+
+.ledger {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--mr-sp-3);
+  padding: 11px var(--mr-sp-2);
+  border-bottom: 1px solid var(--mr-hairline);
+  border-radius: var(--mr-radius-sm);
+}
+
+.rowNew {
+  animation: arrive 2600ms var(--mr-ease-out);
+}
+
+@keyframes arrive {
+  0% {
+    background: var(--mr-gold-200);
+    transform: translateY(-6px);
+    opacity: 0.2;
+  }
+  18% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.rowWinner {
+  background: var(--mr-gold-100);
+  box-shadow: inset 0 0 0 1px var(--mr-gold-300);
+}
+
+.ref {
+  font-family: var(--mr-font-serif);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-size: var(--mr-text-md);
+  color: var(--mr-gold-700);
+}
+
+.name {
+  font-family: var(--mr-font-ui);
+  font-size: var(--mr-text-base);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameHidden {
+  font-weight: 400;
+  color: var(--mr-fg-3);
+}
+
+.meta {
+  font-family: var(--mr-font-ui);
+  font-size: var(--mr-text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--mr-fg-3);
+  white-space: nowrap;
+}
+
+.empty {
+  font-size: var(--mr-text-base);
+  line-height: 1.55;
+  color: var(--mr-fg-3);
+  padding: var(--mr-sp-4) var(--mr-sp-2);
+  margin: 0;
+}
+
+/* ── Terms ───────────────────────────────────────────────── */
+
+.terms {
+  max-width: 44rem;
+  margin: clamp(48px, 8vw, 88px) auto 0;
+  padding-top: var(--mr-sp-6);
+  border-top: 1px solid var(--mr-border);
+  font-size: var(--mr-text-sm);
+  line-height: 1.65;
+  color: var(--mr-fg-3);
+}
+
+.termsTitle {
+  font-family: var(--mr-font-serif);
+  font-size: var(--mr-text-lg);
+  font-weight: 500;
+  color: var(--mr-fg);
+  margin: 0 0 var(--mr-sp-3);
+}
+
+.termsList {
+  margin: 0 0 var(--mr-sp-4);
+  padding-left: 1.2em;
+  list-style: disc;
+}
+
+.termsList li::marker {
+  color: var(--mr-gold-500);
+}
+
+.termsList li + li {
+  margin-top: 4px;
+}
+
+.termsBody {
+  white-space: pre-line;
+  margin: 0;
+}
+
+/* ── Off / index ─────────────────────────────────────────── */
+
+.off {
+  text-align: center;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: clamp(24px, 6vw, 72px) 0;
+}
+
+.offText {
+  font-size: var(--mr-text-md);
+  line-height: 1.6;
+  color: var(--mr-fg-3);
+  margin: 0 0 var(--mr-sp-6);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 var(--mr-sp-6);
+  border-radius: var(--mr-radius-pill);
+  background: var(--mr-ink-900);
+  color: var(--mr-cream-100);
+  font-family: var(--mr-font-label);
+  font-size: var(--mr-text-sm);
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  transition: background var(--mr-dur-fast) var(--mr-ease-out);
+}
+
+.button:hover {
+  background: var(--mr-ink-700);
+}
+
+.button:focus-visible,
+.poolLink:focus-visible {
+  outline: 2px solid var(--mr-gold-500);
+  outline-offset: 3px;
+}
+
+.pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--mr-sp-5);
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.poolLink {
+  display: block;
+  padding: var(--mr-sp-6);
+  border-radius: var(--mr-radius-lg);
+  background: var(--mr-bg-raised);
+  box-shadow: var(--mr-shadow-sm);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    box-shadow var(--mp-dur-hover) var(--mp-ease-hover),
+    transform var(--mp-dur-hover) var(--mp-ease-hover);
+}
+
+.poolLink:hover {
+  box-shadow: var(--mr-shadow-md);
+  transform: translateY(-2px);
+}
+
+.poolName {
+  font-family: var(--mr-font-serif);
+  font-size: var(--mr-text-2xl);
+  font-weight: 500;
+  margin: 0 0 var(--mr-sp-2);
+}
+
+.poolMeta {
+  margin: 0;
+  color: var(--mr-fg-3);
+  font-size: var(--mr-text-base);
+  line-height: 1.5;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+  .flipped .back {
+    opacity: 0;
+    transition: opacity 400ms linear;
+  }
+  .question,
+  .liveDot::before,
+  .rowNew {
+    animation: none;
+  }
+}
