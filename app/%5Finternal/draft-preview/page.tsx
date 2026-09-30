@@ -4,8 +4,8 @@ import DraftPreviewClient from './DraftPreviewClient';
 /**
  * `/_internal/draft-preview` — the dashboard Storefront editor's live preview
  * (#193). The folder is `%5Finternal`, not `_internal`: a folder starting
- * with an underscore is private in the App Router and never routed (which is
- * why the kitchen-sink `/_internal/preview` 404s), and `%5F` is the escape
+ * with an underscore is private in the App Router and never routed (the
+ * kitchen-sink `/_internal/preview` 404'd for that reason until #194), and `%5F` is the escape
  * Next documents for a URL segment that really starts with one.
  *
  * Only the dashboard may frame it (CSP `frame-ancestors`, next.config.ts) and
