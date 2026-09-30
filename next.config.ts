@@ -247,7 +247,19 @@ const nextConfig: NextConfig = {
     // q=75 URL instead of serving the soft encode again.
     formats: ["image/avif", "image/webp"],
     qualities: [90],
+    // Dev only (#210): the local backend resolves media to
+    // http://localhost:8002/v1/media/…, which next/image rejects in `next dev`
+    // (every page crashed through the SupportWidget logo), and Next's optimizer
+    // refuses an upstream on a private IP unless told otherwise. Production
+    // gets neither: its `images` config is exactly what it was.
+    ...(isProd ? {} : { dangerouslyAllowLocalIP: true }),
     remotePatterns: [
+      ...(isProd
+        ? []
+        : [
+            { protocol: "http" as const, hostname: "localhost" },
+            { protocol: "http" as const, hostname: "127.0.0.1" },
+          ]),
       { protocol: "https", hostname: "picsum.photos" },
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "source.unsplash.com" },
