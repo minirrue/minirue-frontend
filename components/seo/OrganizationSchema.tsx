@@ -35,8 +35,8 @@ export const organizationSchema: Record<string, unknown> = {
   alternateName: ALTERNATE_NAMES,
   legalName: "MiniRue",
   url: BASE_URL,
-  // Now a real, shipped file — see public/logo.png (generated from
-  // public/assets/logo-on-dark.png). `logo` is required for Organization to
+  // Now a real, shipped file — see public/logo.png (the cream MiniRue logo,
+  // 512x512, opaque). `logo` is required for Organization to
   // validate at all; it was pointing at a 404 before this.
   logo: `${BASE_URL}/logo.png`,
   description:

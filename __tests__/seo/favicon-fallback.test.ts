@@ -48,10 +48,10 @@ describe('when no favicon is configured', () => {
      * Safari ignores `media` on icon links entirely. So the first entry has to
      * be the one that is safe when nobody is choosing.
      *
-     * That is `apple-touch-icon.png` — a fully opaque near-black tile with a
-     * light mark on it, which reads against a light OR a dark chrome. The
-     * white-on-transparent `.ico` does not: it vanishes against the light tab
-     * strip that is the default in every desktop browser.
+     * That is `apple-touch-icon.png` — a fully opaque cream tile with the gold
+     * MiniRue mark on it, which reads against a light OR a dark chrome
+     * because it carries its own ground. The `.ico` waits behind a media
+     * query that Safari would ignore.
      */
     const urls = iconUrls(null);
 
@@ -104,20 +104,15 @@ describe('when one is configured', () => {
 
 describe('the two marks, and which chrome gets which (#12)', () => {
   /*
-   * Measured against the live site rather than guessed.
+   * Both files are the cream MiniRue logo (measured; see lib/seo/icons.ts).
    *
-   * The issue said "black mark invisible on dark browser chrome — use the white
-   * version". The premise is INVERTED. `favicon.ico` has zero pixels below
-   * luminance 96 (histogram of its 32x32 frame, opaque pixels only; mean 228,
-   * corner alpha 0) — it is already a near-white mark on transparency, so it
-   * disappears against a LIGHT tab strip, which is every desktop browser's
-   * default.
+   * `apple-touch-icon.png` is fully opaque, every corner cream, mean luminance
+   * 230, the gold mark the 12% of pixels below 200 — a solid tile, which reads
+   * against either chrome. (It was a near-black tile with a thin white mark,
+   * mean 4.8, until the black brand assets were replaced.)
    *
-   * `apple-touch-icon.png` is its opposite and its answer: fully opaque, mean
-   * luminance 4.8, with 1.5% of its pixels above 159 — a light mark on a near
-   * black tile. A solid tile reads against either chrome.
-   *
-   * Both marks already existed. This is which one each chrome gets.
+   * `favicon.ico` is the same cream tile with rounded transparent corners,
+   * drawn at 16 and 32 px. This is which one each chrome gets.
    */
   function iconEntries(faviconUrl?: string | null) {
     const icons = buildIcons(faviconUrl) as { icon?: unknown };
@@ -125,7 +120,7 @@ describe('the two marks, and which chrome gets which (#12)', () => {
     return entries as Array<{ url?: string; media?: string }>;
   }
 
-  it('gives dark chrome the white mark, and only dark chrome', () => {
+  it('gives dark chrome the .ico, and only dark chrome', () => {
     const ico = iconEntries(null).find((e) => e.url === '/favicon.ico');
 
     expect(ico?.media).toBe('(prefers-color-scheme: dark)');
@@ -134,7 +129,7 @@ describe('the two marks, and which chrome gets which (#12)', () => {
   it('leaves the opaque tile unqualified, so it is the default everywhere', () => {
     // A media query on this one would leave light-mode Safari — which ignores
     // media — with nothing it was told to prefer, and it would fall through to
-    // the transparent mark that started this.
+    // whatever came next instead of the tile it should default to.
     const tile = iconEntries(null).find(
       (e) => e.url === '/apple-touch-icon.png',
     );

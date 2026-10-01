@@ -1,50 +1,27 @@
-import { ImageResponse } from 'next/og';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
-export const runtime = 'edge';
+/**
+ * The site-wide share image is the committed cream logo artwork,
+ * `public/og-image.jpg`, served byte for byte.
+ *
+ * It used to be drawn here with `ImageResponse` in generic serif/sans fonts,
+ * which never matched the real mark, while `og-image.jpg` (the share image
+ * `SITE_OG_IMAGE` and /search point at) was a different, black-ground
+ * picture. Serving the one file from both URLs keeps every share preview the
+ * same brand image.
+ *
+ * Node runtime and no request-time APIs, so Next prerenders this at build
+ * time: the file is read once, from the project root, during `next build`.
+ */
+const ogImage = await readFile(join(process.cwd(), 'public', 'og-image.jpg'));
+
 export const alt = 'MiniRue — Original Cosmetics & Perfumes';
 export const size = { width: 1200, height: 630 };
-export const contentType = 'image/png';
+export const contentType = 'image/jpeg';
 
-export default function OgImage() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: 1200,
-          height: 630,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#FDFBF5',
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            fontFamily: 'serif',
-            fontSize: 64,
-            fontWeight: 500,
-            color: '#BB9452',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-          }}
-        >
-          MiniRue
-        </div>
-        <div
-          style={{
-            fontFamily: 'sans-serif',
-            fontSize: 18,
-            color: '#6B6560',
-            letterSpacing: '0.28em',
-            textTransform: 'uppercase',
-          }}
-        >
-          Original Cosmetics &amp; Perfumes
-        </div>
-      </div>
-    ),
-    { ...size },
-  );
+export default async function OgImage() {
+  return new Response(new Uint8Array(ogImage), {
+    headers: { 'Content-Type': contentType },
+  });
 }

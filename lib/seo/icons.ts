@@ -25,36 +25,35 @@ import type { Metadata } from 'next';
  * jest cannot parse.
  *
  * ---------------------------------------------------------------------------
- * Which mark, and why there are two
+ * Which file, and why there are two
  * ---------------------------------------------------------------------------
  *
- * The other half of #12, measured against the live site rather than guessed.
+ * The other half of #12. Both files are now the cream MiniRue logo — gold
+ * "Mini Rue" and sparkle, dark "COSMETICS & PERFUMES", on a cream ground —
+ * and these are measurements of the committed files, not guesses:
  *
- * The issue said "black mark invisible on dark browser chrome — use the white
- * version". The premise is INVERTED: `favicon.ico` has **zero pixels below
- * luminance 96** (histogram of its 32x32 frame, opaque pixels only; mean 228,
- * corner alpha 0). It is already a near-white mark on transparency — so it
- * disappears against a LIGHT tab strip, which is the default in Chrome, Safari
- * and Firefox on a light desktop theme.
+ *   - `apple-touch-icon.png`: 180px, fully opaque, every corner cream
+ *     (246,242,231), mean luminance 230; the mark is the 12% of its pixels
+ *     below luminance 200. Until the cream logo replaced every black brand
+ *     asset it was a near-black tile (mean 4.8) with a thin white mark.
+ *   - `favicon.ico`: the same cream tile with rounded, transparent corners
+ *     (corner alpha 0), drawn at 16 and 32 px; opaque pixels mean 228, none
+ *     below luminance 96.
  *
- * `apple-touch-icon.png` is its opposite and its answer: a fully opaque, near
- * black tile (mean luminance 4.8) with a small light mark on it — 1.5% of its
- * pixels above luminance 159. A solid tile reads against either chrome, which
- * is exactly why iOS home-screen icons are built that way.
- *
- * So both marks already exist, and each is right for one chrome. `media` picks
- * between them.
+ * An opaque tile carries its own ground, so the gold mark reads against a
+ * light OR a dark tab strip, which is exactly why iOS home-screen icons are
+ * built that way. `media` gives dark chrome the .ico for its native small
+ * frames.
  *
  * ORDER MATTERS AND IS DELIBERATE. Safari ignores `media` on icon links and
  * takes the first entry it can use, so the first entry has to be the one that
  * is safe when nobody is choosing — the opaque tile, which is legible on both.
- * The transparent white mark follows, behind an explicit dark-mode query.
+ * The .ico follows, behind an explicit dark-mode query.
  *
- * WHAT WOULD BE BETTER: a purpose-built `.ico` with 16 and 32 px frames on an
- * opaque ground. `apple-touch-icon.png` is 180px and a browser downscales it,
- * and a mark covering 1.5% of the tile is thin at 16px. That needs someone who
- * can author the brand mark; this uses only what the brand already ships, and
- * a faint-but-present icon beats one that vanishes.
+ * WHAT WOULD BE BETTER: `apple-touch-icon.png` is 180px and a browser
+ * downscales it for a 16px tab, where the .ico has frames drawn at that size.
+ * Letting the .ico lead in light chrome as well changes the order pinned
+ * here and in its tests, so it is a separate, deliberate change.
  */
 export function buildIcons(faviconUrl?: string | null): Metadata['icons'] {
   const committed = [
@@ -68,9 +67,8 @@ export function buildIcons(faviconUrl?: string | null): Metadata['icons'] {
       sizes: '180x180',
     },
     /*
-     * The white mark, for dark chrome, where a near-black tile is the one that
-     * disappears. Purpose-built 16 and 32 px frames, which is why it stays the
-     * dark-mode choice rather than being dropped.
+     * The same cream tile, for dark chrome. Purpose-built 16 and 32 px frames,
+     * which is why it stays the dark-mode choice rather than being dropped.
      */
     {
       url: '/favicon.ico',
