@@ -1,15 +1,30 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import GroundReviewClient from '@/app/booth/review/[token]/GroundReviewClient';
-import { getGroundReview, claimGroundReview, type GroundReview } from '@/lib/api/ground-review';
+import {
+  getGroundReview,
+  claimGroundReview,
+  getGroundReviewContact,
+  saveBoothSignupPrefill,
+  type GroundReview,
+} from '@/lib/api/ground-review';
 import { useSessionState } from '@/lib/hooks/use-session-state';
 
-jest.mock('@/lib/api/ground-review', () => ({ getGroundReview: jest.fn(), claimGroundReview: jest.fn() }));
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock('@/lib/api/ground-review', () => ({
+  getGroundReview: jest.fn(),
+  claimGroundReview: jest.fn(),
+  getGroundReviewContact: jest.fn(),
+  saveBoothSignupPrefill: jest.fn(),
+}));
 jest.mock('@/lib/hooks/use-session-state', () => ({ useSessionState: jest.fn() }));
 jest.mock('@/components/checkout/OrderCelebration', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/ui/RemoteImage', () => ({ __esModule: true, default: () => null }));
 
 const getReview = jest.mocked(getGroundReview);
 const claim = jest.mocked(claimGroundReview);
+const getContact = jest.mocked(getGroundReviewContact);
+const savePrefill = jest.mocked(saveBoothSignupPrefill);
 const session = jest.mocked(useSessionState);
 const review: GroundReview = {
   status: 'AWAITING_PAYMENT', salesMode: 'GROUND', currency: 'EGP',
@@ -23,6 +38,12 @@ beforeEach(() => {
   jest.resetAllMocks();
   session.mockReturnValue({ isSignedIn: false, isSignedOut: true, status: 'signed-out', user: undefined });
   getReview.mockResolvedValue(review);
+  getContact.mockResolvedValue({
+    firstName: 'Mona',
+    lastName: 'Ali',
+    phone: '+201001234567',
+    email: 'mona@example.com',
+  });
 });
 
 test('renders immutable server totals and server loyalty value, with no customer payment control', async () => {
@@ -45,6 +66,98 @@ test('polls completion and only then offers safe account return links', async ()
   await act(async () => { jest.advanceTimersByTime(8000); });
   expect(getReview).toHaveBeenCalledTimes(2);
   jest.useRealTimers();
+});
+
+test('Create my account stores captured contact and navigates to the real href', async () => {
+  getReview.mockResolvedValue({ ...review, status: 'COMPLETED', orderNumber: 'MR123' });
+  render(<GroundReviewClient token="opaque-token" />);
+
+  const link = await screen.findByRole('link', { name: 'Create my account' });
+  expect(link).toHaveAttribute('href', '/signup?next=%2Fbooth%2Freview%2Fopaque-token');
+  fireEvent.click(link);
+
+  await waitFor(() => expect(getContact).toHaveBeenCalledWith('opaque-token', expect.any(AbortSignal)));
+  await waitFor(() => expect(savePrefill).toHaveBeenCalledWith({
+    firstName: 'Mona',
+    lastName: 'Ali',
+    phone: '+201001234567',
+    email: 'mona@example.com',
+    next: '/booth/review/opaque-token',
+  }));
+  expect(mockPush).toHaveBeenCalledWith('/signup?next=%2Fbooth%2Freview%2Fopaque-token');
+});
+
+test('failed contact and denied storage never strand the CTA and a repeat click works', async () => {
+  getReview.mockResolvedValue({ ...review, status: 'COMPLETED' });
+  getContact.mockRejectedValue(new Error('offline'));
+  savePrefill.mockImplementation(() => {
+    throw new DOMException('denied', 'SecurityError');
+  });
+  render(<GroundReviewClient token="opaque-token" />);
+
+  const link = await screen.findByRole('link', { name: 'Create my account' });
+  fireEvent.click(link);
+  await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
+  expect(link).toHaveTextContent('Create my account');
+
+  fireEvent.click(link);
+  await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(2));
+  expect(getContact).toHaveBeenCalledTimes(2);
+});
+
+test('a slow contact fetch times out, restores the CTA, and still navigates', async () => {
+  jest.useFakeTimers();
+  getReview.mockResolvedValue({ ...review, status: 'COMPLETED' });
+  getContact.mockImplementation((_token, signal) => new Promise((_resolve, reject) => {
+    signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+  }));
+  render(<GroundReviewClient token="opaque-token" />);
+
+  fireEvent.click(await screen.findByRole('link', { name: 'Create my account' }));
+  expect(screen.getByRole('link', { name: 'Opening sign-up…' })).toBeInTheDocument();
+  await act(async () => { jest.advanceTimersByTime(5_000); });
+
+  expect(mockPush).toHaveBeenCalledWith('/signup?next=%2Fbooth%2Freview%2Fopaque-token');
+  expect(screen.getByRole('link', { name: 'Create my account' })).toBeInTheDocument();
+  jest.useRealTimers();
+});
+
+test('unmounting during contact lookup cancels the stale signup redirect', async () => {
+  getReview.mockResolvedValue({ ...review, status: 'COMPLETED' });
+  let requestSignal: AbortSignal | undefined;
+  getContact.mockImplementation((_token, signal) => new Promise((_resolve, reject) => {
+    requestSignal = signal;
+    signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+  }));
+  const view = render(<GroundReviewClient token="opaque-token" />);
+
+  fireEvent.click(await screen.findByRole('link', { name: 'Create my account' }));
+  view.unmount();
+  await act(async () => { await Promise.resolve(); });
+
+  expect(requestSignal?.aborted).toBe(true);
+  expect(mockPush).not.toHaveBeenCalled();
+});
+
+test('modified and non-primary clicks keep native anchor behavior', async () => {
+  getReview.mockResolvedValue({ ...review, status: 'COMPLETED' });
+  render(<GroundReviewClient token="opaque-token" />);
+  const link = await screen.findByRole('link', { name: 'Create my account' });
+
+  const preventJsdomNavigation = (event: MouseEvent) => event.preventDefault();
+  document.addEventListener('click', preventJsdomNavigation);
+  try {
+    fireEvent.click(link, { ctrlKey: true });
+    fireEvent.click(link, { metaKey: true });
+    fireEvent.click(link, { shiftKey: true });
+    fireEvent.click(link, { button: 1 });
+  } finally {
+    document.removeEventListener('click', preventJsdomNavigation);
+  }
+
+  expect(getContact).not.toHaveBeenCalled();
+  expect(mockPush).not.toHaveBeenCalled();
+  expect(link).toHaveAttribute('href', '/signup?next=%2Fbooth%2Freview%2Fopaque-token');
 });
 
 test('online confirmation does not claim collection or awarded points', async () => {

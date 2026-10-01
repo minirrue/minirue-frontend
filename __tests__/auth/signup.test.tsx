@@ -8,15 +8,31 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+// Full-form userEvent entry approaches Jest's 5s default on this Windows host
+// under antivirus scanning; keep every assertion while avoiding timing flakes.
+jest.setTimeout(15_000);
+
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
 const mockPush = jest.fn();
+let mockNext: string | null = null;
+const mockContact = jest.fn();
 jest.mock('next/navigation', () => ({
   // replace, not push: a completed sign-up must not leave the form in the
   // back-stack for a shopper who now has a session.
   useRouter: () => ({ push: jest.fn(), replace: mockPush }),
-  useSearchParams: () => ({ get: () => null }),
+  useSearchParams: () => ({
+    get: (name: string) => name === 'next' ? mockNext : null,
+  }),
 }));
+
+jest.mock('@/lib/api/ground-review', () => {
+  const actual = jest.requireActual('@/lib/api/ground-review');
+  return {
+    ...actual,
+    getGroundReviewContact: (...args: unknown[]) => mockContact(...args),
+  };
+});
 
 const mockApiRegister = jest.fn();
 jest.mock('@/lib/api/auth', () => {
@@ -51,6 +67,7 @@ jest.mock('@/lib/session', () => ({
 // ── Component ────────────────────────────────────────────────────────────────
 import SignupPage from '@/app/(auth)/signup/page';
 import { RegistrationPhoneSaveError } from '@/lib/api/auth';
+import { saveBoothSignupPrefill } from '@/lib/api/ground-review';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const mockAuthResponse = () => ({
@@ -90,6 +107,8 @@ const fillForm = async (
 describe('SignupPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    sessionStorage.clear();
+    mockNext = null;
   });
 
   it('renders Create account heading', () => {
@@ -106,6 +125,83 @@ describe('SignupPage', () => {
     expect(screen.getByLabelText(/phone number/i)).toBeInTheDocument();
     const passwordFields = screen.getAllByLabelText(/password/i);
     expect(passwordFields).toHaveLength(2);
+  });
+
+  describe('booth and assisted-order prefill', () => {
+    const token = 'a'.repeat(64);
+    const next = `/booth/review/${token}`;
+
+    it('prefills captured name, phone, and optional email but never either password', async () => {
+      mockNext = next;
+      saveBoothSignupPrefill({
+        firstName: 'Mona',
+        lastName: 'Ali',
+        phone: '+201001234567',
+        email: 'mona@example.com',
+        next,
+      });
+
+      render(<SignupPage />);
+
+      await waitFor(() => expect(screen.getByLabelText(/first name/i)).toHaveValue('Mona'));
+      expect(screen.getByLabelText(/last name/i)).toHaveValue('Ali');
+      expect(screen.getByLabelText(/^email$/i)).toHaveValue('mona@example.com');
+      expect(screen.getByLabelText(/country/i)).toHaveValue('+20');
+      expect(screen.getByLabelText(/phone number/i)).toHaveValue('1001234567');
+      for (const password of screen.getAllByLabelText(/password/i)) {
+        expect(password).toHaveValue('');
+      }
+    });
+
+    it('uses the review-token API when storage is unavailable and missing email is harmless', async () => {
+      mockNext = next;
+      jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new DOMException('denied', 'SecurityError');
+      });
+      mockContact.mockResolvedValue({
+        firstName: 'Nour',
+        lastName: 'Hassan',
+        phone: '+971501234567',
+      });
+
+      render(<SignupPage />);
+
+      await waitFor(() => expect(screen.getByLabelText(/first name/i)).toHaveValue('Nour'));
+      expect(screen.getByLabelText(/last name/i)).toHaveValue('Hassan');
+      expect(screen.getByLabelText(/country/i)).toHaveValue('+971');
+      expect(screen.getByLabelText(/phone number/i)).toHaveValue('501234567');
+      expect(screen.getByLabelText(/^email$/i)).toHaveValue('');
+      expect(mockContact).toHaveBeenCalledWith(token, expect.any(AbortSignal));
+      jest.restoreAllMocks();
+    });
+
+    it('does not overwrite edits made while the contact fallback is loading', async () => {
+      mockNext = next;
+      let resolveContact!: (value: {
+        firstName: string;
+        lastName: string;
+        phone: string;
+        email: string;
+      }) => void;
+      mockContact.mockReturnValue(new Promise((resolve) => { resolveContact = resolve; }));
+      render(<SignupPage />);
+      await waitFor(() => expect(mockContact).toHaveBeenCalled());
+
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText(/first name/i), 'Edited');
+      await user.type(screen.getByLabelText(/^email$/i), 'mine@example.com');
+      resolveContact({
+        firstName: 'Mona',
+        lastName: 'Ali',
+        phone: '+201001234567',
+        email: 'mona@example.com',
+      });
+
+      await waitFor(() => expect(screen.getByLabelText(/last name/i)).toHaveValue('Ali'));
+      expect(screen.getByLabelText(/first name/i)).toHaveValue('Edited');
+      expect(screen.getByLabelText(/^email$/i)).toHaveValue('mine@example.com');
+      expect(screen.getByLabelText(/phone number/i)).toHaveValue('1001234567');
+    });
   });
 
   describe('field validation', () => {

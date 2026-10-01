@@ -533,10 +533,9 @@ export async function apiFetch<T>(
     // profile photo in the mobile bottom menu and chat clearly treats me as
     // logged in".
     //
-    // A response the server authenticated is proof the session is alive, which
-    // is exactly when the hint should be true. Setting it here makes the flag
-    // self-correcting instead of a one-shot that can be lost for good.
-    markAuthenticated();
+    // A generic 2xx is not proof of a session: guest cart/catalog endpoints and
+    // get-session itself can succeed anonymously. apiMe() re-asserts the hint
+    // only when its response contains an actual user.
   }
 
   if (res.status === 204 || res.headers.get('content-length') === '0') {

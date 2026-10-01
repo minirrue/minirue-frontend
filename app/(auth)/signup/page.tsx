@@ -21,6 +21,12 @@ import { apiUpdateMe } from '@/lib/api/customers';
 import { syncCartAfterAuth } from '@/lib/cart/sync-after-auth';
 import { formatApiError, type ApiError } from '@/lib/api/client';
 import { safeReturnPath } from '@/lib/auth/safe-return-path';
+import {
+  boothReviewTokenFromReturnPath,
+  getGroundReviewContact,
+  takeBoothSignupPrefill,
+  type BoothSignupContact,
+} from '@/lib/api/ground-review';
 
 // The reason-phrase filtering that used to live here (a local `humanMessage`)
 // is now inside formatApiError, which also handles the ARRAY shape that a 422
@@ -45,6 +51,71 @@ export default function SignupPage() {
   const [loading, setLoading] = React.useState(false);
   const [apiError, setApiError] = React.useState<string | null>(null);
   const [registeredUser, setRegisteredUser] = React.useState<RegistrationPhoneSaveError['user'] | null>(null);
+  const touched = React.useRef(new Set<keyof SignupFormData>());
+
+  React.useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    function applyPrefill(contact: BoothSignupContact) {
+      if (!active) return;
+      const dial = [...DIAL_CODES]
+        .sort((a, b) => b.dial.length - a.dial.length)
+        .find((candidate) => contact.phone.startsWith(candidate.dial));
+      setForm((current) => {
+        const phoneUntouched =
+          !touched.current.has('dialCode') &&
+          !touched.current.has('phoneNumber') &&
+          !current.phoneNumber;
+        return {
+          ...current,
+          firstName:
+            !touched.current.has('firstName') && !current.firstName
+              ? contact.firstName
+              : current.firstName,
+          lastName:
+            !touched.current.has('lastName') && !current.lastName
+              ? contact.lastName
+              : current.lastName,
+          email:
+            !touched.current.has('email') && !current.email
+              ? (contact.email ?? '')
+              : current.email,
+          dialCode: phoneUntouched && dial ? dial.dial : current.dialCode,
+          phoneNumber: phoneUntouched
+            ? dial
+              ? contact.phone.slice(dial.dial.length)
+              : contact.phone
+            : current.phoneNumber,
+        };
+      });
+    }
+
+    const stored = takeBoothSignupPrefill(returnTarget);
+    if (stored) {
+      applyPrefill(stored);
+      return () => {
+        active = false;
+        controller.abort();
+      };
+    }
+
+    const reviewToken = boothReviewTokenFromReturnPath(returnTarget);
+    if (reviewToken) {
+      timer = setTimeout(() => controller.abort(), 1_500);
+      void getGroundReviewContact(reviewToken, controller.signal)
+        .then(applyPrefill)
+        .catch(() => undefined)
+        .finally(() => clearTimeout(timer));
+    }
+
+    return () => {
+      active = false;
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [returnTarget]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,7 +267,10 @@ export default function SignupPage() {
             label="First name"
             autoComplete="given-name"
             value={form.firstName}
-            onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+            onChange={(e) => {
+              touched.current.add('firstName');
+              setForm((f) => ({ ...f, firstName: e.target.value }));
+            }}
             error={errors.firstName}
             traceId="PG-STOREFRONT-IAM-002::EL-FIELD-first-name"
           />
@@ -206,7 +280,10 @@ export default function SignupPage() {
             label="Last name"
             autoComplete="family-name"
             value={form.lastName}
-            onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+            onChange={(e) => {
+              touched.current.add('lastName');
+              setForm((f) => ({ ...f, lastName: e.target.value }));
+            }}
             error={errors.lastName}
             traceId="PG-STOREFRONT-IAM-002::EL-FIELD-last-name"
           />
@@ -217,7 +294,10 @@ export default function SignupPage() {
           label="Email"
           autoComplete="email"
           value={form.email}
-          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+          onChange={(e) => {
+            touched.current.add('email');
+            setForm((f) => ({ ...f, email: e.target.value }));
+          }}
           error={errors.email}
           traceId="PG-STOREFRONT-IAM-002::EL-FIELD-email"
         />
@@ -244,7 +324,10 @@ export default function SignupPage() {
             <select
               id="dialCode"
               value={form.dialCode}
-              onChange={(e) => setForm((f) => ({ ...f, dialCode: e.target.value }))}
+              onChange={(e) => {
+                touched.current.add('dialCode');
+                setForm((f) => ({ ...f, dialCode: e.target.value }));
+              }}
               data-trace-id="PG-STOREFRONT-IAM-002::EL-FIELD-dial-code"
               style={selectStyle(errors.dialCode)}
             >
@@ -266,6 +349,7 @@ export default function SignupPage() {
               placeholder="1001234567"
               value={form.phoneNumber}
               onChange={(e) => {
+                touched.current.add('phoneNumber');
                 setForm((f) => ({ ...f, phoneNumber: e.target.value }));
                 setErrors((current) => ({ ...current, phoneNumber: undefined }));
                 setApiError(null);

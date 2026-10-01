@@ -1,11 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import Icon from '@/components/ui/Icon';
 import RemoteImage from '@/components/ui/RemoteImage';
 import OrderCelebration from '@/components/checkout/OrderCelebration';
-import { getGroundReview, claimGroundReview, type GroundReview } from '@/lib/api/ground-review';
+import {
+  getGroundReview,
+  claimGroundReview,
+  getGroundReviewContact,
+  saveBoothSignupPrefill,
+  type GroundReview,
+} from '@/lib/api/ground-review';
 import { useSessionState } from '@/lib/hooks/use-session-state';
 import { formatMoney } from '@/lib/format/money';
 
@@ -13,13 +20,28 @@ const money = (minor: number) => formatMoney(minor / 100, 'EGP');
 const statusCode = (error: unknown) => (error as { status?: number })?.status;
 
 export default function GroundReviewClient({ token }: { token: string }) {
+  const router = useRouter();
   const [review, setReview] = useState<GroundReview | null>(null);
   const [problem, setProblem] = useState<'unavailable' | 'connection' | null>(null);
   const [retry, setRetry] = useState(0);
   const [claimState, setClaimState] = useState<'ready' | 'saving' | 'done'>('ready');
   const [claimError, setClaimError] = useState<string | null>(null);
+  const [openingSignup, setOpeningSignup] = useState(false);
   const claimInFlight = useRef(false);
+  const signupInFlight = useRef(false);
+  const signupController = useRef<AbortController | null>(null);
+  const mounted = useRef(false);
   const { isSignedIn, status: sessionStatus } = useSessionState();
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      signupController.current?.abort();
+      signupController.current = null;
+      signupInFlight.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,12 +104,61 @@ export default function GroundReviewClient({ token }: { token: string }) {
     }
   }
 
+  const returnPath = `/booth/review/${encodeURIComponent(token)}`;
+  const authQuery = `?next=${encodeURIComponent(returnPath)}`;
+  const signupHref = `/signup${authQuery}`;
+
+  async function openSignup(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+
+    event.preventDefault();
+    if (signupInFlight.current) return;
+    signupInFlight.current = true;
+    setOpeningSignup(true);
+    const controller = new AbortController();
+    signupController.current = controller;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new DOMException('Timed out', 'AbortError'));
+        }, 1_500);
+      });
+      const contact = await Promise.race([
+        getGroundReviewContact(token, controller.signal),
+        timeout,
+      ]);
+      saveBoothSignupPrefill({ ...contact, next: returnPath });
+    } catch {
+      // Prefill is optional. The signup page retries through the validated
+      // return token, and account creation remains usable if that also fails.
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
+      if (signupController.current === controller) signupController.current = null;
+      signupInFlight.current = false;
+      if (!mounted.current) return;
+      try {
+        router.push(signupHref);
+      } finally {
+        setOpeningSignup(false);
+      }
+    }
+  }
+
   const done = review?.status === 'COMPLETED';
   const reversed = review?.orderStatus === 'REFUNDED' || review?.orderStatus === 'CANCELLED';
   const expired = review?.status === 'EXPIRED' || problem === 'unavailable';
   const online = review?.salesMode === 'ONLINE';
-  const returnPath = `/booth/review/${encodeURIComponent(token)}`;
-  const authQuery = `?next=${encodeURIComponent(returnPath)}`;
 
   return <div className="ground-review">
     <header className="gr-header">
@@ -127,8 +198,8 @@ export default function GroundReviewClient({ token }: { token: string }) {
               <p className="gr-help">Our team confirms your order. You will not be asked to make an online payment on this page.</p>
             </aside>
           </div>
-          {done && !reversed && <section className="gr-account" aria-labelledby="gr-account-title"><h2 id="gr-account-title">Keep your receipt and rewards</h2><p>Connect using the verified email you gave our team. If you supplied only a phone number, your purchase stays recorded and your claim waits until phone verification is available. A purchase does not automatically create an online account.</p>{claimError && <p role="alert" className="gr-claim-error">{claimError}</p>}
-            <div className="gr-actions">{claimState === 'done' ? <><span role="status">Purchase connected to your account.</span><Link className="gr-primary" href="/account/orders">View my orders<Icon name="arrowRight" size={18} /></Link></> : isSignedIn ? <button className="gr-primary" disabled={claimState === 'saving'} onClick={claim}>{claimState === 'saving' ? 'Connecting purchase…' : 'Connect this purchase'}<Icon name="arrowRight" size={18} /></button> : sessionStatus === 'unknown' ? <span role="status">Checking your account…</span> : <><a className="gr-primary" href={`/signup${authQuery}`}>Create my account<Icon name="arrowRight" size={18} /></a><a className="gr-secondary" href={`/login${authQuery}`}>I already have an account</a></>}</div>
+          {done && !reversed && <section className="gr-account" aria-labelledby="gr-account-title"><h2 id="gr-account-title">Keep your receipt and rewards</h2><p>Connect using the verified email you gave our team. If you supplied only a phone number, your purchase remains recorded but cannot be connected until phone verification is available. A purchase does not automatically create an online account.</p>{claimError && <p role="alert" className="gr-claim-error">{claimError}</p>}
+            <div className="gr-actions">{claimState === 'done' ? <><span role="status">Purchase connected to your account.</span><Link className="gr-primary" href="/account/orders">View my orders<Icon name="arrowRight" size={18} /></Link></> : isSignedIn ? <button className="gr-primary" disabled={claimState === 'saving'} onClick={claim}>{claimState === 'saving' ? 'Connecting purchase…' : 'Connect this purchase'}<Icon name="arrowRight" size={18} /></button> : sessionStatus === 'unknown' ? <span role="status">Checking your account…</span> : <><a className="gr-primary" href={signupHref} onClick={openSignup} aria-busy={openingSignup}>{openingSignup ? 'Opening sign-up…' : 'Create my account'}<Icon name="arrowRight" size={18} /></a><a className="gr-secondary" href={`/login${authQuery}`}>I already have an account</a></>}</div>
           </section>}
           {done && !reversed && <OrderCelebration orderNumber={review.orderNumber} />}
         </>}

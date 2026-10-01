@@ -1,7 +1,7 @@
 import { apiFetch } from './client';
 import { apiUpdateMe } from './customers';
 import { parseAuthUser as parseAuthUserFn } from '@/lib/auth/session-role';
-import { markAuthenticated } from '@/lib/auth/tokens';
+import { clearAuthFlag, markAuthenticated } from '@/lib/auth/tokens';
 import type { AuthSuccessResponse, MeResponse, UserProfile } from '@/lib/auth/types';
 
 export type { AuthSuccessResponse as AuthResponse, MeResponse } from '@/lib/auth/types';
@@ -226,7 +226,11 @@ export async function apiMe(): Promise<MeResponse> {
     user?: { id: string; email: string; name?: string | null; role?: string | null };
   } | null>('/auth/get-session', { auth: true });
 
-  if (session?.user) return toUserProfile(session.user);
+  if (session?.user) {
+    // Re-create the non-secret UI hint only after the server proves a session.
+    markAuthenticated();
+    return toUserProfile(session.user);
+  }
 
   /**
    * No fallback here, deliberately.
@@ -241,5 +245,7 @@ export async function apiMe(): Promise<MeResponse> {
   // branch. `get-session` returning no user is the ordinary shape of "nobody is
   // signed in", which is true for every guest on every page load; calling that
   // an expiry was wrong for the overwhelming majority of the times it fired.
+  // A 200 without a user is also authoritative: clear any stale pre-fix hint.
+  clearAuthFlag();
   throw { status: 401, message: 'Not signed in', error: 'not_signed_in' };
 }
