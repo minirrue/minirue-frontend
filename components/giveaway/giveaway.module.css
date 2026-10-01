@@ -82,77 +82,6 @@
   color: var(--mr-fg-2);
 }
 
-/* ── The prize, only once the card has turned ────────────── */
-
-.prize {
-  display: flex;
-  align-items: center;
-  gap: var(--mr-sp-4);
-  width: min(100%, 360px);
-  padding: var(--mr-sp-4);
-  background: var(--mr-bg-raised);
-  border-radius: var(--mr-radius-lg);
-  box-shadow: var(--mr-shadow-sm);
-  text-align: left;
-}
-
-/* Follows the flip rather than racing it. */
-.prizeArrive {
-  animation: prizeIn 700ms var(--mr-ease-out) 1100ms both;
-}
-
-@keyframes prizeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-}
-
-/* The whole prize is shown, never cropped: the frame's own surface fills
-   whatever the photo does not. */
-.prizeFrame {
-  flex: 0 0 auto;
-  width: clamp(88px, 26vw, 112px);
-  aspect-ratio: 1;
-  border-radius: var(--mr-radius-md);
-  background: var(--mr-bg-sunken);
-  overflow: hidden;
-}
-
-.prizeMedia {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
-}
-
-.prizeText {
-  min-width: 0;
-}
-
-.prizeLead {
-  color: var(--mr-gold-700);
-  font-style: italic;
-}
-
-.prizeTitle {
-  font-family: var(--mr-font-serif);
-  font-size: var(--mr-text-lg);
-  font-weight: 500;
-  line-height: 1.2;
-  margin: 0;
-  overflow-wrap: break-word;
-}
-
-.prizeDesc {
-  font-size: var(--mr-text-sm);
-  line-height: 1.5;
-  color: var(--mr-fg-3);
-  margin: var(--mr-sp-2) 0 0;
-  white-space: pre-line;
-}
-
 /* ── Stage: list · card · list ───────────────────────────── */
 
 .stage {
@@ -185,29 +114,7 @@
   display: none;
 }
 
-@media (max-width: 900px) {
-  .stage {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'card' 'merged';
-  }
-  .cardCol {
-    position: static;
-  }
-  .colLeft,
-  .colRight {
-    display: none;
-  }
-  .colMerged {
-    display: block;
-    grid-area: merged;
-  }
-  .cardScene {
-    width: min(100%, 250px);
-  }
-  .question {
-    font-size: 160px;
-  }
-}
+/* Narrow screens stack card over one list: see the end of this file. */
 
 /* ── The card ────────────────────────────────────────────── */
 
@@ -341,12 +248,8 @@
   overflow-wrap: break-word;
 }
 
-.winnerPhone {
-  font-family: var(--mr-font-ui);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--mr-text-lg);
-  color: var(--mr-fg-3);
-  margin: var(--mr-sp-3) 0 0;
+.winnerBlock {
+  max-width: 100%;
 }
 
 .winnerRef {
@@ -356,6 +259,77 @@
   font-size: var(--mr-text-xs);
   letter-spacing: 0.18em;
   color: var(--mr-fg-4);
+}
+
+/* The winner's face with the prize on it: the product photo fills the top
+   of the card, then the name, the label and the entry number, all inside the
+   gold frame. The photo takes whatever height the words leave, so a long
+   name or a long prize title never pushes anything off the card. */
+.frontPrize {
+  justify-content: flex-start;
+  padding: 26px 26px 24px;
+}
+
+.prizeFigure {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The whole product, never cropped: the photo is contained on its own white
+   mat and held clear of the mat's rounded corners. */
+.prizeFrame {
+  --mat: 8px;
+  position: relative;
+  flex: 1 1 0;
+  min-height: 96px;
+  border: 1px solid var(--mr-hairline);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.prizeMedia {
+  position: absolute;
+  top: var(--mat);
+  left: var(--mat);
+  width: calc(100% - 2 * var(--mat));
+  height: calc(100% - 2 * var(--mat));
+  object-fit: contain;
+  object-position: center;
+}
+
+.prizeCaption {
+  font-family: var(--mr-font-serif);
+  font-style: italic;
+  font-size: var(--mr-text-base);
+  line-height: 1.25;
+  color: var(--mr-fg-3);
+  margin: var(--mr-sp-2) 0 0;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+.frontPrize .winnerBlock {
+  flex: none;
+  margin-top: var(--mr-sp-4);
+}
+
+/* Sized to the card beside the photo; still wraps only between words. */
+.frontPrize .winnerName {
+  font-size: clamp(24px, 11.5cqi, 40px);
+}
+
+.frontPrize .frontLabel {
+  margin-top: var(--mr-sp-3);
+}
+
+.frontPrize .winnerRef {
+  position: static;
+  flex: none;
+  margin-top: var(--mr-sp-3);
 }
 
 .noEntries {
@@ -383,6 +357,11 @@
   font-size: var(--mr-text-base);
   color: var(--mr-fg-2);
   margin: 0;
+  text-wrap: pretty;
+}
+
+.word {
+  display: inline-block;
 }
 
 .countdown {
@@ -434,10 +413,6 @@
 
 /* ── Entrant ledgers ─────────────────────────────────────── */
 
-.ledgerBox {
-  container-type: inline-size;
-}
-
 .ledgerHead {
   display: flex;
   align-items: baseline;
@@ -469,25 +444,16 @@
   padding: 0;
 }
 
-/* A narrow list gives the name the whole line and sets the phone and time
-   under it; a wide one keeps them on the same line, on the right. */
+/* A row is the entry number and the full name; nothing else. */
 .row {
   display: grid;
   grid-template-columns: 3.2em minmax(0, 1fr);
-  grid-template-areas: 'ref name' '. meta';
+  grid-template-areas: 'ref name';
   align-items: baseline;
   column-gap: var(--mr-sp-3);
-  row-gap: 2px;
   padding: 11px var(--mr-sp-2);
   border-bottom: 1px solid var(--mr-hairline);
   border-radius: var(--mr-radius-sm);
-}
-
-@container (min-width: 460px) {
-  .row {
-    grid-template-columns: 3.2em minmax(0, 1fr) auto;
-    grid-template-areas: 'ref name meta';
-  }
 }
 
 .rowNew {
@@ -532,20 +498,6 @@
   line-height: 1.35;
   overflow-wrap: break-word;
   text-wrap: pretty;
-}
-
-.nameHidden {
-  font-weight: 400;
-  color: var(--mr-fg-3);
-}
-
-.meta {
-  grid-area: meta;
-  font-family: var(--mr-font-ui);
-  font-size: var(--mr-text-sm);
-  font-variant-numeric: tabular-nums;
-  color: var(--mr-fg-3);
-  white-space: nowrap;
 }
 
 .empty {
@@ -689,6 +641,167 @@
   border: 0;
 }
 
+/* ── Narrow screens: phones and the booth iPad ───────────── */
+
+/* One column: the card, then a single list, set out like an iOS inset
+   grouped table — one raised surface, hairline separators that start where
+   the names do, and rows a thumb can rest on. Tighter vertical rhythm so the
+   card and the first entrants come up without a long scroll; the type stays
+   large and the content is the same as on a wide screen. Kept after the
+   card rules so it wins over them. */
+@media (max-width: 900px) {
+  .main {
+    padding-top: var(--mr-sp-5);
+    padding-right: max(var(--mr-gutter), env(safe-area-inset-right));
+    padding-bottom: calc(var(--mr-sp-7) + env(safe-area-inset-bottom));
+    padding-left: max(var(--mr-gutter), env(safe-area-inset-left));
+  }
+
+  .head {
+    margin-bottom: var(--mr-sp-5);
+  }
+
+  .date {
+    margin-bottom: var(--mr-sp-3);
+  }
+
+  .tally {
+    margin-top: var(--mr-sp-3);
+  }
+
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'card' 'merged';
+    gap: var(--mr-sp-6);
+  }
+
+  .cardCol {
+    position: static;
+    gap: var(--mr-sp-4);
+  }
+
+  .colLeft,
+  .colRight {
+    display: none;
+  }
+
+  .colMerged {
+    display: block;
+    grid-area: merged;
+    width: 100%;
+    max-width: 36rem;
+    justify-self: center;
+  }
+
+  .cardScene {
+    width: min(100%, 300px);
+  }
+
+  .question {
+    font-size: 168px;
+  }
+
+  .countdown {
+    font-size: var(--mr-text-2xl);
+  }
+
+  .liveDot {
+    margin-top: var(--mr-sp-2);
+  }
+
+  .ledgerHead {
+    padding: 0 var(--mr-sp-4) var(--mr-sp-2);
+    margin: 0;
+    border-bottom: 0;
+  }
+
+  .ledgerTitle {
+    font-size: var(--mr-text-lg);
+  }
+
+  .ledger,
+  .empty {
+    background: var(--mr-bg-raised);
+    border-radius: var(--mr-radius-lg);
+    box-shadow: var(--mr-shadow-xs);
+    overflow: hidden;
+  }
+
+  .empty {
+    padding: var(--mr-sp-4);
+  }
+
+  .row {
+    position: relative;
+    min-height: 52px;
+    padding: 15px var(--mr-sp-4);
+    border-bottom: 0;
+    border-radius: 0;
+  }
+
+  .row + .row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: calc(var(--mr-sp-4) + 3.2em + var(--mr-sp-3));
+    border-top: 1px solid var(--mr-hairline);
+  }
+
+  .ref,
+  .name {
+    font-size: var(--mr-text-md);
+  }
+
+  .rowWinner {
+    box-shadow: none;
+  }
+
+  .terms {
+    margin-top: var(--mr-sp-7);
+    padding-top: var(--mr-sp-5);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+}
+
+/* Phones: a smaller card, so the card and the list's first rows sit close. */
+@media (max-width: 640px) {
+  .main {
+    padding-top: var(--mr-sp-4);
+  }
+
+  .rule {
+    font-size: var(--mr-text-base);
+    line-height: 1.5;
+  }
+
+  .stage {
+    gap: var(--mr-sp-5);
+  }
+
+  .cardScene {
+    width: min(100%, 272px);
+  }
+
+  .question {
+    font-size: 150px;
+  }
+
+  .frontPrize {
+    padding: 24px 22px 20px;
+  }
+
+  .frontPrize .winnerBlock {
+    margin-top: var(--mr-sp-3);
+  }
+
+  .frontPrize .frontLabel,
+  .frontPrize .winnerRef {
+    margin-top: 10px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card {
     transition: none;
@@ -699,8 +812,7 @@
   }
   .question,
   .liveDot::before,
-  .rowNew,
-  .prizeArrive {
+  .rowNew {
     animation: none;
   }
 }

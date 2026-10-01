@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import styles from './giveaway.module.css';
 import {
@@ -12,6 +12,7 @@ import {
   type GiveawayPrize,
   type GiveawaySlug,
   type GiveawaySnapshot,
+  type GiveawayWinner,
 } from '@/lib/api/giveaway';
 import { useGiveawayLive, useServerNow } from '@/lib/hooks/use-giveaway-live';
 
@@ -26,30 +27,37 @@ function refLabel(ref: number): string {
   return `No. ${String(ref).padStart(2, '0')}`;
 }
 
-/**
- * Latest to qualify first. The backend already sends them this way since
- * 0.140.0; sorting on `ref` (the stable qualifying number) keeps the order
- * right for an older payload that listed them first-come.
- */
-function latestFirst(entrants: GiveawayEntrant[]): GiveawayEntrant[] {
-  return [...entrants].sort((a, b) => b.ref - a.ref);
+type ListedEntrant = GiveawayEntrant & { name: string };
+
+function hasName(e: GiveawayEntrant): e is ListedEntrant {
+  return typeof e.name === 'string' && e.name.trim() !== '';
 }
 
+/**
+ * Everyone in the draw is listed by their full name, latest to qualify first.
+ * No one is shown masked: a row that somehow arrives without a name is left
+ * out rather than shown as a placeholder. The backend already sends them
+ * latest first since 0.140.0; sorting on `ref` (the stable qualifying number)
+ * keeps the order right for an older payload that listed them first-come.
+ */
+function listedLatestFirst(entrants: GiveawayEntrant[]): ListedEntrant[] {
+  return entrants.filter(hasName).sort((a, b) => b.ref - a.ref);
+}
+
+/** A row is the entry number and the full name, nothing else. */
 function Ledger({
   title,
   count,
   entrants,
   winnerRef,
   fresh,
-  timezone,
   emptyText,
 }: {
   title: string;
   count: string | null;
-  entrants: GiveawayEntrant[];
+  entrants: ListedEntrant[];
   winnerRef: number | null;
   fresh: ReadonlySet<number>;
-  timezone: string;
   emptyText: string | null;
 }) {
   return (
@@ -72,13 +80,9 @@ function Ledger({
               ].join(' ')}
             >
               <span className={styles.ref}>{refLabel(e.ref)}</span>
-              <span className={e.name ? styles.name : `${styles.name} ${styles.nameHidden}`}>
-                {e.name ?? 'Entrant'}
+              <span className={styles.name}>
+                {e.name}
                 {winnerRef === e.ref ? <span className={styles.srOnly}> (winner)</span> : null}
-              </span>
-              <span className={styles.meta}>
-                {e.phoneTail ? `•• ${e.phoneTail} · ` : ''}
-                {formatCairoTime(e.qualifiedAt, timezone)}
               </span>
             </li>
           ))}
@@ -88,42 +92,83 @@ function Ledger({
   );
 }
 
-/** What the winner takes home: shown only once the card has turned over. */
-function RevealedPrize({ prize, arrive }: { prize: GiveawayPrize; arrive: boolean }) {
-  if (!prize.title && !prize.imageUrl) return null;
+/**
+ * A name in running text that may wrap only between its words, never at the
+ * hyphen inside one ("El-Sayed"). Each word is an atomic inline box, which
+ * still wraps inside itself rather than overflow if it were ever wider than
+ * the line.
+ */
+function WholeWords({ text }: { text: string }) {
   return (
-    <section
-      className={[styles.prize, arrive ? styles.prizeArrive : ''].join(' ')}
-      aria-label="Prize"
-      data-testid="giveaway-prize"
-    >
-      {prize.imageUrl ? (
-        <div className={styles.prizeFrame}>
-          {prize.mediaKind === 'video' ? (
-            <video className={styles.prizeMedia} src={prize.imageUrl} muted autoPlay loop playsInline />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element -- signed imgproxy URL
-            <img className={styles.prizeMedia} src={prize.imageUrl} alt="" />
-          )}
-        </div>
+    <>
+      {text.trim().split(/\s+/).map((word, i) => (
+        <Fragment key={i}>
+          {i > 0 ? ' ' : null}
+          <span className={styles.word}>{word}</span>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+/**
+ * The face the card turns over to: the prize itself, then who won it. Only
+ * ever rendered once the state is REVEALED, so nothing about the prize can
+ * be in the page before the reveal.
+ */
+function WinnerFace({ winner, prize }: { winner: GiveawayWinner; prize: GiveawayPrize | undefined }) {
+  const media = prize?.imageUrl ?? null;
+  const title = prize?.title?.trim() || null;
+  return (
+    <>
+      {media ? (
+        <figure className={styles.prizeFigure}>
+          {/* The whole product, never cropped: the mat fills what the photo does not. */}
+          <div className={styles.prizeFrame}>
+            {prize?.mediaKind === 'video' ? (
+              <video
+                className={styles.prizeMedia}
+                src={media}
+                muted
+                autoPlay
+                loop
+                playsInline
+                aria-label={title ?? undefined}
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- signed imgproxy URL
+              <img className={styles.prizeMedia} src={media} alt={title ?? ''} />
+            )}
+          </div>
+          {title ? (
+            <figcaption className={styles.prizeCaption} aria-hidden>
+              {title}
+            </figcaption>
+          ) : null}
+        </figure>
+      ) : title ? (
+        <p className={styles.prizeCaption}>{title}</p>
       ) : null}
-      <div className={styles.prizeText}>
-        <h2 className={styles.prizeTitle}>
-          <span className={styles.prizeLead}>Today&apos;s prize: </span>
-          {prize.title}
-        </h2>
-        {prize.description ? <p className={styles.prizeDesc}>{prize.description}</p> : null}
+      <div className={styles.winnerBlock}>
+        {winner.name ? (
+          <p className={styles.winnerName} data-testid="giveaway-winner-name">
+            {winner.name}
+          </p>
+        ) : null}
+        <p className={styles.frontLabel}>TODAY&apos;S WINNER</p>
       </div>
-    </section>
+      <span className={styles.winnerRef}>ENTRANT {refLabel(winner.ref).toUpperCase()}</span>
+    </>
   );
 }
 
 /**
  * One live giveaway page — /giveaway/booth or /giveaway/online
- * (minirue-frontend#205). A face-down card beside the list of entrants, the
- * latest on top; at the reveal time the backend pushes the winner and the
- * prize, and every open page turns the card over at once. Nothing about the
- * prize shows before that.
+ * (minirue-frontend#205). A face-down card in the middle, the entrants
+ * either side of it (number and full name, the latest first); at the reveal
+ * time the backend pushes the winner and the prize, and every open page turns
+ * the card over at once to the prize photo and the winner's name, both on the
+ * card. Nothing about the prize shows before that.
  */
 export default function GiveawayLive({
   slug,
@@ -152,7 +197,7 @@ export default function GiveawayLive({
   // Rows that arrived while this page was open get a brief highlight.
   const seen = useRef<Set<number>>(new Set((initial.entrants ?? []).map((e) => e.ref)));
   const [fresh, setFresh] = useState<ReadonlySet<number>>(new Set());
-  const entrants = latestFirst(snap.entrants ?? []);
+  const entrants = listedLatestFirst(snap.entrants ?? []);
   const refsKey = entrants.map((e) => e.ref).join(',');
   useEffect(() => {
     const arrived = entrants.filter((e) => !seen.current.has(e.ref)).map((e) => e.ref);
@@ -217,13 +262,19 @@ export default function GiveawayLive({
     default:
       statusLine = (
         <p className={styles.statusLine}>
-          Congratulations{snap.winner?.name ? `, ${snap.winner.name}` : ''}! We will call you
-          on the number you ordered with.
+          Congratulations
+          {snap.winner?.name ? (
+            <>
+              , <WholeWords text={snap.winner.name} />
+            </>
+          ) : null}
+          ! We will call you on the number you ordered with.
         </p>
       );
   }
 
-  const ledgerProps = { winnerRef, fresh, timezone: tz };
+  const ledgerProps = { winnerRef, fresh };
+  const winnerFace = revealed && snap.winner ? snap.winner : null;
 
   return (
     <main className={styles.main}>
@@ -268,16 +319,16 @@ export default function GiveawayLive({
                 </span>
                 <span className={styles.srOnly}>The winner has not been revealed yet.</span>
               </div>
-              <div className={`${styles.face} ${styles.front}`} aria-hidden={!flipped}>
-                {revealed && snap.winner ? (
-                  <>
-                    <p className={styles.winnerName}>{snap.winner.name ?? refLabel(snap.winner.ref)}</p>
-                    {snap.winner.phoneTail ? (
-                      <p className={styles.winnerPhone}>Phone ending •• {snap.winner.phoneTail}</p>
-                    ) : null}
-                    <p className={styles.frontLabel}>TODAY&apos;S WINNER</p>
-                    <span className={styles.winnerRef}>ENTRANT {refLabel(snap.winner.ref).toUpperCase()}</span>
-                  </>
+              <div
+                className={[
+                  styles.face,
+                  styles.front,
+                  winnerFace && prize?.imageUrl ? styles.frontPrize : '',
+                ].join(' ')}
+                aria-hidden={!flipped}
+              >
+                {winnerFace ? (
+                  <WinnerFace winner={winnerFace} prize={prize} />
                 ) : (
                   <>
                     <p className={styles.noEntries}>No entries today</p>
@@ -294,8 +345,6 @@ export default function GiveawayLive({
               {transport === 'live' ? 'LIVE' : transport === 'polling' ? 'UPDATING' : 'CONNECTING'}
             </span>
           </div>
-
-          {prize ? <RevealedPrize prize={prize} arrive={!openedRevealed} /> : null}
         </div>
 
         <div className={styles.colRight}>
@@ -318,7 +367,7 @@ export default function GiveawayLive({
           </li>
           <li>What counts is what you pay after discounts{snap.countsShipping ? '' : ', without delivery fees'}. Cancelled or refunded orders do not count.</li>
           <li>One entry per person, however much you spend. The winner is drawn from today&apos;s entrants and revealed here at {revealTime}.</li>
-          <li>Entrants are listed by name, the latest first. Ask us if you would rather not be listed; you stay in the draw.</li>
+          <li>Entrants are listed by name, the latest first. Ask us if you would rather not take part and we will take you out of today&apos;s draw.</li>
         </ul>
         {snap.terms ? <p className={styles.termsBody}>{snap.terms}</p> : null}
       </footer>
