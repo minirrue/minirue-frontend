@@ -55,27 +55,76 @@
   color: var(--mr-fg);
 }
 
-/* ── Prize ───────────────────────────────────────────────── */
+/* ── How many are in ─────────────────────────────────────── */
+
+.tally {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  column-gap: 0.4em;
+  margin: var(--mr-sp-5) 0 0;
+}
+
+.tallyNum {
+  font-family: var(--mr-font-serif);
+  font-weight: 500;
+  font-size: clamp(var(--mr-text-2xl), 5vw, var(--mr-text-3xl));
+  font-variant-numeric: tabular-nums lining-nums;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--mr-fg);
+}
+
+.tallyLabel {
+  font-family: var(--mr-font-ui);
+  font-size: var(--mr-text-md);
+  color: var(--mr-fg-2);
+}
+
+/* ── The prize, only once the card has turned ────────────── */
 
 .prize {
   display: flex;
   align-items: center;
-  gap: var(--mr-sp-5);
-  max-width: 40rem;
-  margin: 0 auto clamp(32px, 6vw, 56px);
+  gap: var(--mr-sp-4);
+  width: min(100%, 360px);
   padding: var(--mr-sp-4);
   background: var(--mr-bg-raised);
   border-radius: var(--mr-radius-lg);
   box-shadow: var(--mr-shadow-sm);
+  text-align: left;
+}
+
+/* Follows the flip rather than racing it. */
+.prizeArrive {
+  animation: prizeIn 700ms var(--mr-ease-out) 1100ms both;
+}
+
+@keyframes prizeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* The whole prize is shown, never cropped: the frame's own surface fills
+   whatever the photo does not. */
+.prizeFrame {
+  flex: 0 0 auto;
+  width: clamp(88px, 26vw, 112px);
+  aspect-ratio: 1;
+  border-radius: var(--mr-radius-md);
+  background: var(--mr-bg-sunken);
+  overflow: hidden;
 }
 
 .prizeMedia {
-  flex: 0 0 auto;
-  width: clamp(88px, 18vw, 128px);
-  aspect-ratio: 1;
-  border-radius: var(--mr-radius-md);
-  object-fit: cover;
-  background: var(--mr-bg-sunken);
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .prizeText {
@@ -89,14 +138,15 @@
 
 .prizeTitle {
   font-family: var(--mr-font-serif);
-  font-size: var(--mr-text-xl);
+  font-size: var(--mr-text-lg);
   font-weight: 500;
-  line-height: 1.15;
+  line-height: 1.2;
   margin: 0;
+  overflow-wrap: break-word;
 }
 
 .prizeDesc {
-  font-size: var(--mr-text-base);
+  font-size: var(--mr-text-sm);
   line-height: 1.5;
   color: var(--mr-fg-3);
   margin: var(--mr-sp-2) 0 0;
@@ -261,6 +311,7 @@
   color: var(--mr-ink-900);
   box-shadow: 0 18px 36px rgba(107, 85, 38, 0.18), 0 44px 80px rgba(11, 11, 11, 0.16);
   padding: var(--mr-sp-6);
+  container-type: inline-size;
 }
 
 .front::before {
@@ -276,14 +327,18 @@
   margin: var(--mr-sp-4) 0 0;
 }
 
+/* The full name, sized to the card so it wraps between words rather than
+   breaking inside one. */
 .winnerName {
   font-family: var(--mr-font-serif);
   font-weight: 500;
-  font-size: clamp(40px, 11vw, 54px);
-  line-height: 1.02;
+  font-size: clamp(28px, 13.5cqi, 52px);
+  line-height: 1.04;
   letter-spacing: -0.015em;
   margin: 0;
-  overflow-wrap: anywhere;
+  max-width: 100%;
+  text-wrap: balance;
+  overflow-wrap: break-word;
 }
 
 .winnerPhone {
@@ -379,6 +434,10 @@
 
 /* ── Entrant ledgers ─────────────────────────────────────── */
 
+.ledgerBox {
+  container-type: inline-size;
+}
+
 .ledgerHead {
   display: flex;
   align-items: baseline;
@@ -410,14 +469,25 @@
   padding: 0;
 }
 
+/* A narrow list gives the name the whole line and sets the phone and time
+   under it; a wide one keeps them on the same line, on the right. */
 .row {
   display: grid;
-  grid-template-columns: 3.2em minmax(0, 1fr) auto;
+  grid-template-columns: 3.2em minmax(0, 1fr);
+  grid-template-areas: 'ref name' '. meta';
   align-items: baseline;
-  gap: var(--mr-sp-3);
+  column-gap: var(--mr-sp-3);
+  row-gap: 2px;
   padding: 11px var(--mr-sp-2);
   border-bottom: 1px solid var(--mr-hairline);
   border-radius: var(--mr-radius-sm);
+}
+
+@container (min-width: 460px) {
+  .row {
+    grid-template-columns: 3.2em minmax(0, 1fr) auto;
+    grid-template-areas: 'ref name meta';
+  }
 }
 
 .rowNew {
@@ -445,19 +515,23 @@
 }
 
 .ref {
+  grid-area: ref;
   font-family: var(--mr-font-serif);
   font-variant-numeric: tabular-nums lining-nums;
   font-size: var(--mr-text-md);
   color: var(--mr-gold-700);
 }
 
+/* Full names, never cut short: a long one wraps. */
 .name {
+  grid-area: name;
+  min-width: 0;
   font-family: var(--mr-font-ui);
   font-size: var(--mr-text-base);
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
 }
 
 .nameHidden {
@@ -466,6 +540,7 @@
 }
 
 .meta {
+  grid-area: meta;
   font-family: var(--mr-font-ui);
   font-size: var(--mr-text-sm);
   font-variant-numeric: tabular-nums;
@@ -624,7 +699,8 @@
   }
   .question,
   .liveDot::before,
-  .rowNew {
+  .rowNew,
+  .prizeArrive {
     animation: none;
   }
 }

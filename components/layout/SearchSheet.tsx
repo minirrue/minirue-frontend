@@ -738,7 +738,7 @@ function SearchRow({
             alt={media?.altText ?? product.name}
             fill
             sizes="64px"
-            style={{ objectFit: 'cover' }}
+            style={{ objectFit: 'contain', objectPosition: 'center' }}
           />
         )}
       </span>

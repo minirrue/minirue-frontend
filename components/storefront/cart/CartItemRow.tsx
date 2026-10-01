@@ -138,7 +138,7 @@ export default function CartItemRow({ line, onUpdateQty, onRemove }: CartItemRow
             alt={line.altText}
             fill
             sizes="76px"
-            style={{ objectFit: 'cover' }}
+            style={{ objectFit: 'contain', objectPosition: 'center' }}
           />
         ) : (
           <div

@@ -161,11 +161,12 @@ function ProductCard({ product, index = 0, onClick, traceIdPrefix }: ProductCard
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               onError={image.onError}
               onLoad={image.onLoad}
+              // The whole packshot, never cropped or zoomed (#204): the
+              // tile's cream fills whatever the photo does not.
               style={{
-                objectFit: 'cover',
+                objectFit: 'contain',
+                objectPosition: 'center',
                 opacity: soldOut ? 0.6 : 1,
-                transform: showOverlays ? 'scale(1.04)' : 'scale(1)',
-                transition: 'transform 700ms cubic-bezier(0.16,0.84,0.44,1)',
               }}
             />
           ) : (

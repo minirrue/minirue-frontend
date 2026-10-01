@@ -9,6 +9,7 @@ import {
   formatDay,
   formatEgp,
   type GiveawayEntrant,
+  type GiveawayPrize,
   type GiveawaySlug,
   type GiveawaySnapshot,
 } from '@/lib/api/giveaway';
@@ -25,6 +26,15 @@ function refLabel(ref: number): string {
   return `No. ${String(ref).padStart(2, '0')}`;
 }
 
+/**
+ * Latest to qualify first. The backend already sends them this way since
+ * 0.140.0; sorting on `ref` (the stable qualifying number) keeps the order
+ * right for an older payload that listed them first-come.
+ */
+function latestFirst(entrants: GiveawayEntrant[]): GiveawayEntrant[] {
+  return [...entrants].sort((a, b) => b.ref - a.ref);
+}
+
 function Ledger({
   title,
   count,
@@ -35,7 +45,7 @@ function Ledger({
   emptyText,
 }: {
   title: string;
-  count: string;
+  count: string | null;
   entrants: GiveawayEntrant[];
   winnerRef: number | null;
   fresh: ReadonlySet<number>;
@@ -43,10 +53,10 @@ function Ledger({
   emptyText: string | null;
 }) {
   return (
-    <section aria-label={title}>
+    <section className={styles.ledgerBox} aria-label={title}>
       <div className={styles.ledgerHead}>
         <h2 className={styles.ledgerTitle}>{title}</h2>
-        <span className={styles.ledgerCount}>{count}</span>
+        {count ? <span className={styles.ledgerCount}>{count}</span> : null}
       </div>
       {entrants.length === 0 && emptyText ? (
         <p className={styles.empty}>{emptyText}</p>
@@ -78,11 +88,42 @@ function Ledger({
   );
 }
 
+/** What the winner takes home: shown only once the card has turned over. */
+function RevealedPrize({ prize, arrive }: { prize: GiveawayPrize; arrive: boolean }) {
+  if (!prize.title && !prize.imageUrl) return null;
+  return (
+    <section
+      className={[styles.prize, arrive ? styles.prizeArrive : ''].join(' ')}
+      aria-label="Prize"
+      data-testid="giveaway-prize"
+    >
+      {prize.imageUrl ? (
+        <div className={styles.prizeFrame}>
+          {prize.mediaKind === 'video' ? (
+            <video className={styles.prizeMedia} src={prize.imageUrl} muted autoPlay loop playsInline />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element -- signed imgproxy URL
+            <img className={styles.prizeMedia} src={prize.imageUrl} alt="" />
+          )}
+        </div>
+      ) : null}
+      <div className={styles.prizeText}>
+        <h2 className={styles.prizeTitle}>
+          <span className={styles.prizeLead}>Today&apos;s prize: </span>
+          {prize.title}
+        </h2>
+        {prize.description ? <p className={styles.prizeDesc}>{prize.description}</p> : null}
+      </div>
+    </section>
+  );
+}
+
 /**
  * One live giveaway page — /giveaway/booth or /giveaway/online
- * (minirue-frontend#205). A face-down card between two ledgers of entrants;
- * at the reveal time the backend pushes the winner and every open page turns
- * the card over at once.
+ * (minirue-frontend#205). A face-down card beside the list of entrants, the
+ * latest on top; at the reveal time the backend pushes the winner and the
+ * prize, and every open page turns the card over at once. Nothing about the
+ * prize shows before that.
  */
 export default function GiveawayLive({
   slug,
@@ -111,7 +152,7 @@ export default function GiveawayLive({
   // Rows that arrived while this page was open get a brief highlight.
   const seen = useRef<Set<number>>(new Set((initial.entrants ?? []).map((e) => e.ref)));
   const [fresh, setFresh] = useState<ReadonlySet<number>>(new Set());
-  const entrants = snap.entrants ?? [];
+  const entrants = latestFirst(snap.entrants ?? []);
   const refsKey = entrants.map((e) => e.ref).join(',');
   useEffect(() => {
     const arrived = entrants.filter((e) => !seen.current.has(e.ref)).map((e) => e.ref);
@@ -132,9 +173,17 @@ export default function GiveawayLive({
   const revealed = snap.state === 'REVEALED';
   const flipped = revealed || snap.state === 'NO_ENTRIES';
   const winnerRef = revealed && snap.winner ? snap.winner.ref : null;
-  const left = entrants.filter((_, i) => i % 2 === 0);
-  const right = entrants.filter((_, i) => i % 2 === 1);
-  const countText = `${entrants.length} ${entrants.length === 1 ? 'entrant' : 'entrants'}`;
+  // Only ever after the reveal, even if an older backend sent it earlier.
+  const prize = revealed ? snap.prize : undefined;
+  const count = snap.entrantCount ?? entrants.length;
+  const entrantWord = count === 1 ? 'entrant' : 'entrants';
+  const countText = `${count} ${entrantWord}`;
+  // Wide screens put the list either side of the card. It reads like a
+  // newspaper: down the left (the latest), then on down the right (earlier),
+  // so the newest is first both on screen and in reading order.
+  const half = Math.ceil(entrants.length / 2);
+  const latest = entrants.slice(0, half);
+  const earlier = entrants.slice(half);
   const minSpend = formatEgp(snap.minSpendMinor ?? 0);
   const emptyText =
     snap.state === 'OPEN'
@@ -186,29 +235,19 @@ export default function GiveawayLive({
           {snap.countsShipping ? '' : ' (delivery fees not included)'} and you are in the draw
           automatically. One entry per person.
         </p>
+        {snap.state === 'NO_ENTRIES' ? null : (
+          <p className={styles.tally} data-testid="giveaway-count">
+            <span className={styles.tallyNum}>{count}</span>{' '}
+            <span className={styles.tallyLabel}>
+              {snap.state === 'OPEN' ? `${entrantWord} so far` : `${entrantWord} in the draw`}
+            </span>
+          </p>
+        )}
       </header>
-
-      {snap.prize && (snap.prize.title || snap.prize.imageUrl) ? (
-        <section className={styles.prize} aria-label="Prize">
-          {snap.prize.imageUrl && snap.prize.mediaKind === 'image' ? (
-            // eslint-disable-next-line @next/next/no-img-element -- signed imgproxy URL
-            <img className={styles.prizeMedia} src={snap.prize.imageUrl} alt="" />
-          ) : snap.prize.imageUrl ? (
-            <video className={styles.prizeMedia} src={snap.prize.imageUrl} muted autoPlay loop playsInline />
-          ) : null}
-          <div className={styles.prizeText}>
-            <h2 className={styles.prizeTitle}>
-              <span className={styles.prizeLead}>Today&apos;s prize: </span>
-              {snap.prize.title}
-            </h2>
-            {snap.prize.description ? <p className={styles.prizeDesc}>{snap.prize.description}</p> : null}
-          </div>
-        </section>
-      ) : null}
 
       <div className={styles.stage}>
         <div className={styles.colLeft}>
-          <Ledger title="Entrants" count={countText} entrants={left} emptyText={emptyText} {...ledgerProps} />
+          <Ledger title="Entrants" count={countText} entrants={latest} emptyText={emptyText} {...ledgerProps} />
         </div>
 
         <div className={styles.cardCol}>
@@ -255,10 +294,14 @@ export default function GiveawayLive({
               {transport === 'live' ? 'LIVE' : transport === 'polling' ? 'UPDATING' : 'CONNECTING'}
             </span>
           </div>
+
+          {prize ? <RevealedPrize prize={prize} arrive={!openedRevealed} /> : null}
         </div>
 
         <div className={styles.colRight}>
-          <Ledger title="In the draw" count={countText} entrants={right} emptyText={null} {...ledgerProps} />
+          {earlier.length > 0 ? (
+            <Ledger title="Earlier" count={null} entrants={earlier} emptyText={null} {...ledgerProps} />
+          ) : null}
         </div>
 
         <div className={styles.colMerged}>
@@ -275,7 +318,7 @@ export default function GiveawayLive({
           </li>
           <li>What counts is what you pay after discounts{snap.countsShipping ? '' : ', without delivery fees'}. Cancelled or refunded orders do not count.</li>
           <li>One entry per person, however much you spend. The winner is drawn from today&apos;s entrants and revealed here at {revealTime}.</li>
-          <li>Names are shortened for privacy. Ask us if you would rather not be listed; you stay in the draw.</li>
+          <li>Entrants are listed by name, the latest first. Ask us if you would rather not be listed; you stay in the draw.</li>
         </ul>
         {snap.terms ? <p className={styles.termsBody}>{snap.terms}</p> : null}
       </footer>

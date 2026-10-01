@@ -2,8 +2,9 @@ import { API_BASE } from './base';
 
 /**
  * The daily giveaway pages (minirue-frontend#205, backend#260). Everything
- * here is the PUBLIC, masked payload: a first name and an initial, the last
- * two phone digits, never a full name, phone, email or amount.
+ * here is the PUBLIC payload (minirue-backend@0.140.0): the entrant's full
+ * name and the last two phone digits, never a full phone, email or anything
+ * anyone spent. The prize is absent until the reveal.
  */
 export type GiveawayPool = 'BOOTH' | 'ONLINE';
 export type GiveawaySlug = 'booth' | 'online';
@@ -18,6 +19,7 @@ export type GiveawayState =
 
 export interface GiveawayEntrant {
   ref: number;
+  /** "First Last"; null when they asked not to be listed. */
   name: string | null;
   phoneTail: string | null;
   qualifiedAt: string;
@@ -29,24 +31,33 @@ export interface GiveawayWinner {
   phoneTail: string | null;
 }
 
+export interface GiveawayPrize {
+  title: string;
+  description: string;
+  imageUrl: string | null;
+  mediaKind: 'image' | 'video';
+}
+
 export interface GiveawaySnapshot {
   pool: GiveawayPool;
   state: GiveawayState;
   day: string;
   timezone: string;
   serverTime: string;
+  /**
+   * How many are in the draw (0 when OFF). Optional only for payloads from
+   * before minirue-backend@0.140.0; fall back to `entrants.length`.
+   */
+  entrantCount?: number;
   title?: string;
-  prize?: {
-    title: string;
-    description: string;
-    imageUrl: string | null;
-    mediaKind: 'image' | 'video';
-  };
+  /** Only present once `state === 'REVEALED'`. */
+  prize?: GiveawayPrize;
   terms?: string;
   minSpendMinor?: number;
   countsShipping?: boolean;
   revealAt?: string;
   entriesClosed?: boolean;
+  /** Latest to qualify first; `ref` is the stable qualifying number. */
   entrants?: GiveawayEntrant[];
   winner?: GiveawayWinner | null;
 }

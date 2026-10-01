@@ -1346,7 +1346,7 @@ export default function ApiProductDetail({
                 alt={closing.altText ?? product.name}
                 fill
                 sizes="(min-width: 1024px) 58vw, 100vw"
-                style={{ objectFit: 'cover' }}
+                style={{ objectFit: 'contain', objectPosition: 'center' }}
               />
             </div>
           ) : null}

@@ -120,7 +120,7 @@ export default function BundleDetail({ bundle }: { bundle: Bundle }) {
                 bounds the fluid stretch from above at every width in between.
               */
               sizes="(max-width: 645px) calc(100vw - 40px), (max-width: 1376px) 45vw, 610px"
-              style={{ objectFit: 'cover' }}
+              style={{ objectFit: 'contain', objectPosition: 'center' }}
             />
           ) : (
             <Icon name="grid" size={40} color="var(--mr-fg-4)" />

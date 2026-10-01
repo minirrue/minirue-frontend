@@ -84,7 +84,7 @@ export default function NavProductTile({
           }}
         >
           {src && (
-            <Image src={src} alt={alt} fill sizes="64px" style={{ objectFit: 'cover' }} />
+            <Image src={src} alt={alt} fill sizes="64px" style={{ objectFit: 'contain', objectPosition: 'center' }} />
           )}
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
@@ -152,7 +152,7 @@ export default function NavProductTile({
             alt={alt}
             fill
             sizes="(max-width: 640px) 45vw, 220px"
-            style={{ objectFit: 'cover' }}
+            style={{ objectFit: 'contain', objectPosition: 'center' }}
           />
         )}
       </span>

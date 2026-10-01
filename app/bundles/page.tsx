@@ -149,7 +149,7 @@ export default async function BundlesIndexPage() {
                           renders.
                         */
                         sizes="(max-width: 500px) calc(100vw - 40px), (max-width: 520px) 92vw, (max-width: 1035px) 50vw, (max-width: 1376px) 33vw, 240px"
-                        style={{ objectFit: 'cover' }}
+                        style={{ objectFit: 'contain', objectPosition: 'center' }}
                       />
                     ) : (
                       <Icon name="grid" size={28} color="var(--mr-fg-4)" />

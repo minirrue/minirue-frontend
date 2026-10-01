@@ -156,6 +156,7 @@ const SetCard = React.memo(function SetCard({ bundle }: { bundle: Bundle }) {
               alt=""
               fill
               sizes="260px"
+              style={{ objectFit: 'contain', objectPosition: 'center' }}
             />
           ) : (
             <Icon name="grid" size={24} color="var(--mr-fg-4)" />
