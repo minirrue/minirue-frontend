@@ -162,7 +162,12 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 
   try {
-    const settings = await apiGetPublicSettings();
+    // An hour, not the 60s default: this read only supplies the favicon, and
+    // the route's revalidate is the SHORTEST fetch revalidate in its tree —
+    // so at 60s every prerendered page (/cart, /checkout/*, /forgot,
+    // /reset-password, /_not-found, /_internal/draft-preview) regenerated
+    // once a minute. A favicon does not change by the minute.
+    const settings = await apiGetPublicSettings({ revalidate: 3600 });
     metadata.icons = buildIcons(settings.storefront.faviconUrl);
   } catch {
     // default icons

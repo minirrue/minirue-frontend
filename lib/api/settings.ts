@@ -221,11 +221,25 @@ export interface PublicSettings {
   trust?: unknown;
 }
 
-export async function apiGetPublicSettings(): Promise<PublicSettings> {
-  // 60s revalidate (Next.js Data Cache) — plain fetch option, safe from both
-  // Server and Client Components, unlike the 'use cache' directive.
+/**
+ * `/settings/public`, through the Next.js Data Cache.
+ *
+ * `revalidate` defaults to 60s, which is the right freshness for the settings
+ * a shopper reads on a page (shipping, delivery, COD limit). It is a parameter
+ * because the Data Cache's shortest revalidate in a route's tree becomes that
+ * route's revalidate: the root layout's `generateMetadata` only wants the
+ * favicon, and at 60s it made every prerendered page (not-found, cart,
+ * checkout, forgot, reset-password, draft-preview) regenerate once a minute
+ * for bots and 404 probes alone. The layout asks for an hour instead.
+ *
+ * A plain fetch option, safe from both Server and Client Components, unlike
+ * the 'use cache' directive.
+ */
+export async function apiGetPublicSettings(options?: {
+  revalidate?: number;
+}): Promise<PublicSettings> {
   const res = await fetch(`${BASE}/settings/public`, {
-    next: { revalidate: 60 },
+    next: { revalidate: options?.revalidate ?? 60 },
   } as RequestInit);
   if (!res.ok) {
     throw new Error('Failed to load store settings');
